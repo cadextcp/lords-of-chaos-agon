@@ -740,6 +740,8 @@ Spalte „WinUAE“: Was sich im Amiga-Original direkt beobachten lässt (●), 
 | D9 | Darstellung | **24×24-Pixel-Kacheln, Kartenfenster 9×9**, MODE 8, mehrere Ebenen pro Feld als VDP-Bitmaps, Möbel, Teppiche, Türen und Schubladen sichtbar (§11). Nah an Spectrum (24×24) und Amiga (7×7). |
 | D10 | Grafikquelle | **Eigene 24×24-Pixelart von Anfang an**, keine Fremd-Packs. Pipeline PNG → Agon (§11.3a). |
 | D11 | Perspektive | **3/4-Frontansicht wie auf dem Amiga** für Möbel, Wände und Kreaturen; flache Böden; Halb-Böden an Wänden (§11.2). |
+| D12 | Kreaturwerte | **Kreaturtabelle des Originals `[PM 34]` als Startwerte** für alle 25 Kreaturen (`data/creatures.csv`). Balancing später; Abweichungen werden in der CSV kommentiert. |
+| D13 | Kreaturgrafik | **Alle 25 Kreaturen bekommen schon in M2 eigene 24×24-Pixelart** (3/4-Ansicht, Besitzerfarben). |
 
 **Noch offen:**
 - Endgültige Tastenbelegung (Prüfung im M2-Prototyp).

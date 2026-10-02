@@ -25,7 +25,7 @@ uv run tools/run.py --dump --time 8 --keys "dd" --screenshot   # GUI-Check
 - **Alles unter `src/` wird von agondev kompiliert.** Host-Code gehört nach `host/`.
 - **Neue Core-Logik bekommt Checks in `src/core/selftest.c`.** Sie laufen auf Host **und** eZ80.
 - **View-Hash (`HOUSE_VIEW_HASH`)** ändert sich, wenn Karte, Kacheln oder Kompositionsregeln sich ändern. Den neuen Wert aus der Testausgabe übernehmen, aber nur bewusst.
-- **Spieldesign:** `docs/design/GDD.md` ist die Quelle der Wahrheit. Entscheidungen D1–D11 stehen in §14. Keine Originalwerte kopieren (D7), außer sie sind dort ausdrücklich übernommen.
+- **Spieldesign:** `docs/design/GDD.md` ist die Quelle der Wahrheit. Entscheidungen D1–D13 stehen in §14. Keine Originalwerte kopieren (D7), außer sie sind dort ausdrücklich übernommen.
 - **Niemals committen:**
   - `reference/`: Handbücher, ADF/DSK, Screenshots, Fremdkarten; urheberrechtlich geschützt
   - `emulator/`, `toolchain/`, `sdcard/`, `.cache/`
