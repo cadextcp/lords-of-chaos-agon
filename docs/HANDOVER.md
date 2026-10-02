@@ -1,6 +1,6 @@
 # Übergabe: Stand und nächste Schritte
 
-> Stand: 2026-10-03 · nach M2c (#15) · CI grün
+> Stand: 2026-10-03 · nach M2d (#16) · CI grün
 > Für die nächste Person bzw. den nächsten Agenten. Zuerst `CLAUDE.md` lesen (Regeln, Befehle), dann dieses Dokument.
 
 ---
@@ -11,7 +11,7 @@
 |---|---|
 | **M0 Fundament** | ✅ Toolchain, Tests, CI, Docs |
 | **M1 Grafik und Eingabe** | ✅ Software-seitig fertig: #1 Renderer, #4 Sprite und Animation, #5 Datenladen, #6 Panel. Offen: #2 (optional), #3 und #7 (brauchen echte Hardware) |
-| **M2 Core-Skelett** | 🟡 Halb fertig: ✅ #13 M2a Terrains und Testland, ✅ #14 M2b Kreaturen (Daten und Pixelart), ✅ #15 M2c Rundenablauf. Offen: **#16 M2d Sicht und Hidden Map**, #17 M2e Luft- und Bodenebene, #18 M2f Bump und Look-Modus |
+| **M2 Core-Skelett** | 🟡 Halb fertig: ✅ #13 M2a Terrains und Testland, ✅ #14 M2b Kreaturen (Daten und Pixelart), ✅ #15 M2c Rundenablauf, ✅ #16 M2d Sicht und Hidden Map. Offen: **#17 M2e Luft- und Bodenebene**, #18 M2f Bump und Look-Modus |
 | M3–M5 | geplant, siehe `docs/ROADMAP.md` |
 
 **Was heute läuft:**
@@ -21,6 +21,7 @@
 - Bewegung mit Pfeilen, Akkorden, Pos1/Ende/Bild, Tastenwiederholung; AP/Stamina aus `data/costs.csv`.
 - Rundenende: AP, 25 % Stamina, 4 % Mana; Erschöpfung (Stamina < 25 %) halbiert die AP `[PM 12]`.
 - Info-Panel mit 6 Balken, Status-Icons und „Am Boden“-Liste, folgt der aktiven Einheit; Meldungszeile „Runde n – Zauberer-1: <Einheit>“.
+- Hidden Map (M2d): Unerforscht schwarz, Erinnert abgedunkelt (Raster), Gegner nur bei Sichtlinie (Bresenham, Chebyshev 9/11, GDD D14). Sicht-Neuberechnung pro eigenem Schritt ~162 ms (Emulator, ADR 0009).
 - Kerzen und Wasser sind animiert, der Cursor ist ein blinkender VDP-Sprite.
 
 ---
@@ -74,6 +75,7 @@ uv run tools/art/creature_sheet.py         # Kreaturen-Übersicht
 src/core/  plattformfrei (Host + eZ80):
   world.[ch]    Karte (Boden/Dekor/Feature), Einheiten, Objekte, Bewegung, AP/Stamina, Laden (.map)
   turn.[ch]     Rundenablauf: Runde, Phase, aktive Einheit, Umherstreifen (RNG)
+  sight.[ch]    Sichtlinie (Bresenham) und Hidden Map (Bitfelder pro Spieler)
   view.[ch]     9x9-Fenster: Ebenen pro Feld (Tile-IDs), Wand-Auto-Tiling, Halb-Böden,
                 Dirty-Felder, Static-Cache, Animation (view_animate), Kamera mit Wrap
   chord.[ch]    Pfeil-Akkorde und Tastenwiederholung
@@ -117,19 +119,11 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 
 ---
 
-## 7. Nächste Schritte (M2d–M2f)
+## 7. Nächste Schritte (M2e–M2f)
 
 **Workflow:** pro Issue ein Branch `m2/<x>-…`, Selftest-Checks ergänzen, Emulator-Screenshot, CHANGELOG, dann PR mit `Closes #n` und Auto-Merge.
 
-### M2d – Sichtlinie und Hidden Map (#16), als Nächstes
-
-- Reichweite: Boden 9, Luft 11 (GDD §3.4). Blockade über `world_blocks_sight()` (Böden laut `costs.csv` plus hohe Features; Endpunkte exklusiv).
-- Algorithmus: Bresenham-Strahlen oder Shadowcasting, deterministisch, auf dem Host getestet. **Auf dem eZ80 messen**; ggf. Sicht nur nach einem Zug bzw. Schritt neu berechnen und als Bitfeld cachen.
-- Pro Spieler ein Bitfeld „erkundet“ (36×36 Bit = 162 Byte) und „aktuell sichtbar“.
-- View-Ebenen: unerforscht ergibt eine schwarze Kachel (fehlt noch), erinnert das Overlay `T_OVERLAY_REMEMBERED` (existiert); gegnerische Einheiten nur bei Sicht zeigen (Hidden Movement).
-- Dächer bzw. überdachte Felder: erst mit eigenem Datenfeld (später).
-
-### M2e – Luft- und Bodenebene (#17)
+### M2e – Luft- und Bodenebene (#17), als Nächstes
 
 - `Unit.airborne`; pro Feld eine Boden- und eine Luft-Einheit. `world_unit_at` braucht einen Ebenen-Parameter.
 - Fliegen: konstante Kosten laut `costs.csv`-Zeile `air` (4/6). Basis ist `ap_fly` (bereits in Unit). Aufsteigen bzw. Landen über `actions.csv` (`take_off`, `land`); nicht auf belegtem Feld bzw. unter Dach landen.

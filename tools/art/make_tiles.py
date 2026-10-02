@@ -609,6 +609,12 @@ def scroll():
     return outline(im)
 
 
+def unexplored():
+    im = new()
+    rect(im, 0, 0, N - 1, N - 1, C["black"])
+    return im
+
+
 def remembered():
     im = new()
     for y in range(N):
@@ -684,7 +690,7 @@ def all_tiles() -> dict[str, Image.Image]:
         "drawers": drawers(), "chest": chest(), "cauldron": cauldron(),
         "candle_0": candle(0), "candle_1": candle(1), "tree": tree(),
         "wizard": wizard(), "goblin": goblin(), "obj_scroll": scroll(),
-        "overlay_remembered": remembered(),
+        "overlay_remembered": remembered(), "unexplored": unexplored(),
         "cursor_white": cursor(C["white"]), "cursor_green": cursor(C["lgreen"]),
         "cursor_yellow": cursor(C["yellow"]), "cursor_red": cursor(C["bred"]),
     }

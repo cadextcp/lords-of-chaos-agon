@@ -20,6 +20,7 @@
 #include "../core/colors.h"
 #include "../core/names.h"
 #include "../core/selftest.h"
+#include "../core/sight.h"
 #include "../core/turn.h"
 #include "../core/view.h"
 #include "../core/world.h"
@@ -41,6 +42,7 @@
 
 static World world;
 static Turns turns;
+static Sight p1_sight;             /* hidden map of the human player */
 static bool cursor_on = true;
 static bool confirm_end = false;   /* Shift+E asks before ending the turn */
 
@@ -96,6 +98,14 @@ static void frame(bool dump)
         log_frame(&world, view_hash());
 }
 
+/* Sight changes with every own move and at the round boundary (enemy
+ * movement enters or leaves view); recomputing is cheap enough to do
+ * exactly then, not per frame. */
+static void update_sight(void)
+{
+    sight_compute(&world, &p1_sight);
+}
+
 /* Move the active unit in direction mask m (chord.h); messages on failure. */
 static void step(uint8_t m, bool dump)
 {
@@ -106,6 +116,7 @@ static void step(uint8_t m, bool dump)
         render_message(1, C_BRIGHT_RED, "Runde 1: nur Zaubern (PM 7).");
     } else if (world_move_unit(&world, active(), dx, dy)) {
         render_message(1, C_GREY, "");
+        update_sight();
         frame(dump);
     } else if (world.units[active()].ap < world_unit_step_cost(&world, active(),
                    (int16_t)(world.units[active()].x + dx), (int16_t)(world.units[active()].y + dy),
@@ -153,6 +164,13 @@ static void bench(void)
              (unsigned long)((getsysvar_time() - t0) * 10 / n));
     log_line(buf);
     render_message(2, C_BRIGHT_YELLOW, buf);
+
+    t0 = getsysvar_time();
+    for (i = 0; i < n; i++)                  /* line of sight, both p1 units */
+        sight_compute(&world, &p1_sight);
+    snprintf(buf, sizeof buf, "BENCH sight compute: %lu ms",
+             (unsigned long)((getsysvar_time() - t0) * 10 / n));
+    log_line(buf);
 
     snprintf(buf, sizeof buf, "BENCH full %u fields: %lu ms/frame",
              fields, (unsigned long)(full_cs * 10 / n));
@@ -208,6 +226,9 @@ int main(int argc, char **argv)
     turn_init(&turns, &world, TURN_SEED, 1u << OWN_P1);
     if (free_round1)
         turns.round1_lock = false;
+    sight_init(&p1_sight, OWN_P1);
+    update_sight();
+    view_set_sight(&p1_sight);
     if (!render_init()) {
         log_line("ERR render_init");
         log_close();
@@ -265,6 +286,7 @@ int main(int argc, char **argv)
                     confirm_end = false;
                     turn_end_phase(&turns, &world);
                     render_message(1, C_BRIGHT_GREEN, "Neue Runde.");
+                    update_sight();
                     frame(dump);
                 }
             } else if (e.vkey == VK_ESC) {

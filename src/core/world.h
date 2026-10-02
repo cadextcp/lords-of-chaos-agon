@@ -80,6 +80,12 @@ bool world_is_wall_line(const World *w, int16_t x, int16_t y);
 /* Blocks sight between ground positions: floor (data/costs.csv) or a
  * tall feature (GDD 3.4). */
 bool world_blocks_sight(const World *w, int16_t x, int16_t y);
+/* Same test for coordinates already normalised inside the map (ray fast
+ * path; see world.c). */
+bool world_blocks_sight_at(const World *w, uint8_t x, uint8_t y);
+/* Eight blocking flags of row y starting at column x, packed MSB-first;
+ * see world.c. */
+uint8_t world_sight_byte(const World *w, uint8_t y, uint8_t x);
 /* Feature blocks ground movement (GDD 3.3 furniture table). */
 bool world_blocks(const World *w, int16_t x, int16_t y);
 
