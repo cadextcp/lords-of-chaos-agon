@@ -12,7 +12,8 @@
 
 #include <stdint.h>
 
-typedef enum { CR_WIZARD, CR_GOBLIN, CR_COUNT } CreatureKind;
+#include "gen/creatures.h"   /* CreatureKind, generated from data/creatures.csv */
+
 typedef enum { OWN_P1, OWN_P2, OWN_P3, OWN_P4, OWN_NEUTRAL, OWN_COUNT } Owner;
 
 #define MAPBIN_VERSION 1
