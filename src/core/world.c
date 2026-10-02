@@ -322,6 +322,53 @@ void world_new_turn(World *w)
     }
 }
 
+BumpKind world_bump_kind(const World *w, uint8_t unit, int8_t dx, int8_t dy)
+{
+    int16_t nx, ny;
+    uint8_t cost;
+    const Unit *u;
+    if (unit >= w->unit_count || (dx == 0 && dy == 0) ||
+        dx < -1 || dx > 1 || dy < -1 || dy > 1)
+        return BUMP_OUTSIDE;
+    u = &w->units[unit];
+    nx = (int16_t)(u->x + dx);
+    ny = (int16_t)(u->y + dy);
+    if (!world_wrap(w, &nx, &ny))
+        return BUMP_OUTSIDE;
+    if (u->flags & UF_FLYING) {
+        if (world_unit_at(w, nx, ny, UL_AIR) != NO_UNIT)
+            return BUMP_UNIT;
+        cost = world_air_step_cost(dx != 0 && dy != 0);
+    } else {
+        if (w->feature[ny][nx] == FE_DOOR_CLOSED)
+            return BUMP_DOOR;
+        if (world_blocks(w, nx, ny))
+            return BUMP_TERRAIN;
+        if (world_unit_at(w, nx, ny, UL_GROUND) != NO_UNIT)
+            return BUMP_UNIT;
+        cost = world_unit_step_cost(w, unit, nx, ny, dx != 0 && dy != 0);
+    }
+    return u->ap >= cost ? BUMP_OK : BUMP_NO_AP;
+}
+
+bool world_open_door(World *w, uint8_t unit, int16_t x, int16_t y)
+{
+    Unit *u;
+    if (unit >= w->unit_count)
+        return false;
+    u = &w->units[unit];
+    if (!world_wrap(w, &x, &y) || w->feature[y][x] != FE_DOOR_CLOSED)
+        return false;
+    if (!(CREATURES[u->kind].flags & CF_USE))
+        return false;                    /* creature without hands */
+    if (u->ap < ACTIONS[ACT_OPEN_DOOR].ap)
+        return false;
+    spend(u, ACTIONS[ACT_OPEN_DOOR].ap);
+    w->feature[y][x] = FE_DOOR_OPEN;
+    world_map_changed(w);                /* static view layers change */
+    return true;
+}
+
 char world_char(const World *w, int16_t x, int16_t y)
 {
     static const char FEATURE_CHARS[FE_COUNT] = {

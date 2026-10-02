@@ -48,6 +48,8 @@ static Turns turns;
 static Sight p1_sight;             /* hidden map of the human player */
 static bool cursor_on = true;
 static bool confirm_end = false;   /* Shift+E asks before ending the turn */
+static bool look_mode = false;     /* x: examine any field (GDD 5.1) */
+static int16_t look_x, look_y;
 
 /* The unit the player acts with; start_phase guarantees one of the phase
  * owner's units is active. */
@@ -60,9 +62,16 @@ static uint8_t active(void)
 
 static void place_cursor(void)
 {
-    const Unit *u = &world.units[active()];
-    render_cursor((int16_t)(u->x - view_origin_x()), (int16_t)(u->y - view_origin_y()),
-                  (u->flags & UF_FLYING) ? CURSOR_BLUE : CURSOR_GREEN, cursor_on);
+    if (look_mode) {
+        render_cursor((int16_t)(look_x - view_origin_x()),
+                      (int16_t)(look_y - view_origin_y()), CURSOR_WHITE, cursor_on);
+        return;
+    }
+    {
+        const Unit *u = &world.units[active()];
+        render_cursor((int16_t)(u->x - view_origin_x()), (int16_t)(u->y - view_origin_y()),
+                      (u->flags & UF_FLYING) ? CURSOR_BLUE : CURSOR_GREEN, cursor_on);
+    }
 }
 
 static void print_line(const char *line)
@@ -89,16 +98,32 @@ static void show_status(void)
 
 static void frame(bool dump)
 {
-    const Unit *u = &world.units[active()];
-    view_follow(&world, u->x, u->y);
-    view_update(&world);
-    render_fields();
-    cursor_on = true;
-    place_cursor();
-    render_panel(&world, active());
-    show_status();
-    if (dump)
-        log_frame(&world, view_hash());
+    if (look_mode) {
+        char buf[24];
+        view_follow(&world, look_x, look_y);
+        view_update(&world);
+        render_fields();
+        cursor_on = true;
+        place_cursor();
+        render_panel_at(&world, &p1_sight, look_x, look_y);
+        describe_field(&world, &p1_sight, look_x, look_y, buf, sizeof buf);
+        render_message(1, C_BRIGHT_CYAN, buf);
+        if (dump)
+            log_frame(&world, view_hash());
+        return;
+    }
+    {
+        const Unit *u = &world.units[active()];
+        view_follow(&world, u->x, u->y);
+        view_update(&world);
+        render_fields();
+        cursor_on = true;
+        place_cursor();
+        render_panel(&world, active());
+        show_status();
+        if (dump)
+            log_frame(&world, view_hash());
+    }
 }
 
 /* Sight changes with every own move and at the round boundary (enemy
@@ -115,18 +140,56 @@ static void step(uint8_t m, bool dump)
     int8_t dx, dy;
     if (!chord_to_step(m, &dx, &dy))
         return;
+    if (look_mode) {                   /* free cursor, no costs */
+        look_x = (int16_t)(look_x + dx);
+        look_y = (int16_t)(look_y + dy);
+        if (!world_wrap(&world, &look_x, &look_y)) {
+            look_x = (int16_t)(look_x - dx);
+            look_y = (int16_t)(look_y - dy);
+        }
+        frame(dump);
+        return;
+    }
     if (!turn_may_move(&turns)) {
         render_message(1, C_BRIGHT_RED, "Runde 1: nur Zaubern (PM 7).");
     } else if (world_move_unit(&world, active(), dx, dy)) {
         render_message(1, C_GREY, "");
         update_sight();
         frame(dump);
-    } else if (world.units[active()].ap < world_unit_step_cost(&world, active(),
-                   (int16_t)(world.units[active()].x + dx), (int16_t)(world.units[active()].y + dy),
-                   dx != 0 && dy != 0)) {
-        render_message(1, C_BRIGHT_RED, "Zu wenig AP - Leertaste/Tab weiter.");
     } else {
-        render_message(1, C_BRIGHT_RED, "Da geht es nicht weiter.");
+        int16_t nx = (int16_t)(world.units[active()].x + dx);
+        int16_t ny = (int16_t)(world.units[active()].y + dy);
+        uint8_t other;
+        switch (world_bump_kind(&world, active(), dx, dy)) {
+        case BUMP_DOOR:
+            if (world_open_door(&world, active(), nx, ny)) {
+                render_message(1, C_BRIGHT_GREEN, "Tuer geoeffnet.");
+                update_sight();        /* the open door changes lines of sight */
+            } else if (!(CREATURES[world.units[active()].kind].flags & CF_USE)) {
+                render_message(1, C_BRIGHT_RED, "Keine Haende fuer die Tuer.");
+            } else {
+                render_message(1, C_BRIGHT_RED, "Zu wenig AP fuer die Tuer.");
+            }
+            frame(dump);
+            return;
+        case BUMP_NO_AP:
+            render_message(1, C_BRIGHT_RED, "Zu wenig AP - Leertaste/Tab weiter.");
+            return;
+        case BUMP_UNIT:
+            other = world_unit_at(&world, nx, ny,
+                                  (world.units[active()].flags & UF_FLYING) ? UL_AIR : UL_GROUND);
+            if (other != NO_UNIT && world.units[other].owner != OWN_P1)
+                render_message(1, C_BRIGHT_YELLOW, "Kampf folgt in M3.");
+            else
+                render_message(1, C_BRIGHT_RED, "Da geht es nicht weiter.");
+            return;
+        case BUMP_TERRAIN:
+            render_message(1, C_BRIGHT_YELLOW, "Angriff auf Terrain in M3.");
+            return;
+        default:
+            render_message(1, C_BRIGHT_RED, "Da geht es nicht weiter.");
+            return;
+        }
     }
 }
 
@@ -272,6 +335,18 @@ int main(int argc, char **argv)
                 continue;
             if (input_diagonal(e.vkey)) {
                 step(input_diagonal(e.vkey), dump);
+            } else if (look_mode) {                /* x: examine (GDD 5.1) */
+                if (e.vkey == VK_ESC || e.ascii == 'x') {
+                    look_mode = false;
+                    render_message(1, C_GREY, "");
+                    frame(dump);
+                }
+            } else if (e.ascii == 'x') {
+                confirm_end = false;
+                look_mode = true;
+                look_x = world.units[active()].x;
+                look_y = world.units[active()].y;
+                frame(dump);
             } else if (e.vkey == VK_TAB) {       /* next/previous own unit */
                 confirm_end = false;
                 turn_next_unit(&turns, &world, (e.kmod & KMOD_SHIFT) != 0);

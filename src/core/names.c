@@ -1,6 +1,7 @@
 #include "names.h"
 
 #include "gen/data.h"
+#include <stdio.h>
 #include "gen/tiles.h"
 
 static const char *const FLOOR_NAMES[FL_COUNT] = {
@@ -69,6 +70,39 @@ const char *name_object(uint16_t tile)
     case T_OBJ_SCROLL: return "Schriftrolle";
     default: return "Gegenstand";
     }
+}
+
+const char *describe_field(const World *w, const Sight *s, int16_t x, int16_t y,
+                           char *buf, uint8_t len)
+{
+    const char *ground[GROUND_MAX];
+    uint8_t u;
+    int16_t wx = x, wy = y;
+    if (!world_wrap(w, &wx, &wy)) {
+        snprintf(buf, len, "Jenseits der Welt.");
+        return buf;
+    }
+    if (s && !sight_explored(s, w, wx, wy)) {
+        snprintf(buf, len, "Unerforscht.");
+        return buf;
+    }
+    u = world_unit_at(w, wx, wy, UL_GROUND);
+    if (u == NO_UNIT)
+        u = world_unit_at(w, wx, wy, UL_AIR);
+    if (u != NO_UNIT) {
+        const Unit *un = &w->units[u];
+        bool own = !s || un->owner == s->owner;
+        if (own || !s || (sight_visible(s, w, wx, wy) && !(un->flags & UF_INVISIBLE))) {
+            if (un->flags & UF_FLYING)
+                snprintf(buf, len, "%s (Luft)", name_unit(un));
+            else
+                snprintf(buf, len, "%s", name_unit(un));
+            return buf;
+        }
+    }
+    ground_names(w, wx, wy, ground);
+    snprintf(buf, len, "%s", ground[0]);
+    return buf;
 }
 
 uint8_t ground_names(const World *w, int16_t x, int16_t y, const char *out[GROUND_MAX])

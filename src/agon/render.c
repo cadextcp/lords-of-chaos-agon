@@ -8,6 +8,7 @@
 #include "../core/colors.h"
 #include "../core/gen/data.h"
 #include "../core/names.h"
+#include "../core/sight.h"
 #include "../core/view.h"
 
 #define SCREEN_MODE 8
@@ -224,6 +225,51 @@ void render_panel(const World *w, uint8_t unit)
 
     text_at(TEXT_COL_PANEL, 23, C_GREY, "Am Boden:");
     n = ground_names(w, u->x, u->y, ground);
+    for (i = 0; i < GROUND_MAX; i++) {
+        snprintf(buf, sizeof buf, "%-13.13s", i < n ? ground[i] : "");
+        text_at(TEXT_COL_PANEL, (uint8_t)(24 + i), C_BRIGHT_WHITE, buf);
+    }
+}
+
+/* Look mode (GDD 5.1): the examined field instead of a unit. With a
+ * (visible) unit it degenerates to the normal unit panel. */
+void render_panel_at(const World *w, const Sight *s, int16_t x, int16_t y)
+{
+    char buf[24], desc[24];
+    const char *ground[GROUND_MAX];
+    uint8_t i, n, u;
+    int16_t wx = x, wy = y;
+
+    if (!world_wrap(w, &wx, &wy))
+        return;                          /* outside: keep the last panel */
+    u = world_unit_at(w, wx, wy, UL_GROUND);
+    if (u == NO_UNIT)
+        u = world_unit_at(w, wx, wy, UL_AIR);
+    if (u != NO_UNIT) {
+        const Unit *un = &w->units[u];
+        if (!s || un->owner == s->owner ||
+            (sight_visible(s, w, wx, wy) && !(un->flags & UF_INVISIBLE))) {
+            render_panel(w, u);
+            return;
+        }
+    }
+
+    vdp_gcol(0, C_BRIGHT_BLUE);
+    vdp_rectangle(PANEL_X + 4, 4, PANEL_X + 31, 31);
+    black(PANEL_X + 5, 5, PANEL_X + 30, 30);
+    text_at(32, 1, C_GREY, "       ");
+    for (i = 0; i < 5; i++) {
+        int px = 256 + i * 9;
+        black(px, 16, px + 7, 23);
+    }
+    describe_field(w, s, wx, wy, desc, sizeof desc);
+    snprintf(buf, sizeof buf, "%-13.13s", desc);
+    text_at(TEXT_COL_PANEL, 5, C_BRIGHT_WHITE, buf);
+    text_at(TEXT_COL_PANEL, 6, C_GREY, "             ");
+    for (i = 0; i < 6; i++)
+        bar(i, 0, 1);
+    text_at(TEXT_COL_PANEL, 23, C_GREY, "Am Boden:");
+    n = ground_names(w, wx, wy, ground);
     for (i = 0; i < GROUND_MAX; i++) {
         snprintf(buf, sizeof buf, "%-13.13s", i < n ? ground[i] : "");
         text_at(TEXT_COL_PANEL, (uint8_t)(24 + i), C_BRIGHT_WHITE, buf);

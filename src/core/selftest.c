@@ -583,6 +583,65 @@ static void test_flight(void)
     }
 }
 
+static void test_bump_and_look(void)
+{
+    char buf[24];
+    Sight s;
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.feature[5][6] = FE_DOOR_CLOSED;         /* north of the wizard */
+    check(world_bump_kind(&world, 0, 0, -1) == BUMP_DOOR, "bump: closed door ahead");
+    check(world_open_door(&world, 0, 6, 5) &&
+          world.feature[5][6] == FE_DOOR_OPEN && world.units[0].ap == 34,
+          "bump: opening costs 6 AP and opens the door");
+    check(world_bump_kind(&world, 0, 0, -1) == BUMP_OK, "bump: open door is walkable");
+    world.feature[5][6] = FE_DOOR_CLOSED;
+    check(!world_open_door(&world, 11, 6, 5),
+          "bump: the bat has no hands (CF_USE)");
+    world.units[0].ap = 5;
+    check(!world_open_door(&world, 0, 6, 5) && world.feature[5][6] == FE_DOOR_CLOSED,
+          "bump: not enough AP leaves the door shut");
+    world.units[0].ap = 40;
+    world.units[0].x = 6;
+    world.units[0].y = 3;
+    check(world_bump_kind(&world, 0, 0, -1) == BUMP_TERRAIN, "bump: wall is terrain");
+    world.units[1].x = 5;
+    world.units[1].y = 3;
+    check(world_bump_kind(&world, 0, -1, 0) == BUMP_UNIT, "bump: unit ahead");
+    check(world_bump_kind(&world, 0, 0, 1) == BUMP_OK, "bump: free step is fine");
+
+    view_set_sight(NULL);
+    check(strcmp(describe_field(&world, NULL, 5, 3, buf, sizeof buf),
+                 "Zauberer-2") == 0, "look: names the unit on the field");
+    check(strcmp(describe_field(&world, NULL, 6, 2, buf, sizeof buf), "Wand") == 0,
+          "look: names the wall");
+    world.units[11].flags |= UF_FLYING;
+    world.units[11].x = 8;
+    world.units[11].y = 8;
+    check(strcmp(describe_field(&world, NULL, 8, 8, buf, sizeof buf),
+                 "Riesenfledermaus (Luft)") == 0, "look: flying units get a suffix");
+
+    world.unit_count = 2;                 /* wizards only, enemies far */
+    world.units[0].x = 20;
+    world.units[0].y = 13;
+    world.units[1].x = 0;
+    world.units[1].y = 35;
+    sight_init(&s, OWN_P1);
+    sight_compute(&world, &s);
+    check(strcmp(describe_field(&world, &s, 6, 3, buf, sizeof buf), "Unerforscht.") == 0,
+          "look: unexplored stays dark");
+    check(strcmp(describe_field(&world, &s, 20, 13, buf, sizeof buf), "Zauberer-1") == 0,
+          "look: own units are always named");
+    check(strcmp(describe_field(&world, &s, 0, 35, buf, sizeof buf), "Unerforscht.") == 0,
+          "look: enemies stay dark without sight");
+    world.units[1].x = 21;                /* steps into sight */
+    world.units[1].y = 13;
+    sight_compute(&world, &s);
+    check(strcmp(describe_field(&world, &s, 21, 13, buf, sizeof buf), "Zauberer-2") == 0,
+          "look: enemy is named when in sight");
+    view_set_sight(NULL);
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -600,6 +659,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_turn();
     test_sight();
     test_flight();
+    test_bump_and_look();
     load_house();   /* leave a clean state */
     return fails;
 }

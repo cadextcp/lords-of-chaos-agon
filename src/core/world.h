@@ -118,6 +118,20 @@ bool world_land(World *w, uint8_t unit);
  * 4 % mana. */
 void world_new_turn(World *w);
 
+/* Why a step fails, for bump messages (GDD 5.1). */
+typedef enum {
+    BUMP_OK,        /* the step would succeed */
+    BUMP_NO_AP,     /* destination fine, not enough AP */
+    BUMP_DOOR,      /* closed door: try world_open_door */
+    BUMP_UNIT,      /* a unit blocks the layer */
+    BUMP_TERRAIN,   /* impassable feature (attack on terrain, M3) */
+    BUMP_OUTSIDE    /* outside a non-wrapping map */
+} BumpKind;
+BumpKind world_bump_kind(const World *w, uint8_t unit, int8_t dx, int8_t dy);
+/* Bump-open a closed door (GDD 5.1): creatures with hands (CF_USE) pay
+ * the action cost, the door opens and the view cache is invalidated. */
+bool world_open_door(World *w, uint8_t unit, int16_t x, int16_t y);
+
 /* Character for dumps (floor/feature/unit at a glance). */
 char world_char(const World *w, int16_t x, int16_t y);
 
