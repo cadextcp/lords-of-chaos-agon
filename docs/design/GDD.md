@@ -584,6 +584,12 @@ x: 0                       216                 319
   - Darunter Status-Icons (Undead, Fly, Mount, Wound, Invisible) `[PM 11]`.
   - Dann **6 senkrechte Balken** wie auf dem Amiga (B2.4): AP, Stamina, Constitution, Combat, Defence, Mana; Mana nur bei Zauberern. Jeder Balken hat ein Icon und die Amiga-Farbe.
   - Am Ende die Objekte im Feld.
+- **Umsetzung auf dem Agon (M1 #6):** Das Panel liegt im 8×8-Textraster (Spalten 27–39).
+  - Porträt im Rahmen, daneben „Stufe“ und die 5 Status-Icons; nur aktive Icons werden angezeigt.
+  - Zeile 5: Name. Zeile 6: AP und Mana als Zahl.
+  - Balken in y 58–168, Icons darunter. Combat und Defence haben die Skala 0–50; der Mana-Balken entfällt bei Nicht-Zauberern.
+  - Zeilen 23–26: „Am Boden“ mit bis zu 3 Einträgen: Objekte, begehbares Feature, Dekor, sonst Boden.
+  - Alle Anzeigetexte des Cores liegen in `src/core/names.c`. Die UI ist vorerst deutsch, ohne Umlaute, weil der Agon-Systemfont keine hat; Umlaute kommen später mit einem eigenen Font.
 - **Meldungszeile (3 Textzeilen):** benennt das Element unter dem Cursor (B2.3), zeigt Kampf- und Zaubermeldungen und kontextabhängige Tastenhinweise.
 - **Listen und Menüs** (Zauberliste, Inventar, Aufheben, Kontextmenü `Enter`, Big Map) erscheinen als **Overlay über dem Kartenfenster**. Das Panel ist für Zaubernamen zu schmal; das Amiga zeigt die Zauberliste ebenso als eigenen Bildschirm. Auswahl mit `a`–`z` bzw. Pfeilen (§5.1).
 - **Kamera:** Das Fenster scrollt, wenn die aktive Einheit bzw. der Cursor weniger als 2 Felder vom Rand entfernt ist, und bei `Tab` auf die neue Einheit. Wrap-around über die 36×36-Welt.

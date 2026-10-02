@@ -141,22 +141,25 @@ def render_map(img: Image.Image) -> None:
 
 
 def render_panel(img: Image.Image) -> None:
+    """Same layout as src/agon/render.c render_panel() (8x8 text grid)."""
     d = ImageDraw.Draw(img)
     x0 = 9 * T
     d.rectangle((x0, 0, W - 1, 215), fill=PANEL_BG)
-    d.rectangle((x0 + 4, 4, x0 + 4 + 27, 4 + 27), outline=(0, 85, 255))
+    d.rectangle((x0 + 4, 4, x0 + 31, 31), outline=(85, 85, 255))
     img.alpha_composite(tile("wizard_p1"), (x0 + 6, 6))
-    text(d, (x0 + 36, 6), "Zauberer-1", (255, 255, 255))
-    text(d, (x0 + 36, 17), "Stufe 1", (170, 170, 170))
-    top, bottom = 44, 168
+    text(d, (256, 8), "Stufe 1", (170, 170, 170))
+    text(d, (216, 40), "Zauberer-1", (255, 255, 255))
+    text(d, (216, 48), "AP 24", (85, 255, 85))
+    text(d, (272, 48), "Ma 80", (255, 85, 255))
+    top, bottom = 58, 168
     for i, (ic, col, fill) in enumerate(BARS):
         bx = x0 + 8 + i * 16
         d.rectangle((bx, top, bx + 7, bottom), outline=tuple(c // 2 for c in col))
         fy = bottom - int((bottom - top - 2) * fill)
         d.rectangle((bx + 1, fy, bx + 6, bottom - 1), fill=col)
         img.alpha_composite(Image.open(ICONS / f"{ic}.png").convert("RGBA"), (bx, bottom + 4))
-    text(d, (x0 + 6, 186), "Am Boden:", (170, 170, 170))
-    text(d, (x0 + 6, 197), "Teppich", (255, 255, 255))
+    text(d, (216, 184), "Am Boden:", (170, 170, 170))
+    text(d, (216, 192), "Teppich", (255, 255, 255))
 
 
 def render_messages(img: Image.Image) -> None:
