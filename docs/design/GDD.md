@@ -142,7 +142,11 @@ Spielrunde n:
 
 Möbel haben eine Zähigkeit wie Türen. Sie lassen sich zerschlagen, und Holzmöbel brennen ([X]).
 
-Weitere Typen ergeben sich aus den Szenarien → §13.
+**Umgesetzt in M2a:**
+- Böden: Steinboden, Holzdielen, Gras, Weg, hohes Gras, Wald, Zauberwald (Magic Wood), Schattenwald, Sumpf, Wasser (animiert), Geröll.
+- Features: Fels, Baum, Wand, Tür und Möbel.
+- Wälder und hohes Gras sind **begehbare Böden**: Sie kosten mehr AP und blockieren die Sicht am Boden (`data/costs.csv`). Fels und Einzelbaum blockieren.
+- Testkarte: `data/maps/testland.txt` (36×36, Wrap-around).
 
 **Regeln dazu:**
 - **Kreatur-Terrain-Affinität:** Kreaturen sind *Wood-*, *Water-* oder *Rock-Type*. Das wirkt sich vermutlich auf Bewegungskosten bzw. Passierbarkeit aus, die genaue Wirkung ist offen → §13.

@@ -4,7 +4,9 @@
 
 static const char *const FLOOR_NAMES[FL_COUNT] = {
     [FL_STONE] = "Steinboden", [FL_WOOD] = "Holzdielen",
-    [FL_GRASS] = "Gras", [FL_PATH] = "Weg",
+    [FL_GRASS] = "Gras", [FL_PATH] = "Weg", [FL_TALL_GRASS] = "Hohes Gras",
+    [FL_FOREST] = "Wald", [FL_MAGIC_WOOD] = "Zauberwald", [FL_SHADOW_WOOD] = "Schattenwald",
+    [FL_SWAMP] = "Sumpf", [FL_WATER] = "Wasser", [FL_RUBBLE] = "Geroell",
 };
 
 static const char *const FEATURE_NAMES[FE_COUNT] = {
@@ -12,7 +14,7 @@ static const char *const FEATURE_NAMES[FE_COUNT] = {
     [FE_DOOR_OPEN] = "Tuer (offen)", [FE_BED] = "Bett", [FE_BOOKSHELF] = "Regal",
     [FE_CANDLE] = "Kerzenstaender", [FE_CAULDRON] = "Kessel", [FE_TABLE] = "Tisch",
     [FE_CHAIR] = "Stuhl", [FE_DRAWERS] = "Kommode", [FE_CHEST] = "Truhe",
-    [FE_TREE] = "Baum",
+    [FE_TREE] = "Baum", [FE_ROCK] = "Fels",
 };
 
 const char *name_unit(const Unit *u)

@@ -18,7 +18,7 @@ typedef enum { OWN_P1, OWN_P2, OWN_P3, OWN_P4, OWN_NEUTRAL, OWN_COUNT } Owner;
 #define MAPBIN_VERSION 1
 #define MAPBIN_HEADER 10
 
-extern const uint8_t MAPBIN_WIZARD_HOUSE[];
-extern const uint16_t MAPBIN_WIZARD_HOUSE_LEN;
+/* The compiled-in copies (MAPBIN_<NAME>, MAPBIN_<NAME>_LEN) are declared in
+ * the generated gen/maps.h. */
 
 #endif

@@ -5,16 +5,46 @@
 /* Tile IDs per floor; half floors follow each floor tile in the order
  * n, s, w, e (see tools/build_tiles.py). */
 static const uint8_t FLOOR_TILE[FL_COUNT] = {
-    T_FLOOR_STONE, T_FLOOR_WOOD, T_FLOOR_GRASS, T_FLOOR_PATH};
+    [FL_STONE] = T_FLOOR_STONE, [FL_WOOD] = T_FLOOR_WOOD, [FL_GRASS] = T_FLOOR_GRASS,
+    [FL_PATH] = T_FLOOR_PATH, [FL_TALL_GRASS] = T_FLOOR_TALLGRASS,
+    [FL_FOREST] = T_FLOOR_FOREST, [FL_MAGIC_WOOD] = T_FLOOR_MAGICWOOD,
+    [FL_SHADOW_WOOD] = T_FLOOR_SHADOWWOOD, [FL_SWAMP] = T_FLOOR_SWAMP,
+    [FL_WATER] = T_FLOOR_WATER_0, [FL_RUBBLE] = T_FLOOR_RUBBLE};
 static const uint8_t FLOOR_HALF[FL_COUNT] = {
-    T_FLOOR_STONE_HALF_N, T_FLOOR_WOOD_HALF_N, T_FLOOR_GRASS_HALF_N, T_FLOOR_PATH_HALF_N};
+    [FL_STONE] = T_FLOOR_STONE_HALF_N, [FL_WOOD] = T_FLOOR_WOOD_HALF_N,
+    [FL_GRASS] = T_FLOOR_GRASS_HALF_N, [FL_PATH] = T_FLOOR_PATH_HALF_N,
+    [FL_TALL_GRASS] = T_FLOOR_TALLGRASS_HALF_N, [FL_FOREST] = T_FLOOR_FOREST_HALF_N,
+    [FL_MAGIC_WOOD] = T_FLOOR_MAGICWOOD_HALF_N,
+    [FL_SHADOW_WOOD] = T_FLOOR_SHADOWWOOD_HALF_N, [FL_SWAMP] = T_FLOOR_SWAMP_HALF_N,
+    [FL_WATER] = T_FLOOR_WATER_0_HALF_N, [FL_RUBBLE] = T_FLOOR_RUBBLE_HALF_N};
 enum { HALF_N, HALF_S, HALF_W, HALF_E };
 
 static const uint8_t FEATURE_TILE[FE_COUNT] = {
     [FE_BED] = T_BED, [FE_BOOKSHELF] = T_BOOKSHELF, [FE_CANDLE] = T_CANDLE_0,
     [FE_CAULDRON] = T_CAULDRON, [FE_TABLE] = T_TABLE, [FE_CHAIR] = T_CHAIR,
     [FE_DRAWERS] = T_DRAWERS, [FE_CHEST] = T_CHEST, [FE_TREE] = T_TREE,
+    [FE_ROCK] = T_ROCK,
 };
+
+/* Animated tiles: frame 0 <-> frame 1 (candles, water). */
+static const uint8_t ANIM_A[] = {T_CANDLE_0, T_FLOOR_WATER_0};
+static const uint8_t ANIM_B[] = {T_CANDLE_1, T_FLOOR_WATER_1};
+#define ANIM_N (sizeof ANIM_A / sizeof ANIM_A[0])
+
+static uint8_t anim_swap(uint8_t id, uint8_t ph)
+{
+    uint8_t k;
+    for (k = 0; k < ANIM_N; k++) {
+        if (id == ANIM_A[k] || id == ANIM_B[k])
+            return ph ? ANIM_B[k] : ANIM_A[k];
+    }
+    return id;
+}
+
+static bool is_animated(uint8_t id)
+{
+    return anim_swap(id, 0) != anim_swap(id, 1);
+}
 
 static FieldLayers fields[VIEW_H][VIEW_W];
 static uint8_t dirty[VIEW_H][VIEW_W];
@@ -48,7 +78,10 @@ void view_follow(const World *w, int16_t x, int16_t y)
         origin_y = (int16_t)(y - margin);
     else if (ry > VIEW_H - 1 - margin)
         origin_y = (int16_t)(y - (VIEW_H - 1 - margin));
-    if (!w->wrap) {   /* keep small maps in view */
+    if (w->wrap) {    /* keep the origin inside the world */
+        origin_x = (int16_t)(((origin_x % w->w) + w->w) % w->w);
+        origin_y = (int16_t)(((origin_y % w->h) + w->h) % w->h);
+    } else {          /* keep small maps in view */
         if (origin_x > w->w - VIEW_W) origin_x = (int16_t)(w->w - VIEW_W);
         if (origin_y > w->h - VIEW_H) origin_y = (int16_t)(w->h - VIEW_H);
         if (origin_x < 0) origin_x = 0;
@@ -127,8 +160,7 @@ static void compose_dynamic(const World *w, int16_t wx, int16_t wy, FieldLayers 
 
     if (phase)
         for (i = 0; i < out->n; i++)
-            if (out->id[i] == T_CANDLE_0)
-                out->id[i] = T_CANDLE_1;
+            out->id[i] = anim_swap(out->id[i], phase);
 
     for (i = 0; i < w->object_count; i++) {
         if (w->objects[i].x == wx && w->objects[i].y == wy) {
@@ -224,8 +256,7 @@ static void compose_fast(const World *w, uint8_t vx, uint8_t vy, FieldLayers *ou
     *out = scache[wy][wx];
     if (phase)
         for (i = 0; i < out->n; i++)
-            if (out->id[i] == T_CANDLE_0)
-                out->id[i] = T_CANDLE_1;
+            out->id[i] = anim_swap(out->id[i], phase);
     if (over_obj[vy][vx] != 0xFF)
         push(out, over_obj[vy][vx]);
     if (over_unit[vy][vx] != 0xFF)
@@ -251,7 +282,7 @@ uint8_t view_update(const World *w)
             {
                 uint8_t i;
                 for (i = 0; i < f.n; i++)
-                    if (f.id[i] == T_CANDLE_0 || f.id[i] == T_CANDLE_1)
+                    if (is_animated(f.id[i]))
                         animated[vy][vx] = 1;
             }
             if (!valid || f.n != fields[vy][vx].n ||
@@ -269,19 +300,19 @@ uint8_t view_update(const World *w)
 uint8_t view_animate(uint8_t p)
 {
     uint8_t vx, vy, i, n = 0;
-    uint8_t from = (p & 1) ? T_CANDLE_0 : T_CANDLE_1;
-    uint8_t to = (p & 1) ? T_CANDLE_1 : T_CANDLE_0;
     phase = p & 1;
     for (vy = 0; vy < VIEW_H; vy++)
         for (vx = 0; vx < VIEW_W; vx++) {
             FieldLayers *f = &fields[vy][vx];
             if (!animated[vy][vx])
                 continue;
-            for (i = 0; i < f->n; i++)
-                if (f->id[i] == from) {
+            for (i = 0; i < f->n; i++) {
+                uint8_t to = anim_swap(f->id[i], phase);
+                if (to != f->id[i]) {
                     f->id[i] = to;
                     dirty[vy][vx] = 1;
                 }
+            }
             n = (uint8_t)(n + dirty[vy][vx]);
         }
     return n;

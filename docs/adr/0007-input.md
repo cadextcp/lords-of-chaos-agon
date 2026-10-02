@@ -29,6 +29,12 @@
   - **Eigene Wiederholung per Uhr:** die erste nach **350 ms**, danach alle **200 ms**. Gehaltene Akkorde wiederholen die Diagonale; nach dem Loslassen einer Taste startet die Verzögerung neu.
 - Das Spiel nutzt dasselbe Modul wie `--keytest`.
 
+## Nachtrag M2a: Ereignis-Warteschlange zuerst leeren
+
+- **Symptom:** Auf der großen Karte kostet ein Schritt mit Scrollen mehr Zeit. Nach einem Akkord wurde ein folgendes einzelnes → als NO gelesen, und gehaltenes ↓ lief zuerst nach Norden.
+- **Ursache:** Die Hauptschleife las nur **ein** `kbuf`-Event pro Durchlauf. Während gezeichnet wurde, warteten die Loslass-Events noch in der Warteschlange. `chord_poll()` sah dadurch veraltete gehaltene Tasten und löste die Wiederholung aus.
+- **Lösung:** Pro Durchlauf zuerst **alle** wartenden Events verarbeiten, erst dann `chord_poll()`, Animation und Blinken (`src/agon/main.c`). Danach lief die Testfolge auf Testland korrekt: O, NO durch die Tür, O auf den Weg, 7× S, Zugende, 7× O über die Brücke.
+
 ## Nachweis im Emulator
 
 Die Folge `↑+←`, Bild↓, Ende, „→ halten 1,3 s“ bewegt den Zauberer NW, SO, SW und zweimal nach O. Die AP sinken dabei 40 → 34 → 28 → 22 → 18 → 14 (Diagonale 6, Gerade 4).
