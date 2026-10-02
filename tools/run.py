@@ -8,7 +8,7 @@ Build, stage and start the game in the GUI emulator.
 
     uv run tools/run.py                       # play; close the window to stop
     uv run tools/run.py --dump --time 6       # auto-quit after 6 s, print loc.log
-    uv run tools/run.py --time 8 --keys "dddw" --screenshot
+    uv run tools/run.py --time 8 --free-round1 --keys "dddw" --screenshot
                                               # scripted session: keys, then screenshot
 
 autoexec.txt on the staged SD card starts the game, so it runs right after boot.
@@ -54,6 +54,8 @@ def main() -> int:
     ap.add_argument("--dump", action="store_true", help="game writes loc.log screen dumps")
     ap.add_argument("--bench", action="store_true", help="game measures redraw times -> loc.log")
     ap.add_argument("--keytest", action="store_true", help="keyboard spike: log every key event")
+    ap.add_argument("--free-round1", action="store_true",
+                    help="lift the round 1 movement lock (PM 7) for scripted runs")
     ap.add_argument("--keyboard", type=int, default=2,
                     help="MOS keyboard layout (SET KEYBOARD n), default 2 = German")
     ap.add_argument("--time", type=float, help="quit the emulator after N seconds")
@@ -70,7 +72,10 @@ def main() -> int:
     env.stage_game()
     logfile = env.SDCARD / env.GAME_DIR / "loc.log"
     logfile.unlink(missing_ok=True)
-    mode = ["--dump"] if args.dump else ["--bench"] if args.bench else         ["--keytest"] if args.keytest else []
+    mode = (["--dump"] if args.dump else ["--bench"] if args.bench
+            else ["--keytest"] if args.keytest else [])
+    if args.free_round1:
+        mode.append("--free-round1")
     write_autoexec(mode, args.keyboard)
 
     cmd = [str(env.GUI_EMULATOR), "--sdcard", str(env.SDCARD.resolve()),

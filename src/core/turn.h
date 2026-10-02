@@ -1,0 +1,44 @@
+/*
+ * Turn order (GDD 2.1): a round runs the independent creatures, then wizard
+ * 1 to n; at the round end AP, stamina and mana regenerate. Within a
+ * wizard's phase exactly one of his units is active (GDD 5.1). AI phases
+ * pass for now - real behaviour profiles come with M3 (GDD 10).
+ */
+#ifndef LOC_TURN_H
+#define LOC_TURN_H
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "rng.h"
+#include "world.h"
+
+typedef struct {
+    uint8_t round;       /* 1-based game round */
+    uint8_t phase;       /* owner whose units act (OWN_P1..OWN_P4) */
+    uint8_t active;      /* active unit index, NO_UNIT only without units */
+    uint32_t done;       /* units finished this phase (bit i = unit i) */
+    uint8_t humans;      /* owner bitmask of human players */
+    bool round1_lock;    /* no movement in round 1, casting only (PM 7) */
+    Rng rng;             /* independent creatures; seeded, so runs replay */
+} Turns;
+
+/* Start round 1: run the independents, then the first owner's phase. */
+void turn_init(Turns *t, World *w, uint32_t seed, uint8_t humans);
+/* Movement allowed right now? False only in round 1 (PM 7). */
+bool turn_may_move(const Turns *t);
+/* Next (Tab) or previous (Shift+Tab) own unit with AP left; wraps around. */
+void turn_next_unit(Turns *t, const World *w, bool backwards);
+/* Active unit is done (space): it is skipped until the next phase. */
+void turn_finish_unit(Turns *t, const World *w);
+/* Any own unit with AP left that is not done? */
+bool turn_units_left(const Turns *t, const World *w);
+/* End the phase (Shift+E): AI phases pass automatically until a human
+ * phase is active again; the round end regenerates and lets the
+ * independents take their steps. */
+void turn_end_phase(Turns *t, World *w);
+/* Independent creatures' phase: placeholder wandering, deterministic
+ * through the seeded RNG. Respects the round 1 lock (PM 7). */
+void turn_independents(Turns *t, World *w);
+
+#endif

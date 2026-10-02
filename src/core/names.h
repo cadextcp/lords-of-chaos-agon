@@ -11,6 +11,8 @@
 #include "world.h"
 
 const char *name_unit(const Unit *u);
+/* Whose phase it is: "Zauberer-1".."Zauberer-4", "" for independents. */
+const char *name_owner(uint8_t owner);
 const char *name_floor(uint8_t floor);
 const char *name_feature(uint8_t feature);
 const char *name_decor(uint8_t decor);

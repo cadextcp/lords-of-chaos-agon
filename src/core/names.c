@@ -33,6 +33,17 @@ const char *name_unit(const Unit *u)
     }
 }
 
+const char *name_owner(uint8_t owner)
+{
+    switch (owner) {
+    case OWN_P1: return "Zauberer-1";
+    case OWN_P2: return "Zauberer-2";
+    case OWN_P3: return "Zauberer-3";
+    case OWN_P4: return "Zauberer-4";
+    default: return "";
+    }
+}
+
 const char *name_floor(uint8_t floor)
 {
     return floor < FL_COUNT ? FLOOR_NAMES[floor] : "?";

@@ -222,14 +222,22 @@ bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
     return true;
 }
 
+/* Round end (GDD 2.1.4): refill AP, recover 25 % stamina (GDD 5.3),
+ * regenerate 4 % mana. Exhausted creatures (stamina under 25 % of the
+ * maximum) get only half AP next round (PM 12) - tested before the
+ * recovery, so one quiet round cures the exhaustion. */
 void world_new_turn(World *w)
 {
     uint8_t i;
     for (i = 0; i < w->unit_count; i++) {
         Unit *u = &w->units[i];
         uint16_t sta = (uint16_t)(u->sta + u->sta_max / 4);
-        u->ap = u->ap_max;
+        u->ap = u->sta < u->sta_max / 4 ? (uint8_t)(u->ap_max / 2) : u->ap_max;
         u->sta = (uint8_t)(sta > u->sta_max ? u->sta_max : sta);
+        if (u->mana_max) {
+            uint8_t mana = (uint8_t)(u->mana + u->mana_max / 25);
+            u->mana = mana > u->mana_max || mana < u->mana ? u->mana_max : mana;
+        }
     }
 }
 

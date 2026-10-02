@@ -39,6 +39,21 @@
 
 Die Folge `↑+←`, Bild↓, Ende, „→ halten 1,3 s“ bewegt den Zauberer NW, SO, SW und zweimal nach O. Die AP sinken dabei 40 → 34 → 28 → 22 → 18 → 14 (Diagonale 6, Gerade 4).
 
+## Nachtrag M2c: Tab, Leertaste, Shift-Modifikator
+
+Für den Rundenablauf (#15) im Emulator nachgemessen (2026-10-03):
+
+| Taste | ASCII (down) | VKey | kmod |
+|---|---|---|---|
+| Tab | 09 | **8E** | 00 |
+| Shift+Tab | 09 | **8E** | **02** |
+| Leertaste | 20 | **01** | 00 |
+| Shift (links) | 00 | 75 | 00 |
+| Shift+E | 45 ('E') | 34 | 02 |
+
+- **Shift+Tab liefert keinen eigenen VKey.** Der Shift-Zustand steht im `kmod`-Feld des Tab-Events (Bit 0x02). `src/agon/input.h` definiert `VK_TAB`, `VK_SPACE` und `KMOD_SHIFT`.
+- **Shift+Buchstabentaste funktioniert wie vermutet:** ASCII des Down-Events ist 'E' (groß), das Shift-Bit steht zusätzlich in `kmod`. Die bestehende Auswertung `e.ascii == 'E'` bleibt gültig.
+
 ## Offen auf Hardware (#3)
 
 - Schafft die G84 zwei Pfeile gleichzeitig ohne Ghosting? Stimmen die VKeys?

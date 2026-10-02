@@ -10,7 +10,7 @@ Lords of Chaos Remake für den Agon Light (eZ80). C99 mit agondev, Python-Tools 
 uv run tools/setup.py                 # einmalig (Emulator + agondev, gepinnt)
 uv run tools/build.py --all           # bin/loc.bin + build/host/loc_host
 uv run tools/test.py                  # MUSS grün sein vor jedem Commit
-uv run tools/run.py --dump --time 8 --keys "dd" --screenshot   # GUI-Check
+uv run tools/run.py --dump --time 8 --free-round1 --keys "dd" --screenshot   # GUI-Check
 ```
 
 ## Grafik- und Karten-Pipeline
