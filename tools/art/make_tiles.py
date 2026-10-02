@@ -148,6 +148,93 @@ def floor_path(seed=3):
     return im
 
 
+def floor_tallgrass(seed=21):
+    """Tall grass: dense golden-green blades (blocks ground sight, GDD 3.4)."""
+    im = new()
+    rect(im, 0, 0, 23, 23, C["olive"])
+    rnd = random.Random(seed)
+    for _ in range(70):
+        x, y = rnd.randrange(N), rnd.randrange(3, N)
+        h = rnd.randrange(3, 7)
+        col = rnd.choice([(170, 170, 0), C["moss"], (170, 170, 0)])
+        line(im, [(x, y), (x, y - h)], col)
+        px(im, x, y - h, (255, 255, 85))
+    return im
+
+
+def _forest(base, crown, shade, light, trunk, seed, sparkle=None):
+    im = new()
+    rect(im, 0, 0, 23, 23, base)
+    rnd = random.Random(seed)
+    for cx, cy, r in ((6, 8, 6), (17, 6, 6), (12, 16, 7)):
+        rect(im, cx - 1, cy + r - 2, cx, cy + r + 2, trunk)
+        ellipse(im, (cx - r, cy - r, cx + r, cy + r - 2), fill=shade)
+        ellipse(im, (cx - r, cy - r, cx + r - 2, cy + r - 4), fill=crown)
+        for _ in range(4):
+            px(im, cx - rnd.randrange(1, r), cy - rnd.randrange(1, r), light)
+    if sparkle:
+        for _ in range(5):
+            px(im, rnd.randrange(N), rnd.randrange(N), sparkle)
+    return im
+
+
+def floor_forest():
+    return _forest(C["dgreen"], C["green"], (0, 85, 0), C["lgreen"], C["dbrown"], 31)
+
+
+def floor_magicwood():
+    """Magic Wood: teal trees with sparkles (inspired by the Spectrum map)."""
+    return _forest(C["dgreen"], (0, 170, 170), (0, 85, 85), C["cyan"], C["dbrown"], 41,
+                   sparkle=C["white"])
+
+
+def floor_shadowwood():
+    return _forest(C["black"], C["purple"], C["navy"], C["lviolet"], C["dbrown"], 51)
+
+
+def floor_swamp(seed=61):
+    im = new()
+    rect(im, 0, 0, 23, 23, C["olive"])
+    rnd = random.Random(seed)
+    for _ in range(4):
+        x, y = rnd.randrange(2, 18), rnd.randrange(2, 20)
+        ellipse(im, (x, y, x + rnd.randrange(4, 7), y + 2), fill=(0, 85, 85))
+        px(im, x + 1, y, C["mblue"])
+    for _ in range(18):
+        x, y = rnd.randrange(N), rnd.randrange(4, N)
+        line(im, [(x, y), (x, y - rnd.randrange(2, 5))], C["green"])
+    for _ in range(10):
+        px(im, rnd.randrange(N), rnd.randrange(N), C["dgreen"])
+    return im
+
+
+def floor_water(phase: int):
+    im = new()
+    rect(im, 0, 0, 23, 23, C["blue"])
+    off = 3 * phase
+    for row, y in enumerate((3, 9, 15, 21)):
+        for x0 in range(-6, N, 12):
+            x = x0 + off + (6 if row % 2 else 0)
+            line(im, [(x, y), (x + 2, y - 1), (x + 4, y)], C["lblue"])
+            px(im, x + 2, y - 1, C["white"] if (row + phase) % 2 == 0 else C["lblue"])
+    for x, y in ((5 + off, 6), (17 - off, 18)):
+        px(im, x % N, y, C["mblue"])
+    return im
+
+
+def floor_rubble(seed=71):
+    im = new()
+    rect(im, 0, 0, 23, 23, (85, 85, 0))
+    rnd = random.Random(seed)
+    for _ in range(14):
+        x, y = rnd.randrange(1, N - 3), rnd.randrange(1, N - 3)
+        w, h = rnd.randrange(2, 4), rnd.randrange(1, 3)
+        rect(im, x, y, x + w, y + h, C["grey"])
+        line(im, [(x, y + h + 1), (x + w, y + h + 1)], C["dgrey"])
+        px(im, x, y, C["white"])
+    return im
+
+
 # ---------------------------------------------------------------- decor
 def pentacle():
     im = new()
@@ -426,6 +513,19 @@ def candle(phase: int):
     return im
 
 
+def rock():
+    """Boulder (blocking feature, 3/4: light top, darker front)."""
+    im = new()
+    ellipse(im, (3, 7, 20, 21), fill=C["dgrey"])
+    ellipse(im, (4, 5, 19, 16), fill=C["grey"])
+    ellipse(im, (6, 6, 12, 10), fill=C["white"])
+    line(im, [(9, 13), (13, 18)], C["dgrey"])
+    line(im, [(14, 9), (16, 12)], C["dgrey"])
+    outline(im)
+    shadow(im, 4, 19, 22)
+    return im
+
+
 def tree():
     im = new()
     rect(im, 10, 14, 13, 21, C["brown"])
@@ -573,6 +673,10 @@ def all_tiles() -> dict[str, Image.Image]:
     t = {
         "floor_stone": floor_stone(), "floor_wood": floor_wood(),
         "floor_grass": floor_grass(), "floor_path": floor_path(),
+        "floor_tallgrass": floor_tallgrass(), "floor_forest": floor_forest(),
+        "floor_magicwood": floor_magicwood(), "floor_shadowwood": floor_shadowwood(),
+        "floor_swamp": floor_swamp(), "floor_water_0": floor_water(0),
+        "floor_water_1": floor_water(1), "floor_rubble": floor_rubble(), "rock": rock(),
         "decor_rug": rug(), "decor_pentacle": pentacle(),
         "door_h_closed": door(False, False), "door_h_open": door(False, True),
         "door_v_closed": door(True, False), "door_v_open": door(True, True),

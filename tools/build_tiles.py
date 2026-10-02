@@ -40,7 +40,9 @@ OUT_BIN = ROOT / "build" / "tiles.bin"
 OUT_H = ROOT / "src" / "core" / "gen" / "tiles.h"
 
 OWNED = ("wizard",)                       # creatures with key colours
-FLOORS = ("floor_stone", "floor_wood", "floor_grass", "floor_path")
+FLOORS = ("floor_stone", "floor_wood", "floor_grass", "floor_path", "floor_tallgrass",
+          "floor_forest", "floor_magicwood", "floor_shadowwood", "floor_swamp",
+          "floor_water_0", "floor_rubble")
 # Must match the wall split in src/core/view.c and tools/mockup.py.
 HALF_BOXES = {"n": (0, 0, 24, 3), "s": (0, 9, 24, 24), "w": (0, 0, 8, 24), "e": (16, 0, 24, 24)}
 

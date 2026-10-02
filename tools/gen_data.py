@@ -27,8 +27,11 @@ OUT_H = ROOT / "src" / "core" / "gen" / "data.h"
 OUT_C = ROOT / "src" / "core" / "gen" / "data.c"
 
 # Which costs.csv row applies to each core floor type (world.h Floor order).
-FLOOR_TERRAIN = [("FL_STONE", "floor"), ("FL_WOOD", "floor"),
-                 ("FL_GRASS", "grass"), ("FL_PATH", "road")]
+FLOOR_TERRAIN = [("FL_STONE", "floor"), ("FL_WOOD", "floor"), ("FL_GRASS", "grass"),
+                 ("FL_PATH", "road"), ("FL_TALL_GRASS", "tall_grass"), ("FL_FOREST", "forest"),
+                 ("FL_MAGIC_WOOD", "magic_wood"), ("FL_SHADOW_WOOD", "shadow_wood"),
+                 ("FL_SWAMP", "swamp"), ("FL_WATER", "water"), ("FL_RUBBLE", "rubble")]
+NATIVE = {"": "0", "wood": "NATIVE_WOOD", "water": "NATIVE_WATER", "rock": "NATIVE_ROCK"}
 CATEGORIES = {"summon": "SPC_SUMMON", "potion": "SPC_POTION", "area": "SPC_AREA",
               "other": "SPC_OTHER"}
 
@@ -56,7 +59,11 @@ def main() -> int:
          "#ifndef LOC_GEN_DATA_H", "#define LOC_GEN_DATA_H", "",
          "#include <stdint.h>", "",
          '#include "../world.h"', "",
-         "extern const uint8_t FLOOR_AP[FL_COUNT];", "",
+         "extern const uint8_t FLOOR_AP[FL_COUNT];",
+         "extern const uint8_t FLOOR_SIGHT[FL_COUNT];   /* blocks ground sight */",
+         "enum { NATIVE_WOOD = 1, NATIVE_WATER = 2, NATIVE_ROCK = 4 };",
+         "extern const uint8_t FLOOR_NATIVE[FL_COUNT];  /* creature type paying floor cost */",
+         "extern const uint8_t FLOOR_DROWN[FL_COUNT];   /* drowning check for non-natives */", "",
          "typedef enum { " + ", ".join(CATEGORIES.values()) + " } SpellCategory;",
          "typedef enum {"]
     h += [f"    SP_{r['id'].upper()}," for r in spells]
@@ -79,6 +86,12 @@ def main() -> int:
          '#include "data.h"', "",
          "const uint8_t FLOOR_AP[FL_COUNT] = {"]
     c += [f"    [{fl}] = {int(costs[t]['ap_orth'])},   /* {t} */" for fl, t in FLOOR_TERRAIN]
+    c += ["};", "", "const uint8_t FLOOR_SIGHT[FL_COUNT] = {"]
+    c += [f"    [{fl}] = {1 if costs[t]['blocks_sight_ground'] == 'yes' else 0}," for fl, t in FLOOR_TERRAIN]
+    c += ["};", "", "const uint8_t FLOOR_NATIVE[FL_COUNT] = {"]
+    c += [f"    [{fl}] = {NATIVE[costs[t]['native']]}," for fl, t in FLOOR_TERRAIN]
+    c += ["};", "", "const uint8_t FLOOR_DROWN[FL_COUNT] = {"]
+    c += [f"    [{fl}] = {1 if costs[t]['hazard'] == 'drown' else 0}," for fl, t in FLOOR_TERRAIN]
     c += ["};", "", "const SpellDef SPELLS[SPELL_COUNT] = {"]
     c += [f"    [SP_{r['id'].upper()}] = {{{cstr(r['name'])}, {CATEGORIES[r['category']]}, "
           f"{int(r['mana_base'])}, {int(r['mana_step'])}, {1 if r['amiga'] == 'yes' else 0}, "

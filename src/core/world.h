@@ -16,12 +16,15 @@
 #define MAX_OBJECTS 64
 #define NO_UNIT 0xFF
 
-typedef enum { FL_STONE, FL_WOOD, FL_GRASS, FL_PATH, FL_COUNT } Floor;
+typedef enum {
+    FL_STONE, FL_WOOD, FL_GRASS, FL_PATH, FL_TALL_GRASS, FL_FOREST, FL_MAGIC_WOOD,
+    FL_SHADOW_WOOD, FL_SWAMP, FL_WATER, FL_RUBBLE, FL_COUNT
+} Floor;
 typedef enum { DE_NONE, DE_RUG, DE_PENTACLE } Decor;
 typedef enum {
     FE_NONE, FE_WALL, FE_DOOR_CLOSED, FE_DOOR_OPEN, FE_BED, FE_BOOKSHELF,
     FE_CANDLE, FE_CAULDRON, FE_TABLE, FE_CHAIR, FE_DRAWERS, FE_CHEST, FE_TREE,
-    FE_COUNT
+    FE_ROCK, FE_COUNT
 } Feature;
 
 /* Status flags shown as panel icons (PM 11). */
@@ -72,6 +75,9 @@ uint8_t world_feature(const World *w, int16_t x, int16_t y);
 uint8_t world_floor(const World *w, int16_t x, int16_t y);
 /* Wall or door: forms the connected wall line (GDD 11.2). */
 bool world_is_wall_line(const World *w, int16_t x, int16_t y);
+/* Blocks sight between ground positions: floor (data/costs.csv) or a
+ * tall feature (GDD 3.4). */
+bool world_blocks_sight(const World *w, int16_t x, int16_t y);
 /* Feature blocks ground movement (GDD 3.3 furniture table). */
 bool world_blocks(const World *w, int16_t x, int16_t y);
 

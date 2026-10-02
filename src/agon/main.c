@@ -26,7 +26,8 @@
 #include "mapfile.h"
 #include "render.h"
 
-#define MAP_PATH "maps/wizard_house.map"   /* relative to /loc (ADR 0008) */
+#define MAP_TESTLAND "maps/testland.map"   /* relative to /loc (ADR 0008) */
+#define MAP_HOUSE "maps/wizard_house.map"
 #define ANIM_CS 40     /* candle flicker period in centiseconds */
 #define BLINK_CS 30    /* cursor blink period (Amiga: flashing cursor) */
 #define WINDOW_CS 8    /* arrow chord window 80 ms (GDD 5.2, ADR 0007) */
@@ -140,6 +141,7 @@ int main(int argc, char **argv)
 {
     struct keyboard_event_t e;
     bool dump = false, do_bench = false, running = true;
+    const char *map_path;
     uint32_t next_anim, next_blink;
     uint8_t phase = 0, m;
     uint16_t now;
@@ -155,15 +157,16 @@ int main(int argc, char **argv)
         return 0;
     }
     dump = argc > 1 && strcmp(argv[1], "--dump") == 0;
+    map_path = (argc > 1 && strcmp(argv[1], "--house") == 0) ? MAP_HOUSE : MAP_TESTLAND;
     do_bench = argc > 1 && strcmp(argv[1], "--bench") == 0;
 
     log_open(dump || do_bench);
     log_line("BOOT");
     {
         uint32_t t0 = getsysvar_time();
-        bool ok = mapfile_load(&world, MAP_PATH);
+        bool ok = mapfile_load(&world, map_path);
         char buf[48];
-        snprintf(buf, sizeof buf, "MAP %s %s in %lu ms", MAP_PATH, ok ? "loaded" : "FAILED",
+        snprintf(buf, sizeof buf, "MAP %s %s in %lu ms", map_path, ok ? "loaded" : "FAILED",
                  (unsigned long)((getsysvar_time() - t0) * 10));
         log_line(buf);
         if (!ok) {
@@ -177,9 +180,8 @@ int main(int argc, char **argv)
         log_close();
         return 1;
     }
-    view_set_origin(0, 0);
     frame(dump);
-    render_message(0, C_BRIGHT_YELLOW, "Willkommen im Zauberer-Haus.");
+    render_message(0, C_BRIGHT_YELLOW, "Willkommen in Testland.");
     render_message(2, C_BRIGHT_BLUE, "Pfeile+Akkorde  Pos1/Ende/Bild diag.");
     if (do_bench)
         bench();
@@ -189,11 +191,34 @@ int main(int argc, char **argv)
     next_anim = getsysvar_time() + ANIM_CS;
     next_blink = getsysvar_time() + BLINK_CS;
     while (running) {
+        /* Drain every queued key event first: drawing a step can take longer
+         * than the repeat delay, and a stale "held" state would otherwise
+         * repeat keys that were already released (ADR 0007). */
+        while (running && kbuf_poll_event(&e)) {
+            now = (uint16_t)getsysvar_time();
+            if (input_arrow(e.vkey)) {           /* movement by vkey */
+                m = chord_key(&chord, input_arrow(e.vkey), e.isdown != 0, now);
+                if (m)
+                    step(m, dump);
+                continue;
+            }
+            if (!e.isdown)
+                continue;
+            if (input_diagonal(e.vkey)) {
+                step(input_diagonal(e.vkey), dump);
+            } else if (e.vkey == VK_ESC) {
+                running = false;
+            } else if (e.ascii == 'E') {
+                world_new_turn(&world);
+                render_message(1, C_BRIGHT_GREEN, "Neue Runde: AP aufgefuellt.");
+                frame(dump);
+            }
+        }
         now = (uint16_t)getsysvar_time();
         m = chord_poll(&chord, now);
         if (m)
             step(m, dump);
-        if (getsysvar_time() >= next_anim) {   /* candle flicker */
+        if (getsysvar_time() >= next_anim) {   /* candle and water animation */
             next_anim += ANIM_CS;
             view_animate(++phase);
             render_fields();
@@ -202,25 +227,6 @@ int main(int argc, char **argv)
             next_blink += BLINK_CS;
             cursor_on = !cursor_on;
             place_cursor();
-        }
-        if (!kbuf_poll_event(&e))
-            continue;
-        if (input_arrow(e.vkey)) {           /* movement by vkey (ADR 0007) */
-            m = chord_key(&chord, input_arrow(e.vkey), e.isdown != 0, now);
-            if (m)
-                step(m, dump);
-            continue;
-        }
-        if (!e.isdown)
-            continue;
-        if (input_diagonal(e.vkey)) {
-            step(input_diagonal(e.vkey), dump);
-        } else if (e.vkey == VK_ESC) {
-            running = false;
-        } else if (e.ascii == 'E') {
-            world_new_turn(&world);
-            render_message(1, C_BRIGHT_GREEN, "Neue Runde: AP aufgefuellt.");
-            frame(dump);
         }
     }
     kbuf_deinit();

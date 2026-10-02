@@ -12,7 +12,15 @@ static const bool FEATURE_BLOCKS[FE_COUNT] = {
     [FE_DOOR_OPEN] = false, [FE_BED] = true, [FE_BOOKSHELF] = true,
     [FE_CANDLE] = false, [FE_CAULDRON] = false, [FE_TABLE] = true,
     [FE_CHAIR] = false, [FE_DRAWERS] = true, [FE_CHEST] = true,
-    [FE_TREE] = true,
+    [FE_TREE] = true, [FE_ROCK] = true,
+};
+
+/* Tall features that block ground sight (GDD 3.4). A table rather than an
+ * ||-chain: ez80 clang turns such chains into an i14 bit test it cannot
+ * legalize (AGON-QUIRKS T7). */
+static const bool FEATURE_SIGHT[FE_COUNT] = {
+    [FE_WALL] = true, [FE_DOOR_CLOSED] = true, [FE_BOOKSHELF] = true,
+    [FE_TREE] = true, [FE_ROCK] = true,
 };
 
 /* Provisional stats until data/creatures.csv arrives in M2 (GDD 4.1, 5.3):
@@ -146,6 +154,15 @@ bool world_is_wall_line(const World *w, int16_t x, int16_t y)
     return f == FE_WALL || f == FE_DOOR_CLOSED || f == FE_DOOR_OPEN;
 }
 
+bool world_blocks_sight(const World *w, int16_t x, int16_t y)
+{
+    uint8_t fe;
+    if (!world_wrap(w, &x, &y))
+        return false;
+    fe = w->feature[y][x];
+    return FLOOR_SIGHT[w->floor[y][x]] || FEATURE_SIGHT[fe];
+}
+
 bool world_blocks(const World *w, int16_t x, int16_t y)
 {
     if (!world_wrap(w, &x, &y))
@@ -211,8 +228,14 @@ void world_new_turn(World *w)
 char world_char(const World *w, int16_t x, int16_t y)
 {
     static const char FEATURE_CHARS[FE_COUNT] = {
-        0, '#', 'D', 'd', 'B', 'S', 'K', 'C', 'T', 'h', 'M', 'X', 't'};
-    static const char FLOOR_CHARS[FL_COUNT] = {'.', ',', '"', ':'};
+        [FE_NONE] = ' ', [FE_WALL] = '#', [FE_DOOR_CLOSED] = 'D', [FE_DOOR_OPEN] = 'd',
+        [FE_BED] = 'B', [FE_BOOKSHELF] = 'S', [FE_CANDLE] = 'K', [FE_CAULDRON] = 'C',
+        [FE_TABLE] = 'T', [FE_CHAIR] = 'h', [FE_DRAWERS] = 'M', [FE_CHEST] = 'X',
+        [FE_TREE] = 't', [FE_ROCK] = 'R'};
+    static const char FLOOR_CHARS[FL_COUNT] = {
+        [FL_STONE] = '.', [FL_WOOD] = ',', [FL_GRASS] = '"', [FL_PATH] = ':',
+        [FL_TALL_GRASS] = ';', [FL_FOREST] = 'f', [FL_MAGIC_WOOD] = 'm',
+        [FL_SHADOW_WOOD] = 'n', [FL_SWAMP] = 'u', [FL_WATER] = '~', [FL_RUBBLE] = 'r'};
     uint8_t u, f;
     if (!world_wrap(w, &x, &y))
         return ' ';

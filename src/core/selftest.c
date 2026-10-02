@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "chord.h"
+#include "gen/maps.h"
 #include "names.h"
 #include "rng.h"
 #include "spells.h"
@@ -13,7 +14,7 @@
 /* view_hash() of the wizard house with the cursor on the wizard.
  * Must be identical on host and Agon; update deliberately when the map,
  * tiles or composition rules change. */
-#define HOUSE_VIEW_HASH 0xC356BB16UL
+#define HOUSE_VIEW_HASH 0xE61452DCUL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -223,6 +224,45 @@ static void test_data(void)
           "data: action costs from actions.csv");
 }
 
+static void test_terrain(void)
+{
+    FieldLayers a, b;
+    check(world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN), "terrain: testland loads");
+    check(world.w == 36 && world.h == 36 && world.wrap, "terrain: 36x36, wraps");
+    check(FLOOR_AP[FL_WATER] == 12 && FLOOR_AP[FL_FOREST] == 8 && FLOOR_AP[FL_SWAMP] == 10,
+          "terrain: costs water 12, forest 8, swamp 10");
+    check(world_blocks_sight(&world, 25, 4) && !world_blocks_sight(&world, 20, 4),
+          "terrain: forest blocks sight, grass does not");
+    check(FLOOR_NATIVE[FL_WATER] == NATIVE_WATER && FLOOR_DROWN[FL_WATER],
+          "terrain: water is native to water types, drowns others");
+    check(world_blocks(&world, 32, 31), "terrain: rock blocks");
+    {
+        int16_t x, y;
+        int printable = 1;
+        for (y = 0; y < world.h; y++)
+            for (x = 0; x < world.w; x++) {
+                char ch = world_char(&world, x, y);
+                if (ch < 32 || ch > 126)
+                    printable = 0;
+            }
+        check(printable && world_char(&world, 32, 31) == 'R' && world_char(&world, 16, 0) == '~',
+              "terrain: every field has a printable dump char");
+    }
+    view_compose(&world, -1, 12, &a);
+    view_compose(&world, 35, 12, &b);
+    check(a.n == b.n && memcmp(a.id, b.id, a.n) == 0, "terrain: wrap-around x=-1 == x=35");
+    view_set_origin(0, 0);
+    view_follow(&world, 0, 0);
+    check(view_origin_x() == 34 && view_origin_y() == 34, "terrain: camera wraps (origin 34,34)");
+    view_invalidate();
+    view_update(&world);
+    view_clean();
+    check(view_animate(1) > 0 && fast_equals_reference(), "terrain: water animates like reference");
+    view_animate(0);
+    view_set_origin(0, 0);
+    load_house();
+}
+
 static void test_chord(void)
 {
     Chord c;
@@ -286,6 +326,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_chord();
     test_stats_and_names();
     test_data();
+    test_terrain();
     load_house();   /* leave a clean state */
     return fails;
 }

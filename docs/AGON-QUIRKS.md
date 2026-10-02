@@ -38,6 +38,7 @@ Gesammeltes Plattformwissen. Teile stammen aus dem ersten Versuch (BBC BASIC, `L
 | T3 | `int` ist 24 Bit, `long` 32 Bit. Im Core nur `stdint`-Typen verwenden. | ✅ |
 | T5 | **Das agondev-Makefile verfolgt keine Header-Abhängigkeiten.** Ein geänderter Header (z. B. das generierte `gen/tiles.h`) lässt alte `.o` stehen. `tools/build.py` baut deshalb standardmäßig clean (`--incremental` zum Überspringen). | ✅ (M1) |
 | T6 | `getsysvar_time()` zählt Zentisekunden in 2er-Schritten (VBLANK, 50 Hz). Für Benchmarks über mehrere Frames mitteln. | ✅ (M1) |
+| T7 | **Compiler-Bug (agondev v0.22):** Eine Kette `x == A \|\| x == B \|\| …` über Enum-Werte kann zu einem Bit-Test mit ungewöhnlicher Breite (`i14`) optimiert werden. Das Backend bricht dann mit „unable to legalize instruction“ ab. Abhilfe: Lookup-Tabelle (`FEATURE_SIGHT` in `world.c`). | ✅ (M2a) |
 | T4 | Assembler-Funktionen: Das erste Argument liegt bei `(iy+3)` nach `ld iy,0 / add iy,sp`, weil die Rücksprungadresse 3 Byte groß ist. Symbole werden mit `_` exportiert. | ✅ (M0) |
 
 ## Tastatur (kbuf, `agon/keyboard.h`)
@@ -47,6 +48,7 @@ Gesammeltes Plattformwissen. Teile stammen aus dem ersten Versuch (BBC BASIC, `L
 | K1 | **ASCII in Key-up-Events ist veraltet**: Es wiederholt das ASCII der zuletzt gedrückten Taste. Tasten, deren Loslassen zählt (Bewegung), nur per **VKey** auswerten. | ✅ (Emulator, ADR 0007) |
 | K2 | **Kein Auto-Repeat über `kbuf`**: Eine gehaltene Taste liefert genau ein Down-Event. Die Wiederholung macht das Spiel selbst (`chord.c`). | ✅ (Emulator) |
 | K3 | VKeys: ↑ 96, ↓ 98, ← 9A, → 9C, Pos1 86, Ende 88, Bild↑ 93, Bild↓ 95, ESC 7D, a–z = 16 + Index (nach Layout). | ✅ (Emulator) |
+| K5 | Die Hauptschleife muss die `kbuf`-Warteschlange **vollständig leeren**, bevor sie Tastenwiederholung oder Zeitlogik auswertet. Sonst wirken langsame Frames (Scrollen) wie gehaltene Tasten. | ✅ (M2a) |
 | K4 | `SET KEYBOARD 2` ist das deutsche Layout (y/z vertauscht). `tools/run.py` setzt es standardmäßig (`--keyboard`). | ✅ |
 
 ## Hardware (Zielgerät)
