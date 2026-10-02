@@ -18,6 +18,7 @@ static const uint8_t FEATURE_TILE[FE_COUNT] = {
 
 static FieldLayers fields[VIEW_H][VIEW_W];
 static uint8_t dirty[VIEW_H][VIEW_W];
+static uint8_t animated[VIEW_H][VIEW_W];   /* field holds an animated tile */
 static bool valid;
 static int16_t origin_x, origin_y;
 static int16_t cursor_x, cursor_y;
@@ -246,6 +247,13 @@ uint8_t view_update(const World *w)
     for (vy = 0; vy < VIEW_H; vy++) {
         for (vx = 0; vx < VIEW_W; vx++) {
             compose_fast(w, vx, vy, &f);
+            animated[vy][vx] = 0;
+            {
+                uint8_t i;
+                for (i = 0; i < f.n; i++)
+                    if (f.id[i] == T_CANDLE_0 || f.id[i] == T_CANDLE_1)
+                        animated[vy][vx] = 1;
+            }
             if (!valid || f.n != fields[vy][vx].n ||
                 memcmp(f.id, fields[vy][vx].id, f.n) != 0) {
                 fields[vy][vx] = f;
@@ -255,6 +263,27 @@ uint8_t view_update(const World *w)
         }
     }
     valid = true;
+    return n;
+}
+
+uint8_t view_animate(uint8_t p)
+{
+    uint8_t vx, vy, i, n = 0;
+    uint8_t from = (p & 1) ? T_CANDLE_0 : T_CANDLE_1;
+    uint8_t to = (p & 1) ? T_CANDLE_1 : T_CANDLE_0;
+    phase = p & 1;
+    for (vy = 0; vy < VIEW_H; vy++)
+        for (vx = 0; vx < VIEW_W; vx++) {
+            FieldLayers *f = &fields[vy][vx];
+            if (!animated[vy][vx])
+                continue;
+            for (i = 0; i < f->n; i++)
+                if (f->id[i] == from) {
+                    f->id[i] = to;
+                    dirty[vy][vx] = 1;
+                }
+            n = (uint8_t)(n + dirty[vy][vx]);
+        }
     return n;
 }
 

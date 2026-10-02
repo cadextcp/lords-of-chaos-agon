@@ -14,6 +14,7 @@ Gesammeltes Plattformwissen. Teile stammen aus dem ersten Versuch (BBC BASIC, `L
 | V7 | **RGBA2222-Bitmaps** (Format 1): Bit 0–1 R, 2–3 G, 4–5 B, 6–7 A. Alpha 0 heißt transparent beim Zeichnen; Ebenen funktionieren damit. | ✅ (M1, `tools/build_tiles.py`) |
 | V8 | `vdp_set_pixel_coordinates()`: Ursprung oben links, y nach unten. Gilt für `draw_bitmap` und Rechtecke. | ✅ (M1) |
 | V9 | Kachel-Draw = `select_bitmap(buffer)` (5 Byte) + `draw_bitmap(x, y)` (7 Byte). 81 Felder mit etwa 3,2 Ebenen ≈ 38 ms Übertragung (ADR 0006). | ✅ (M1) |
+| V10 | **Sprites aus Buffer-Bitmaps:** `vdp_adv_add_sprite_bitmap(bufferId)` (16-Bit-ID) fügt Frames hinzu. Danach `activate_sprites(n)`; jede Änderung braucht `vdp_refresh_sprites()`. Nach dem Zeichnen von Bitmaps unter dem Sprite ebenfalls refreshen. | ✅ (M1 #4) |
 | V6 | Viele kleine VDU-Aufrufe sind langsam. Deshalb sammelt der Renderer Bytes in einen Puffer und gibt sie mit `mos_puts()` aus. Buffered Commands (`VDU 23,0,&A0`) prüft Spike M1. | ❓ (M1) |
 
 ## Emulator

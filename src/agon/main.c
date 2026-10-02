@@ -26,12 +26,21 @@
 #include "render.h"
 
 #define ANIM_CS 40     /* candle flicker period in centiseconds */
+#define BLINK_CS 30    /* cursor blink period (Amiga: flashing cursor) */
 #define WINDOW_CS 8    /* arrow chord window 80 ms (GDD 5.2, ADR 0007) */
 #define DELAY_CS 35    /* held key: first repeat after 350 ms */
 #define REPEAT_CS 20   /* then one step per 200 ms */
 
 static World world;
 static const uint8_t ACTIVE = 0;   /* the wizard */
+static bool cursor_on = true;
+
+static void place_cursor(void)
+{
+    const Unit *u = &world.units[ACTIVE];
+    render_cursor((int16_t)(u->x - view_origin_x()), (int16_t)(u->y - view_origin_y()),
+                  CURSOR_GREEN, cursor_on);
+}
 
 static void print_line(const char *line)
 {
@@ -50,9 +59,10 @@ static void frame(bool dump)
 {
     const Unit *u = &world.units[ACTIVE];
     view_follow(&world, u->x, u->y);
-    view_set_cursor(u->x, u->y, T_CURSOR_GREEN);
     view_update(&world);
     render_fields();
+    cursor_on = true;
+    place_cursor();
     render_panel(&world, ACTIVE);
     if (dump)
         log_frame(&world, view_hash());
@@ -94,11 +104,17 @@ static void bench(void)
 
     t0 = getsysvar_time();
     for (i = 0; i < n; i++) {
-        view_set_phase(i);
-        view_update(&world);
+        view_animate(i);
         render_fields();
     }
     part_cs = getsysvar_time() - t0;
+
+    t0 = getsysvar_time();
+    for (i = 0; i < n; i++)
+        render_cursor(3, 4, CURSOR_GREEN, (i & 1) != 0);
+    snprintf(buf, sizeof buf, "BENCH cursor blink: %lu ms",
+             (unsigned long)((getsysvar_time() - t0) * 10 / n));
+    log_line(buf);
 
     t0 = getsysvar_time();
     for (i = 0; i < n; i++)
@@ -122,7 +138,7 @@ int main(int argc, char **argv)
 {
     struct keyboard_event_t e;
     bool dump = false, do_bench = false, running = true;
-    uint32_t next_anim;
+    uint32_t next_anim, next_blink;
     uint8_t phase = 0, m;
     uint16_t now;
     Chord chord;
@@ -157,6 +173,7 @@ int main(int argc, char **argv)
     kbuf_init(16);
     chord_init(&chord, WINDOW_CS, DELAY_CS, REPEAT_CS);
     next_anim = getsysvar_time() + ANIM_CS;
+    next_blink = getsysvar_time() + BLINK_CS;
     while (running) {
         now = (uint16_t)getsysvar_time();
         m = chord_poll(&chord, now);
@@ -164,9 +181,13 @@ int main(int argc, char **argv)
             step(m, dump);
         if (getsysvar_time() >= next_anim) {   /* candle flicker */
             next_anim += ANIM_CS;
-            view_set_phase(++phase);
-            view_update(&world);
+            view_animate(++phase);
             render_fields();
+        }
+        if (getsysvar_time() >= next_blink) {  /* blinking cursor sprite */
+            next_blink += BLINK_CS;
+            cursor_on = !cursor_on;
+            place_cursor();
         }
         if (!kbuf_poll_event(&e))
             continue;

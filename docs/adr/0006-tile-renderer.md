@@ -31,6 +31,17 @@
 | Voll-Redraw, 81 Felder (≈ 260 Bitmaps) | 68 ms | **48 ms** |
 | Kerzen-Animation (4 Felder) | 36 ms | **16 ms** |
 
+**Nachtrag #4 (Sprite-Cursor, Animation ohne Neuberechnung):**
+
+| Messung | vorher | nachher |
+|---|---|---|
+| Kerzen-Animation | 16 ms | **6 ms** (`view_animate`: nur die als animiert markierten Felder tauschen ihren Frame) |
+| Cursor blinken bzw. bewegen | Feld-Redraw | **unter 2 ms** (VDP-Sprite, keine Felder) |
+| Voll-Redraw | 48 ms | 46 ms |
+
+6. **Cursor als VDP-Sprite:** 4 Frames (grün, weiß, gelb, rot) aus den Cursor-Kacheln. Er blinkt alle 300 ms wie der blinkende Cursor des Originals. Nach dem Zeichnen von Feldern holt `vdp_refresh_sprites()` ihn wieder nach oben.
+7. **Animation:** `view_update()` markiert Felder mit animierten Kacheln. `view_animate(phase)` tauscht nur dort die Frames, ohne die Ebenen neu zu berechnen; der Selftest prüft, dass das gleich der Referenz ist.
+
 **Auflösung:** `sysvar_time` zählt in 2-cs-Schritten (VBLANK). Jede Messung mittelt deshalb über 10 Frames.
 
 **Offen:** Messwerte auf echter Hardware (Issue #7).
