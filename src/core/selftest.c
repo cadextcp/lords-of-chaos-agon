@@ -224,6 +224,26 @@ static void test_data(void)
           "data: action costs from actions.csv");
 }
 
+static void test_creatures(void)
+{
+    const CreatureDef *g = &CREATURES[CR_GOBLIN];
+    check(CR_COUNT == 26 && CR_WIZARD == 0, "creatures: wizard + 25 from the table");
+    check(g->ap == 30 && g->stamina == 45 && g->con == 32 && g->combat == 9 && g->defence == 9,
+          "creatures: goblin values from [PM 34]");
+    check(CREATURES[CR_GOLD_DRAGON].ap_fly == 40 && CREATURES[CR_ZOMBIE].flags & CF_UNDEAD,
+          "creatures: dragon flies (40), zombie undead");
+    check(CREATURES[CR_UNICORN].flags & CF_MOUNT && CREATURES[CR_DWARF].flags & CF_RIDE,
+          "creatures: unicorn is a mount, dwarf can ride");
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.units[1].kind = CR_CROCODILE;   /* re-init a unit as crocodile */
+    world.units[1].native = CREATURES[CR_CROCODILE].native;
+    check(world_unit_step_cost(&world, 1, 16, 0, false) == 4 &&
+          world_unit_step_cost(&world, 0, 16, 0, false) == 12,
+          "creatures: crocodile pays floor cost in water, wizard 12");
+    check(world_unit_step_cost(&world, 1, 16, 0, true) == 6, "creatures: diagonal affinity 6");
+    load_house();
+}
+
 static void test_terrain(void)
 {
     FieldLayers a, b;
@@ -327,6 +347,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_stats_and_names();
     test_data();
     test_terrain();
+    test_creatures();
     load_house();   /* leave a clean state */
     return fails;
 }

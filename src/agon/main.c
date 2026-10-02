@@ -80,7 +80,7 @@ static void step(uint8_t m, bool dump)
     if (world_move_unit(&world, ACTIVE, dx, dy)) {
         render_message(1, C_GREY, "");
         frame(dump);
-    } else if (world.units[ACTIVE].ap < world_step_cost(&world,
+    } else if (world.units[ACTIVE].ap < world_unit_step_cost(&world, ACTIVE,
                    (int16_t)(world.units[ACTIVE].x + dx), (int16_t)(world.units[ACTIVE].y + dy),
                    dx != 0 && dy != 0)) {
         render_message(1, C_BRIGHT_RED, "Zu wenig AP - E fuer Zugende.");

@@ -35,10 +35,12 @@ typedef struct {
     uint8_t kind;   /* CreatureKind */
     uint8_t owner;  /* Owner */
     uint8_t flags;  /* UF_* */
-    uint8_t ap, ap_max;
+    uint8_t native; /* NATIVE_* terrain type (pays floor cost there) */
+    uint8_t ap, ap_max, ap_fly;
     uint8_t sta, sta_max;     /* stamina */
     uint8_t con, con_max;     /* constitution */
     uint8_t com, def;         /* combat, defence */
+    uint8_t mr;               /* magic resistance */
     uint8_t mana, mana_max;   /* wizards only */
 } Unit;
 
@@ -84,6 +86,10 @@ bool world_blocks(const World *w, int16_t x, int16_t y);
 uint8_t world_unit_at(const World *w, int16_t x, int16_t y);
 /* AP cost to enter (x, y); diagonal steps cost 3/2, rounded up (GDD 5.3). */
 uint8_t world_step_cost(const World *w, int16_t x, int16_t y, bool diagonal);
+/* Same for a unit: its terrain type (wood/water/rock) pays only the plain
+ * floor cost in matching terrain (GDD 5.3). */
+uint8_t world_unit_step_cost(const World *w, uint8_t unit, int16_t x, int16_t y,
+                             bool diagonal);
 /* Move a unit one step (8 directions); false if blocked, occupied, outside
  * or not enough AP. Spends the AP on success. */
 bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy);

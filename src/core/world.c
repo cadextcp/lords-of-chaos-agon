@@ -23,29 +23,25 @@ static const bool FEATURE_SIGHT[FE_COUNT] = {
     [FE_TREE] = true, [FE_ROCK] = true,
 };
 
-/* Provisional stats until data/creatures.csv arrives in M2 (GDD 4.1, 5.3):
- * ap, stamina, constitution, combat, defence, mana, flags. */
-typedef struct {
-    uint8_t ap, sta, con, com, def, mana, flags;
-} KindStats;
-static const KindStats KIND[] = {
-    [CR_WIZARD] = {40, 60, 30, 10, 12, 80, 0},
-    [CR_GOBLIN] = {30, 45, 32, 9, 9, 0, 0},
-};
+
 
 static void init_unit(Unit *u, uint8_t x, uint8_t y, uint8_t kind, uint8_t owner)
 {
-    const KindStats *k = &KIND[kind];
+    const CreatureDef *k = &CREATURES[kind];
     u->x = x;
     u->y = y;
     u->kind = kind;
     u->owner = owner;
-    u->flags = k->flags;
+    u->flags = (uint8_t)(((k->flags & CF_UNDEAD) ? UF_UNDEAD : 0) |
+                         ((k->flags & CF_MOUNT) ? UF_MOUNT : 0));
+    u->native = k->native;
     u->ap = u->ap_max = k->ap;
-    u->sta = u->sta_max = k->sta;
+    u->ap_fly = k->ap_fly;
+    u->sta = u->sta_max = k->stamina;
     u->con = u->con_max = k->con;
-    u->com = k->com;
-    u->def = k->def;
+    u->com = k->combat;
+    u->def = k->defence;
+    u->mr = k->magic_res;
     u->mana = u->mana_max = k->mana;
 }
 
@@ -187,6 +183,17 @@ uint8_t world_step_cost(const World *w, int16_t x, int16_t y, bool diagonal)
     return diagonal ? (uint8_t)((c * 3 + 1) / 2) : c;
 }
 
+uint8_t world_unit_step_cost(const World *w, uint8_t unit, int16_t x, int16_t y,
+                             bool diagonal)
+{
+    uint8_t c;
+    if (unit < w->unit_count && (FLOOR_NATIVE[world_floor(w, x, y)] & w->units[unit].native))
+        c = FLOOR_AP[FL_STONE];   /* at home in this terrain: plain floor cost */
+    else
+        c = FLOOR_AP[world_floor(w, x, y)];
+    return diagonal ? (uint8_t)((c * 3 + 1) / 2) : c;
+}
+
 bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
 {
     int16_t nx, ny;
@@ -201,7 +208,7 @@ bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
     if (!world_wrap(w, &nx, &ny) || world_blocks(w, nx, ny) ||
         world_unit_at(w, nx, ny) != NO_UNIT)
         return false;
-    cost = world_step_cost(w, nx, ny, dx != 0 && dy != 0);
+    cost = world_unit_step_cost(w, unit, nx, ny, dx != 0 && dy != 0);
     if (u->ap < cost)
         return false;
     u->ap = (uint8_t)(u->ap - cost);

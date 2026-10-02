@@ -1,5 +1,6 @@
 #include "names.h"
 
+#include "gen/data.h"
 #include "gen/tiles.h"
 
 static const char *const FLOOR_NAMES[FL_COUNT] = {
@@ -28,8 +29,7 @@ const char *name_unit(const Unit *u)
         case OWN_P4: return "Zauberer-4";
         default: return "Zauberer";
         }
-    case CR_GOBLIN: return "Goblin";
-    default: return "?";
+    default: return u->kind < CR_COUNT ? CREATURES[u->kind].name : "?";
     }
 }
 
