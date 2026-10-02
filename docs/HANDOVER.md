@@ -1,6 +1,6 @@
 # Übergabe: Stand und nächste Schritte
 
-> Stand: 2026-10-03 · nach M2d (#16) · CI grün
+> Stand: 2026-10-03 · nach M2e (#17) · CI grün
 > Für die nächste Person bzw. den nächsten Agenten. Zuerst `CLAUDE.md` lesen (Regeln, Befehle), dann dieses Dokument.
 
 ---
@@ -11,7 +11,7 @@
 |---|---|
 | **M0 Fundament** | ✅ Toolchain, Tests, CI, Docs |
 | **M1 Grafik und Eingabe** | ✅ Software-seitig fertig: #1 Renderer, #4 Sprite und Animation, #5 Datenladen, #6 Panel. Offen: #2 (optional), #3 und #7 (brauchen echte Hardware) |
-| **M2 Core-Skelett** | 🟡 Halb fertig: ✅ #13 M2a Terrains und Testland, ✅ #14 M2b Kreaturen (Daten und Pixelart), ✅ #15 M2c Rundenablauf, ✅ #16 M2d Sicht und Hidden Map. Offen: **#17 M2e Luft- und Bodenebene**, #18 M2f Bump und Look-Modus |
+| **M2 Core-Skelett** | 🟡 Halb fertig: ✅ #13 M2a Terrains und Testland, ✅ #14 M2b Kreaturen (Daten und Pixelart), ✅ #15 M2c Rundenablauf, ✅ #16 M2d Sicht und Hidden Map, ✅ #17 M2e Luft- und Bodenebene. Offen: **#18 M2f Bump und Look-Modus** |
 | M3–M5 | geplant, siehe `docs/ROADMAP.md` |
 
 **Was heute läuft:**
@@ -21,6 +21,7 @@
 - Bewegung mit Pfeilen, Akkorden, Pos1/Ende/Bild, Tastenwiederholung; AP/Stamina aus `data/costs.csv`.
 - Rundenende: AP, 25 % Stamina, 4 % Mana; Erschöpfung (Stamina < 25 %) halbiert die AP `[PM 12]`.
 - Info-Panel mit 6 Balken, Status-Icons und „Am Boden“-Liste, folgt der aktiven Einheit; Meldungszeile „Runde n – Zauberer-1: <Einheit>“.
+- Fliegen (M2e): Boden- und Luft-Ebene pro Feld, `<`/`>` Aufsteigen/Landen (4 AP), Flug 4/6 AP über allem, kein Landen auf Wasser; Flieger 3 px höher mit Schatten, blauer Cursor in der Luft; Rundenende füllt das Ebenen-Budget (D15). Demo: `--fly` (ISO-Taste im Emulator nicht sendbar).
 - Hidden Map (M2d): Unerforscht schwarz, Erinnert abgedunkelt (Raster), Gegner nur bei Sichtlinie (Bresenham, Chebyshev 9/11, GDD D14). Sicht-Neuberechnung pro eigenem Schritt ~162 ms (Emulator, ADR 0009).
 - Kerzen und Wasser sind animiert, der Cursor ist ein blinkender VDP-Sprite.
 
@@ -64,7 +65,7 @@ uv run tools/mockup.py --sheet             # Mockup und Kachelübersicht
 uv run tools/art/creature_sheet.py         # Kreaturen-Übersicht
 ```
 
-- Spiel-Optionen: `loc` (Testland), `loc --house` (Zauberer-Haus), `--dump` (`loc.log` mit ASCII-Karte und AP pro Frame), `--bench`, `--keytest`, `--selftest`, `--free-round1` (Runde-1-Bewegungssperre aus, für Skripte).
+- Spiel-Optionen: `loc` (Testland), `loc --house` (Zauberer-Haus), `--dump` (`loc.log` mit ASCII-Karte und AP pro Frame), `--bench`, `--keytest`, `--selftest`, `--free-round1` (Runde-1-Bewegungssperre aus, für Skripte), `--fly` (eigene Flieger starten in der Luft).
 - `send_keys`-Syntax: `up+right` ist ein Akkord, `hold=right=800` hält die Taste 800 ms, `shift+e` ist Shift+E.
 
 ---
@@ -119,18 +120,11 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 
 ---
 
-## 7. Nächste Schritte (M2e–M2f)
+## 7. Nächste Schritte (M2f)
 
 **Workflow:** pro Issue ein Branch `m2/<x>-…`, Selftest-Checks ergänzen, Emulator-Screenshot, CHANGELOG, dann PR mit `Closes #n` und Auto-Merge.
 
-### M2e – Luft- und Bodenebene (#17), als Nächstes
-
-- `Unit.airborne`; pro Feld eine Boden- und eine Luft-Einheit. `world_unit_at` braucht einen Ebenen-Parameter.
-- Fliegen: konstante Kosten laut `costs.csv`-Zeile `air` (4/6). Basis ist `ap_fly` (bereits in Unit). Aufsteigen bzw. Landen über `actions.csv` (`take_off`, `land`); nicht auf belegtem Feld bzw. unter Dach landen.
-- Tasten `<` / `>`: auf dem Emulator nicht testbar (#3). Per ASCII `<` und `>` des Down-Events auswerten; auf Hardware prüfen.
-- View: Luft-Einheit über der Boden-Einheit, z. B. 2–3 px höher plus Schatten; Panel-Status-Icon „fliegt“ (`UF_FLYING`).
-
-### M2f – Bump und Look-Modus (#18)
+### M2f – Bump und Look-Modus (#18), als Nächstes
 
 - Bump auf geschlossene Tür: Tür öffnen (`ACTIONS[ACT_OPEN_DOOR]`, nur mit `CF_USE`), danach `world_map_changed()` (View-Cache).
 - Bump auf Gegner: Meldung „Kampf folgt in M3“.

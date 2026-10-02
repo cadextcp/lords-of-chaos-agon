@@ -113,6 +113,16 @@ static void push(FieldLayers *f, uint16_t id)
         f->id[f->n++] = id;
 }
 
+/* push() for an airborne unit: also flags the layer, the renderer draws
+ * it a few pixels higher (GDD 11.3). */
+static void push_air(FieldLayers *f, uint16_t id)
+{
+    if (f->n < VIEW_MAX_LAYERS) {
+        f->air |= (uint16_t)(1u << f->n);
+        f->id[f->n++] = id;
+    }
+}
+
 static uint8_t wall_mask(const World *w, int16_t x, int16_t y)
 {
     return (uint8_t)((world_is_wall_line(w, x, (int16_t)(y - 1)) ? 1 : 0) |
@@ -129,6 +139,7 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
     uint8_t fl, fe, i;
 
     out->n = 0;
+    out->air = 0;
     fl = w->floor[wy][wx];
     fe = w->feature[wy][wx];
     push(out, FLOOR_TILE[fl]);
@@ -164,12 +175,15 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
 
 /* Hidden movement (GDD 3.4, AMI 4): enemy units are only drawn when the
  * viewer currently sees their field; invisible enemies never. */
-static void push_unit(const World *w, const Unit *un, FieldLayers *out)
+static void push_unit(const World *w, const Unit *un, FieldLayers *out, bool air)
 {
     if (sight_map && un->owner != sight_map->owner &&
         (!sight_visible(sight_map, w, un->x, un->y) || (un->flags & UF_INVISIBLE)))
         return;
-    push(out, (uint16_t)(CREATURE_TILE[un->kind] + un->owner));
+    if (air)
+        push_air(out, (uint16_t)(CREATURE_TILE[un->kind] + un->owner));
+    else
+        push(out, (uint16_t)(CREATURE_TILE[un->kind] + un->owner));
 }
 
 /* Hidden map (GDD 11.2): unexplored fields are a black tile, explored but
@@ -180,6 +194,7 @@ static void apply_sight(const World *w, int16_t wx, int16_t wy, FieldLayers *out
         return;
     if (!sight_explored(sight_map, w, wx, wy)) {
         out->n = 0;
+        out->air = 0;
         push(out, T_UNEXPLORED);
     } else if (!sight_visible(sight_map, w, wx, wy)) {
         push(out, T_OVERLAY_REMEMBERED);
@@ -211,9 +226,14 @@ static void compose_dynamic(const World *w, int16_t wx, int16_t wy, FieldLayers 
         }
     }
 
-    u = world_unit_at(w, wx, wy);
+    u = world_unit_at(w, wx, wy, UL_GROUND);
     if (u != NO_UNIT)
-        push_unit(w, &w->units[u], out);
+        push_unit(w, &w->units[u], out, false);
+    u = world_unit_at(w, wx, wy, UL_AIR);
+    if (u != NO_UNIT) {
+        push(out, T_AIR_SHADOW);      /* ground shadow below the flyer */
+        push_unit(w, &w->units[u], out, true);
+    }
 }
 
 /* Reference implementation (slow, used by tests and the panel). */
@@ -249,7 +269,8 @@ void view_rebuild(const World *w)
 /* Fast path: cached static layers + a per-frame overlay of objects, units
  * and cursor mapped to window positions. Must equal view_compose(). */
 static uint16_t over_obj[VIEW_H][VIEW_W];
-static uint8_t over_unit[VIEW_H][VIEW_W];   /* unit index + 1, 0 = none */
+static uint8_t over_unit[VIEW_H][VIEW_W];   /* ground unit index + 1 */
+static uint8_t over_air[VIEW_H][VIEW_W];    /* air unit index + 1, 0 = none */
 #define NO_TILE 0xFFFF
 
 static bool to_view(const World *w, int16_t x, int16_t y, uint8_t *vx, uint8_t *vy)
@@ -271,13 +292,18 @@ static void build_overlay(const World *w)
     uint8_t i, vx, vy;
     memset(over_obj, 0xFF, sizeof over_obj);     /* NO_TILE */
     memset(over_unit, 0, sizeof over_unit);
+    memset(over_air, 0, sizeof over_air);
     for (i = w->object_count; i-- > 0;)   /* first object in the list wins */
         if (to_view(w, w->objects[i].x, w->objects[i].y, &vx, &vy))
             over_obj[vy][vx] = w->objects[i].tile;
     for (i = 0; i < w->unit_count; i++) {
         const Unit *un = &w->units[i];
-        if (to_view(w, un->x, un->y, &vx, &vy))
-            over_unit[vy][vx] = (uint8_t)(i + 1);
+        if (to_view(w, un->x, un->y, &vx, &vy)) {
+            if (un->flags & UF_FLYING)
+                over_air[vy][vx] = (uint8_t)(i + 1);
+            else
+                over_unit[vy][vx] = (uint8_t)(i + 1);
+        }
     }
 }
 
@@ -300,13 +326,18 @@ static void compose_fast(const World *w, uint8_t vx, uint8_t vy, FieldLayers *ou
     if (over_obj[vy][vx] != NO_TILE)
         push(out, over_obj[vy][vx]);
     if (over_unit[vy][vx])
-        push_unit(w, &w->units[over_unit[vy][vx] - 1], out);
+        push_unit(w, &w->units[over_unit[vy][vx] - 1], out, false);
+    if (over_air[vy][vx]) {
+        push(out, T_AIR_SHADOW);
+        push_unit(w, &w->units[over_air[vy][vx] - 1], out, true);
+    }
     apply_sight(w, wx, wy, out);
     compose_cursor(w, wx, wy, out);
 }
 
 uint8_t view_update(const World *w)
 {
+    static uint8_t had_air[VIEW_H][VIEW_W];
     FieldLayers f;
     uint8_t vx, vy, n = 0;
     if (cache_world != w || cache_gen != w->generation)
@@ -326,15 +357,32 @@ uint8_t view_update(const World *w)
                     if (is_animated(f.id[i]))
                         animated[vy][vx] = 1;
             }
-            if (!valid || f.n != fields[vy][vx].n ||
+            had_air[vy][vx] = fields[vy][vx].air != 0;
+            if (!valid || f.n != fields[vy][vx].n || f.air != fields[vy][vx].air ||
                 memcmp(f.id, fields[vy][vx].id, f.n * sizeof f.id[0]) != 0) {
                 fields[vy][vx] = f;
                 dirty[vy][vx] = 1;
             }
-            n = (uint8_t)(n + dirty[vy][vx]);
         }
     }
     valid = true;
+    /* Airborne units are drawn a few pixels into the field above (GDD
+     * 11.3): a field whose air layer changed - old or new - must repaint
+     * the field above (stale overhang), and a repainted field must be
+     * followed by the air field below it, since fields draw top-down. */
+    for (vy = 0; vy < VIEW_H; vy++) {
+        for (vx = 0; vx < VIEW_W; vx++) {
+            if (!dirty[vy][vx])
+                continue;
+            if (vy > 0 && (fields[vy][vx].air || had_air[vy][vx]))
+                dirty[vy - 1][vx] = 1;
+            if (vy + 1 < VIEW_H && fields[vy + 1][vx].air)
+                dirty[vy + 1][vx] = 1;
+        }
+    }
+    for (vy = 0; vy < VIEW_H; vy++)
+        for (vx = 0; vx < VIEW_W; vx++)
+            n = (uint8_t)(n + dirty[vy][vx]);
     return n;
 }
 

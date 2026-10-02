@@ -25,6 +25,7 @@ void view_set_sight(const Sight *s);
 
 typedef struct {
     uint8_t n;
+    uint16_t air;                   /* bit i: layer i is an airborne unit */
     uint16_t id[VIEW_MAX_LAYERS];   /* TileId, bottom to top */
 } FieldLayers;
 

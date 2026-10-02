@@ -133,6 +133,7 @@ units
 33 12 lion neutral
 22 20 crocodile neutral
 13 14 dwarf p1
+14 2 giant_bat p1
 
 objects
 5 9 obj_scroll

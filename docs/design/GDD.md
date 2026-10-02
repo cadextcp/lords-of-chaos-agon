@@ -746,6 +746,7 @@ Spalte „WinUAE“: Was sich im Amiga-Original direkt beobachten lässt (●), 
 | D11 | Perspektive | **3/4-Frontansicht wie auf dem Amiga** für Möbel, Wände und Kreaturen; flache Böden; Halb-Böden an Wänden (§11.2). |
 | D12 | Kreaturwerte | **Kreaturtabelle des Originals `[PM 34]` als Startwerte** für alle 25 Kreaturen (`data/creatures.csv`). Balancing später; Abweichungen werden in der CSV kommentiert. |
 | D13 | Kreaturgrafik | **Alle 25 Kreaturen bekommen schon in M2 eigene 24×24-Pixelart** (3/4-Ansicht, Besitzerfarben). |
+| D15 | Fliegen (M2e) | **Ein AP-Budget pro Einheit, ebenenabhängig aufgefüllt** (Rundenende: `ap_max` am Boden, `ap_fly` in der Luft). Aufsteigen (`<`) und Landen (`>`) zahlen die Aktionskosten aus `actions.csv`; Luftbewegung konstant 4/6 und ignoriert Terrain und Boden-Einheiten; Landen nicht auf Ertrinkungs-Terrain. Flieger werden 3 px höher mit Bodenschatten über der Boden-Einheit gezeichnet; Dächer folgen mit dem späteren Dach-Datenfeld. |
 | D14 | Sichtalgorithmus | **Bresenham-Strahlen pro Zielfeld** (M2d): Chebyshev-Distanz (9 Boden / 11 Luft), blockierendes Gelände nur **zwischen** den Endpunkten, Diagonalen permissiv (keine Ecken-Regel). Sicht wird als Bitfeld pro Spieler cached und nur nach eigenen Schritten bzw. am Rundenende neu berechnet. Messwerte und Optimierungen: ADR 0009. |
 
 **Noch offen:**

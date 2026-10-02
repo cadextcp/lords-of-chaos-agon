@@ -189,13 +189,15 @@ bool world_blocks(const World *w, int16_t x, int16_t y)
     return FEATURE_BLOCKS[w->feature[y][x]];
 }
 
-uint8_t world_unit_at(const World *w, int16_t x, int16_t y)
+uint8_t world_unit_at(const World *w, int16_t x, int16_t y, UnitLayer layer)
 {
     uint8_t i;
+    bool air = layer == UL_AIR;
     if (!world_wrap(w, &x, &y))
         return NO_UNIT;
     for (i = 0; i < w->unit_count; i++)
-        if (w->units[i].x == x && w->units[i].y == y)
+        if (w->units[i].x == x && w->units[i].y == y &&
+            ((w->units[i].flags & UF_FLYING) != 0) == air)
             return i;
     return NO_UNIT;
 }
@@ -217,6 +219,18 @@ uint8_t world_unit_step_cost(const World *w, uint8_t unit, int16_t x, int16_t y,
     return diagonal ? (uint8_t)((c * 3 + 1) / 2) : c;
 }
 
+uint8_t world_air_step_cost(bool diagonal)
+{
+    return diagonal ? AIR_AP_DIAG : AIR_AP_ORTH;
+}
+
+static void spend(Unit *u, uint8_t ap)
+{
+    uint8_t st = (uint8_t)((ap + 1) / 2);   /* half the AP, rounded up */
+    u->ap = (uint8_t)(u->ap - ap);
+    u->sta = u->sta > st ? (uint8_t)(u->sta - st) : 0;
+}
+
 bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
 {
     int16_t nx, ny;
@@ -228,33 +242,78 @@ bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
     u = &w->units[unit];
     nx = (int16_t)(u->x + dx);
     ny = (int16_t)(u->y + dy);
-    if (!world_wrap(w, &nx, &ny) || world_blocks(w, nx, ny) ||
-        world_unit_at(w, nx, ny) != NO_UNIT)
+    if (!world_wrap(w, &nx, &ny))
         return false;
-    cost = world_unit_step_cost(w, unit, nx, ny, dx != 0 && dy != 0);
+    if (u->flags & UF_FLYING) {
+        /* Flyers cross anything, they only respect the air layer. */
+        if (world_unit_at(w, nx, ny, UL_AIR) != NO_UNIT)
+            return false;
+        cost = world_air_step_cost(dx != 0 && dy != 0);
+    } else {
+        if (world_blocks(w, nx, ny) ||
+            world_unit_at(w, nx, ny, UL_GROUND) != NO_UNIT)
+            return false;
+        cost = world_unit_step_cost(w, unit, nx, ny, dx != 0 && dy != 0);
+    }
     if (u->ap < cost)
         return false;
-    u->ap = (uint8_t)(u->ap - cost);
-    {   /* stamina: half the AP, rounded up (GDD 5.3) */
-        uint8_t st = (uint8_t)((cost + 1) / 2);
-        u->sta = u->sta > st ? (uint8_t)(u->sta - st) : 0;
-    }
+    spend(u, cost);
     u->x = (uint8_t)nx;
     u->y = (uint8_t)ny;
     return true;
 }
 
-/* Round end (GDD 2.1.4): refill AP, recover 25 % stamina (GDD 5.3),
- * regenerate 4 % mana. Exhausted creatures (stamina under 25 % of the
- * maximum) get only half AP next round (PM 12) - tested before the
- * recovery, so one quiet round cures the exhaustion. */
+bool world_take_off(World *w, uint8_t unit)
+{
+    Unit *u;
+    if (unit >= w->unit_count)
+        return false;
+    u = &w->units[unit];
+    if (u->flags & UF_FLYING)
+        return false;
+    if (u->ap_fly == 0)                       /* creature cannot fly */
+        return false;
+    if (world_unit_at(w, u->x, u->y, UL_AIR) != NO_UNIT)
+        return false;                         /* air slot taken */
+    if (u->ap < ACTIONS[ACT_TAKE_OFF].ap)
+        return false;
+    spend(u, ACTIONS[ACT_TAKE_OFF].ap);
+    u->flags |= UF_FLYING;
+    return true;
+}
+
+bool world_land(World *w, uint8_t unit)
+{
+    Unit *u;
+    if (unit >= w->unit_count)
+        return false;
+    u = &w->units[unit];
+    if (!(u->flags & UF_FLYING))
+        return false;
+    if (world_unit_at(w, u->x, u->y, UL_GROUND) != NO_UNIT)
+        return false;                         /* no free ground slot */
+    if (FLOOR_DROWN[w->floor[u->y][u->x]])
+        return false;                         /* drowning floor (own rule) */
+    if (u->ap < ACTIONS[ACT_LAND].ap)
+        return false;
+    spend(u, ACTIONS[ACT_LAND].ap);
+    u->flags &= (uint8_t)~UF_FLYING;
+    return true;
+}
+
+/* Round end (GDD 2.1.4): refill AP - the layer budget while flying
+ * (ap_fly) -, recover 25 % stamina (GDD 5.3), regenerate 4 % mana.
+ * Exhausted creatures (stamina under 25 % of the maximum) get only half
+ * AP next round (PM 12) - tested before the recovery, so one quiet
+ * round cures the exhaustion. */
 void world_new_turn(World *w)
 {
     uint8_t i;
     for (i = 0; i < w->unit_count; i++) {
         Unit *u = &w->units[i];
+        uint8_t full = (u->flags & UF_FLYING) ? u->ap_fly : u->ap_max;
         uint16_t sta = (uint16_t)(u->sta + u->sta_max / 4);
-        u->ap = u->sta < u->sta_max / 4 ? (uint8_t)(u->ap_max / 2) : u->ap_max;
+        u->ap = u->sta < u->sta_max / 4 ? (uint8_t)(full / 2) : full;
         u->sta = (uint8_t)(sta > u->sta_max ? u->sta_max : sta);
         if (u->mana_max) {
             uint8_t mana = (uint8_t)(u->mana + u->mana_max / 25);
@@ -277,7 +336,9 @@ char world_char(const World *w, int16_t x, int16_t y)
     uint8_t u, f;
     if (!world_wrap(w, &x, &y))
         return ' ';
-    u = world_unit_at(w, x, y);
+    u = world_unit_at(w, x, y, UL_GROUND);
+    if (u == NO_UNIT)
+        u = world_unit_at(w, x, y, UL_AIR);
     if (u != NO_UNIT)
         return w->units[u].kind == CR_WIZARD ? '@' : 'g';
     f = w->feature[y][x];

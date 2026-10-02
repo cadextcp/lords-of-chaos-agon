@@ -89,18 +89,33 @@ uint8_t world_sight_byte(const World *w, uint8_t y, uint8_t x);
 /* Feature blocks ground movement (GDD 3.3 furniture table). */
 bool world_blocks(const World *w, int16_t x, int16_t y);
 
-uint8_t world_unit_at(const World *w, int16_t x, int16_t y);
+/* The two layers a unit can occupy per field (GDD 3.1): at most one
+ * ground unit and one flying unit share a field. */
+typedef enum { UL_GROUND, UL_AIR } UnitLayer;
+
+/* Unit at (x, y) on that layer, NO_UNIT if none (ground layer unless
+ * stated). */
+uint8_t world_unit_at(const World *w, int16_t x, int16_t y, UnitLayer layer);
 /* AP cost to enter (x, y); diagonal steps cost 3/2, rounded up (GDD 5.3). */
 uint8_t world_step_cost(const World *w, int16_t x, int16_t y, bool diagonal);
 /* Same for a unit: its terrain type (wood/water/rock) pays only the plain
  * floor cost in matching terrain (GDD 5.3). */
 uint8_t world_unit_step_cost(const World *w, uint8_t unit, int16_t x, int16_t y,
                              bool diagonal);
+/* Flying step (GDD 5.3): constant, whatever the ground below looks like. */
+uint8_t world_air_step_cost(bool diagonal);
 /* Move a unit one step (8 directions); false if blocked, occupied, outside
- * or not enough AP. Spends the AP on success. */
+ * or not enough AP. Airborne units ignore terrain and ground units and
+ * only respect the air layer. Spends the AP on success. */
 bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy);
-/* Round end: refill AP (halved when exhausted, PM 12), recover 25 %
- * stamina (GDD 5.3), regenerate 4 % mana. */
+/* Take off (<) / land (>): pay the action cost (actions.csv), switch
+ * layers. Landing needs a free ground slot; roofs do not exist yet
+ * (GDD 3.1, deferred). */
+bool world_take_off(World *w, uint8_t unit);
+bool world_land(World *w, uint8_t unit);
+/* Round end: refill AP - the layer budget while flying (ap_fly), halved
+ * when exhausted (PM 12) - recover 25 % stamina (GDD 5.3), regenerate
+ * 4 % mana. */
 void world_new_turn(World *w);
 
 /* Character for dumps (floor/feature/unit at a glance). */

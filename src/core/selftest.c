@@ -16,8 +16,9 @@
 /* view_hash() of the wizard house with the cursor on the wizard.
  * Must be identical on host and Agon; update deliberately when the map,
  * tiles or composition rules change. Changed for M2d: the new unexplored
- * tile shifted every tile ID after "tree". */
-#define HOUSE_VIEW_HASH 0xA470BF45UL
+ * tile shifted every tile ID after "tree"; M2e added air_shadow and
+ * cursor_blue, shifting again. */
+#define HOUSE_VIEW_HASH 0x1F416453UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -56,7 +57,8 @@ static int fast_equals_reference(void)
             const FieldLayers *f = view_field(vx, vy);
             view_compose(&world, (int16_t)(view_origin_x() + vx),
                          (int16_t)(view_origin_y() + vy), &ref);
-            if (f->n != ref.n || memcmp(f->id, ref.id, ref.n * sizeof ref.id[0]) != 0)
+            if (f->n != ref.n || f->air != ref.air ||
+                memcmp(f->id, ref.id, ref.n * sizeof ref.id[0]) != 0)
                 return 0;
         }
     return 1;
@@ -374,16 +376,19 @@ static void test_turn(void)
           "turn: independents stay put in round 1");
 
     turn_next_unit(&t, &world, false);
-    check(t.active == 10, "turn: Tab selects the dwarf, the other p1 unit");
+    check(t.active == 10, "turn: Tab selects the dwarf next");
+    turn_next_unit(&t, &world, false);
+    check(t.active == 11, "turn: then the flying bat");
     turn_next_unit(&t, &world, false);
     check(t.active == 0, "turn: Tab wraps around to the wizard");
     turn_next_unit(&t, &world, true);
-    check(t.active == 10, "turn: Shift+Tab goes back to the dwarf");
+    check(t.active == 11, "turn: Shift+Tab goes back to the bat");
 
     world.units[0].ap = 0;
     turn_next_unit(&t, &world, false);
     check(t.active == 10, "turn: Tab skips units without AP");
     world.units[0].ap = world.units[0].ap_max;
+    turn_next_unit(&t, &world, false);
     turn_next_unit(&t, &world, false);
     check(t.active == 0, "turn: back on the wizard");
 
@@ -392,7 +397,8 @@ static void test_turn(void)
           "turn: space finishes the wizard, dwarf is next");
     check(turn_units_left(&t, &world), "turn: unfinished units are left");
     turn_finish_unit(&t, &world);
-    check(!turn_units_left(&t, &world) && t.active == 10,
+    turn_finish_unit(&t, &world);
+    check(!turn_units_left(&t, &world) && t.active == 11,
           "turn: all finished, active stays for rendering");
 
     t.round1_lock = false;
@@ -494,6 +500,89 @@ static void test_sight(void)
     }
 }
 
+static void test_flight(void)
+{
+    FieldLayers f;
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    check(world.unit_count == 12 && world.units[11].kind == CR_GIANT_BAT &&
+          world.units[11].ap_fly == 62 && world.units[11].owner == OWN_P1,
+          "fly: testland has a p1 giant bat (index 11)");
+    check(world.units[0].ap_fly == 0, "fly: the wizard cannot fly");
+
+    check(world_unit_at(&world, 14, 2, UL_GROUND) == 11 &&
+          world_unit_at(&world, 14, 2, UL_AIR) == NO_UNIT,
+          "fly: bat starts on the ground layer");
+    check(!world_take_off(&world, 0), "fly: wizard cannot take off");
+    check(world_take_off(&world, 11) && world.units[11].ap == 20,
+          "fly: take-off costs 4 AP");
+    check((world.units[11].flags & UF_FLYING) != 0 &&
+          world_unit_at(&world, 14, 2, UL_AIR) == 11 &&
+          world_unit_at(&world, 14, 2, UL_GROUND) == NO_UNIT,
+          "fly: bat occupies the air layer");
+
+    {   /* flight ignores terrain: two steps east, onto the river */
+        check(world_move_unit(&world, 11, 1, 0) && world_move_unit(&world, 11, 1, 0),
+              "fly: straight over anything");
+    }
+    check(world.units[11].x == 16 && world.units[11].y == 2 &&
+          world.units[11].ap == 12 && world_floor(&world, 16, 2) == FL_WATER,
+          "fly: 2 air steps onto the river cost 8 AP");
+    check(!world_land(&world, 11), "fly: no landing on water");
+    check(world_move_unit(&world, 11, 1, 0) && world_land(&world, 11) &&
+          world.units[11].ap == 4,
+          "fly: landing on grass costs 4 AP");
+    check(world_unit_at(&world, 17, 2, UL_GROUND) == 11 &&
+          !(world.units[11].flags & UF_FLYING),
+          "fly: back on the ground layer");
+
+    {   /* ground and air unit share a field */
+        world.units[11].x = 6;
+        world.units[11].y = 6;
+        world.units[11].flags |= UF_FLYING;
+        check(world_unit_at(&world, 6, 6, UL_GROUND) == 0 &&
+              world_unit_at(&world, 6, 6, UL_AIR) == 11,
+              "fly: wizard below, bat above");
+        view_set_sight(NULL);
+        view_compose(&world, 6, 6, &f);
+        check(has_layer(&f, T_WIZARD_P1) && has_layer(&f, T_AIR_SHADOW) &&
+              has_layer(&f, T_GIANT_BAT_P1),
+              "fly: view stacks ground unit, shadow and flyer");
+        check(f.air != 0, "fly: the flyer layer is flagged");
+        view_set_origin(2, 2);
+        view_set_cursor(6, 6, T_CURSOR_GREEN);
+        view_invalidate();
+        view_update(&world);
+        check(view_dirty(4, 4) && fast_equals_reference(),
+              "fly: fast path composes the stack as well");
+        view_set_sight(NULL);
+        view_clean();
+    }
+
+    {   /* round end refills the layer budget (PM 34: bat 24 ground, 62 air) */
+        world.units[11].flags |= UF_FLYING;
+        world_new_turn(&world);
+        check(world.units[11].ap == 62, "fly: airborne refill uses ap_fly");
+        world.units[11].flags &= (uint8_t)~UF_FLYING;
+        world_new_turn(&world);
+        check(world.units[11].ap == 24, "fly: grounded refill uses ap_max");
+    }
+
+    {   /* sight from the air: range 11, walls do not block */
+        Sight s;
+        world.unit_count = 12;
+        world.units[11].x = 6;
+        world.units[11].y = 6;
+        world.units[11].flags |= UF_FLYING;
+        sight_init(&s, OWN_P1);
+        sight_compute(&world, &s);
+        check(sight_visible(&s, &world, 6, 2) && sight_visible(&s, &world, 6, 1),
+              "fly: the bat looks over the house walls");
+        check(sight_visible(&s, &world, 6, 17) && !sight_visible(&s, &world, 6, 18),
+              "fly: air range 11");
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -510,6 +599,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_creatures();
     test_turn();
     test_sight();
+    test_flight();
     load_house();   /* leave a clean state */
     return fails;
 }

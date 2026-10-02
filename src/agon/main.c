@@ -9,6 +9,8 @@
  *   loc --keytest    keyboard spike: show/log every key event (issue #3)
  *   loc --free-round1  lifting of the round 1 movement lock (PM 7) for
  *                    scripted emulator runs
+ *   loc --fly        own flyers start airborne (demo; the ISO '<' key is
+ *                    not sendable to the emulator, #3)
  */
 #include <agon/keyboard.h>
 #include <agon/mos.h>
@@ -18,6 +20,7 @@
 
 #include "../core/chord.h"
 #include "../core/colors.h"
+#include "../core/gen/data.h"
 #include "../core/names.h"
 #include "../core/selftest.h"
 #include "../core/sight.h"
@@ -59,7 +62,7 @@ static void place_cursor(void)
 {
     const Unit *u = &world.units[active()];
     render_cursor((int16_t)(u->x - view_origin_x()), (int16_t)(u->y - view_origin_y()),
-                  CURSOR_GREEN, cursor_on);
+                  (u->flags & UF_FLYING) ? CURSOR_BLUE : CURSOR_GREEN, cursor_on);
 }
 
 static void print_line(const char *line)
@@ -185,7 +188,8 @@ static void bench(void)
 int main(int argc, char **argv)
 {
     struct keyboard_event_t e;
-    bool dump = false, do_bench = false, free_round1 = false, running = true;
+    bool dump = false, do_bench = false, free_round1 = false, do_fly = false;
+    bool running = true;
     const char *map_path;
     uint32_t next_anim, next_blink;
     uint8_t phase = 0, m, i;
@@ -207,6 +211,8 @@ int main(int argc, char **argv)
     for (i = 1; i < (uint8_t)argc; i++)
         if (strcmp(argv[i], "--free-round1") == 0)
             free_round1 = true;
+        else if (strcmp(argv[i], "--fly") == 0)
+            do_fly = true;
 
     log_open(dump || do_bench);
     log_line("BOOT");
@@ -226,6 +232,12 @@ int main(int argc, char **argv)
     turn_init(&turns, &world, TURN_SEED, 1u << OWN_P1);
     if (free_round1)
         turns.round1_lock = false;
+    if (do_fly) {                    /* the ISO key is not sendable yet (#3) */
+        uint8_t k;
+        for (k = 0; k < world.unit_count; k++)
+            if (world.units[k].owner == OWN_P1 && world.units[k].ap_fly)
+                world.units[k].flags |= UF_FLYING;
+    }
     sight_init(&p1_sight, OWN_P1);
     update_sight();
     view_set_sight(&p1_sight);
@@ -289,6 +301,30 @@ int main(int argc, char **argv)
                     update_sight();
                     frame(dump);
                 }
+            } else if (e.ascii == '<') {              /* take off */
+                confirm_end = false;
+                if (world_take_off(&world, active()))
+                    render_message(1, C_BRIGHT_GREEN, "Steigt auf.");
+                else if (world.units[active()].ap_fly == 0)
+                    render_message(1, C_BRIGHT_RED, "Diese Kreatur fliegt nicht.");
+                else if (world.units[active()].ap < ACTIONS[ACT_TAKE_OFF].ap)
+                    render_message(1, C_BRIGHT_RED, "Zu wenig AP zum Aufsteigen.");
+                else
+                    render_message(1, C_BRIGHT_RED, "Da fliegt schon einer.");
+                update_sight();
+                frame(dump);
+            } else if (e.ascii == '>') {              /* land */
+                confirm_end = false;
+                if (world_land(&world, active()))
+                    render_message(1, C_BRIGHT_GREEN, "Landet.");
+                else if (!(world.units[active()].flags & UF_FLYING))
+                    render_message(1, C_BRIGHT_RED, "Die Kreatur fliegt nicht.");
+                else if (world.units[active()].ap < ACTIONS[ACT_LAND].ap)
+                    render_message(1, C_BRIGHT_RED, "Zu wenig AP zum Landen.");
+                else
+                    render_message(1, C_BRIGHT_RED, "Kein Platz zum Landen.");
+                update_sight();
+                frame(dump);
             } else if (e.vkey == VK_ESC) {
                 if (confirm_end) {
                     confirm_end = false;
