@@ -7,6 +7,7 @@
 #include "gen/maps.h"
 #include "names.h"
 #include "rng.h"
+#include "sight.h"
 #include "spells.h"
 #include "turn.h"
 #include "view.h"
@@ -14,8 +15,9 @@
 
 /* view_hash() of the wizard house with the cursor on the wizard.
  * Must be identical on host and Agon; update deliberately when the map,
- * tiles or composition rules change. */
-#define HOUSE_VIEW_HASH 0xC906A0C7UL
+ * tiles or composition rules change. Changed for M2d: the new unexplored
+ * tile shifted every tile ID after "tree". */
+#define HOUSE_VIEW_HASH 0xA470BF45UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -422,6 +424,76 @@ static void test_turn(void)
     check(t.round == 4 && t.phase == OWN_P1, "turn: rounds keep advancing");
 }
 
+static void test_sight(void)
+{
+    Sight s;
+    FieldLayers f;
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 2;                    /* wizards only for isolation */
+    world.units[1].x = 0;
+    world.units[1].y = 35;                   /* enemy far away */
+    view_set_sight(NULL);
+    sight_init(&s, OWN_P1);
+    sight_compute(&world, &s);
+    check(sight_visible(&s, &world, 6, 6), "sight: own field is visible");
+    check(sight_visible(&s, &world, 3, 6) && !sight_visible(&s, &world, 2, 6),
+          "sight: wall visible, the field behind it not");
+    world.units[0].x = 20;                   /* leave the house (test only) */
+    world.units[0].y = 13;
+    sight_compute(&world, &s);
+    check(sight_visible(&s, &world, 29, 13) && !sight_visible(&s, &world, 30, 13),
+          "sight: ground range 9 (Chebyshev)");
+    check(sight_explored(&s, &world, 6, 6) && !sight_visible(&s, &world, 6, 6),
+          "sight: explored stays when sight moves on");
+    view_set_sight(&s);
+    view_compose(&world, 6, 6, &f);
+    check(has_layer(&f, T_OVERLAY_REMEMBERED), "sight: remembered raster overlay");
+    view_compose(&world, 31, 26, &f);        /* original p2 spot: never seen */
+    check(f.n == 1 && f.id[0] == T_UNEXPLORED, "sight: unexplored is black");
+
+    world.units[1].x = 21;                   /* enemy steps into sight */
+    world.units[1].y = 13;
+    sight_compute(&world, &s);
+    view_compose(&world, 21, 13, &f);
+    check(has_layer(&f, T_WIZARD_P2), "sight: enemy in sight is drawn");
+    world.units[1].x = 6;                    /* enemy into the dark house */
+    world.units[1].y = 6;
+    sight_compute(&world, &s);
+    view_compose(&world, 6, 6, &f);
+    check(has_layer(&f, T_OVERLAY_REMEMBERED) && !has_layer(&f, T_WIZARD_P2),
+          "sight: hidden movement keeps enemies invisible");
+
+    world.units[0].x = 0;                    /* north-west corner */
+    world.units[0].y = 0;
+    world.units[1].x = 34;
+    world.units[1].y = 34;
+    sight_init(&s, OWN_P1);
+    sight_compute(&world, &s);
+    check(sight_visible(&s, &world, 35, 0) && sight_visible(&s, &world, 0, 35) &&
+          sight_visible(&s, &world, 35, 35), "sight: rays wrap around the world");
+    check(sight_visible(&s, &world, 27, 0) && !sight_visible(&s, &world, 26, 0),
+          "sight: wrapped range 9");
+
+    /* the fast path must compose the same hidden map as the reference */
+    {
+        uint8_t dirty_n;
+        view_set_sight(&s);
+        view_set_origin(8, 1);            /* window over house and grass */
+        view_invalidate();
+        dirty_n = view_update(&world);
+        view_clean();
+        view_update(&world);
+        check(dirty_n == VIEW_W * VIEW_H && fast_equals_reference(),
+              "sight: fast path equals reference with sight");
+        view_animate(1);
+        check(fast_equals_reference(), "sight: animated frame equals reference");
+        view_animate(0);
+        view_clean();
+        view_set_sight(NULL);
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -437,6 +509,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_terrain();
     test_creatures();
     test_turn();
+    test_sight();
     load_house();   /* leave a clean state */
     return fails;
 }

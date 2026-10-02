@@ -1,6 +1,7 @@
 #include "view.h"
 
 #include "gen/data.h"
+#include "sight.h"
 
 #include <string.h>
 
@@ -56,6 +57,7 @@ static int16_t origin_x, origin_y;
 static int16_t cursor_x, cursor_y;
 static uint16_t cursor_tile = NO_CURSOR;
 static uint8_t phase;
+static const Sight *sight_map;   /* NULL: omniscient (tests, mockups) */
 
 void view_invalidate(void) { valid = false; }
 
@@ -96,6 +98,11 @@ void view_set_cursor(int16_t x, int16_t y, uint16_t tile)
     cursor_x = x;
     cursor_y = y;
     cursor_tile = tile;
+}
+
+void view_set_sight(const Sight *s)
+{
+    sight_map = s;
 }
 
 void view_set_phase(uint8_t p) { phase = p & 1; }
@@ -155,7 +162,40 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
     }
 }
 
-/* Per-frame layers on top: animation phase, object, unit, cursor. */
+/* Hidden movement (GDD 3.4, AMI 4): enemy units are only drawn when the
+ * viewer currently sees their field; invisible enemies never. */
+static void push_unit(const World *w, const Unit *un, FieldLayers *out)
+{
+    if (sight_map && un->owner != sight_map->owner &&
+        (!sight_visible(sight_map, w, un->x, un->y) || (un->flags & UF_INVISIBLE)))
+        return;
+    push(out, (uint16_t)(CREATURE_TILE[un->kind] + un->owner));
+}
+
+/* Hidden map (GDD 11.2): unexplored fields are a black tile, explored but
+ * out of sight get the raster overlay on top. */
+static void apply_sight(const World *w, int16_t wx, int16_t wy, FieldLayers *out)
+{
+    if (!sight_map)
+        return;
+    if (!sight_explored(sight_map, w, wx, wy)) {
+        out->n = 0;
+        push(out, T_UNEXPLORED);
+    } else if (!sight_visible(sight_map, w, wx, wy)) {
+        push(out, T_OVERLAY_REMEMBERED);
+    }
+}
+
+static void compose_cursor(const World *w, int16_t wx, int16_t wy, FieldLayers *out)
+{
+    if (cursor_tile != NO_CURSOR) {
+        int16_t cx = cursor_x, cy = cursor_y;
+        if (world_wrap(w, &cx, &cy) && cx == wx && cy == wy)
+            push(out, cursor_tile);
+    }
+}
+
+/* Per-frame layers on top: animation phase, object, unit. */
 static void compose_dynamic(const World *w, int16_t wx, int16_t wy, FieldLayers *out)
 {
     uint8_t i, u;
@@ -172,16 +212,8 @@ static void compose_dynamic(const World *w, int16_t wx, int16_t wy, FieldLayers 
     }
 
     u = world_unit_at(w, wx, wy);
-    if (u != NO_UNIT) {
-        const Unit *un = &w->units[u];
-        push(out, (uint16_t)(CREATURE_TILE[un->kind] + un->owner));
-    }
-
-    if (cursor_tile != NO_CURSOR) {
-        int16_t cx = cursor_x, cy = cursor_y;
-        if (world_wrap(w, &cx, &cy) && cx == wx && cy == wy)
-            push(out, cursor_tile);
-    }
+    if (u != NO_UNIT)
+        push_unit(w, &w->units[u], out);
 }
 
 /* Reference implementation (slow, used by tests and the panel). */
@@ -195,6 +227,8 @@ void view_compose(const World *w, int16_t x, int16_t y, FieldLayers *out)
     }
     compose_static(w, wx, wy, out);
     compose_dynamic(w, wx, wy, out);
+    apply_sight(w, wx, wy, out);
+    compose_cursor(w, wx, wy, out);
 }
 
 /* Static layers of every map field, computed once per map (14 KB). */
@@ -214,7 +248,8 @@ void view_rebuild(const World *w)
 
 /* Fast path: cached static layers + a per-frame overlay of objects, units
  * and cursor mapped to window positions. Must equal view_compose(). */
-static uint16_t over_obj[VIEW_H][VIEW_W], over_unit[VIEW_H][VIEW_W];
+static uint16_t over_obj[VIEW_H][VIEW_W];
+static uint8_t over_unit[VIEW_H][VIEW_W];   /* unit index + 1, 0 = none */
 #define NO_TILE 0xFFFF
 
 static bool to_view(const World *w, int16_t x, int16_t y, uint8_t *vx, uint8_t *vy)
@@ -235,14 +270,14 @@ static void build_overlay(const World *w)
 {
     uint8_t i, vx, vy;
     memset(over_obj, 0xFF, sizeof over_obj);     /* NO_TILE */
-    memset(over_unit, 0xFF, sizeof over_unit);
+    memset(over_unit, 0, sizeof over_unit);
     for (i = w->object_count; i-- > 0;)   /* first object in the list wins */
         if (to_view(w, w->objects[i].x, w->objects[i].y, &vx, &vy))
             over_obj[vy][vx] = w->objects[i].tile;
     for (i = 0; i < w->unit_count; i++) {
         const Unit *un = &w->units[i];
         if (to_view(w, un->x, un->y, &vx, &vy))
-            over_unit[vy][vx] = (uint16_t)(CREATURE_TILE[un->kind] + un->owner);
+            over_unit[vy][vx] = (uint8_t)(i + 1);
     }
 }
 
@@ -264,13 +299,10 @@ static void compose_fast(const World *w, uint8_t vx, uint8_t vy, FieldLayers *ou
             out->id[i] = anim_swap(out->id[i], phase);
     if (over_obj[vy][vx] != NO_TILE)
         push(out, over_obj[vy][vx]);
-    if (over_unit[vy][vx] != NO_TILE)
-        push(out, over_unit[vy][vx]);
-    if (cursor_tile != NO_CURSOR) {
-        int16_t cx = cursor_x, cy = cursor_y;
-        if (world_wrap(w, &cx, &cy) && cx == wx && cy == wy)
-            push(out, cursor_tile);
-    }
+    if (over_unit[vy][vx])
+        push_unit(w, &w->units[over_unit[vy][vx] - 1], out);
+    apply_sight(w, wx, wy, out);
+    compose_cursor(w, wx, wy, out);
 }
 
 uint8_t view_update(const World *w)

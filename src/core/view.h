@@ -11,11 +11,16 @@
 #include <stdint.h>
 
 #include "gen/tiles.h"
+#include "sight.h"
 #include "world.h"
+
+/* Hidden map for composition: unexplored = black, remembered = raster
+ * overlay, enemy units only in sight. NULL (default) shows everything. */
+void view_set_sight(const Sight *s);
 
 #define VIEW_W 9
 #define VIEW_H 9
-#define VIEW_MAX_LAYERS 10
+#define VIEW_MAX_LAYERS 11   /* floor, 4 half floors, decor, feature, object, unit, sight overlay, cursor */
 #define NO_CURSOR 0xFF
 
 typedef struct {

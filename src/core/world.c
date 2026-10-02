@@ -151,13 +151,35 @@ bool world_is_wall_line(const World *w, int16_t x, int16_t y)
     return f == FE_WALL || f == FE_DOOR_CLOSED || f == FE_DOOR_OPEN;
 }
 
+/* Blocking at already-normalised in-map coordinates: no wrapping, no
+ * bounds check - the fast path for sight rays (M2d), which normalise
+ * incrementally instead of paying a division per field (AGON-QUIRKS T2). */
+bool world_blocks_sight_at(const World *w, uint8_t x, uint8_t y)
+{
+    return FLOOR_SIGHT[w->floor[y][x]] || FEATURE_SIGHT[w->feature[y][x]];
+}
+
 bool world_blocks_sight(const World *w, int16_t x, int16_t y)
 {
-    uint8_t fe;
     if (!world_wrap(w, &x, &y))
         return false;
-    fe = w->feature[y][x];
-    return FLOOR_SIGHT[w->floor[y][x]] || FEATURE_SIGHT[fe];
+    return world_blocks_sight_at(w, (uint8_t)x, (uint8_t)y);
+}
+
+/* Eight blocking flags of one row packed into a byte (x -> MSB); fields
+ * beyond the map read as clear. Lets callers build bitmaps a byte at a
+ * time instead of paying per-field indexing (sight.c, M2d). */
+uint8_t world_sight_byte(const World *w, uint8_t y, uint8_t x)
+{
+    const uint8_t *fl = w->floor[y], *fe = w->feature[y];
+    uint8_t bits = 0, i;
+    for (i = 0; i < 8; i++) {
+        uint8_t xi = (uint8_t)(x + i);
+        bits <<= 1;
+        if (xi < w->w && (FLOOR_SIGHT[fl[xi]] || FEATURE_SIGHT[fe[xi]]))
+            bits |= 1;
+    }
+    return bits;
 }
 
 bool world_blocks(const World *w, int16_t x, int16_t y)
