@@ -2,6 +2,8 @@
 
 Lords of Chaos Remake für den Agon Light (eZ80). C99 mit agondev, Python-Tools mit uv. Docs auf Deutsch, Code und Kommentare auf Englisch.
 
+**Einstieg:** [docs/HANDOVER.md](docs/HANDOVER.md) enthält den aktuellen Stand, die Zusammenarbeit mit dem Nutzer, Fallstricke und die nächsten Schritte.
+
 ## Befehle
 
 ```bash

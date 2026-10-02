@@ -4,7 +4,7 @@ Inoffizielles Fan-Remake von Julian Gollops *Lords of Chaos* (1990) für den **A
 
 *Unofficial fan remake of Lords of Chaos for the Agon Light, written in C/eZ80.*
 
-> **Status:** M1 (Grafik und Eingabe). Der Kachel-Renderer läuft: Ein Zauberer-Haus in 24×24-Pixelart ist auf dem Agon begehbar.
+> **Status:** M2 (Core-Skelett) zur Hälfte fertig. Die 36×36-Testkarte mit Terrains und allen 25 Kreaturen in eigener 24×24-Pixelart ist begehbar. Stand und nächste Schritte: [docs/HANDOVER.md](docs/HANDOVER.md)
 > Mockup: [docs/design/mockups/wizard-house.png](docs/design/mockups/wizard-house.png)
 > Plan: [docs/ROADMAP.md](docs/ROADMAP.md) · Design: [docs/design/GDD.md](docs/design/GDD.md)
 
