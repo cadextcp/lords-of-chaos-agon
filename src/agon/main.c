@@ -19,6 +19,7 @@
 #include <string.h>
 
 #include "../core/chord.h"
+#include "../core/combat.h"
 #include "../core/colors.h"
 #include "../core/gen/data.h"
 #include "../core/names.h"
@@ -175,17 +176,73 @@ static void step(uint8_t m, bool dump)
         case BUMP_NO_AP:
             render_message(1, C_BRIGHT_RED, "Zu wenig AP - Leertaste/Tab weiter.");
             return;
-        case BUMP_UNIT:
+        case BUMP_UNIT: {
+            CombatResult r;
+            char msg[48], name[16], aname[16];
+            uint8_t att = active();
             other = world_unit_at(&world, nx, ny,
-                                  (world.units[active()].flags & UF_FLYING) ? UL_AIR : UL_GROUND);
-            if (other != NO_UNIT && world.units[other].owner != OWN_P1)
-                render_message(1, C_BRIGHT_YELLOW, "Kampf folgt in M3.");
-            else
+                                  (world.units[att].flags & UF_FLYING) ? UL_AIR : UL_GROUND);
+            if (other == NO_UNIT || world.units[other].owner == OWN_P1) {
                 render_message(1, C_BRIGHT_RED, "Da geht es nicht weiter.");
+                return;
+            }
+            snprintf(name, sizeof name, "%s", name_unit(&world.units[other]));
+            snprintf(aname, sizeof aname, "%s", name_unit(&world.units[att]));
+            if (!combat_melee(&world, &turns.rng, att, other, &r)) {
+                render_message(1, C_BRIGHT_RED, "Angriff nicht moeglich.");
+                return;
+            }
+            if (r.died)
+                snprintf(msg, sizeof msg, "%s stirbt!", name);
+            else if (r.wound)
+                snprintf(msg, sizeof msg, "Treffer: %u. Toedliche Wunde!", r.damage);
+            else if (r.hit)
+                snprintf(msg, sizeof msg, "Treffer: %u Schaden.", r.damage);
+            else
+                snprintf(msg, sizeof msg, "Verfehlt.");
+            render_message(1, r.hit || r.died ? C_BRIGHT_YELLOW : C_GREY, msg);
+            if (r.died)
+                turn_on_unit_removed(&turns, &world, other);
+            if (r.returned) {
+                if (r.attacker_died) {
+                    snprintf(msg, sizeof msg, "Rueckschlag toetet %s!", aname);
+                } else if (r.return_hit) {
+                    snprintf(msg, sizeof msg, "Rueckschlag: %u Schaden.", r.return_damage);
+                } else {
+                    snprintf(msg, sizeof msg, "Rueckschlag: daneben.");
+                }
+                render_message(2, r.attacker_died ? C_BRIGHT_RED :
+                               r.return_hit ? C_BRIGHT_RED : C_GREY, msg);
+            }
+            if (r.attacker_died)
+                turn_on_unit_removed(&turns, &world, att);
+            update_sight();
+            frame(dump);
             return;
-        case BUMP_TERRAIN:
-            render_message(1, C_BRIGHT_YELLOW, "Angriff auf Terrain in M3.");
+        }
+        case BUMP_TERRAIN: {
+            bool destroyed;
+            char msg[48];
+            uint8_t dmg = combat_terrain(&world, &turns.rng, active(), nx, ny, &destroyed);
+            if (dmg == 0) {
+                if (world_blocks(&world, nx, ny) &&
+                    FEATURE_TOUGH[world_feature(&world, nx, ny)] == 0)
+                    render_message(1, C_BRIGHT_RED, "Unzerstoerbar.");
+                else if (world_blocks(&world, nx, ny))
+                    render_message(1, C_BRIGHT_RED, "Zu wenig AP zum Zuschlagen.");
+                else
+                    render_message(1, C_BRIGHT_RED, "Da geht es nicht weiter.");
+            } else if (destroyed) {
+                snprintf(msg, sizeof msg, "%s zerstoert!", name_feature(world_feature(&world, nx, ny)));
+                render_message(1, C_BRIGHT_YELLOW, msg);
+                update_sight();            /* rubble changes lines of sight */
+            } else {
+                snprintf(msg, sizeof msg, "%u Schaden.", dmg);
+                render_message(1, C_GREY, msg);
+            }
+            frame(dump);
             return;
+        }
         default:
             render_message(1, C_BRIGHT_RED, "Da geht es nicht weiter.");
             return;

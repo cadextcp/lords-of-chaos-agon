@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "chord.h"
+#include "combat.h"
 #include "gen/maps.h"
 #include "names.h"
 #include "rng.h"
@@ -505,7 +506,7 @@ static void test_flight(void)
     FieldLayers f;
 
     world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
-    check(world.unit_count == 12 && world.units[11].kind == CR_GIANT_BAT &&
+    check(world.unit_count == 13 && world.units[11].kind == CR_GIANT_BAT &&
           world.units[11].ap_fly == 62 && world.units[11].owner == OWN_P1,
           "fly: testland has a p1 giant bat (index 11)");
     check(world.units[0].ap_fly == 0, "fly: the wizard cannot fly");
@@ -642,6 +643,152 @@ static void test_bump_and_look(void)
     view_set_sight(NULL);
 }
 
+static void test_combat(void)
+{
+    Rng rng;
+    CombatResult r;
+    uint8_t seed_hits = 0, k;
+
+    check(combat_hit_chance(10, 10) == 50 && combat_hit_chance(20, 10) == 90 &&
+          combat_hit_chance(10, 20) == 10, "combat: chance 50+5/diff, clamped");
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 2;
+    world.units[1].x = 7;                       /* goblin east of the wizard */
+    world.units[1].y = 6;
+    world.units[1].kind = CR_GOBLIN;
+    world.units[1].com = 9;
+    world.units[1].def = 9;
+    world.units[1].con = world.units[1].con_max = 32;
+    world.units[1].ap = 30;
+    world.units[1].sta = 45;
+
+    check(!combat_melee(&world, &rng, 0, 0, &r), "combat: no self attacks");
+    world.units[1].x = 20;
+    check(!combat_melee(&world, &rng, 0, 1, &r), "combat: no attacks across the map");
+    world.units[1].x = 7;
+    world.units[1].owner = OWN_P1;
+    check(!combat_melee(&world, &rng, 0, 1, &r), "combat: no friendly fire");
+    world.units[1].owner = OWN_NEUTRAL;
+    world.units[1].flags |= UF_FLYING;
+    check(!combat_melee(&world, &rng, 0, 1, &r), "combat: no melee against flyers");
+    world.units[1].flags &= (uint8_t)~UF_FLYING;
+
+    /* many seeded exchanges: statistics instead of pinned rolls (both
+     * units reset - return blows wear the wizard down too) */
+    for (k = 0; k < 200; k++) {
+        rng_seed(&rng, 1000 + k);
+        world.units[0].ap = 40;
+        world.units[0].sta = 60;
+        world.units[0].con = 30;
+        world.units[1].ap = 30;
+        world.units[1].sta = 45;
+        world.units[1].con = 32;
+        world.units[1].flags &= (uint8_t)~UF_WOUNDED;
+        if (combat_melee(&world, &rng, 0, 1, &r) && r.hit)
+            seed_hits++;
+    }
+    check(seed_hits > 60 && seed_hits < 140, "combat: ~50 % hits over 200 seeds");
+    check(world.units[1].x == 7, "combat: survivor is still in place");
+
+    rng_seed(&rng, 7);                          /* determinism */
+    world.units[0].ap = 40;
+    world.units[1].ap = 0;                      /* too tired to strike back */
+    world.units[1].con = 32;
+    {
+        CombatResult a, b;
+        combat_melee(&world, &rng, 0, 1, &a);
+        world.units[0].ap = 40;
+        world.units[1].ap = 0;
+        world.units[1].con = 32;
+        rng_seed(&rng, 7);
+        combat_melee(&world, &rng, 0, 1, &b);
+        check(a.hit == b.hit && a.damage == b.damage && a.returned == b.returned,
+              "combat: same seed, same outcome");
+        check(!a.returned, "combat: no return without AP");
+        check(world.units[0].ap == 30, "combat: melee costs 10 AP");
+    }
+
+    world.units[1].ap = 30;                     /* with AP: return attack */
+    world.units[1].sta = 45;
+    world.units[1].con = 32;
+    rng_seed(&rng, 21);
+    combat_melee(&world, &rng, 0, 1, &r);
+    check(r.returned, "combat: defenders with AP strike back");
+    check(world.units[1].ap == 24 || !r.returned, "combat: return costs 6 AP");
+
+    world.units[1].con = 1;                     /* mortal blow */
+    world.units[1].ap = 0;
+    {
+        uint8_t count_before = world.unit_count, tries = 0;
+        do {
+            tries++;
+            rng_seed(&rng, 90 + tries);
+            world.units[0].ap = 40;
+            world.units[1].ap = 0;
+            world.units[1].con = 1;
+        } while (!combat_melee(&world, &rng, 0, 1, &r) || !r.hit);
+        check(r.died && world.unit_count == count_before - 1,
+              "combat: the dead leave the world");
+    }
+
+    {   /* fatal wound bleeds one point per round (PM 17) */
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 1;
+        world.units[0].con = world.units[0].con_max = 30;
+        world.units[0].flags |= UF_WOUNDED;
+        world_new_turn(&world);
+        check(world.units[0].con == 29, "combat: wounds bleed each round");
+        world.units[0].con = 1;
+        world_new_turn(&world);
+        check(world.unit_count == 0, "combat: bleeding to death removes the unit");
+    }
+
+    {   /* engagement: bound units hold their ground (GDD 6) */
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 2;
+        world.units[1].x = 7;
+        world.units[1].y = 6;
+        world.units[1].kind = CR_GOBLIN;
+        check(world_engaged(&world, 0), "combat: neighbour = engaged");
+        check(!world_move_unit(&world, 0, 0, -1), "combat: bound units cannot flee");
+        check(!world_move_unit(&world, 0, -1, -1), "combat: not diagonally either");
+        check(!world_move_unit(&world, 0, 1, 0), "combat: the enemy field blocks the move");
+        world_remove_unit(&world, 1);
+        check(!world_engaged(&world, 0) && world_move_unit(&world, 0, 0, -1),
+              "combat: free again after the enemy dies");
+    }
+
+    {   /* terrain attacks (features.csv) */
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 1;
+        world.units[0].x = 7;                   /* beside the house door */
+        world.units[0].y = 6;
+        world.units[0].ap = 40;
+        world.feature[5][8] = FE_DOOR_CLOSED;    /* closed for the attack */
+        {
+            bool destroyed = false;
+            check(combat_terrain(&world, &rng, 0, 3, 2, &destroyed) == 0,
+                  "combat: walls are indestructible");
+            check(combat_terrain(&world, &rng, 0, 9, 5, &destroyed) == 0,
+                  "combat: open ground has nothing to hit");
+            {
+                uint8_t hits = 0;
+                uint8_t gen = world.generation;
+                while (!destroyed && hits < 100) {
+                    world.units[0].ap = 40;
+                    rng_seed(&rng, 500 + hits);
+                    combat_terrain(&world, &rng, 0, 8, 5, &destroyed);
+                    hits++;
+                }
+                check(destroyed && world.feature[5][8] == FE_NONE &&
+                      world.generation != gen,
+                      "combat: enough hits smash the door");
+            }
+        }
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -660,6 +807,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_sight();
     test_flight();
     test_bump_and_look();
+    test_combat();
     load_house();   /* leave a clean state */
     return fails;
 }

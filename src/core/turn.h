@@ -40,5 +40,7 @@ void turn_end_phase(Turns *t, World *w);
 /* Independent creatures' phase: placeholder wandering, deterministic
  * through the seeded RNG. Respects the round 1 lock (PM 7). */
 void turn_independents(Turns *t, World *w);
+/* After world_remove_unit(unit): repair active unit and done bits. */
+void turn_on_unit_removed(Turns *t, const World *w, uint8_t unit);
 
 #endif
