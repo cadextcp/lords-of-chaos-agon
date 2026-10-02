@@ -1,0 +1,24 @@
+#include "glyphs.h"
+
+/* Hand-drawn placeholder set; replaced by tools/build_glyphs.py output later. */
+const GlyphDef glyph_defs[] = {
+    {G_WIZARD, '@', {0x18, 0x3C, 0x7E, 0x18, 0x3C, 0x5A, 0x18, 0x24}},
+    {G_TREE,   'T', {0x18, 0x3C, 0x7E, 0xFF, 0x7E, 0x18, 0x18, 0x3C}},
+    {G_WALL,   '#', {0xFF, 0x88, 0x88, 0xFF, 0x22, 0x22, 0xFF, 0x00}},
+    {G_WATER,  '~', {0x00, 0x66, 0x99, 0x00, 0x66, 0x99, 0x00, 0x00}},
+    {G_FIRE,   '^', {0x10, 0x18, 0x34, 0x2C, 0x6E, 0x7A, 0x3C, 0x18}},
+    {G_GRASS,  '"', {0x00, 0x00, 0x24, 0x24, 0x00, 0x00, 0x48, 0x48}},
+};
+
+const uint8_t glyph_count = (uint8_t)(sizeof glyph_defs / sizeof glyph_defs[0]);
+
+char glyph_ascii(uint8_t code)
+{
+    uint8_t i;
+    if (code < GLYPH_FIRST)
+        return (code >= 32 && code < 127) ? (char)code : '?';
+    for (i = 0; i < glyph_count; i++)
+        if (glyph_defs[i].code == code)
+            return glyph_defs[i].ascii;
+    return '?';
+}

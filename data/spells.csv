@@ -1,0 +1,50 @@
+# Mana cost per spell: cost(level) = mana_base + level * mana_step (level 0..8).
+# Source: ZX Spectrum table (map sheet by Pavero, reference/spectrum-maps-pavero.png),
+# verified linear for every row. Amiga: no Super Potion, Bomb Potion cost unknown (obs. O4).
+id,name,category,mana_base,mana_step,amiga
+giant_bat,Giant Bat,summon,5,2,yes
+harpy,Harpy,summon,11,5,yes
+giant_spider,Giant Spider,summon,22,11,yes
+zombie,Zombie,summon,16,8,yes
+ghost,Ghost,summon,14,7,yes
+vampire,Vampire,summon,29,15,yes
+spectre,Spectre,summon,29,14,yes
+demon,Demon,summon,40,21,yes
+strength_potion,Strength Potion,potion,8,4,yes
+protection_potion,Protection Potion,potion,6,4,yes
+invisibility_potion,Invisibility Potion,potion,16,7,yes
+speed_potion,Speed Potion,potion,8,4,yes
+flying_potion,Flying Potion,potion,5,3,yes
+super_potion,Super Potion,potion,16,8,no
+healing_potion,Healing Potion,potion,5,3,yes
+magic_fire,Magic Fire,area,15,5,yes
+gooey_blob,Gooey Blob,area,12,5,yes
+tangle_vine,Tangle Vine,area,10,4,yes
+flood,Flood,area,10,4,yes
+enchant,Enchant,other,10,5,yes
+subversion,Subversion,other,10,4,yes
+curse,Curse,other,8,3,yes
+magic_attack,Magic Attack,other,10,6,yes
+magic_bolt,Magic Bolt,other,6,3,yes
+magic_lightning,Magic Lightning,other,12,5,yes
+teleport,Teleport,other,16,2,yes
+magic_eye,Magic Eye,other,8,1,yes
+magic_shield,Magic Shield,other,6,3,yes
+gold_dragon,Gold Dragon,summon,47,23,yes
+green_dragon,Green Dragon,summon,39,19,yes
+red_dragon,Red Dragon,summon,31,15,yes
+pixie,Pixie,summon,7,4,yes
+dwarf,Dwarf,summon,5,2,yes
+goblin,Goblin,summon,7,3,yes
+troll,Troll,summon,13,6,yes
+giant,Giant,summon,17,9,yes
+centaur,Centaur,summon,10,6,yes
+unicorn,Unicorn,summon,10,5,yes
+pegasus,Pegasus,summon,12,7,yes
+gryphon,Gryphon,summon,19,10,yes
+elephant,Elephant,summon,17,8,yes
+gorilla,Gorilla,summon,8,4,yes
+lion,Lion,summon,10,5,yes
+bear,Bear,summon,12,6,yes
+crocodile,Crocodile,summon,11,5,yes
+bomb_potion,Bomb Potion,potion,,,yes

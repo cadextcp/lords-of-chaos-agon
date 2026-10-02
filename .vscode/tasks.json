@@ -1,0 +1,37 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Setup (emulator + agondev)",
+      "type": "shell",
+      "command": "uv run tools/setup.py",
+      "problemMatcher": []
+    },
+    {
+      "label": "Build (Agon + host)",
+      "type": "shell",
+      "command": "uv run tools/build.py --all",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Test (host + emulator)",
+      "type": "shell",
+      "command": "uv run tools/test.py",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Run in GUI emulator",
+      "type": "shell",
+      "command": "uv run tools/run.py",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run with screen dump (8 s)",
+      "type": "shell",
+      "command": "uv run tools/run.py --dump --time 8",
+      "problemMatcher": []
+    }
+  ]
+}

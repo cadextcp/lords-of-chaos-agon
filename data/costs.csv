@@ -1,0 +1,22 @@
+# Movement cost per terrain (own design; anchors: floor 4/6 measured in the Amiga original, obs. B4).
+# Rules: diagonal = ceil(orth * 3/2) (Gollop rule). stamina = ceil(ap / 2).
+#        A creature whose type matches `native` (wood/water/rock) pays the `floor` cost instead.
+#        Flying always pays the `air` row, whatever the ground below.
+#        passable=no -> moving into it is an attack on the terrain (toughness, GDD 3.3).
+#        hazard: drown = drowning check for non-native creatures.
+terrain,ap_orth,ap_diag,stamina_orth,stamina_diag,passable,native,hazard,blocks_sight_ground
+road,3,5,2,3,yes,,,no
+floor,4,6,2,3,yes,,,no
+grass,4,6,2,3,yes,,,no
+door_open,4,6,2,3,yes,,,no
+tall_grass,6,9,3,5,yes,wood,,yes
+forest,8,12,4,6,yes,wood,,yes
+magic_wood,10,15,5,8,yes,wood,,yes
+shadow_wood,10,15,5,8,yes,wood,,yes
+rubble,8,12,4,6,yes,rock,,no
+swamp,10,15,5,8,yes,water,,no
+water,12,18,6,9,yes,water,drown,no
+door_closed,,,,,no,,,yes
+wall,,,,,no,,,yes
+rock,,,,,no,rock,,yes
+air,4,6,2,3,yes,,,no

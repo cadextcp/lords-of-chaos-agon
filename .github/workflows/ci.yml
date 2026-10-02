@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    # gcc + make are preinstalled; the pinned emulator and agondev run here
+    # (verified locally on Ubuntu 24.04).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Cache downloads (emulator, agondev)
+        uses: actions/cache@v4
+        with:
+          path: .cache/downloads
+          key: downloads-${{ hashFiles('tools/setup.py', 'tools/agon_env.py') }}
+
+      - name: Setup (pinned emulator + toolchain, SHA-256 verified)
+        run: uv run tools/setup.py
+
+      - name: Build (Agon + host)
+        run: uv run tools/build.py --all
+
+      - name: Test (host selftest + headless emulator selftest)
+        run: uv run tools/test.py --no-build --verbose
+
+      - name: Size report
+        run: echo "loc.bin: $(stat -c %s bin/loc.bin) bytes" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: loc-bin
+          path: bin/loc.bin
