@@ -56,6 +56,8 @@ def main() -> int:
     ap.add_argument("--keytest", action="store_true", help="keyboard spike: log every key event")
     ap.add_argument("--free-round1", action="store_true",
                     help="lift the round 1 movement lock (PM 7) for scripted runs")
+    ap.add_argument("--fly", action="store_true",
+                    help="p1 flyers start airborne (the ISO '<' key is not sendable, #3)")
     ap.add_argument("--keyboard", type=int, default=2,
                     help="MOS keyboard layout (SET KEYBOARD n), default 2 = German")
     ap.add_argument("--time", type=float, help="quit the emulator after N seconds")
@@ -76,6 +78,8 @@ def main() -> int:
             else ["--keytest"] if args.keytest else [])
     if args.free_round1:
         mode.append("--free-round1")
+    if args.fly:
+        mode.append("--fly")
     write_autoexec(mode, args.keyboard)
 
     cmd = [str(env.GUI_EMULATOR), "--sdcard", str(env.SDCARD.resolve()),

@@ -21,7 +21,10 @@ uint8_t render_fields(void);
 void render_panel(const World *w, uint8_t unit);
 /* Cursor frame as a VDP sprite (GDD 11.2): drawn over the map, so moving
  * or blinking it redraws no fields. Colours follow the Amiga code. */
-typedef enum { CURSOR_GREEN, CURSOR_WHITE, CURSOR_YELLOW, CURSOR_RED } CursorColour;
+/* Frame order = upload order in render_init(); blue = unit in the air
+ * (GDD 11.2). */
+typedef enum { CURSOR_GREEN, CURSOR_WHITE, CURSOR_YELLOW, CURSOR_RED,
+               CURSOR_BLUE } CursorColour;
 void render_cursor(int16_t vx, int16_t vy, uint8_t colour, bool visible);
 
 /* One of the three message lines (0..2) below the map. */

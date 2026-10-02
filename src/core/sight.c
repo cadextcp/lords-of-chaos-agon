@@ -120,10 +120,14 @@ void sight_compute(const World *w, Sight *s)
                 dx = (int16_t)(wx - ux);
                 if (dx > (int16_t)(w->w >> 1)) dx = (int16_t)(dx - w->w);
                 else if (dx < -(int16_t)(w->w >> 1)) dx = (int16_t)(dx + w->w);
-                if ((dx == 0 && dy == 0) ||
-                    get_bit(s->visible, w->w, w->h, wx, wy))
-                    continue;            /* own cell or already covered */
-                if (path_clear(w, (uint8_t)ux, (uint8_t)uy, (int8_t)dx, (int8_t)dy)) {
+                if (dx == 0 && dy == 0)
+                    continue;            /* own cell, set above */
+                /* Airborne sources look over everything (GDD 3.4); the
+                 * covered-terrain exceptions for creatures below follow
+                 * with the roof data. */
+                if ((u->flags & UF_FLYING) ||
+                    (!get_bit(s->visible, w->w, w->h, wx, wy) &&
+                     path_clear(w, (uint8_t)ux, (uint8_t)uy, (int8_t)dx, (int8_t)dy))) {
                     set_bit(s->visible, w->w, w->h, wx, wy);
                     set_bit(s->explored, w->w, w->h, wx, wy);
                 }

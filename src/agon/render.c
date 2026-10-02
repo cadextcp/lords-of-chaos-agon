@@ -88,6 +88,7 @@ bool render_init(void)
     vdp_adv_add_sprite_bitmap(TILE_BUFFER_BASE + T_CURSOR_WHITE);
     vdp_adv_add_sprite_bitmap(TILE_BUFFER_BASE + T_CURSOR_YELLOW);
     vdp_adv_add_sprite_bitmap(TILE_BUFFER_BASE + T_CURSOR_RED);
+    vdp_adv_add_sprite_bitmap(TILE_BUFFER_BASE + T_CURSOR_BLUE);
     vdp_activate_sprites(1);
     vdp_hide_sprite();
     vdp_refresh_sprites();
@@ -116,8 +117,15 @@ uint8_t render_fields(void)
             if (!view_dirty(vx, vy))
                 continue;
             f = view_field(vx, vy);
-            for (i = 0; i < f->n; i++)
-                draw_tile(f->id[i], vx * TILE_PX, vy * TILE_PX);
+            for (i = 0; i < f->n; i++) {
+                int y = vy * TILE_PX;
+                if (f->air & (1u << i)) {       /* flyer, slightly higher */
+                    y -= 3;
+                    if (y < 0)
+                        y = 0;
+                }
+                draw_tile(f->id[i], vx * TILE_PX, y);
+            }
             n++;
         }
     }
@@ -207,7 +215,7 @@ void render_panel(const World *w, uint8_t unit)
         snprintf(buf, sizeof buf, "     ");
     text_at(34, 6, C_BRIGHT_MAGENTA, buf);
 
-    bar(0, u->ap, u->ap_max);
+    bar(0, u->ap, (u->flags & UF_FLYING) ? u->ap_fly : u->ap_max);
     bar(1, u->sta, u->sta_max);
     bar(2, u->con, u->con_max);
     bar(3, u->com, COMBAT_SCALE);

@@ -65,7 +65,9 @@ def main() -> int:
          "extern const uint8_t FLOOR_SIGHT[FL_COUNT];   /* blocks ground sight */",
          "enum { NATIVE_WOOD = 1, NATIVE_WATER = 2, NATIVE_ROCK = 4 };",
          "extern const uint8_t FLOOR_NATIVE[FL_COUNT];  /* creature type paying floor cost */",
-         "extern const uint8_t FLOOR_DROWN[FL_COUNT];   /* drowning check for non-natives */", "",
+         "extern const uint8_t FLOOR_DROWN[FL_COUNT];   /* drowning check for non-natives */",
+         "/* Flying movement (costs.csv row air): constant, whatever is below. */",
+         f"enum {{ AIR_AP_ORTH = {int(costs['air']['ap_orth'])}, AIR_AP_DIAG = {int(costs['air']['ap_diag'])} }};", "",
          "typedef enum { " + ", ".join(CATEGORIES.values()) + " } SpellCategory;",
          "typedef enum {"]
     h += [f"    SP_{r['id'].upper()}," for r in spells]

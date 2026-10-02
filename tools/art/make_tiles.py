@@ -615,6 +615,18 @@ def unexplored():
     return im
 
 
+def air_shadow():
+    """Ground shadow under a flying creature (GDD 11.3): a dithered
+    ellipse, transparent elsewhere, drawn at ground level."""
+    im = new()
+    for y in range(17, 23):
+        half = {17: 3, 18: 5, 19: 6, 20: 6, 21: 5, 22: 3}[y]
+        for x in range(12 - half, 12 + half):
+            if (x + y) % 2 == 0:
+                im.putpixel((x, y), (0, 0, 0, 255))
+    return im
+
+
 def remembered():
     im = new()
     for y in range(N):
@@ -691,8 +703,10 @@ def all_tiles() -> dict[str, Image.Image]:
         "candle_0": candle(0), "candle_1": candle(1), "tree": tree(),
         "wizard": wizard(), "goblin": goblin(), "obj_scroll": scroll(),
         "overlay_remembered": remembered(), "unexplored": unexplored(),
+        "air_shadow": air_shadow(),
         "cursor_white": cursor(C["white"]), "cursor_green": cursor(C["lgreen"]),
         "cursor_yellow": cursor(C["yellow"]), "cursor_red": cursor(C["bred"]),
+        "cursor_blue": cursor(C["blue"]),
     }
     for m in range(16):
         t[f"wall_{m:02d}"] = wall(m)
