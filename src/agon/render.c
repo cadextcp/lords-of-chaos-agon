@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "../core/colors.h"
+#include "../core/gen/data.h"
 #include "../core/names.h"
 #include "../core/view.h"
 
@@ -62,7 +63,7 @@ static bool load_tiles(void)
     return true;
 }
 
-static void draw_tile(uint8_t id, int x, int y)
+static void draw_tile(uint16_t id, int x, int y)
 {
     vdp_adv_select_bitmap(TILE_BUFFER_BASE + id);
     vdp_draw_bitmap(x, y);
@@ -187,8 +188,7 @@ void render_panel(const World *w, uint8_t unit)
     vdp_gcol(0, C_BRIGHT_BLUE);
     vdp_rectangle(PANEL_X + 4, 4, PANEL_X + 31, 31);
     black(PANEL_X + 5, 5, PANEL_X + 30, 30);
-    draw_tile(u->kind == CR_WIZARD ? (uint8_t)(T_WIZARD_P1 + u->owner) : T_GOBLIN,
-              PANEL_X + 6, 6);
+    draw_tile((uint16_t)(CREATURE_TILE[u->kind] + u->owner), PANEL_X + 6, 6);
     text_at(32, 1, C_GREY, u->kind == CR_WIZARD ? "Stufe 1" : "       ");
     for (i = 0; i < 5; i++) {
         int x = 256 + i * 9;

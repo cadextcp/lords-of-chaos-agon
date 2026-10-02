@@ -14,7 +14,7 @@ const char *name_unit(const Unit *u);
 const char *name_floor(uint8_t floor);
 const char *name_feature(uint8_t feature);
 const char *name_decor(uint8_t decor);
-const char *name_object(uint8_t tile);
+const char *name_object(uint16_t tile);
 
 #define GROUND_MAX 3
 /* What lies under (x, y), topmost first: objects, walkable feature, decor,

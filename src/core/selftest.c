@@ -14,7 +14,7 @@
 /* view_hash() of the wizard house with the cursor on the wizard.
  * Must be identical on host and Agon; update deliberately when the map,
  * tiles or composition rules change. */
-#define HOUSE_VIEW_HASH 0xE61452DCUL
+#define HOUSE_VIEW_HASH 0xC906A0C7UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -34,7 +34,7 @@ static void check(int ok, const char *what)
     out(buf);
 }
 
-static int has_layer(const FieldLayers *f, uint8_t id)
+static int has_layer(const FieldLayers *f, uint16_t id)
 {
     uint8_t i;
     for (i = 0; i < f->n; i++)
@@ -53,7 +53,7 @@ static int fast_equals_reference(void)
             const FieldLayers *f = view_field(vx, vy);
             view_compose(&world, (int16_t)(view_origin_x() + vx),
                          (int16_t)(view_origin_y() + vy), &ref);
-            if (f->n != ref.n || memcmp(f->id, ref.id, ref.n) != 0)
+            if (f->n != ref.n || memcmp(f->id, ref.id, ref.n * sizeof ref.id[0]) != 0)
                 return 0;
         }
     return 1;
@@ -123,6 +123,8 @@ static void test_view(void)
     view_compose(&world, 3, 4, &f);   /* wizard on a rug */
     check(f.n == 3 && f.id[0] == T_FLOOR_STONE && f.id[1] == T_DECOR_RUG &&
           f.id[2] == T_WIZARD_P1, "view: layer order floor, rug, wizard");
+    view_compose(&world, 8, 3, &f);   /* neutral goblin outside the house */
+    check(has_layer(&f, T_GOBLIN_NEUTRAL), "view: creature in owner colour (neutral)");
 
     view_set_phase(1);
     view_compose(&world, 1, 2, &f);
@@ -270,7 +272,7 @@ static void test_terrain(void)
     }
     view_compose(&world, -1, 12, &a);
     view_compose(&world, 35, 12, &b);
-    check(a.n == b.n && memcmp(a.id, b.id, a.n) == 0, "terrain: wrap-around x=-1 == x=35");
+    check(a.n == b.n && memcmp(a.id, b.id, a.n * sizeof a.id[0]) == 0, "terrain: wrap-around x=-1 == x=35");
     view_set_origin(0, 0);
     view_follow(&world, 0, 0);
     check(view_origin_x() == 34 && view_origin_y() == 34, "terrain: camera wraps (origin 34,34)");

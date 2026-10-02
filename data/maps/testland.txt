@@ -127,6 +127,12 @@ units
 27 5 goblin neutral
 29 7 goblin neutral
 5 24 goblin neutral
+12 9 unicorn neutral
+20 8 giant_bat neutral
+8 30 zombie neutral
+33 12 lion neutral
+22 20 crocodile neutral
+13 14 dwarf p1
 
 objects
 5 9 obj_scroll

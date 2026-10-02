@@ -42,6 +42,11 @@
 6. **Cursor als VDP-Sprite:** 4 Frames (grün, weiß, gelb, rot) aus den Cursor-Kacheln. Er blinkt alle 300 ms wie der blinkende Cursor des Originals. Nach dem Zeichnen von Feldern holt `vdp_refresh_sprites()` ihn wieder nach oben.
 7. **Animation:** `view_update()` markiert Felder mit animierten Kacheln. `view_animate(phase)` tauscht nur dort die Frames, ohne die Ebenen neu zu berechnen; der Selftest prüft, dass das gleich der Referenz ist.
 
+**Nachtrag M2b (25 Kreaturen mit Besitzerfarben, Karte 36×36 mit Wrap):**
+- Die Kachelbank hat jetzt 236 Einträge (130 KB). Kachel-IDs sind deshalb **16 Bit**; der Static-Cache wächst auf etwa 27 KB.
+- Wrap-Karten haben anfangs Modulo-Divisionen pro Feld ausgeführt, die auf dem eZ80 in Software laufen. Die Berechnung stieg dadurch auf 32 ms. Jetzt wird der Ursprung einmal pro Frame normalisiert, pro Feld genügt eine Subtraktion.
+- Ergebnis auf Testland: Berechnung 22 ms, Voll-Redraw **50 ms**, Animation 4 ms.
+
 **Auflösung:** `sysvar_time` zählt in 2-cs-Schritten (VBLANK). Jede Messung mittelt deshalb über 10 Frames.
 
 **Offen:** Messwerte auf echter Hardware (Issue #7).
