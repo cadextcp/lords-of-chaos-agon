@@ -23,6 +23,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
   - Kerzen-Animation
   - `--bench`: Voll-Redraw 48 ms (ADR 0006)
 - **Tests:** Welt-, View- und AP-Checks; schneller Pfad gleich Referenz; View-Hash plattformgleich.
+- **Sprite-Cursor und Animation (#4):**
+  - Cursor als VDP-Sprite (4 Farben, blinkt)
+  - `view_animate()` tauscht nur animierte Felder: Kerzen 16 → 6 ms pro Frame
 - **Eingabe (#3, ADR 0007):**
   - `loc --keytest` (Tastatur-Spike)
   - Bewegung per Virtual Key

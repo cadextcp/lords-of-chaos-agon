@@ -130,6 +130,13 @@ static void test_dirty_and_move(void)
     view_set_phase(0);
     view_update(&world);
     view_clean();
+    check(view_animate(1) == 4, "view: animate dirties only the 4 candles");
+    check(fast_equals_reference(), "view: animated frame equals reference");
+    view_clean();
+    check(view_animate(1) == 0, "view: same phase again changes nothing");
+    view_animate(0);
+    view_clean();
+    view_clean();
 
     check(!world_move_unit(&world, 0, 0, 5), "move: no jumping into walls");
     world.units[0].x = 1;

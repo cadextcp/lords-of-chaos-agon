@@ -17,6 +17,8 @@
 #define TEXT_ROW_MSG 27             /* 216 / 8 */
 #define TEXT_COLS 40
 
+#define CURSOR_SPRITE 0
+
 static uint8_t pixels[TILE_PX * TILE_PX];
 
 static bool load_tiles(void)
@@ -76,7 +78,31 @@ bool render_init(void)
         return false;
     vdp_clear_screen();
     view_invalidate();
+
+    /* Cursor sprite: one frame per colour, in CursorColour order. */
+    vdp_select_sprite(CURSOR_SPRITE);
+    vdp_clear_sprite();
+    vdp_adv_add_sprite_bitmap(TILE_BUFFER_BASE + T_CURSOR_GREEN);
+    vdp_adv_add_sprite_bitmap(TILE_BUFFER_BASE + T_CURSOR_WHITE);
+    vdp_adv_add_sprite_bitmap(TILE_BUFFER_BASE + T_CURSOR_YELLOW);
+    vdp_adv_add_sprite_bitmap(TILE_BUFFER_BASE + T_CURSOR_RED);
+    vdp_activate_sprites(1);
+    vdp_hide_sprite();
+    vdp_refresh_sprites();
     return true;
+}
+
+void render_cursor(int16_t vx, int16_t vy, uint8_t colour, bool visible)
+{
+    vdp_select_sprite(CURSOR_SPRITE);
+    if (visible && vx >= 0 && vy >= 0 && vx < VIEW_W && vy < VIEW_H) {
+        vdp_nth_sprite_frame(colour);
+        vdp_move_sprite_to(vx * TILE_PX, vy * TILE_PX);
+        vdp_show_sprite();
+    } else {
+        vdp_hide_sprite();
+    }
+    vdp_refresh_sprites();
 }
 
 uint8_t render_fields(void)
@@ -94,6 +120,8 @@ uint8_t render_fields(void)
         }
     }
     view_clean();
+    if (n)
+        vdp_refresh_sprites();   /* keep the cursor on top of new tiles */
     return n;
 }
 
@@ -168,6 +196,9 @@ void render_message(uint8_t line, uint8_t colour, const char *text)
 
 void render_shutdown(void)
 {
+    vdp_select_sprite(CURSOR_SPRITE);
+    vdp_hide_sprite();
+    vdp_activate_sprites(0);
     vdp_mode(0);
     vdp_cursor_enable(true);
 }

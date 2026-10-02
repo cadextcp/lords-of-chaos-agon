@@ -43,6 +43,11 @@ void view_rebuild(const World *w);
 
 /* Recompute all fields; returns the number of dirty fields. */
 uint8_t view_update(const World *w);
+/* Switch the animation phase of the current frame without recomposing:
+ * only fields with animated tiles (candles) change and become dirty.
+ * Returns the number of dirty fields. Equivalent to view_set_phase() +
+ * view_update() when nothing else changed. */
+uint8_t view_animate(uint8_t phase);
 bool view_dirty(uint8_t vx, uint8_t vy);
 const FieldLayers *view_field(uint8_t vx, uint8_t vy);
 void view_clean(void);
