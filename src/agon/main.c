@@ -6,6 +6,7 @@
  *   loc --selftest   core self-test without VDP, exits the emulator (CI)
  *   loc --dump       additionally write map + view hash to loc.log per frame
  *   loc --bench      measure full and partial redraw times -> loc.log
+ *   loc --keytest    keyboard spike: show/log every key event (issue #3)
  */
 #include <agon/keyboard.h>
 #include <agon/mos.h>
@@ -13,21 +14,21 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../core/chord.h"
 #include "../core/colors.h"
 #include "../core/selftest.h"
 #include "../core/view.h"
 #include "../core/world.h"
 #include "emu.h"
+#include "input.h"
+#include "keytest.h"
 #include "log.h"
 #include "render.h"
 
-#define KEY_ESC 27
-/* MOS ASCII codes for the cursor keys */
-#define KEY_LEFT 8
-#define KEY_RIGHT 21
-#define KEY_UP 11
-#define KEY_DOWN 10
-#define ANIM_CS 40   /* candle flicker period in centiseconds */
+#define ANIM_CS 40     /* candle flicker period in centiseconds */
+#define WINDOW_CS 8    /* arrow chord window 80 ms (GDD 5.2, ADR 0007) */
+#define DELAY_CS 35    /* held key: first repeat after 350 ms */
+#define REPEAT_CS 20   /* then one step per 200 ms */
 
 static World world;
 static const uint8_t ACTIVE = 0;   /* the wizard */
@@ -45,20 +46,6 @@ static int selftest(void)
     return fails ? 1 : 0;
 }
 
-static bool key_to_step(uint8_t ascii, int8_t *dx, int8_t *dy)
-{
-    *dx = 0;
-    *dy = 0;
-    switch (ascii) {
-    case KEY_UP:    case 'w': case 'W': *dy = -1; break;
-    case KEY_DOWN:  case 's': case 'S': *dy = 1; break;
-    case KEY_LEFT:  case 'a': case 'A': *dx = -1; break;
-    case KEY_RIGHT: case 'd': case 'D': *dx = 1; break;
-    default: return false;
-    }
-    return true;
-}
-
 static void frame(bool dump)
 {
     const Unit *u = &world.units[ACTIVE];
@@ -69,6 +56,24 @@ static void frame(bool dump)
     render_panel(&world, ACTIVE);
     if (dump)
         log_frame(&world, view_hash());
+}
+
+/* Move the active unit in direction mask m (chord.h); messages on failure. */
+static void step(uint8_t m, bool dump)
+{
+    int8_t dx, dy;
+    if (!chord_to_step(m, &dx, &dy))
+        return;
+    if (world_move_unit(&world, ACTIVE, dx, dy)) {
+        render_message(1, C_GREY, "");
+        frame(dump);
+    } else if (world.units[ACTIVE].ap < world_step_cost(&world,
+                   (int16_t)(world.units[ACTIVE].x + dx), (int16_t)(world.units[ACTIVE].y + dy),
+                   dx != 0 && dy != 0)) {
+        render_message(1, C_BRIGHT_RED, "Zu wenig AP - E fuer Zugende.");
+    } else {
+        render_message(1, C_BRIGHT_RED, "Da geht es nicht weiter.");
+    }
 }
 
 /* Times N full redraws and N single-field redraws (candle flicker). */
@@ -118,11 +123,19 @@ int main(int argc, char **argv)
     struct keyboard_event_t e;
     bool dump = false, do_bench = false, running = true;
     uint32_t next_anim;
-    uint8_t phase = 0;
-    int8_t dx, dy;
+    uint8_t phase = 0, m;
+    uint16_t now;
+    Chord chord;
 
     if (argc > 1 && strcmp(argv[1], "--selftest") == 0)
         return selftest();
+    if (argc > 1 && strcmp(argv[1], "--keytest") == 0) {
+        log_open(true);
+        keytest_run();
+        log_close();
+        render_shutdown();
+        return 0;
+    }
     dump = argc > 1 && strcmp(argv[1], "--dump") == 0;
     do_bench = argc > 1 && strcmp(argv[1], "--bench") == 0;
 
@@ -137,36 +150,42 @@ int main(int argc, char **argv)
     view_set_origin(0, 0);
     frame(dump);
     render_message(0, C_BRIGHT_YELLOW, "Willkommen im Zauberer-Haus.");
-    render_message(2, C_BRIGHT_BLUE, "Pfeile/WASD gehen  E Zugende  ESC");
+    render_message(2, C_BRIGHT_BLUE, "Pfeile+Akkorde  Pos1/Ende/Bild diag.");
     if (do_bench)
         bench();
 
     kbuf_init(16);
+    chord_init(&chord, WINDOW_CS, DELAY_CS, REPEAT_CS);
     next_anim = getsysvar_time() + ANIM_CS;
     while (running) {
+        now = (uint16_t)getsysvar_time();
+        m = chord_poll(&chord, now);
+        if (m)
+            step(m, dump);
         if (getsysvar_time() >= next_anim) {   /* candle flicker */
             next_anim += ANIM_CS;
             view_set_phase(++phase);
             view_update(&world);
             render_fields();
         }
-        if (!kbuf_poll_event(&e) || !e.isdown)
+        if (!kbuf_poll_event(&e))
             continue;
-        if (e.ascii == KEY_ESC) {
+        if (input_arrow(e.vkey)) {           /* movement by vkey (ADR 0007) */
+            m = chord_key(&chord, input_arrow(e.vkey), e.isdown != 0, now);
+            if (m)
+                step(m, dump);
+            continue;
+        }
+        if (!e.isdown)
+            continue;
+        if (input_diagonal(e.vkey)) {
+            step(input_diagonal(e.vkey), dump);
+        } else if (e.vkey == VK_ESC) {
             running = false;
         } else if (e.ascii == 'E') {
             world_new_turn(&world);
             render_message(1, C_BRIGHT_GREEN, "Neue Runde: AP aufgefuellt.");
             frame(dump);
-        } else if (key_to_step(e.ascii, &dx, &dy)) {
-            if (world_move_unit(&world, ACTIVE, dx, dy)) {
-                render_message(1, C_GREY, "");
-                frame(dump);
-            } else if (world.units[ACTIVE].ap < 4) {
-                render_message(1, C_BRIGHT_RED, "Keine AP mehr - E fuer Zugende.");
-            } else {
-                render_message(1, C_BRIGHT_RED, "Da geht es nicht weiter.");
-            }
         }
     }
     kbuf_deinit();

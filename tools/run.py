@@ -36,11 +36,12 @@ def log(msg: str) -> None:
     print(f"[run] {msg}", flush=True)
 
 
-def write_autoexec(args: list[str]) -> None:
+def write_autoexec(args: list[str], keyboard: int) -> None:
     cmd = " ".join(["loc", *args])
     # MOS wants LF line endings in autoexec.txt
-    (env.SDCARD / "autoexec.txt").write_bytes(f"cd /{env.GAME_DIR}\n{cmd}\n".encode())
-    log(f"autoexec: cd /{env.GAME_DIR} && {cmd}")
+    text = f"SET KEYBOARD {keyboard}\ncd /{env.GAME_DIR}\n{cmd}\n"
+    (env.SDCARD / "autoexec.txt").write_bytes(text.encode())
+    log(f"autoexec: SET KEYBOARD {keyboard} && cd /{env.GAME_DIR} && {cmd}")
 
 
 def uv_tool(script: str, *args: str) -> None:
@@ -52,6 +53,9 @@ def main() -> int:
     ap.add_argument("--no-build", action="store_true", help="skip building")
     ap.add_argument("--dump", action="store_true", help="game writes loc.log screen dumps")
     ap.add_argument("--bench", action="store_true", help="game measures redraw times -> loc.log")
+    ap.add_argument("--keytest", action="store_true", help="keyboard spike: log every key event")
+    ap.add_argument("--keyboard", type=int, default=2,
+                    help="MOS keyboard layout (SET KEYBOARD n), default 2 = German")
     ap.add_argument("--time", type=float, help="quit the emulator after N seconds")
     ap.add_argument("--keys", help="keys to send after boot (see send_keys.py)")
     ap.add_argument("--list", action="store_true", help="--keys is a comma list of named keys")
@@ -66,7 +70,8 @@ def main() -> int:
     env.stage_game()
     logfile = env.SDCARD / env.GAME_DIR / "loc.log"
     logfile.unlink(missing_ok=True)
-    write_autoexec(["--dump"] if args.dump else ["--bench"] if args.bench else [])
+    mode = ["--dump"] if args.dump else ["--bench"] if args.bench else         ["--keytest"] if args.keytest else []
+    write_autoexec(mode, args.keyboard)
 
     cmd = [str(env.GUI_EMULATOR), "--sdcard", str(env.SDCARD.resolve()),
            "--firmware", env.FIRMWARE]

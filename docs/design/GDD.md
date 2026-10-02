@@ -309,7 +309,13 @@ Die Referenz-Hardware ist ein Agon Light mit **Cherry G84-4100**. Daraus folgen 
 
 Alles liegt in einer zentralen Tabelle `src/agon/keymap.c`, damit die Belegung später einstellbar ist.
 
-**Zu verifizieren im M1-Eingabe-Spike** (Testprogramm loggt jedes `kbuf`-Event: ASCII, VKey, Modifier, down/up):
+**Ergebnis des Spikes im Emulator (ADR 0007):**
+- Akkorde funktionieren (80 ms).
+- Bewegung läuft per Virtual Key, weil ASCII bei Key-up veraltet ist.
+- Die Tastenwiederholung macht das Spiel selbst (350 ms, dann 200 ms), weil `kbuf` kein Auto-Repeat liefert.
+- Pos1, Bild↑, Ende und Bild↓ sind als Diagonalen umgesetzt.
+
+**Noch zu verifizieren auf der G84-4100** (Testprogramm loggt jedes `kbuf`-Event: ASCII, VKey, Modifier, down/up):
 - Gibt die G84 zwei Pfeile gleichzeitig ohne Ghosting aus, und funktioniert der Akkord zuverlässig?
 - Welche Codes liefern `Pos1`/`Ende`/`Bild↑`/`Bild↓`, die `<>`-Taste und der Fn-Ziffernblock am Agon?
 - Gibt es Konflikte mit dem MOS-Tastaturlayout (`SET KEYBOARD`, deutsch)?

@@ -35,6 +35,8 @@ uv run tools/run.py --dump --time 10 --keys "dddw" --screenshot
 | Befehl | Zweck |
 |---|---|
 | `uv run tools/run.py --bench --time 14` | Redraw-Messung auf dem Agon; Ergebnis in `loc.log` (ADR 0006) |
+| `uv run tools/run.py --keytest` | Tastatur-Spike: jedes Event (ASCII, VKey, Modifier, down/up) auf dem Bildschirm und in `loc.log`; 2× ESC beendet |
+| `uv run tools/send_keys.py --list up+left,hold=right=800` | Akkorde und gehaltene Tasten an den Emulator senden |
 | `uv run tools/mockup.py --sheet` | Mockup des Spielbildschirms und Kachelübersicht nach `docs/design/mockups/` |
 | `build/host/loc_host --layers` | Ebenen-Liste (Tile-IDs) jedes Fensterfelds auf dem Host |
 | `build/host/loc_host --dump` | Karte als ASCII |
