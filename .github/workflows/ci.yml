@@ -32,7 +32,8 @@ jobs:
         run: uv run tools/test.py --no-build --verbose
 
       - name: Size report
-        run: echo "loc.bin: $(stat -c %s bin/loc.bin) bytes" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          echo "loc.bin: $(stat -c %s bin/loc.bin) bytes" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         with:
