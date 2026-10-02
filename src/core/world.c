@@ -2,43 +2,8 @@
 
 #include <string.h>
 
-static uint8_t floor_from(char c)
-{
-    switch (c) {
-    case 'w': return FL_WOOD;
-    case 'g': return FL_GRASS;
-    case 'p': return FL_PATH;
-    default:  return FL_STONE;
-    }
-}
-
-static uint8_t decor_from(char c)
-{
-    switch (c) {
-    case 'r': return DE_RUG;
-    case '*': return DE_PENTACLE;
-    default:  return DE_NONE;
-    }
-}
-
-static uint8_t feature_from(char c)
-{
-    switch (c) {
-    case '#': return FE_WALL;
-    case 'D': return FE_DOOR_CLOSED;
-    case 'd': return FE_DOOR_OPEN;
-    case 'B': return FE_BED;
-    case 'S': return FE_BOOKSHELF;
-    case 'K': return FE_CANDLE;
-    case 'C': return FE_CAULDRON;
-    case 'T': return FE_TABLE;
-    case 'h': return FE_CHAIR;
-    case 'M': return FE_DRAWERS;
-    case 'X': return FE_CHEST;
-    case 't': return FE_TREE;
-    default:  return FE_NONE;
-    }
-}
+#include "gen/data.h"
+#include "gen/tiles.h"
 
 /* Movement blocking per feature (GDD 3.3): chairs, candle stands and the
  * cauldron can be walked onto; furniture with a body blocks. */
@@ -50,9 +15,6 @@ static const bool FEATURE_BLOCKS[FE_COUNT] = {
     [FE_TREE] = true,
 };
 
-/* Orthogonal AP cost per floor (data/costs.csv, GDD 5.3). */
-static const uint8_t FLOOR_COST[FL_COUNT] = {
-    [FL_STONE] = 4, [FL_WOOD] = 4, [FL_GRASS] = 4, [FL_PATH] = 3};
 /* Provisional stats until data/creatures.csv arrives in M2 (GDD 4.1, 5.3):
  * ap, stamina, constitution, combat, defence, mana, flags. */
 typedef struct {
@@ -63,51 +25,94 @@ static const KindStats KIND[] = {
     [CR_GOBLIN] = {30, 45, 32, 9, 9, 0, 0},
 };
 
-void world_load(World *w, const MapDef *def)
+static void init_unit(Unit *u, uint8_t x, uint8_t y, uint8_t kind, uint8_t owner)
 {
-    uint8_t x, y, i;
-    uint16_t k;
+    const KindStats *k = &KIND[kind];
+    u->x = x;
+    u->y = y;
+    u->kind = kind;
+    u->owner = owner;
+    u->flags = k->flags;
+    u->ap = u->ap_max = k->ap;
+    u->sta = u->sta_max = k->sta;
+    u->con = u->con_max = k->con;
+    u->com = k->com;
+    u->def = k->def;
+    u->mana = u->mana_max = k->mana;
+}
 
+bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
+{
+    uint8_t mw, mh, x, y, i, n;
+    uint16_t cells, pos, k;
+
+    if (len < MAPBIN_HEADER || memcmp(b, "LOCM", 4) != 0 || b[4] != MAPBIN_VERSION)
+        return false;
+    if ((uint16_t)(b[5] | (b[6] << 8)) != TILE_COUNT)   /* stale map vs tile bank */
+        return false;
+    mw = b[7];
+    mh = b[8];
+    if (mw == 0 || mh == 0 || mw > MAP_MAX_W || mh > MAP_MAX_H)
+        return false;
+    cells = (uint16_t)((uint16_t)mw * mh);
+    pos = (uint16_t)(MAPBIN_HEADER + 3u * cells);
+    if (len < pos + 1u)
+        return false;
+    for (k = 0; k < cells; k++) {
+        if (b[MAPBIN_HEADER + k] >= FL_COUNT ||
+            b[MAPBIN_HEADER + cells + k] >= FE_COUNT ||
+            b[MAPBIN_HEADER + 2u * cells + k] > DE_PENTACLE)
+            return false;
+    }
+    n = b[pos++];
+    if (n > MAX_UNITS || len < pos + 4u * n + 1u)
+        return false;
+    for (i = 0; i < n; i++) {
+        const uint8_t *u = &b[pos + 4u * i];
+        if (u[0] >= mw || u[1] >= mh || u[2] >= CR_COUNT || u[3] >= OWN_COUNT)
+            return false;
+    }
+    {
+        uint16_t opos = (uint16_t)(pos + 4u * n);
+        uint8_t no = b[opos];
+        if (no > MAX_OBJECTS || len < opos + 1u + 3u * no)
+            return false;
+        for (i = 0; i < no; i++) {
+            const uint8_t *o = &b[opos + 1u + 3u * i];
+            if (o[0] >= mw || o[1] >= mh || o[2] >= TILE_COUNT)
+                return false;
+        }
+    }
+
+    /* Validated: build the world. */
     {
         uint8_t gen = (uint8_t)(w->generation + 1);
         memset(w, 0, sizeof *w);
         w->generation = gen;
     }
-    w->w = def->w;
-    w->h = def->h;
-    w->wrap = def->wrap;
-    for (y = 0; y < def->h; y++) {
-        for (x = 0; x < def->w; x++) {
-            k = (uint16_t)((uint16_t)y * def->w + x);
-            w->floor[y][x] = floor_from(def->floor[k]);
-            w->decor[y][x] = decor_from(def->decor[k]);
-            w->feature[y][x] = feature_from(def->feature[k]);
+    w->w = mw;
+    w->h = mh;
+    w->wrap = b[9] ? 1 : 0;
+    for (y = 0; y < mh; y++)
+        for (x = 0; x < mw; x++) {
+            k = (uint16_t)((uint16_t)y * mw + x);
+            w->floor[y][x] = b[MAPBIN_HEADER + k];
+            w->feature[y][x] = b[MAPBIN_HEADER + cells + k];
+            w->decor[y][x] = b[MAPBIN_HEADER + 2u * cells + k];
         }
+    for (i = 0; i < n; i++) {
+        const uint8_t *u = &b[pos + 4u * i];
+        init_unit(&w->units[i], u[0], u[1], u[2], u[3]);
     }
-    for (i = 0; i < def->unit_count && i < MAX_UNITS; i++) {
-        w->units[i].x = def->units[i].x;
-        w->units[i].y = def->units[i].y;
-        w->units[i].kind = def->units[i].kind;
-        w->units[i].owner = def->units[i].owner;
-        {
-            const KindStats *k = &KIND[def->units[i].kind];
-            Unit *u = &w->units[i];
-            u->flags = k->flags;
-            u->ap = u->ap_max = k->ap;
-            u->sta = u->sta_max = k->sta;
-            u->con = u->con_max = k->con;
-            u->com = k->com;
-            u->def = k->def;
-            u->mana = u->mana_max = k->mana;
-        }
+    w->unit_count = n;
+    pos = (uint16_t)(pos + 4u * n);
+    w->object_count = b[pos++];
+    for (i = 0; i < w->object_count; i++) {
+        w->objects[i].x = b[pos++];
+        w->objects[i].y = b[pos++];
+        w->objects[i].tile = b[pos++];
     }
-    w->unit_count = i;
-    for (i = 0; i < def->object_count && i < MAX_OBJECTS; i++) {
-        w->objects[i].x = def->objects[i].x;
-        w->objects[i].y = def->objects[i].y;
-        w->objects[i].tile = def->objects[i].tile;
-    }
-    w->object_count = i;
+    return true;
 }
 
 void world_map_changed(World *w)
@@ -161,7 +166,7 @@ uint8_t world_unit_at(const World *w, int16_t x, int16_t y)
 
 uint8_t world_step_cost(const World *w, int16_t x, int16_t y, bool diagonal)
 {
-    uint8_t c = FLOOR_COST[world_floor(w, x, y)];
+    uint8_t c = FLOOR_AP[world_floor(w, x, y)];
     return diagonal ? (uint8_t)((c * 3 + 1) / 2) : c;
 }
 

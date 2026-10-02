@@ -23,6 +23,12 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
   - Kerzen-Animation
   - `--bench`: Voll-Redraw 48 ms (ADR 0006)
 - **Tests:** Welt-, View- und AP-Checks; schneller Pfad gleich Referenz; View-Hash plattformgleich.
+- **Datenladen (#5, ADR 0008):**
+  - Karten als validiertes Binärformat von SD (`/loc/maps/*.map`)
+  - Regeltabellen aus CSV einkompiliert (`gen_data.py`): Zauber mit Mana-Formel, Bodenkosten, Aktionen
+  - `gen_maps.py` liest Enum-Werte aus den C-Headern
+  - Selftest prüft den Lader auch mit kaputten Daten
+  - Speicher: etwa 63 KB von 448 KB
 - **Info-Panel (#6):**
   - Einheiten mit Werten: Stamina, Constitution, Combat, Defence, Mana, Status-Flags (vorläufig bis M2)
   - Gehen kostet Stamina (AP/2), eine neue Runde stellt 25 % wieder her

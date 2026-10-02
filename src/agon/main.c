@@ -23,8 +23,10 @@
 #include "input.h"
 #include "keytest.h"
 #include "log.h"
+#include "mapfile.h"
 #include "render.h"
 
+#define MAP_PATH "maps/wizard_house.map"   /* relative to /loc (ADR 0008) */
 #define ANIM_CS 40     /* candle flicker period in centiseconds */
 #define BLINK_CS 30    /* cursor blink period (Amiga: flashing cursor) */
 #define WINDOW_CS 8    /* arrow chord window 80 ms (GDD 5.2, ADR 0007) */
@@ -157,7 +159,19 @@ int main(int argc, char **argv)
 
     log_open(dump || do_bench);
     log_line("BOOT");
-    world_load(&world, &MAP_WIZARD_HOUSE);
+    {
+        uint32_t t0 = getsysvar_time();
+        bool ok = mapfile_load(&world, MAP_PATH);
+        char buf[48];
+        snprintf(buf, sizeof buf, "MAP %s %s in %lu ms", MAP_PATH, ok ? "loaded" : "FAILED",
+                 (unsigned long)((getsysvar_time() - t0) * 10));
+        log_line(buf);
+        if (!ok) {
+            printf("%s\r\n", buf);
+            log_close();
+            return 1;
+        }
+    }
     if (!render_init()) {
         log_line("ERR render_init");
         log_close();

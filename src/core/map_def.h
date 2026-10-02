@@ -1,39 +1,24 @@
 /*
- * Static map definitions, generated from data/maps/<name>.txt by tools/gen_maps.py
- * into src/core/gen/maps.c. Grids are row-major strings using the character
- * legend documented in data/maps/wizard_house.txt.
+ * Map data shared by the core and tools/gen_maps.py (ADR 0008).
+ *
+ * Maps are written as text (data/maps/<name>.txt) and compiled into the
+ * binary .map format (see tools/gen_maps.py). The game loads them from
+ * /loc/maps on the SD card; the same bytes are compiled into
+ * src/core/gen/maps.c for the selftest and the host build.
+ * gen_maps.py reads the enum values below directly from this header.
  */
 #ifndef LOC_MAP_DEF_H
 #define LOC_MAP_DEF_H
 
 #include <stdint.h>
 
-typedef enum { CR_WIZARD, CR_GOBLIN } CreatureKind;
-typedef enum { OWN_P1, OWN_P2, OWN_P3, OWN_P4, OWN_NEUTRAL } Owner;
+typedef enum { CR_WIZARD, CR_GOBLIN, CR_COUNT } CreatureKind;
+typedef enum { OWN_P1, OWN_P2, OWN_P3, OWN_P4, OWN_NEUTRAL, OWN_COUNT } Owner;
 
-typedef struct {
-    uint8_t x, y;
-    uint8_t kind;   /* CreatureKind */
-    uint8_t owner;  /* Owner */
-} MapUnit;
+#define MAPBIN_VERSION 1
+#define MAPBIN_HEADER 10
 
-typedef struct {
-    uint8_t x, y;
-    uint8_t tile;   /* TileId of the object icon */
-} MapObject;
-
-typedef struct {
-    uint8_t w, h;
-    uint8_t wrap;   /* 1 = world wraps around at the edges (classic maps) */
-    const char *floor;
-    const char *feature;
-    const char *decor;
-    const MapUnit *units;
-    uint8_t unit_count;
-    const MapObject *objects;
-    uint8_t object_count;
-} MapDef;
-
-extern const MapDef MAP_WIZARD_HOUSE;
+extern const uint8_t MAPBIN_WIZARD_HOUSE[];
+extern const uint16_t MAPBIN_WIZARD_HOUSE_LEN;
 
 #endif

@@ -58,7 +58,7 @@ int main(int argc, char **argv)
         puts(fails ? "=== TEST FAIL ===" : "=== TEST PASS ===");
         return fails ? 1 : 0;
     }
-    world_load(&world, &MAP_WIZARD_HOUSE);
+    world_load_bin(&world, MAPBIN_WIZARD_HOUSE, MAPBIN_WIZARD_HOUSE_LEN);
     if (argc > 1 && strcmp(argv[1], "--dump") == 0) {
         dump();
         return 0;

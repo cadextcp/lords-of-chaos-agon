@@ -14,7 +14,8 @@ uv run tools/run.py --dump --time 8 --keys "dd" --screenshot   # GUI-Check
 ## Grafik- und Karten-Pipeline
 
 - **Kacheln** sind `assets/tiles/*.png` (24×24, nur Farben aus `assets/palette/agon64.gpl`). `tools/build_tiles.py` erzeugt `build/tiles.bin` und `src/core/gen/tiles.h`.
-- **Karten** sind `data/maps/*.txt`. `tools/gen_maps.py` erzeugt `src/core/gen/maps.c`. `tools/mockup.py` liest dieselben Dateien.
+- **Karten** sind `data/maps/*.txt`. `tools/gen_maps.py` erzeugt `build/maps/*.map` (Binärformat, Laden von SD) und `src/core/gen/maps.c` (dieselben Bytes für Tests). `tools/mockup.py` liest dieselben Textdateien (ADR 0008).
+- **Regeltabellen** sind `data/*.csv`. `tools/gen_data.py` erzeugt `src/core/gen/data.[ch]`: Zauber, Bodenkosten, Aktionen.
 - `src/core/gen/` ist generiert und gitignored. `tools/build.py` und `tools/test.py` erzeugen es automatisch.
 - `tools/art/make_tiles.py` hat die ersten Kacheln erzeugt. Die PNGs sind jetzt die Quelle; das Skript nur mit `--only NAME` neu laufen lassen.
 
