@@ -51,6 +51,8 @@ static bool cursor_on = true;
 static bool confirm_end = false;   /* Shift+E asks before ending the turn */
 static bool look_mode = false;     /* x: examine any field (GDD 5.1) */
 static int16_t look_x, look_y;
+static bool spell_list = false;    /* c: pick a spell (GDD 5.1) */
+static Spellbook books[OWN_NEUTRAL];   /* starting books until M3g */
 
 /* The unit the player acts with; start_phase guarantees one of the phase
  * owner's units is active. */
@@ -358,6 +360,11 @@ int main(int argc, char **argv)
             if (world.units[k].owner == OWN_P1 && world.units[k].ap_fly)
                 world.units[k].flags |= UF_FLYING;
     }
+    {
+        uint8_t o;
+        for (o = 0; o < OWN_NEUTRAL; o++)
+            spellbook_default(&books[o], o);
+    }
     sight_init(&p1_sight, OWN_P1);
     update_sight();
     view_set_sight(&p1_sight);
@@ -382,21 +389,68 @@ int main(int argc, char **argv)
          * repeat keys that were already released (ADR 0007). */
         while (running && kbuf_poll_event(&e)) {
             now = (uint16_t)getsysvar_time();
+            if (spell_list && e.isdown) {        /* letters pick (a is WASD too) */
+                if (e.vkey == VK_ESC) {
+                    spell_list = false;
+                    view_invalidate();
+                    frame(dump);
+                } else if (e.ascii >= 'a' && e.ascii <= 'z') {
+                    uint16_t pick = e.ascii - 'a';
+                    uint16_t i, n = 0;
+                    spell_list = false;
+                    view_invalidate();
+                    for (i = 0; i < SPELL_COUNT; i++) {
+                        if (books[OWN_P1].level[i] == 0)
+                            continue;
+                        if (n == pick)
+                            break;
+                        n++;
+                    }
+                    if (i < SPELL_COUNT) {
+                        uint8_t wiz = active();
+                        if (world.units[wiz].kind != CR_WIZARD) {
+                            render_message(1, C_BRIGHT_RED, "Nur Zauberer zaubern.");
+                        } else if (SPELLS[i].category == SPC_SUMMON) {
+                            uint8_t got = spell_summon(&world, &books[OWN_P1], wiz, (uint8_t)i);
+                            if (got)
+                                render_message(1, C_BRIGHT_GREEN, "Beschworen!");
+                            else
+                                render_message(1, C_BRIGHT_RED, "Kein Platz - Mana verloren.");
+                        } else {
+                            render_message(1, C_BRIGHT_YELLOW, "Zauber folgt in M3c.");
+                        }
+                        update_sight();
+                    }
+                    frame(dump);
+                }
+                continue;
+            }
             if (input_arrow(e.vkey)) {           /* movement by vkey */
-                m = chord_key(&chord, input_arrow(e.vkey), e.isdown != 0, now);
-                if (m)
-                    step(m, dump);
+                if (!spell_list) {
+                    m = chord_key(&chord, input_arrow(e.vkey), e.isdown != 0, now);
+                    if (m)
+                        step(m, dump);
+                }
                 continue;
             }
             if (!e.isdown)
                 continue;
             if (input_diagonal(e.vkey)) {
-                step(input_diagonal(e.vkey), dump);
+                if (!spell_list)
+                    step(input_diagonal(e.vkey), dump);
             } else if (look_mode) {                /* x: examine (GDD 5.1) */
                 if (e.vkey == VK_ESC || e.ascii == 'x') {
                     look_mode = false;
                     render_message(1, C_GREY, "");
                     frame(dump);
+                }
+            } else if (e.ascii == 'c') {         /* spell list (GDD 5.1) */
+                confirm_end = false;
+                if (world.units[active()].kind == CR_WIZARD) {
+                    spell_list = true;
+                    render_spell_list(&books[OWN_P1]);
+                } else {
+                    render_message(1, C_BRIGHT_RED, "Nur Zauberer zaubern.");
                 }
             } else if (e.ascii == 'x') {
                 confirm_end = false;

@@ -118,6 +118,8 @@ void world_spend(World *w, uint8_t unit, uint8_t ap);
 /* Remove a unit (swap with the last). Callers holding unit indices use
  * turn_on_unit_removed for the turn state. */
 void world_remove_unit(World *w, uint8_t unit);
+/* Add a freshly initialised unit (summons); returns its index. */
+uint8_t world_spawn_unit(World *w, uint8_t owner, uint8_t kind, uint8_t x, uint8_t y);
 /* Ground unit standing next to a living enemy: bound (GDD 6), only the
  * attack itself remains. */
 bool world_engaged(const World *w, uint8_t unit);
