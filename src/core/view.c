@@ -1,16 +1,18 @@
 #include "view.h"
 
+#include "gen/data.h"
+
 #include <string.h>
 
 /* Tile IDs per floor; half floors follow each floor tile in the order
  * n, s, w, e (see tools/build_tiles.py). */
-static const uint8_t FLOOR_TILE[FL_COUNT] = {
+static const uint16_t FLOOR_TILE[FL_COUNT] = {
     [FL_STONE] = T_FLOOR_STONE, [FL_WOOD] = T_FLOOR_WOOD, [FL_GRASS] = T_FLOOR_GRASS,
     [FL_PATH] = T_FLOOR_PATH, [FL_TALL_GRASS] = T_FLOOR_TALLGRASS,
     [FL_FOREST] = T_FLOOR_FOREST, [FL_MAGIC_WOOD] = T_FLOOR_MAGICWOOD,
     [FL_SHADOW_WOOD] = T_FLOOR_SHADOWWOOD, [FL_SWAMP] = T_FLOOR_SWAMP,
     [FL_WATER] = T_FLOOR_WATER_0, [FL_RUBBLE] = T_FLOOR_RUBBLE};
-static const uint8_t FLOOR_HALF[FL_COUNT] = {
+static const uint16_t FLOOR_HALF[FL_COUNT] = {
     [FL_STONE] = T_FLOOR_STONE_HALF_N, [FL_WOOD] = T_FLOOR_WOOD_HALF_N,
     [FL_GRASS] = T_FLOOR_GRASS_HALF_N, [FL_PATH] = T_FLOOR_PATH_HALF_N,
     [FL_TALL_GRASS] = T_FLOOR_TALLGRASS_HALF_N, [FL_FOREST] = T_FLOOR_FOREST_HALF_N,
@@ -19,7 +21,7 @@ static const uint8_t FLOOR_HALF[FL_COUNT] = {
     [FL_WATER] = T_FLOOR_WATER_0_HALF_N, [FL_RUBBLE] = T_FLOOR_RUBBLE_HALF_N};
 enum { HALF_N, HALF_S, HALF_W, HALF_E };
 
-static const uint8_t FEATURE_TILE[FE_COUNT] = {
+static const uint16_t FEATURE_TILE[FE_COUNT] = {
     [FE_BED] = T_BED, [FE_BOOKSHELF] = T_BOOKSHELF, [FE_CANDLE] = T_CANDLE_0,
     [FE_CAULDRON] = T_CAULDRON, [FE_TABLE] = T_TABLE, [FE_CHAIR] = T_CHAIR,
     [FE_DRAWERS] = T_DRAWERS, [FE_CHEST] = T_CHEST, [FE_TREE] = T_TREE,
@@ -27,11 +29,11 @@ static const uint8_t FEATURE_TILE[FE_COUNT] = {
 };
 
 /* Animated tiles: frame 0 <-> frame 1 (candles, water). */
-static const uint8_t ANIM_A[] = {T_CANDLE_0, T_FLOOR_WATER_0};
-static const uint8_t ANIM_B[] = {T_CANDLE_1, T_FLOOR_WATER_1};
+static const uint16_t ANIM_A[] = {T_CANDLE_0, T_FLOOR_WATER_0};
+static const uint16_t ANIM_B[] = {T_CANDLE_1, T_FLOOR_WATER_1};
 #define ANIM_N (sizeof ANIM_A / sizeof ANIM_A[0])
 
-static uint8_t anim_swap(uint8_t id, uint8_t ph)
+static uint16_t anim_swap(uint16_t id, uint8_t ph)
 {
     uint8_t k;
     for (k = 0; k < ANIM_N; k++) {
@@ -41,7 +43,7 @@ static uint8_t anim_swap(uint8_t id, uint8_t ph)
     return id;
 }
 
-static bool is_animated(uint8_t id)
+static bool is_animated(uint16_t id)
 {
     return anim_swap(id, 0) != anim_swap(id, 1);
 }
@@ -52,7 +54,7 @@ static uint8_t animated[VIEW_H][VIEW_W];   /* field holds an animated tile */
 static bool valid;
 static int16_t origin_x, origin_y;
 static int16_t cursor_x, cursor_y;
-static uint8_t cursor_tile = NO_CURSOR;
+static uint16_t cursor_tile = NO_CURSOR;
 static uint8_t phase;
 
 void view_invalidate(void) { valid = false; }
@@ -89,7 +91,7 @@ void view_follow(const World *w, int16_t x, int16_t y)
     }
 }
 
-void view_set_cursor(int16_t x, int16_t y, uint8_t tile)
+void view_set_cursor(int16_t x, int16_t y, uint16_t tile)
 {
     cursor_x = x;
     cursor_y = y;
@@ -98,7 +100,7 @@ void view_set_cursor(int16_t x, int16_t y, uint8_t tile)
 
 void view_set_phase(uint8_t p) { phase = p & 1; }
 
-static void push(FieldLayers *f, uint8_t id)
+static void push(FieldLayers *f, uint16_t id)
 {
     if (f->n < VIEW_MAX_LAYERS)
         f->id[f->n++] = id;
@@ -130,7 +132,7 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
             int16_t nx = (int16_t)(wx + DX[i]), ny = (int16_t)(wy + DY[i]);
             uint8_t nfl = world_floor(w, nx, ny);
             if (!world_is_wall_line(w, nx, ny) && nfl != fl)
-                push(out, (uint8_t)(FLOOR_HALF[nfl] + i));
+                push(out, (uint16_t)(FLOOR_HALF[nfl] + i));
         }
     }
 
@@ -140,7 +142,7 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
         push(out, T_DECOR_PENTACLE);
 
     if (fe == FE_WALL) {
-        push(out, (uint8_t)(T_WALL_00 + wall_mask(w, wx, wy)));
+        push(out, (uint16_t)(T_WALL_00 + wall_mask(w, wx, wy)));
     } else if (fe == FE_DOOR_CLOSED || fe == FE_DOOR_OPEN) {
         bool vertical = world_is_wall_line(w, wx, (int16_t)(wy - 1)) ||
                         world_is_wall_line(w, wx, (int16_t)(wy + 1));
@@ -172,7 +174,7 @@ static void compose_dynamic(const World *w, int16_t wx, int16_t wy, FieldLayers 
     u = world_unit_at(w, wx, wy);
     if (u != NO_UNIT) {
         const Unit *un = &w->units[u];
-        push(out, un->kind == CR_WIZARD ? (uint8_t)(T_WIZARD_P1 + un->owner) : T_GOBLIN);
+        push(out, (uint16_t)(CREATURE_TILE[un->kind] + un->owner));
     }
 
     if (cursor_tile != NO_CURSOR) {
@@ -212,14 +214,15 @@ void view_rebuild(const World *w)
 
 /* Fast path: cached static layers + a per-frame overlay of objects, units
  * and cursor mapped to window positions. Must equal view_compose(). */
-static uint8_t over_obj[VIEW_H][VIEW_W], over_unit[VIEW_H][VIEW_W];
+static uint16_t over_obj[VIEW_H][VIEW_W], over_unit[VIEW_H][VIEW_W];
+#define NO_TILE 0xFFFF
 
 static bool to_view(const World *w, int16_t x, int16_t y, uint8_t *vx, uint8_t *vy)
 {
     int16_t rx = (int16_t)(x - origin_x), ry = (int16_t)(y - origin_y);
-    if (w->wrap) {
-        rx = (int16_t)(((rx % w->w) + w->w) % w->w);
-        ry = (int16_t)(((ry % w->h) + w->h) % w->h);
+    if (w->wrap) {   /* origin and (x, y) are inside the world: no division */
+        if (rx < 0) rx = (int16_t)(rx + w->w);
+        if (ry < 0) ry = (int16_t)(ry + w->h);
     }
     if (rx < 0 || ry < 0 || rx >= VIEW_W || ry >= VIEW_H)
         return false;
@@ -231,7 +234,7 @@ static bool to_view(const World *w, int16_t x, int16_t y, uint8_t *vx, uint8_t *
 static void build_overlay(const World *w)
 {
     uint8_t i, vx, vy;
-    memset(over_obj, 0xFF, sizeof over_obj);
+    memset(over_obj, 0xFF, sizeof over_obj);     /* NO_TILE */
     memset(over_unit, 0xFF, sizeof over_unit);
     for (i = w->object_count; i-- > 0;)   /* first object in the list wins */
         if (to_view(w, w->objects[i].x, w->objects[i].y, &vx, &vy))
@@ -239,8 +242,7 @@ static void build_overlay(const World *w)
     for (i = 0; i < w->unit_count; i++) {
         const Unit *un = &w->units[i];
         if (to_view(w, un->x, un->y, &vx, &vy))
-            over_unit[vy][vx] = un->kind == CR_WIZARD ? (uint8_t)(T_WIZARD_P1 + un->owner)
-                                                      : T_GOBLIN;
+            over_unit[vy][vx] = (uint16_t)(CREATURE_TILE[un->kind] + un->owner);
     }
 }
 
@@ -248,7 +250,10 @@ static void compose_fast(const World *w, uint8_t vx, uint8_t vy, FieldLayers *ou
 {
     int16_t wx = (int16_t)(origin_x + vx), wy = (int16_t)(origin_y + vy);
     uint8_t i;
-    if (!world_wrap(w, &wx, &wy)) {
+    if (w->wrap) {   /* origin is normalised in view_update(): one subtraction */
+        if (wx >= w->w) wx = (int16_t)(wx - w->w);
+        if (wy >= w->h) wy = (int16_t)(wy - w->h);
+    } else if (wx < 0 || wy < 0 || wx >= w->w || wy >= w->h) {
         out->n = 1;
         out->id[0] = T_FLOOR_GRASS;
         return;
@@ -257,9 +262,9 @@ static void compose_fast(const World *w, uint8_t vx, uint8_t vy, FieldLayers *ou
     if (phase)
         for (i = 0; i < out->n; i++)
             out->id[i] = anim_swap(out->id[i], phase);
-    if (over_obj[vy][vx] != 0xFF)
+    if (over_obj[vy][vx] != NO_TILE)
         push(out, over_obj[vy][vx]);
-    if (over_unit[vy][vx] != 0xFF)
+    if (over_unit[vy][vx] != NO_TILE)
         push(out, over_unit[vy][vx]);
     if (cursor_tile != NO_CURSOR) {
         int16_t cx = cursor_x, cy = cursor_y;
@@ -274,6 +279,10 @@ uint8_t view_update(const World *w)
     uint8_t vx, vy, n = 0;
     if (cache_world != w || cache_gen != w->generation)
         view_rebuild(w);
+    if (w->wrap) {   /* once per frame, so the per-field code needs no division */
+        origin_x = (int16_t)(((origin_x % w->w) + w->w) % w->w);
+        origin_y = (int16_t)(((origin_y % w->h) + w->h) % w->h);
+    }
     build_overlay(w);
     for (vy = 0; vy < VIEW_H; vy++) {
         for (vx = 0; vx < VIEW_W; vx++) {
@@ -286,7 +295,7 @@ uint8_t view_update(const World *w)
                         animated[vy][vx] = 1;
             }
             if (!valid || f.n != fields[vy][vx].n ||
-                memcmp(f.id, fields[vy][vx].id, f.n) != 0) {
+                memcmp(f.id, fields[vy][vx].id, f.n * sizeof f.id[0]) != 0) {
                 fields[vy][vx] = f;
                 dirty[vy][vx] = 1;
             }
@@ -307,7 +316,7 @@ uint8_t view_animate(uint8_t p)
             if (!animated[vy][vx])
                 continue;
             for (i = 0; i < f->n; i++) {
-                uint8_t to = anim_swap(f->id[i], phase);
+                uint16_t to = anim_swap(f->id[i], phase);
                 if (to != f->id[i]) {
                     f->id[i] = to;
                     dirty[vy][vx] = 1;
@@ -332,8 +341,10 @@ uint32_t view_hash(void)
         for (vx = 0; vx < VIEW_W; vx++) {
             const FieldLayers *f = &fields[vy][vx];
             h = (h ^ f->n) * 16777619UL;
-            for (i = 0; i < f->n; i++)
-                h = (h ^ f->id[i]) * 16777619UL;
+            for (i = 0; i < f->n; i++) {
+                h = (h ^ (f->id[i] & 0xFF)) * 16777619UL;
+                h = (h ^ (f->id[i] >> 8)) * 16777619UL;
+            }
         }
     return h;
 }

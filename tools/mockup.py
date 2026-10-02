@@ -38,9 +38,8 @@ _MAP = parse(ROOT / "data" / "maps" / "wizard_house.txt")
 FLOOR = [_MAP["floor"][i * 9:(i + 1) * 9] for i in range(9)]
 FEATURE = [_MAP["feature"][i * 9:(i + 1) * 9] for i in range(9)]
 DECOR = [_MAP["decor"][i * 9:(i + 1) * 9] for i in range(9)]
-_OWN = {"OWN_P1": "_p1", "OWN_P2": "_p2", "OWN_P3": "_p3", "OWN_P4": "_p4", "OWN_NEUTRAL": ""}
-UNITS = {(x, y): ("wizard" + _OWN[o] if k == "CR_WIZARD" else "goblin")
-         for x, y, k, o in _MAP["units"]}
+_OWN = {"OWN_P1": "_p1", "OWN_P2": "_p2", "OWN_P3": "_p3", "OWN_P4": "_p4", "OWN_NEUTRAL": "_neutral"}
+UNITS = {(x, y): k[3:].lower() + _OWN[o] for x, y, k, o in _MAP["units"]}
 OBJECTS = {(x, y): t[2:].lower() for x, y, t in _MAP["objects"]}
 REMEMBERED = {(x, y) for x in (6, 7, 8) for y in (6, 7, 8)}
 CURSOR = (next(iter(UNITS)), "cursor_green")

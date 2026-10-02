@@ -52,7 +52,7 @@ const char *name_decor(uint8_t decor)
     }
 }
 
-const char *name_object(uint8_t tile)
+const char *name_object(uint16_t tile)
 {
     switch (tile) {
     case T_OBJ_SCROLL: return "Schriftrolle";

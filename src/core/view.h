@@ -20,7 +20,7 @@
 
 typedef struct {
     uint8_t n;
-    uint8_t id[VIEW_MAX_LAYERS];
+    uint16_t id[VIEW_MAX_LAYERS];   /* TileId, bottom to top */
 } FieldLayers;
 
 /* Forget the last frame: next view_update() marks every field dirty. */
@@ -32,7 +32,7 @@ int16_t view_origin_y(void);
 /* Scroll so that (x, y) keeps a margin of 2 fields to the window edge. */
 void view_follow(const World *w, int16_t x, int16_t y);
 /* Cursor frame at a world position (tile e.g. T_CURSOR_GREEN), or none. */
-void view_set_cursor(int16_t x, int16_t y, uint8_t tile);
+void view_set_cursor(int16_t x, int16_t y, uint16_t tile);
 /* Animation phase (e.g. candle flicker), 0 or 1. */
 void view_set_phase(uint8_t phase);
 

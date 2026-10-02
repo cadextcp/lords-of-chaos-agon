@@ -39,7 +39,9 @@ ICONS = ROOT / "assets" / "icons"
 OUT_BIN = ROOT / "build" / "tiles.bin"
 OUT_H = ROOT / "src" / "core" / "gen" / "tiles.h"
 
-OWNED = ("wizard",)                       # creatures with key colours
+OWNED = tuple(l.split(",", 1)[0] for l in (ROOT / "data" / "creatures.csv")
+              .read_text(encoding="utf-8").splitlines()[1:]
+              if l and not l.startswith(("#", "id,")))   # every creature has key colours
 FLOORS = ("floor_stone", "floor_wood", "floor_grass", "floor_path", "floor_tallgrass",
           "floor_forest", "floor_magicwood", "floor_shadowwood", "floor_swamp",
           "floor_water_0", "floor_rubble")

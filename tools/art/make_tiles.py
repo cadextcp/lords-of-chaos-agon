@@ -690,6 +690,8 @@ def all_tiles() -> dict[str, Image.Image]:
     }
     for m in range(16):
         t[f"wall_{m:02d}"] = wall(m)
+    from creatures import all_creatures   # 25 creatures (D13), separate module
+    t.update(all_creatures())
     return t
 
 

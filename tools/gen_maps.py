@@ -12,11 +12,11 @@ Outputs (generated, not committed):
   build/maps/<name>.map     loaded by the game from /loc/maps on the SD card
   src/core/gen/maps.c       the same bytes as C arrays (selftest, host build)
 
-.map format v1 (all u8):
+.map format v2 (all u8 unless noted):
   "LOCM" | version=1 | tile_count u16 LE | w | h | wrap
   | floor[w*h] | feature[w*h] | decor[w*h]          (enum values, row-major)
   | unit_count | units: x y kind owner
-  | object_count | objects: x y tile
+  | object_count | objects: x y tile_lo tile_hi   (v2: 16-bit tile ids)
 
 Enum values are read from src/core/world.h / map_def.h / gen/tiles.h, so
 the C side and this compiler cannot drift apart. The text format is
@@ -116,7 +116,7 @@ def encode(m: dict, enums: dict[str, int]) -> bytes:
     if not (1 <= m["w"] <= 36 and 1 <= m["h"] <= 36):
         raise SystemExit("map size must be 1..36")
     out = bytearray(b"LOCM")
-    out += struct.pack("<BHBBB", 1, enums["TILE_COUNT"], m["w"], m["h"], m["wrap"])
+    out += struct.pack("<BHBBB", 2, enums["TILE_COUNT"], m["w"], m["h"], m["wrap"])
     for key, legend in (("floor", FLOOR), ("feature", FEATURE), ("decor", DECOR)):
         out += bytes(enums[legend[c]] for c in m[key])
     out.append(len(m["units"]))
@@ -128,7 +128,7 @@ def encode(m: dict, enums: dict[str, int]) -> bytes:
     for x, y, tile in m["objects"]:
         if tile not in enums:
             raise SystemExit(f"unknown object tile {tile}")
-        out += bytes((x, y, enums[tile]))
+        out += bytes((x, y)) + struct.pack("<H", enums[tile])
     return bytes(out)
 
 

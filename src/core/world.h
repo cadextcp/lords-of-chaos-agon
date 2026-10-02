@@ -46,7 +46,7 @@ typedef struct {
 
 typedef struct {
     uint8_t x, y;
-    uint8_t tile;
+    uint16_t tile;   /* TileId */
 } Object;
 
 typedef struct {

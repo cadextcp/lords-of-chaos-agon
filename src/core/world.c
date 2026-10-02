@@ -79,11 +79,11 @@ bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
     {
         uint16_t opos = (uint16_t)(pos + 4u * n);
         uint8_t no = b[opos];
-        if (no > MAX_OBJECTS || len < opos + 1u + 3u * no)
+        if (no > MAX_OBJECTS || len < opos + 1u + 4u * no)
             return false;
         for (i = 0; i < no; i++) {
-            const uint8_t *o = &b[opos + 1u + 3u * i];
-            if (o[0] >= mw || o[1] >= mh || o[2] >= TILE_COUNT)
+            const uint8_t *o = &b[opos + 1u + 4u * i];
+            if (o[0] >= mw || o[1] >= mh || (uint16_t)(o[2] | (o[3] << 8)) >= TILE_COUNT)
                 return false;
         }
     }
@@ -114,7 +114,8 @@ bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
     for (i = 0; i < w->object_count; i++) {
         w->objects[i].x = b[pos++];
         w->objects[i].y = b[pos++];
-        w->objects[i].tile = b[pos++];
+        w->objects[i].tile = (uint16_t)(b[pos] | (b[pos + 1] << 8));
+        pos += 2;
     }
     return true;
 }
