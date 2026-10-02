@@ -1,12 +1,14 @@
 /*
- * Agon frontend (M1 demo: the wizard house).
+ * Agon frontend (M2: testland with turns).
  *
- *   loc              walk the wizard through the house (arrows/WASD,
- *                    Shift+E new turn, ESC quit)
+ *   loc              play: move the active unit, Tab/Space unit choice,
+ *                    Shift+E ends the turn (with confirmation), ESC quits
  *   loc --selftest   core self-test without VDP, exits the emulator (CI)
  *   loc --dump       additionally write map + view hash to loc.log per frame
  *   loc --bench      measure full and partial redraw times -> loc.log
  *   loc --keytest    keyboard spike: show/log every key event (issue #3)
+ *   loc --free-round1  lifting of the round 1 movement lock (PM 7) for
+ *                    scripted emulator runs
  */
 #include <agon/keyboard.h>
 #include <agon/mos.h>
@@ -16,7 +18,9 @@
 
 #include "../core/chord.h"
 #include "../core/colors.h"
+#include "../core/names.h"
 #include "../core/selftest.h"
+#include "../core/turn.h"
 #include "../core/view.h"
 #include "../core/world.h"
 #include "emu.h"
@@ -28,6 +32,7 @@
 
 #define MAP_TESTLAND "maps/testland.map"   /* relative to /loc (ADR 0008) */
 #define MAP_HOUSE "maps/wizard_house.map"
+#define TURN_SEED 42    /* fixed: emulator runs replay like the selftest */
 #define ANIM_CS 40     /* candle flicker period in centiseconds */
 #define BLINK_CS 30    /* cursor blink period (Amiga: flashing cursor) */
 #define WINDOW_CS 8    /* arrow chord window 80 ms (GDD 5.2, ADR 0007) */
@@ -35,12 +40,22 @@
 #define REPEAT_CS 20   /* then one step per 200 ms */
 
 static World world;
-static const uint8_t ACTIVE = 0;   /* the wizard */
+static Turns turns;
 static bool cursor_on = true;
+static bool confirm_end = false;   /* Shift+E asks before ending the turn */
+
+/* The unit the player acts with; start_phase guarantees one of the phase
+ * owner's units is active. */
+static uint8_t active(void)
+{
+    if (turns.active < world.unit_count)
+        return turns.active;
+    return 0;
+}
 
 static void place_cursor(void)
 {
-    const Unit *u = &world.units[ACTIVE];
+    const Unit *u = &world.units[active()];
     render_cursor((int16_t)(u->x - view_origin_x()), (int16_t)(u->y - view_origin_y()),
                   CURSOR_GREEN, cursor_on);
 }
@@ -58,15 +73,25 @@ static int selftest(void)
     return fails ? 1 : 0;
 }
 
+/* Message line 0: whose unit is active (handover M2c). */
+static void show_status(void)
+{
+    char buf[48];
+    snprintf(buf, sizeof buf, "Runde %u - %s: %s", turns.round,
+             name_owner(turns.phase), name_unit(&world.units[active()]));
+    render_message(0, C_BRIGHT_WHITE, buf);
+}
+
 static void frame(bool dump)
 {
-    const Unit *u = &world.units[ACTIVE];
+    const Unit *u = &world.units[active()];
     view_follow(&world, u->x, u->y);
     view_update(&world);
     render_fields();
     cursor_on = true;
     place_cursor();
-    render_panel(&world, ACTIVE);
+    render_panel(&world, active());
+    show_status();
     if (dump)
         log_frame(&world, view_hash());
 }
@@ -77,13 +102,15 @@ static void step(uint8_t m, bool dump)
     int8_t dx, dy;
     if (!chord_to_step(m, &dx, &dy))
         return;
-    if (world_move_unit(&world, ACTIVE, dx, dy)) {
+    if (!turn_may_move(&turns)) {
+        render_message(1, C_BRIGHT_RED, "Runde 1: nur Zaubern (PM 7).");
+    } else if (world_move_unit(&world, active(), dx, dy)) {
         render_message(1, C_GREY, "");
         frame(dump);
-    } else if (world.units[ACTIVE].ap < world_unit_step_cost(&world, ACTIVE,
-                   (int16_t)(world.units[ACTIVE].x + dx), (int16_t)(world.units[ACTIVE].y + dy),
+    } else if (world.units[active()].ap < world_unit_step_cost(&world, active(),
+                   (int16_t)(world.units[active()].x + dx), (int16_t)(world.units[active()].y + dy),
                    dx != 0 && dy != 0)) {
-        render_message(1, C_BRIGHT_RED, "Zu wenig AP - E fuer Zugende.");
+        render_message(1, C_BRIGHT_RED, "Zu wenig AP - Leertaste/Tab weiter.");
     } else {
         render_message(1, C_BRIGHT_RED, "Da geht es nicht weiter.");
     }
@@ -140,10 +167,10 @@ static void bench(void)
 int main(int argc, char **argv)
 {
     struct keyboard_event_t e;
-    bool dump = false, do_bench = false, running = true;
+    bool dump = false, do_bench = false, free_round1 = false, running = true;
     const char *map_path;
     uint32_t next_anim, next_blink;
-    uint8_t phase = 0, m;
+    uint8_t phase = 0, m, i;
     uint16_t now;
     Chord chord;
 
@@ -159,6 +186,9 @@ int main(int argc, char **argv)
     dump = argc > 1 && strcmp(argv[1], "--dump") == 0;
     map_path = (argc > 1 && strcmp(argv[1], "--house") == 0) ? MAP_HOUSE : MAP_TESTLAND;
     do_bench = argc > 1 && strcmp(argv[1], "--bench") == 0;
+    for (i = 1; i < (uint8_t)argc; i++)
+        if (strcmp(argv[i], "--free-round1") == 0)
+            free_round1 = true;
 
     log_open(dump || do_bench);
     log_line("BOOT");
@@ -175,14 +205,17 @@ int main(int argc, char **argv)
             return 1;
         }
     }
+    turn_init(&turns, &world, TURN_SEED, 1u << OWN_P1);
+    if (free_round1)
+        turns.round1_lock = false;
     if (!render_init()) {
         log_line("ERR render_init");
         log_close();
         return 1;
     }
     frame(dump);
-    render_message(0, C_BRIGHT_YELLOW, "Willkommen in Testland.");
-    render_message(2, C_BRIGHT_BLUE, "Pfeile+Akkorde  Pos1/Ende/Bild diag.");
+    render_message(1, C_BRIGHT_YELLOW, "Willkommen in Testland.");
+    render_message(2, C_BRIGHT_BLUE, "Tab Einheit  Leertaste fertig  E Zugende");
     if (do_bench)
         bench();
 
@@ -206,12 +239,41 @@ int main(int argc, char **argv)
                 continue;
             if (input_diagonal(e.vkey)) {
                 step(input_diagonal(e.vkey), dump);
-            } else if (e.vkey == VK_ESC) {
-                running = false;
-            } else if (e.ascii == 'E') {
-                world_new_turn(&world);
-                render_message(1, C_BRIGHT_GREEN, "Neue Runde: AP aufgefuellt.");
+            } else if (e.vkey == VK_TAB) {       /* next/previous own unit */
+                confirm_end = false;
+                turn_next_unit(&turns, &world, (e.kmod & KMOD_SHIFT) != 0);
+                render_message(1, C_GREY, "");
+                if (!turn_units_left(&turns, &world))
+                    render_message(1, C_BRIGHT_YELLOW,
+                                   "Alle Einheiten fertig - E fuer Zugende.");
                 frame(dump);
+            } else if (e.vkey == VK_SPACE) {     /* unit finished */
+                confirm_end = false;
+                turn_finish_unit(&turns, &world);
+                if (turn_units_left(&turns, &world))
+                    render_message(1, C_GREY, "");
+                else
+                    render_message(1, C_BRIGHT_YELLOW,
+                                   "Alle Einheiten fertig - E fuer Zugende.");
+                frame(dump);
+            } else if (e.ascii == 'E') {         /* Shift+E: turn end */
+                if (!confirm_end) {
+                    confirm_end = true;
+                    render_message(1, C_BRIGHT_YELLOW,
+                                   "Zug beenden? Nochmal E=ja, Esc=nein.");
+                } else {
+                    confirm_end = false;
+                    turn_end_phase(&turns, &world);
+                    render_message(1, C_BRIGHT_GREEN, "Neue Runde.");
+                    frame(dump);
+                }
+            } else if (e.vkey == VK_ESC) {
+                if (confirm_end) {
+                    confirm_end = false;
+                    render_message(1, C_GREY, "");
+                } else {
+                    running = false;
+                }
             }
         }
         now = (uint16_t)getsysvar_time();

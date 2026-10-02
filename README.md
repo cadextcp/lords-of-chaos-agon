@@ -24,7 +24,7 @@ uv run tools/run.py        # Spiel im GUI-Emulator starten
 |---|---|
 | `uv run tools/build.py [--host\|--all]` | Agon-Binary `bin/loc.bin` bzw. Host-Build bauen |
 | `uv run tools/test.py [--host\|--emu] [-v]` | Automatische Tests (auch in CI) |
-| `uv run tools/run.py --dump --time 8 --keys ddw --screenshot` | Skriptbare GUI-Session: Tasten senden, Screenshot, Bildschirm-Dump aus `loc.log` |
+| `uv run tools/run.py --dump --time 8 --free-round1 --keys ddw --screenshot` | Skriptbare GUI-Session: Tasten senden, Screenshot, Bildschirm-Dump aus `loc.log` (`--free-round1` hebt die Runde-1-Sperre auf) |
 | `uv run tools/send_keys.py` / `tools/screenshot.py` | Tastatur-Injektion und Screenshot des Emulatorfensters |
 | `uv run tools/run.py --bench --time 14` | Redraw-Zeiten messen (Ergebnis in `loc.log`) |
 | `uv run tools/mockup.py --sheet` | Mockup des Spielbildschirms und Kachelübersicht |

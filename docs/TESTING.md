@@ -22,7 +22,7 @@ Ebenen 1 und 2 laufen in CI bei jedem Push und PR.
 ## Screenshot-freies Debuggen in der GUI
 
 ```bash
-uv run tools/run.py --dump --time 10 --keys "dddw" --screenshot
+uv run tools/run.py --dump --time 10 --free-round1 --keys "dddw" --screenshot
 ```
 
 1. Schreibt `autoexec.txt`. Das Spiel startet nach dem Boot mit `loc --dump`.

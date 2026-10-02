@@ -93,7 +93,8 @@ uint8_t world_unit_step_cost(const World *w, uint8_t unit, int16_t x, int16_t y,
 /* Move a unit one step (8 directions); false if blocked, occupied, outside
  * or not enough AP. Spends the AP on success. */
 bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy);
-/* Start of a turn: refill AP, recover 25 % stamina (GDD 5.3). */
+/* Round end: refill AP (halved when exhausted, PM 12), recover 25 %
+ * stamina (GDD 5.3), regenerate 4 % mana. */
 void world_new_turn(World *w);
 
 /* Character for dumps (floor/feature/unit at a glance). */

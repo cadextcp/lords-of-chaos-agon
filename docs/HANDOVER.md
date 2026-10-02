@@ -1,6 +1,6 @@
 # Übergabe: Stand und nächste Schritte
 
-> Stand: 2026-10-02 · `main` @ `f802aa7` · CI grün
+> Stand: 2026-10-03 · nach M2c (#15) · CI grün
 > Für die nächste Person bzw. den nächsten Agenten. Zuerst `CLAUDE.md` lesen (Regeln, Befehle), dann dieses Dokument.
 
 ---
@@ -11,16 +11,17 @@
 |---|---|
 | **M0 Fundament** | ✅ Toolchain, Tests, CI, Docs |
 | **M1 Grafik und Eingabe** | ✅ Software-seitig fertig: #1 Renderer, #4 Sprite und Animation, #5 Datenladen, #6 Panel. Offen: #2 (optional), #3 und #7 (brauchen echte Hardware) |
-| **M2 Core-Skelett** | 🟡 Halb fertig: ✅ #13 M2a Terrains und Testland, ✅ #14 M2b Kreaturen (Daten und Pixelart). Offen: **#15 M2c Rundenablauf**, #16 M2d Sicht und Hidden Map, #17 M2e Luft- und Bodenebene, #18 M2f Bump und Look-Modus |
+| **M2 Core-Skelett** | 🟡 Halb fertig: ✅ #13 M2a Terrains und Testland, ✅ #14 M2b Kreaturen (Daten und Pixelart), ✅ #15 M2c Rundenablauf. Offen: **#16 M2d Sicht und Hidden Map**, #17 M2e Luft- und Bodenebene, #18 M2f Bump und Look-Modus |
 | M3–M5 | geplant, siehe `docs/ROADMAP.md` |
 
 **Was heute läuft:**
 - Im Emulator lädt `loc` die 36×36-Karte „Testland“ (Wrap-around) mit eigener 24×24-Pixelart in 3/4-Ansicht.
-- Ein Zauberer läuft mit Pfeilen, Pfeil-Akkorden (Diagonalen), Pos1/Ende/Bild sowie Tastenwiederholung.
-- AP- und Stamina-Kosten kommen aus `data/costs.csv`; `Shift+E` füllt die AP wieder auf.
-- Info-Panel mit 6 Balken, Status-Icons und „Am Boden“-Liste.
+- Rundenablauf (M2c): `Tab`/`Shift+Tab` wählt eigene Einheiten mit AP, `Leertaste` beendet eine Einheit, `Shift+E` (zweimal) beendet den Zug. Runde 1 erlaubt kein Bewegen `[PM 7]` (für Skripte: `--free-round1`).
+- Unabhängige Kreaturen streifen zu Rundenbeginn deterministisch umher, der KI-Zauberer passt (echte KI in M3).
+- Bewegung mit Pfeilen, Akkorden, Pos1/Ende/Bild, Tastenwiederholung; AP/Stamina aus `data/costs.csv`.
+- Rundenende: AP, 25 % Stamina, 4 % Mana; Erschöpfung (Stamina < 25 %) halbiert die AP `[PM 12]`.
+- Info-Panel mit 6 Balken, Status-Icons und „Am Boden“-Liste, folgt der aktiven Einheit; Meldungszeile „Runde n – Zauberer-1: <Einheit>“.
 - Kerzen und Wasser sind animiert, der Cursor ist ein blinkender VDP-Sprite.
-- Andere Kreaturen stehen noch still, weil es noch keinen Rundenablauf gibt (M2c).
 
 ---
 
@@ -55,14 +56,14 @@
 ```bash
 uv run tools/test.py                       # Host + eZ80-Selftest (vor jedem Commit)
 uv run tools/run.py                        # Spiel im GUI-Emulator (Testland)
-uv run tools/run.py --dump --time 15 --list --keys "right,up+right,hold=down=900" --screenshot
+uv run tools/run.py --dump --time 15 --free-round1 --list --keys "right,up+right,hold=down=900" --screenshot
 uv run tools/run.py --bench --time 20      # Redraw-Messung -> loc.log
 uv run tools/run.py --keytest              # Tastatur-Events anzeigen
 uv run tools/mockup.py --sheet             # Mockup und Kachelübersicht
 uv run tools/art/creature_sheet.py         # Kreaturen-Übersicht
 ```
 
-- Spiel-Optionen: `loc` (Testland), `loc --house` (Zauberer-Haus), `--dump` (`loc.log` mit ASCII-Karte und AP pro Frame), `--bench`, `--keytest`, `--selftest`.
+- Spiel-Optionen: `loc` (Testland), `loc --house` (Zauberer-Haus), `--dump` (`loc.log` mit ASCII-Karte und AP pro Frame), `--bench`, `--keytest`, `--selftest`, `--free-round1` (Runde-1-Bewegungssperre aus, für Skripte).
 - `send_keys`-Syntax: `up+right` ist ein Akkord, `hold=right=800` hält die Taste 800 ms, `shift+e` ist Shift+E.
 
 ---
@@ -72,6 +73,7 @@ uv run tools/art/creature_sheet.py         # Kreaturen-Übersicht
 ```
 src/core/  plattformfrei (Host + eZ80):
   world.[ch]    Karte (Boden/Dekor/Feature), Einheiten, Objekte, Bewegung, AP/Stamina, Laden (.map)
+  turn.[ch]     Rundenablauf: Runde, Phase, aktive Einheit, Umherstreifen (RNG)
   view.[ch]     9x9-Fenster: Ebenen pro Feld (Tile-IDs), Wand-Auto-Tiling, Halb-Böden,
                 Dirty-Felder, Static-Cache, Animation (view_animate), Kamera mit Wrap
   chord.[ch]    Pfeil-Akkorde und Tastenwiederholung
@@ -115,23 +117,11 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 
 ---
 
-## 7. Nächste Schritte (M2c–M2f)
+## 7. Nächste Schritte (M2d–M2f)
 
 **Workflow:** pro Issue ein Branch `m2/<x>-…`, Selftest-Checks ergänzen, Emulator-Screenshot, CHANGELOG, dann PR mit `Closes #n` und Auto-Merge.
 
-### M2c – Rundenablauf (#15), als Nächstes
-
-- Neues Core-Modul `turn.[ch]`:
-  - Rundenzähler und Phase (unabhängige Kreaturen, dann Zauberer 1..n)
-  - aktiver Spieler und aktive Einheit
-- Eingabe: `Tab`/`Shift+Tab` (eigene Einheiten mit AP > 0), `Leertaste` (Einheit fertig, nächste), `Shift+E` (Zugende mit Bestätigung, GDD §5.2). `world_new_turn()` existiert bereits (AP auffüllen, 25 % Stamina).
-- **Unabhängige Kreaturen:** Platzhalter-Umherstreifen mit seedetem RNG (`rng.h`); AP, Blockade und Belegung respektieren. Die echte KI kommt in M3.
-- **Gegner-Zauberer (p2):** Platzhalter-Zug, z. B. passen.
-- **Runde 1:** keine Bewegung `[PM 7]`. Für Tests per Schalter abschaltbar machen, sonst blockiert sie Emulator-Läufe.
-- Panel und Kamera folgen der aktiven Einheit; die Meldungszeile zeigt „Runde n – Zauberer-1“.
-- Selftest: Reihenfolge, `Tab` überspringt Einheiten ohne AP bzw. fremde Einheiten, AP- und Stamina-Erholung, deterministisches Umherstreifen (Hash).
-
-### M2d – Sichtlinie und Hidden Map (#16)
+### M2d – Sichtlinie und Hidden Map (#16), als Nächstes
 
 - Reichweite: Boden 9, Luft 11 (GDD §3.4). Blockade über `world_blocks_sight()` (Böden laut `costs.csv` plus hohe Features; Endpunkte exklusiv).
 - Algorithmus: Bresenham-Strahlen oder Shadowcasting, deterministisch, auf dem Host getestet. **Auf dem eZ80 messen**; ggf. Sicht nur nach einem Zug bzw. Schritt neu berechnen und als Bitfeld cachen.

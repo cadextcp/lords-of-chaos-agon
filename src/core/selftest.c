@@ -8,6 +8,7 @@
 #include "names.h"
 #include "rng.h"
 #include "spells.h"
+#include "turn.h"
 #include "view.h"
 #include "world.h"
 
@@ -202,6 +203,12 @@ static void test_stats_and_names(void)
     world.units[0].sta = 10;
     world_new_turn(&world);
     check(world.units[0].sta == 25, "stats: recovery is 25 % of max");
+    check(world.units[0].ap == 20, "stats: exhausted creatures get half AP (PM 12)");
+    world_new_turn(&world);                        /* 25 of 60: cured */
+    check(world.units[0].ap == 40, "stats: one quiet round cures exhaustion");
+    world.units[0].mana = 0;
+    world_new_turn(&world);
+    check(world.units[0].mana == 3, "stats: mana regenerates 4 % per round");
 
     n = ground_names(&world, 3, 7, g);                        /* scroll on wood */
     check(n == 1 && g[0][0] == 'S', "names: object on the floor");
@@ -336,6 +343,85 @@ static void test_chord(void)
     check(chord_poll(&c, 200) == 0, "chord: nothing held, no repeat");
 }
 
+/* FNV-1a over all units (position, AP, stamina) - wandering replay check. */
+static uint32_t unit_hash(const World *w)
+{
+    uint32_t h = 2166136261UL;
+    uint8_t i;
+    for (i = 0; i < w->unit_count; i++) {
+        const Unit *u = &w->units[i];
+        uint8_t v[4] = { u->x, u->y, u->ap, u->sta }, k;
+        for (k = 0; k < 4; k++)
+            h = (h ^ v[k]) * 16777619UL;
+    }
+    return h;
+}
+
+static void test_turn(void)
+{
+    Turns t;
+    uint32_t seen;
+    uint8_t i, moved;
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    turn_init(&t, &world, 42, 1u << OWN_P1);
+    check(t.round == 1 && t.phase == OWN_P1, "turn: round 1 begins with player 1");
+    check(t.active == 0 && world.units[0].kind == CR_WIZARD, "turn: wizard is active");
+    check(!turn_may_move(&t), "turn: round 1 allows casting only (PM 7)");
+    check(world.units[2].x == 27 && world.units[2].y == 5,
+          "turn: independents stay put in round 1");
+
+    turn_next_unit(&t, &world, false);
+    check(t.active == 10, "turn: Tab selects the dwarf, the other p1 unit");
+    turn_next_unit(&t, &world, false);
+    check(t.active == 0, "turn: Tab wraps around to the wizard");
+    turn_next_unit(&t, &world, true);
+    check(t.active == 10, "turn: Shift+Tab goes back to the dwarf");
+
+    world.units[0].ap = 0;
+    turn_next_unit(&t, &world, false);
+    check(t.active == 10, "turn: Tab skips units without AP");
+    world.units[0].ap = world.units[0].ap_max;
+    turn_next_unit(&t, &world, false);
+    check(t.active == 0, "turn: back on the wizard");
+
+    turn_finish_unit(&t, &world);
+    check((t.done & 1u) != 0 && t.active == 10,
+          "turn: space finishes the wizard, dwarf is next");
+    check(turn_units_left(&t, &world), "turn: unfinished units are left");
+    turn_finish_unit(&t, &world);
+    check(!turn_units_left(&t, &world) && t.active == 10,
+          "turn: all finished, active stays for rendering");
+
+    t.round1_lock = false;
+    check(turn_may_move(&t), "turn: round 1 lock is switchable (emulator)");
+    turn_end_phase(&t, &world);
+    check(t.round == 2 && t.phase == OWN_P1 && t.active == 0,
+          "turn: AI wizard passes, round 2 returns to p1");
+    check(world.units[0].ap == 40 && world.units[0].sta == 60 &&
+          world.units[0].mana == 80,
+          "turn: round end refills AP, stamina and mana");
+    check(t.done == 0, "turn: new phase clears the finished flags");
+
+    moved = 0;
+    for (i = 0; i < world.unit_count; i++)
+        if (world.units[i].owner == OWN_NEUTRAL && world.units[i].ap < world.units[i].ap_max)
+            moved++;
+    check(moved > 0, "turn: independent creatures spent AP");
+    seen = unit_hash(&world);
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    turn_init(&t, &world, 42, 1u << OWN_P1);
+    t.round1_lock = false;
+    turn_end_phase(&t, &world);
+    check(t.round == 2 && unit_hash(&world) == seen,
+          "turn: same seed wanders the same way");
+
+    turn_end_phase(&t, &world);
+    turn_end_phase(&t, &world);
+    check(t.round == 4 && t.phase == OWN_P1, "turn: rounds keep advancing");
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -350,6 +436,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_data();
     test_terrain();
     test_creatures();
+    test_turn();
     load_house();   /* leave a clean state */
     return fails;
 }
