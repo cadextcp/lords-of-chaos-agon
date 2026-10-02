@@ -4,7 +4,8 @@ Inoffizielles Fan-Remake von Julian Gollops *Lords of Chaos* (1990) für den **A
 
 *Unofficial fan remake of Lords of Chaos for the Agon Light, written in C/eZ80.*
 
-> **Status:** M0 Fundament. Build, Tests, Emulator und CI laufen; das Spiel selbst ist noch eine Demo-Szene.
+> **Status:** M1 (Grafik und Eingabe). Der Kachel-Renderer läuft: Ein Zauberer-Haus in 24×24-Pixelart ist auf dem Agon begehbar.
+> Mockup: [docs/design/mockups/wizard-house.png](docs/design/mockups/wizard-house.png)
 > Plan: [docs/ROADMAP.md](docs/ROADMAP.md) · Design: [docs/design/GDD.md](docs/design/GDD.md)
 
 ## Schnellstart
@@ -25,6 +26,8 @@ uv run tools/run.py        # Spiel im GUI-Emulator starten
 | `uv run tools/test.py [--host\|--emu] [-v]` | Automatische Tests (auch in CI) |
 | `uv run tools/run.py --dump --time 8 --keys ddw --screenshot` | Skriptbare GUI-Session: Tasten senden, Screenshot, Bildschirm-Dump aus `loc.log` |
 | `uv run tools/send_keys.py` / `tools/screenshot.py` | Tastatur-Injektion und Screenshot des Emulatorfensters |
+| `uv run tools/run.py --bench --time 14` | Redraw-Zeiten messen (Ergebnis in `loc.log`) |
+| `uv run tools/mockup.py --sheet` | Mockup des Spielbildschirms und Kachelübersicht |
 
 ## Projektstruktur
 
@@ -32,7 +35,8 @@ uv run tools/run.py        # Spiel im GUI-Emulator starten
 src/core/   plattformfreier Spielkern (C99, keine VDP-Aufrufe) – läuft auf Agon UND PC
 src/agon/   Agon-Frontend: VDP-Rendering, Tastatur, MOS-Dateien, Emulator-Steuerung
 host/       PC-Frontend für Tests und schnelles Debugging
-data/       Spieldaten als CSV (Zauber, Kosten, …)
+data/       Spieldaten: CSV (Zauber, Kosten …) und Karten (data/maps/*.txt)
+assets/     eigene Pixelart: Kacheln, Icons, Agon-Palette
 tools/      Python-Werkzeuge (uv)
 docs/       Roadmap, Architektur, ADRs, Game Design
 ```

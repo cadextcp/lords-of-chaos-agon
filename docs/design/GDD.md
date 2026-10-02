@@ -627,7 +627,7 @@ Wie beim Amiga werden pro Feld **mehrere Ebenen übereinander** gezeichnet (B1.2
 - **Wände** belegen ganze Kacheln. Die Wandlinie läuft durch die Kachelmitte und verbindet sich per **Auto-Tiling** (16 Varianten nach den 4 Nachbarn) mit Nachbarwänden, wie im Original (B2.1). Türen sitzen in der Wandlinie.
 - **Datenmodell:** pro Feld je ein Byte für Boden, Dekor und Feature, plus Zustandsbits (Tür offen, Behälter verschlossen, gesehen bzw. erinnert). Einheiten und Objekte liegen in Pools mit Positionen. Der Core liefert dem Frontend pro sichtbarem Feld eine **Liste von Kachel-IDs** statt eines Glyphen; das ersetzt das Zellen-Grid aus M0.
 
-**Bandbreite (Abschätzung, M1 misst):**
+**Bandbreite (gemessen in M1, ADR 0006):** Ein Voll-Redraw dauert 48 ms, ein normaler Schritt zeichnet 2 Felder, das Kerzenflackern 16 ms pro Frame. Die ursprüngliche Abschätzung lautete:
 - Ein Kachel-Zeichenbefehl kostet etwa 11 Byte (Bitmap wählen plus zeichnen).
 - Ein volles Kartenfenster hat 81 Felder mit etwa 3,5 Ebenen, also rund 3,1 KB. Bei 1.152.000 Baud zum VDP sind das etwa **30 ms**.
 - Gezeichnet werden nur geänderte Felder; beim Scrollen das ganze Fenster.

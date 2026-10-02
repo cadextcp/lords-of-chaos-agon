@@ -51,6 +51,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Run the game in the GUI emulator")
     ap.add_argument("--no-build", action="store_true", help="skip building")
     ap.add_argument("--dump", action="store_true", help="game writes loc.log screen dumps")
+    ap.add_argument("--bench", action="store_true", help="game measures redraw times -> loc.log")
     ap.add_argument("--time", type=float, help="quit the emulator after N seconds")
     ap.add_argument("--keys", help="keys to send after boot (see send_keys.py)")
     ap.add_argument("--list", action="store_true", help="--keys is a comma list of named keys")
@@ -60,12 +61,12 @@ def main() -> int:
     if not env.GUI_EMULATOR.exists():
         log("emulator missing - run: uv run tools/setup.py")
         return 3
-    if not args.no_build and build.build_agon(clean=False) != 0:
+    if not args.no_build and (build.generate() != 0 or build.build_agon() != 0):
         return 1
     env.stage_game()
     logfile = env.SDCARD / env.GAME_DIR / "loc.log"
     logfile.unlink(missing_ok=True)
-    write_autoexec(["--dump"] if args.dump else [])
+    write_autoexec(["--dump"] if args.dump else ["--bench"] if args.bench else [])
 
     cmd = [str(env.GUI_EMULATOR), "--sdcard", str(env.SDCARD.resolve()),
            "--firmware", env.FIRMWARE]

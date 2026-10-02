@@ -28,7 +28,16 @@ uv run tools/run.py --dump --time 10 --keys "dddw" --screenshot
 1. Schreibt `autoexec.txt`. Das Spiel startet nach dem Boot mit `loc --dump`.
 2. Nach etwa 4 s Boot werden die Tasten per `send_keys.py` gesendet (Scancodes, funktioniert mit SDL).
 3. Nach N Sekunden folgt ein Screenshot nach `build/screenshots/`, danach wird der Emulator beendet.
-4. Ausgegeben wird `sdcard/staged/loc/loc.log`: Nach jedem Frame steht dort das Bildschirm-Raster als ASCII (M0-Demo). Ab M1 kommt ein Dump der Kachel-IDs pro Feld dazu.
+4. Ausgegeben wird `sdcard/staged/loc/loc.log`: Nach jedem Frame stehen dort die AP, der View-Hash und die Karte als ASCII (`@` Zauberer, `#` Wand, `=` Teppich …).
+
+## Weitere Werkzeuge
+
+| Befehl | Zweck |
+|---|---|
+| `uv run tools/run.py --bench --time 14` | Redraw-Messung auf dem Agon; Ergebnis in `loc.log` (ADR 0006) |
+| `uv run tools/mockup.py --sheet` | Mockup des Spielbildschirms und Kachelübersicht nach `docs/design/mockups/` |
+| `build/host/loc_host --layers` | Ebenen-Liste (Tile-IDs) jedes Fensterfelds auf dem Host |
+| `build/host/loc_host --dump` | Karte als ASCII |
 
 ## Bekannte Grenzen
 
