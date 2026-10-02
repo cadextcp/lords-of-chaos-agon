@@ -23,6 +23,12 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
   - Kerzen-Animation
   - `--bench`: Voll-Redraw 48 ms (ADR 0006)
 - **Tests:** Welt-, View- und AP-Checks; schneller Pfad gleich Referenz; View-Hash plattformgleich.
+- **Eingabe (#3, ADR 0007):**
+  - `loc --keytest` (Tastatur-Spike)
+  - Bewegung per Virtual Key
+  - Pfeil-Akkorde für Diagonalen (80 ms), Pos1/Bild↑/Ende/Bild↓ als Diagonalen
+  - eigene Tastenwiederholung (350/200 ms)
+  - `send_keys.py` kann Akkorde und gehaltene Tasten senden; `run.py` setzt das deutsche Layout
 
 ## M0 Fundament (`v0.1.0`)
 

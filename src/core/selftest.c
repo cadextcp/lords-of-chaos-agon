@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "chord.h"
 #include "rng.h"
 #include "view.h"
 #include "world.h"
@@ -152,6 +153,57 @@ static void test_ap(void)
     check(world.units[0].ap == 40, "ap: new turn refills");
 }
 
+static void test_chord(void)
+{
+    Chord c;
+    int8_t dx, dy;
+    const uint8_t W = 8, D = 35, R = 20;   /* 80 ms window, 350/200 ms repeat */
+
+    chord_init(&c, W, D, R);
+    check(chord_key(&c, ARROW_UP, true, 100) == 0, "chord: first arrow waits");
+    check(chord_key(&c, ARROW_UP, false, 103) == ARROW_UP, "chord: quick tap fires on release");
+
+    chord_init(&c, W, D, R);
+    chord_key(&c, ARROW_RIGHT, true, 0);
+    check(chord_poll(&c, 8) == 0 && chord_poll(&c, 9) == ARROW_RIGHT,
+          "chord: held arrow fires after the window");
+    check(chord_key(&c, ARROW_RIGHT, false, 30) == 0, "chord: release after firing is silent");
+
+    chord_init(&c, W, D, R);
+    chord_key(&c, ARROW_UP, true, 200);
+    check(chord_key(&c, ARROW_RIGHT, true, 204) == (ARROW_UP | ARROW_RIGHT),
+          "chord: up+right within window = NE");
+    check(chord_key(&c, ARROW_UP, false, 210) == 0 && chord_key(&c, ARROW_RIGHT, false, 211) == 0,
+          "chord: releasing a chord is silent");
+    check(chord_to_step(ARROW_UP | ARROW_RIGHT, &dx, &dy) && dx == 1 && dy == -1,
+          "chord: NE maps to dx=1 dy=-1");
+
+    chord_init(&c, W, D, R);
+    chord_key(&c, ARROW_DOWN, true, 0);
+    check(chord_poll(&c, 9) == ARROW_DOWN, "chord: late partner -> first fires alone");
+    check(chord_key(&c, ARROW_LEFT, true, 12) == 0 &&
+          chord_key(&c, ARROW_LEFT, false, 14) == ARROW_LEFT,
+          "chord: late partner fires on its own");
+
+    chord_init(&c, W, D, R);
+    chord_key(&c, ARROW_LEFT, true, 0);
+    check(chord_key(&c, ARROW_RIGHT, true, 2) == ARROW_LEFT, "chord: opposite arrows no diagonal");
+    check(!chord_to_step(ARROW_LEFT | ARROW_RIGHT, &dx, &dy), "chord: contradictory mask rejected");
+
+    chord_init(&c, W, D, R);
+    chord_key(&c, ARROW_UP, true, 0);
+    chord_key(&c, ARROW_LEFT, true, 3);                       /* NW emitted */
+    check(chord_poll(&c, 30) == 0, "chord: no repeat before the delay");
+    check(chord_poll(&c, 38) == (ARROW_UP | ARROW_LEFT), "chord: held chord repeats as diagonal");
+    check(chord_poll(&c, 50) == 0 && chord_poll(&c, 58) == (ARROW_UP | ARROW_LEFT),
+          "chord: then repeats every interval");
+    chord_key(&c, ARROW_LEFT, false, 60);
+    check(chord_poll(&c, 94) == 0 && chord_poll(&c, 95) == ARROW_UP,
+          "chord: releasing one key continues with the other after the delay");
+    chord_key(&c, ARROW_UP, false, 96);
+    check(chord_poll(&c, 200) == 0, "chord: nothing held, no repeat");
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -161,6 +213,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_view();
     test_dirty_and_move();
     test_ap();
+    test_chord();
     world_load(&world, &MAP_WIZARD_HOUSE);   /* leave a clean state */
     return fails;
 }
