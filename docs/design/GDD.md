@@ -1,6 +1,6 @@
 # Game Design Document – Lords of Chaos (Agon)
 
-> Status: **Entwurf v0.4** · Entscheidungen D1–D8 eingearbeitet (§14) · Stand 2026-10-02
+> Status: **Entwurf v0.5** · Darstellung überarbeitet (D9/D10, §11) · Entscheidungen §14 · Stand 2026-10-02
 > Leitquelle: **Amiga/Atari-ST-Fassung** (Blade Software / Mythos Games, 1990)
 
 ---
@@ -30,11 +30,11 @@ Seitenangaben `[PM n]` beziehen sich auf die Seitenzahl im Players Manual. Die P
 ## 1. Vision und Leitplanken
 
 1. **Classic zuerst.** Phase 1 baut die Amiga-Fassung regeltreu nach: gleiche Kreaturen, Zauber, Aktionen, Siegbedingungen und Kampagnenlogik. Erweiterungen gibt es in dieser Phase nicht.
-2. **Agon-nativ.** Gebaut wird in C/eZ80 für 512 KB RAM. Die Darstellung läuft über ein 40×30-Zellenraster mit eigenen Glyphen. Hardware-Grenzen bestimmen das Design, nicht umgekehrt.
-3. **Präsentation à la Caves of Qud.**
-   - Wenige Symbole, aber Farbe, Licht und Animation tragen die Atmosphäre.
-   - Jede Zelle hat ein Glyph, eine Vordergrund- und eine Hintergrundfarbe.
-   - Effekte entstehen über Farbwechsel, Palette-Cycling und kurze Glyph-Animationen, nicht über Pixelgrafik.
+2. **Agon-nativ.** Gebaut wird in C/eZ80 für 512 KB RAM. Hardware-Grenzen bestimmen das Design, nicht umgekehrt.
+3. **Nah dran wie Spectrum und Amiga (D9).**
+   - Die Darstellung arbeitet mit **eigener 24×24-Pixelart** in einer **9×9-Sicht**.
+   - Man sieht Möbel, Teppiche, Türen, Schubladen und Kreaturen im Detail, mehrere Ebenen übereinander pro Feld.
+   - Von *Caves of Qud* übernehmen wir die **Effekte und Lesbarkeit**: Licht, Farbanimation, Partikel, klare Infos. Die abstrakte Glyphen-Optik übernehmen wir nicht.
 4. **Chaos später, aber vorbereitet.** Die Kern-Datenstrukturen sehen Materialien, Welt-Ticks und Licht schon vor. Siehe §12.
 
 ### Feature-Stufen (Tags im ganzen Dokument)
@@ -100,7 +100,7 @@ Spielrunde n:
 
 - Eine rechteckige **Wrap-around-Karte**: Wer am Rand weiterläuft, kommt auf der anderen Seite heraus. `[PM 6]`
 - Das Kartenfenster zeigt einen Ausschnitt und scrollt mit dem Cursor.
-- **Big Map:** strategische Übersicht über etwa die halbe Welt. Symbole: Zauberer, Bodenkreatur, Flieger, Objekt. Auf dem Amiga ist sie scrollbar. `[PM 13, AMI 4]` Bei uns passt die **ganze Welt** auf einen Bildschirm: 36 Spalten bei 1 Zelle pro Kachel.
+- **Big Map:** strategische Übersicht über etwa die halbe Welt. Symbole: Zauberer, Bodenkreatur, Flieger, Objekt. Auf dem Amiga ist sie scrollbar. `[PM 13, AMI 4]` Bei uns zeigt die Big Map die **ganze Welt** im Kartenfenster: 36×36 Felder à 4×4 px (§11.1).
 - **Kartengröße:** **36×36 Kacheln** in allen Spectrum-Szenarien (B3.1); für Amiga als Näherung angenommen, Stichprobe O2. Das ist die Classic-Referenz für eigene Karten; das Szenario-Format erlaubt andere Größen.
 - **Wege** und **Wände** sind kachelbasierte Linien durch die Kachelmitte (B2.1, B3.3).
 
@@ -108,7 +108,9 @@ Spielrunde n:
 
 | Ebene | Inhalt |
 |---|---|
-| Terrain | Bodentyp bzw. Hindernis (siehe 3.3) |
+| Boden | Untergrund: Steinfliesen, Holzdielen, Gras, Weg, Wasser … |
+| Boden-Dekor | Teppich, Pentakel, Blut bzw. Asche; begehbar, ändert nur das Aussehen (brennbar: Teppich) |
+| Feature | Wand, Tür, Möbel (Bett, Tisch, Stuhl, Regal, Kommode, Schrank, Truhe, Kessel, Kerzenständer), Baum, Fels. Kann blockieren und kann Behälter sein (siehe 3.3). |
 | Dach | Gebäude haben Dächer. Sie blockieren Sicht und Landung zwischen Luft und Boden. `[PM 10, 16]` |
 | Boden-Einheit | höchstens 1 Kreatur, plus Reiter falls beritten |
 | Luft-Einheit | höchstens 1 fliegende Kreatur |
@@ -125,6 +127,20 @@ Spielrunde n:
 - **Wasser und Sumpf.**
 - **Pentakel** im Zauberer-Haus.
 - **Kessel** (Cauldron) als Objekt.
+
+**Einrichtung (D9).** Das Original zeigt ein möbliertes Zauberer-Haus (Beobachtung B2.7); wir machen Häuser und Dungeons ebenso wohnlich:
+
+| Feature | Bewegung | Sicht | Besonderheit |
+|---|---|---|---|
+| Teppich (Boden-Dekor) | frei | frei | brennbar ([X] Feuer v2) |
+| Stuhl, Kerzenständer | frei (wie Boden + 2 AP) | frei | Kerzen sind Lichtquelle ([X]) |
+| Tisch, Bett | blockiert | frei | Objekte können darauf liegen |
+| Regal, Schrank | blockiert | blockiert | Behälter (`a` = öffnen bzw. durchsuchen) |
+| **Kommode bzw. Schubladen** | blockiert | frei | **Behälter**: öffnen, Inhalt aufheben; kann verschlossen sein (Schlüssel) |
+| Truhe | blockiert | frei | Behälter; verschlossen bzw. geöffnet `[PM 15]` |
+| Kessel | frei | frei | Trankbrauen `[PM 19]` |
+
+Möbel haben eine Zähigkeit wie Türen. Sie lassen sich zerschlagen, und Holzmöbel brennen ([X]).
 
 Weitere Typen ergeben sich aus den Szenarien → §13.
 
@@ -535,85 +551,97 @@ Wer nicht entkommt oder stirbt, bekommt **0 VP**.
 
 ## 11. Präsentation auf dem Agon [C]
 
-### 11.1 Bildschirmaufteilung (40×30 Zellen, je 8×8 Pixel)
+### 11.1 Bildschirmaufteilung (D9: 24×24-Kacheln, Sicht 9×9)
 
-**Entschieden (D8):** **MODE 8** (320×240, 64 Farben), **1 Zeichen = 1 Feld (8×8 Pixel)**, Kartenfenster **27×24 Felder**.
+**Entschieden (D9, ersetzt D8):** **MODE 8** (320×240, 64 Farben). Die Karte besteht aus **24×24-Pixel-Kacheln** aus **eigener Pixelart** (D10), das Kartenfenster ist **9×9 Felder** (216×216 px) groß.
 
-- **Begründung:** Der volle Sichtradius (19×19 am Boden, 23×23 in der Luft) passt komplett hinein. Das ist schnellstes Rendering (1 Zeichen pro Feld, Dirty-Cells) und entspricht der Roguelike- bzw. Qud-Ästhetik.
-- **Abgrenzung:** Das 20×20-Raster aus dem alten GDD (Versuch 1) und die 7×7 großen Kacheln des Amiga werden **nicht** übernommen.
-- **Welt gegen Fenster:** Die Welt ist 36×36 und wickelt sich um. Das Fenster zentriert auf die aktive Einheit bzw. den Cursor und scrollt mit Wrap-around.
-- **Spike M1 prüft nur noch:** Lesbarkeit der 8×8-Glyphen am echten Monitor, Redraw-Zeit und die genaue Panel-Breite. Am Layout selbst ändert er nichts.
-
+Das entspricht dem Maßstab der Spectrum-Fassung (24×24, B3) und liegt nah am Amiga (7×7). Die abstrakte 8×8-Glyphen-Optik von M0 entfällt.
 
 ```
- 0                         26 27                    39
- +---------------------------+------------------------+ 0
- | KARTENFENSTER 27x24       | INFO-PANEL 13x24       |
- |  (Glyphen, scrollt)       |  Name, Icons (Undead,  |
- |                           |  Fly, Mount, Wound,    |
- |                           |  Invisible), Balken:   |
- |                           |  AP/STA/CON/COM/DEF/   |
- |                           |  MANA,                 |
- |                           |  Objekte im Feld,      |
- |                           |  Kontextmenü / Listen  |
- +---------------------------+------------------------+ 24
- | NACHRICHTEN-LOG (3 Zeilen, `l` = ganzer Log)       |
- | Runde · aktive Einheit · AP · Mana · Tastenhinweis |
- +----------------------------------------------------+ 30
+x: 0                       216                 319
+   +------------------------+--------------------+ y=0
+   | KARTENFENSTER          | [24x24] Name       |
+   | 9 x 9 Felder           | Status-Icons       |
+   | je 24x24 px            |                    |
+   | (216 x 216 px)         | ▮  ▮  ▮  ▮  ▮  ▮   |
+   |                        | ▮  ▮  ▮  ▮  ▮  ▮   |
+   | Overlays: Zauberliste, | AP ST CO CB DF MA  |
+   | Inventar, Big Map,     | (6 Balken, Amiga)  |
+   | Menüs                  | Objekte im Feld    |
+   +------------------------+--------------------+ y=216
+   | Meldungszeile / Name unter Cursor (3 Zeilen)|
+   +---------------------------------------------+ y=240
 ```
 
-- **Info-Panel** wie im Original: 5 Status-Icons `[PM 11–12]`, dazu **6 Balken** wie auf dem Amiga (Beobachtung B2.4).
-  - Die Balken sind AP, Stamina, Constitution, Combat, Defence und Mana.
-  - Jeder Balken hat ein Icon-Glyph: Stiefel, Blitz, Herz, Schwert, Schild, Stern, in den Amiga-Farben grün, gelb, rot, grau, blau, pink.
-  - Mana erscheint nur bei Zauberern.
-  - Das Panel zeigt immer die aktive Einheit, im Look-Modus die untersuchte.
-- **Balken** werden als Glyph-Blöcke mit Farbverlauf gezeichnet. Weil die 40×30-Auflösung wenig Platz lässt, liegen sie senkrecht nebeneinander wie auf dem Amiga oder waagerecht mit Zahlenwert; das entscheidet der Layout-Spike.
-- **Textzeile:** benennt das Element unter dem Look- bzw. Ziel-Cursor, wie die Amiga-Zeile unter der Karte (B2.3).
-- **Listen und Menüs** erscheinen im Panel mit Buchstaben-Kürzeln `a)`–`z)` im Qud-Stil.
-- **Statuszeile:** zeigt kontextabhängig die wichtigsten Tasten, z. B. `c Zaubern · g Aufheben · E Zugende`.
+- **Info-Panel (104 px):**
+  - Oben das Bild der Einheit (ihre 24×24-Kachel) mit Namen, wie der Vorschaukasten des Amiga (B2.5).
+  - Darunter Status-Icons (Undead, Fly, Mount, Wound, Invisible) `[PM 11]`.
+  - Dann **6 senkrechte Balken** wie auf dem Amiga (B2.4): AP, Stamina, Constitution, Combat, Defence, Mana; Mana nur bei Zauberern. Jeder Balken hat ein Icon und die Amiga-Farbe.
+  - Am Ende die Objekte im Feld.
+- **Meldungszeile (3 Textzeilen):** benennt das Element unter dem Cursor (B2.3), zeigt Kampf- und Zaubermeldungen und kontextabhängige Tastenhinweise.
+- **Listen und Menüs** (Zauberliste, Inventar, Aufheben, Kontextmenü `Enter`, Big Map) erscheinen als **Overlay über dem Kartenfenster**. Das Panel ist für Zaubernamen zu schmal; das Amiga zeigt die Zauberliste ebenso als eigenen Bildschirm. Auswahl mit `a`–`z` bzw. Pfeilen (§5.1).
+- **Kamera:** Das Fenster scrollt, wenn die aktive Einheit bzw. der Cursor weniger als 2 Felder vom Rand entfernt ist, und bei `Tab` auf die neue Einheit. Wrap-around über die 36×36-Welt.
+- **Sicht gegen Fenster:**
+  - Der Sichtradius (9/11) ist größer als das Fenster (±4). Das ist wie im Original (Amiga ±3).
+  - Der Rest der Welt ist über die **Big Map** (`m`) erreichbar: 36×36 Felder à 4×4 px = 144×144 px im Kartenfenster, mit Farbe je Terrain und Punkten für eigene bzw. gesichtete Einheiten.
 
 ### 11.2 Visuelle Sprache
 
-- **Ein Glyph pro Kreaturtyp.** Die Farbe zeigt den Besitzer (4 Zauberer-Farben plus Neutral). Der Hintergrund zeigt den Zustand: Flieger mit Himmelstönung, Unsichtbare gedimmt (nur für den Besitzer sichtbar).
-- **Terrain:** Glyph plus Farbe. Verdecktes Terrain wird dunkler dargestellt.
-- **Erkundet, aber nicht in Sicht:** entsättigt bzw. grau. Das ist die Hidden Map.
-- **Aktive Einheit:** blinkender bzw. pulsierender Hintergrund. Grün heißt am Boden, blau heißt in der Luft.
-- **Ziel- und Look-Cursor:** Rahmen-Glyph. Gelb für ein Bodenziel, blau für ein Luftziel, rot außer Reichweite (Amiga-Farbcode); weiß im Look-Modus.
-- **[C]-Animationen** (minimal):
-  - Treffer-Blitz
-  - Zauber-Projektil als Glyph-Spur
-  - Feuer-Flackern per Palette-Cycling
-  - Wasser-Schimmern
+- **Pixelart:** 24×24 Pixel je Kachel, Farben ausschließlich aus der **Agon-64-Farben-Palette** (RGB 2-2-2) plus Transparenz. Der Stil orientiert sich am Spectrum bzw. Amiga: klare Umrisse, gut lesbare Silhouetten, Möbel und Kreaturen erkennbar auf einen Blick.
+- **Perspektive: 3/4-Frontansicht wie auf dem Amiga (D11).**
+  - Böden, Teppiche und Wege sind flach von oben gesehen.
+  - Möbel, Wände und Kreaturen zeigen **Oberseite (hell) und Front (dunkler)**: Kopfteil des Betts, Tischbeine, Schubladen-Fronten, Ziegel-Front der Wände.
+  - Stehende Dinge werfen einen gerasterten Schatten.
+  - Alles bleibt innerhalb seiner 24×24-Kachel; es gibt keinen Überstand in die Kachel darüber, damit Ebenen und Dirty-Rendering einfach bleiben.
+- **Wände in 3/4:** Durch die Kachelmitte läuft eine helle Kappe (Oberseite). Wo südlich keine Wand anschließt, liegt darunter die Ziegel-Front. Nord-Süd-Verläufe zeigen nur die schmale Kappe. Es gibt 16 Auto-Tiling-Varianten.
+- **Halb-Böden an Wänden:** Jede Seite der Wandlinie zeigt den Boden des Nachbarfelds auf dieser Seite, also innen die Fliesen und außen das Gras, wie auf dem Amiga (B2). Der Renderer zeichnet dafür zugeschnittene Boden-Kacheln; auf dem Agon geschieht das über vorab erzeugte Halb-Kacheln pro Bodentyp und Richtung.
+- **Besitzerfarbe:** Jede Kreaturen-Kachel hat definierte **Schlüsselfarben** (z. B. Robe bzw. Schabracke). Das Tile-Tool erzeugt daraus Varianten für die 4 Zauberer und Neutral (Palette-Swap beim Build).
+- **Hidden Map:** Unerforschtes ist schwarz. Erkundetes, aber nicht in Sicht, wird mit einem **Raster-Overlay** (50-%-Schachbrett, schwarz) abgedunkelt; das ist Retro-typisch und kostet nur eine Overlay-Kachel.
+- **Cursor:** Ein **Hardware-Sprite** zeigt den Rahmen. Farbe: weiß im Look-Modus, grün bei gewählter Einheit am Boden, blau in der Luft; beim Zielen gelb (Boden), blau (Luft) bzw. rot (außer Reichweite) (Amiga-Farbcode, B2.6, `[AMI 3]`).
+- **Animation [C] (Frame-Animation, nur für sichtbare Felder):**
+  - Kerzen- und Feuerflackern (2–4 Frames)
+  - Wasser
   - Portal-Pulsieren
+  - Treffer-Blitz (Overlay)
+  - Zauber-Projektil (Sprite-Flug)
 
-### 11.3 Kachel-Komposition: mehrere Elemente, eine Zelle
+  In den 64-Farben-Modi ist die Palette fest. Palette-Cycling entfällt deshalb und wird durch Frame-Animation ersetzt; Spike M1 prüft das.
+- **Qud-Erbe [X]:** Licht und Schatten (Lichtquellen wie Kerzen und Feuer hellen die Umgebung auf, als Overlay-Stufen), Partikel und Bildschirm-Effekte.
 
-Das Amiga-Original zeigt **7×7 große Kacheln** und überlagert pro Kachel mehrere Elemente, z. B. Boden, Tür und Weg. (Beobachtung B1, `amiga-observations.md`) Wir zeigen etwa 27×24 Zellen mit je **einem Glyph plus Vorder- und Hintergrundfarbe**.
+### 11.3 Kachel-Komposition: Ebenen pro Feld
 
-**Bewusste Abweichung:** Der größere Ausschnitt zeigt den vollen Sichtradius (9 Felder am Boden, 11 in der Luft) ohne Scrollen. Das ist Qud-typisch und taktisch besser lesbar.
+Wie beim Amiga werden pro Feld **mehrere Ebenen übereinander** gezeichnet (B1.2). Die Kacheln liegen als **VDP-Bitmaps** im Grafikspeicher des Agon; transparente Pixel lassen die darunterliegende Ebene durchscheinen.
 
-[C+] Optional nach v1.0: ein Zoom-Modus mit 16×16-Glyphen (etwa 13×12 Felder) für mehr Detail. Er ist nicht Teil der Basis (D8).
+| Reihenfolge | Ebene | Beispiele |
+|---|---|---|
+| 1 | Boden | Steinfliesen (blau, wie Amiga), Holzdielen, Gras, Weg, Wasser |
+| 2 | Boden-Dekor | Teppich, Pentakel, Blutfleck, Asche |
+| 3 | Feature | Wand (Auto-Tiling), Tür offen bzw. zu, Möbel, Kommode, Truhe, Kessel, Kerzenständer, Baum |
+| 4 | Objekt | oberstes Objekt im Feld als kleines Icon. Liegen mehrere, zeigt ein Marker „mehr“; Details per `x` bzw. `g`. |
+| 5 | Boden-Einheit | Kreatur bzw. Zauberer (Besitzerfarbe), Reiter auf Reittier |
+| 6 | Luft-Einheit | Flieger, leicht nach oben versetzt, mit Schatten auf dem Boden |
+| 7 | Flächeneffekt | Feuer, Gooey Blob, Tangle Vine, Flood (animiert, halbtransparent per Raster) |
+| 8 | Sicht-Overlay | Raster für „erinnert, nicht in Sicht“ |
+| – | Cursor | Hardware-Sprite, kein Neuzeichnen nötig |
 
-**Komposition pro Zelle.** Die drei Kanäle werden getrennt belegt:
+- **Wände** belegen ganze Kacheln. Die Wandlinie läuft durch die Kachelmitte und verbindet sich per **Auto-Tiling** (16 Varianten nach den 4 Nachbarn) mit Nachbarwänden, wie im Original (B2.1). Türen sitzen in der Wandlinie.
+- **Datenmodell:** pro Feld je ein Byte für Boden, Dekor und Feature, plus Zustandsbits (Tür offen, Behälter verschlossen, gesehen bzw. erinnert). Einheiten und Objekte liegen in Pools mit Positionen. Der Core liefert dem Frontend pro sichtbarem Feld eine **Liste von Kachel-IDs** statt eines Glyphen; das ersetzt das Zellen-Grid aus M0.
 
-| Kanal | Quelle (höchste Priorität zuerst) |
-|---|---|
-| **Glyph** | Cursor-Rahmen → Luft-Einheit → Boden-Einheit → Flächeneffekt (Feuer, Blob, Vine, Flood) → oberstes Objekt → Feature (Tür, Truhe, Kessel, Möbel, Baum, Wand) → Boden-Detail (Gras, Weg) |
-| **Vordergrundfarbe** | Farbe des gewählten Glyph-Elements: Besitzerfarbe bei Einheiten, Materialfarbe bei Objekten und Terrain |
-| **Hintergrundfarbe** | Untergrund: z. B. blauer Steinboden innen, dunkelgrün Wiese, braun Weg, dunkelblau Wasser. Moduliert durch Zustand: Sicht, Erinnerung, Licht, aktive Einheit, Brand-Glühen. |
+**Bandbreite (Abschätzung, M1 misst):**
+- Ein Kachel-Zeichenbefehl kostet etwa 11 Byte (Bitmap wählen plus zeichnen).
+- Ein volles Kartenfenster hat 81 Felder mit etwa 3,5 Ebenen, also rund 3,1 KB. Bei 1.152.000 Baud zum VDP sind das etwa **30 ms**.
+- Gezeichnet werden nur geänderte Felder; beim Scrollen das ganze Fenster.
+- Grafikspeicher: 24×24 in RGBA2222 sind 576 Byte pro Kachel; 400 Kacheln brauchen etwa 230 KB VDP-Speicher (M1 prüft das Budget).
 
-So bleiben drei Informationen gleichzeitig lesbar: **wer** steht dort (Glyph), **wem** gehört es (Farbe) und **worauf** steht es (Hintergrund).
+### 11.3a Pixelart-Pipeline (D10: eigene Grafik)
 
-**Verdeckte Information:**
-- Wenn mehr als ein Element um den Glyph-Kanal konkurriert, zeigt ein Marker-Pixel bzw. eine Glyph-Variante „hier liegt mehr“, z. B. Objekte unter einer Einheit.
-- Details liefert der Look-Modus (`x`).
-- [C+] Optional: Glyph-Wechsel im Takt (Einheit ↔ Objekt), Qud-ähnlich.
-
-**Wände belegen ganze Kacheln** (geklärt, Beobachtung B2.1). Im Original verläuft die Wandlinie durch die Kachelmitte und verbindet sich mit den Nachbarwänden.
-
-Wir übernehmen das 1:1 mit **Auto-Tiling-Glyphen**: zentrierte Linien, Ecken, T-Stücke und Kreuze im Stil der Box-Drawing-Zeichen, insgesamt 16 Varianten nach den 4 Nachbarn. **Türen** sitzen als eigener Glyph auf der Wandkachel in der Linie.
-
-Das Kartenmodell bleibt rein kachelbasiert; es gibt keine Kanten-Daten.
+- **Quelle:** `assets/tiles/*.png`, Kachelbögen im 24×24-Raster, gezeichnet mit der Palette `assets/palette/agon64.gpl` (64 Farben plus Transparenz). Bearbeitbar mit jedem Pixel-Editor (Aseprite, LibreSprite, GIMP).
+- **Tool `tools/build_tiles.py`:**
+  - prüft Größe und Palette (falsche Farben gelten als Fehler)
+  - erzeugt Besitzerfarben-Varianten
+  - schreibt `tiles.bin` (RGBA2222) für die SD-Karte, die ID-Tabelle `gen_tiles.h` für den Core und eine Vorschau-PNG
+- **Mockups:** `tools/mockup.py` rendert aus Kacheln und einer Szenen-Beschreibung ein 320×240-Bild des Spielbildschirms nach `docs/design/mockups/`. So lässt sich die Optik beurteilen, bevor der Agon-Renderer existiert.
+- Alle Grafiken sind eigene Arbeit (D10) und dürfen ins öffentliche Repo.
 
 ### 11.4 Sound [C]
 
@@ -644,9 +672,9 @@ Ziel ist eine lebendigere, chaotischere Welt nach dem Vorbild von Caves of Qud u
    - Lichtquellen (Feuer, Zauber, Fackeln) färben die Zellen ein.
    - Sichtfeld mit weichem Abfall statt hartem Schnitt.
 6. **Effekte:**
-   - Partikel-Glyphen (Funken, Splitter, Blut, Magie)
+   - Partikel (Funken, Splitter, Blut, Magie)
    - Bildschirm-Flash, Erschütterung (Versatz)
-   - Animierte Kreatur-Glyphen in 2 Phasen
+   - Animierte Kreaturen (2 Frames, Idle)
 7. **Inspiration Tales of Maj'Eyal:**
    - Lesbare taktische Infos (Tooltips mit Trefferchance)
    - Nachvollziehbares Kampflog
@@ -668,7 +696,7 @@ Spalte „WinUAE“: Was sich im Amiga-Original direkt beobachten lässt (●), 
 | Mana-Kosten pro Zauber und Stufe | ✅ | Linear, alle 45 in `data/spells.csv` (B3.5); Amiga-Stichprobe und Bomb Potion in O4 |
 | Zauberer-Attribute: Startwerte, XP-Kosten, Obergrenzen | ● | Im Wizard Designer angezeigt |
 | Spiellänge (1–5) gegen Portal-Zeiten | ● | Rundenspannen im Setup-Panel ablesen, Portal-Erscheinen protokollieren |
-| Terrain-Typen und ihre Glyph-Entsprechung | ● | Szenarien erkunden, Terrain-Katalog anlegen |
+| Terrain-Typen und ihre Kachel-Entsprechung | ● | Szenarien erkunden, Terrain-Katalog anlegen |
 | Stamina-Verbrauch, Regeneration, Erschöpfungsschwelle | ✅ | **Eigenes Design** (§5.3): Schritt = AP/2, Regeneration 25 %, Erschöpfung unter 25 % |
 | Wirkung von Wood/Water/Rock Type | ◐ | Mit passenden Kreaturen testen |
 | Wurfreichweite (Stärke, Gewicht) | ◐ | Maximale Reichweite am Zielcursor (rot) ablesen |
@@ -696,7 +724,10 @@ Spalte „WinUAE“: Was sich im Amiga-Original direkt beobachten lässt (●), 
 | D5 | Steuerung | **Tastatur, inspiriert von Caves of Qud**, nicht die Original-Bedienung (§5.1). Maus ist nicht Teil von v1.0. |
 | D6 | Zieltastatur | **Cherry G84-4100, deutsches ISO-Layout (QWERTZ, bestätigt)**. Kein Ziffernblock. Belegung „rechte Hand Pfeile, linke Hand Aktionen“, Diagonalen per Pfeil-Akkord (§5.2). |
 | D7 | Originalwerte | **Keine exakte Kopie.** Aktionskosten, Formeln und Balancing sind eigenes Design mit sinnvollen Startwerten. Messungen am Amiga dienen nur als Anker bzw. Plausibilitätscheck (§5.3). |
-| D8 | Bildausschnitt | **MODE 8, 8×8-Glyphen, Kartenfenster 27×24 Felder** (§11.1). Kein 20×20 (altes GDD), kein 7×7 (Amiga). 16×16-Zoom ist optional nach v1.0. |
+| ~~D8~~ | ~~Bildausschnitt~~ | ~~MODE 8, 8×8-Glyphen, 27×24 Felder~~ → **ersetzt durch D9** (Review 2: „zu weit weg, sieht nicht aus wie die Referenzen“) |
+| D9 | Darstellung | **24×24-Pixel-Kacheln, Kartenfenster 9×9**, MODE 8, mehrere Ebenen pro Feld als VDP-Bitmaps, Möbel, Teppiche, Türen und Schubladen sichtbar (§11). Nah an Spectrum (24×24) und Amiga (7×7). |
+| D10 | Grafikquelle | **Eigene 24×24-Pixelart von Anfang an**, keine Fremd-Packs. Pipeline PNG → Agon (§11.3a). |
+| D11 | Perspektive | **3/4-Frontansicht wie auf dem Amiga** für Möbel, Wände und Kreaturen; flache Böden; Halb-Böden an Wänden (§11.2). |
 
 **Noch offen:**
 - Endgültige Tastenbelegung (Prüfung im M2-Prototyp).
@@ -709,7 +740,7 @@ Spalte „WinUAE“: Was sich im Amiga-Original direkt beobachten lässt (●), 
 
 | Milestone | GDD-Abschnitte |
 |---|---|
-| M1 Spikes | §11 (Layout, Glyphen, Palette-Cycling), Eingabe-Spike mit der G84-4100 (§5.2: Akkorde, Sondertasten, Auto-Repeat). Parallel: WinUAE-Beobachtungs-Session 1 (Kartengröße, AP-Kosten, Terrain-Katalog). |
+| M1 Spikes | §11 neu: Bitmap-Kachel-Renderer (Ebenen, Bandbreite, VDP-Speicher, Frame-Animation, Hardware-Sprite-Cursor), Pixelart-Pipeline und Mockup, Eingabe-Spike mit der G84-4100 (§5.2). Parallel: WinUAE-Beobachtungs-Session 1 (Kartengröße, AP-Kosten, Terrain-Katalog). |
 | M2 Core-Skelett | §3 (Karte, Ebenen, Sicht, Hidden Map), §4 (Daten), §5.1 (aktive Einheit, Bewegung, Bump, `Tab`, Look-Modus), Rundenablauf §2.1 |
 | M3 Classic spielbar | §6 Kampf, §7 Beschwörungen und Bolt/Lightning, §8 Basis-Objekte, §9 Portal und VP, §10 einfache KI, eigenes Szenario 1 |
 | M4 Classic komplett (v1.0) | Alle 45 Zauber und Tränke, Flächeneffekte, Wizard Designer, Kampagne, eigene Szenarien 2 und 3, Setup-Panel, Speichern |

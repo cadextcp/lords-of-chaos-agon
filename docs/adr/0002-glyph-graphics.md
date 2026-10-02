@@ -1,6 +1,6 @@
 # ADR 0002 – Eigene Glyph-Grafik statt Bitmap-Tiles
 
-- **Status:** angenommen (2026-10-02)
+- **Status:** **ersetzt durch ADR 0005** (2026-10-02, Review 2). Ursprünglich angenommen am 2026-10-02.
 - **Kontext:**
   - Versuch 1 setzte auf das Pixel-Crawler-Bitmap-Pack. Dessen Lizenz verbietet die Weitergabe, das passt nicht zu einem öffentlichen Repo.
   - Bitmap-Tiles kosten viel Bandbreite zum VDP.

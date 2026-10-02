@@ -1,6 +1,6 @@
 # Lords of Chaos – Agon
 
-Inoffizielles Fan-Remake von Julian Gollops *Lords of Chaos* (1990) für den **Agon Light** (eZ80, MOS, VDP). Es ist in C und eZ80-Assembler geschrieben, mit einer Glyph-Grafik im Stil von *Caves of Qud*.
+Inoffizielles Fan-Remake von Julian Gollops *Lords of Chaos* (1990) für den **Agon Light** (eZ80, MOS, VDP). Es ist in C und eZ80-Assembler geschrieben, mit eigener 24×24-Pixelart nah an der Spectrum- und Amiga-Fassung und Effekten im Geist von *Caves of Qud*.
 
 *Unofficial fan remake of Lords of Chaos for the Agon Light, written in C/eZ80.*
 
@@ -43,4 +43,4 @@ Einen Überblick über die Architektur gibt [docs/ARCHITECTURE.md](docs/ARCHITEC
 
 - *Lords of Chaos* © Julian Gollop / Mythos Games. Dieses Projekt ist ein nicht-kommerzielles Fan-Remake ohne Verbindung zu den Rechteinhabern.
 - Das Repo enthält **keine** Originaldateien: keine Handbücher, Disk-Images, Original-Grafiken oder Karten. Solches Referenzmaterial liegt nur lokal in `reference/` (gitignored).
-- Grafik (Glyphen), Karten und Code sind eigene Arbeit. Der Code steht unter der [MIT-Lizenz](LICENSE).
+- Grafik (Pixelart), Karten und Code sind eigene Arbeit. Der Code steht unter der [MIT-Lizenz](LICENSE).
