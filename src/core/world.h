@@ -113,9 +113,18 @@ bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy);
  * (GDD 3.1, deferred). */
 bool world_take_off(World *w, uint8_t unit);
 bool world_land(World *w, uint8_t unit);
-/* Round end: refill AP - the layer budget while flying (ap_fly), halved
- * when exhausted (PM 12) - recover 25 % stamina (GDD 5.3), regenerate
- * 4 % mana. */
+/* Spend AP and half of it as stamina (GDD 5.3). */
+void world_spend(World *w, uint8_t unit, uint8_t ap);
+/* Remove a unit (swap with the last). Callers holding unit indices use
+ * turn_on_unit_removed for the turn state. */
+void world_remove_unit(World *w, uint8_t unit);
+/* Ground unit standing next to a living enemy: bound (GDD 6), only the
+ * attack itself remains. */
+bool world_engaged(const World *w, uint8_t unit);
+/* Round end: fatal wounds bleed (PM 17); refill AP - the layer budget
+ * while flying (ap_fly), halved when exhausted (PM 12) - recover 25 %
+ * stamina (GDD 5.3), regenerate 4 % mana; bleeders that reach 0 are
+ * removed. */
 void world_new_turn(World *w);
 
 /* Why a step fails, for bump messages (GDD 5.1). */

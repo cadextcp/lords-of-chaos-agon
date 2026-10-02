@@ -137,6 +137,23 @@ bool turn_units_left(const Turns *t, const World *w)
     return false;
 }
 
+/* Fix the turn state after world_remove_unit(unit): the done bits above
+ * the gap shift down, the active unit is re-selected when it was the
+ * removed one. */
+void turn_on_unit_removed(Turns *t, const World *w, uint8_t unit)
+{
+    uint32_t below, above;
+    if (unit >= MAX_UNITS)
+        return;
+    below = unit == 0 ? 0 : t->done & ((1u << unit) - 1);
+    above = unit >= 31 ? 0 : (t->done >> (unit + 1)) << unit;
+    t->done = below | above;
+    if (t->active == unit)
+        t->active = find_usable(t, w, 0, false);
+    else if (t->active != NO_UNIT && t->active > unit)
+        t->active--;
+}
+
 void turn_end_phase(Turns *t, World *w)
 {
     for (;;) {

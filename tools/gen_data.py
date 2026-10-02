@@ -49,6 +49,7 @@ def cstr(s: str) -> str:
 
 def main() -> int:
     costs = {r["terrain"]: r for r in rows("costs.csv")}
+    features = {r["id"]: r for r in rows("features.csv")}
     spells = rows("spells.csv")
     creatures = rows("creatures.csv")
     actions = rows("actions.csv")
@@ -66,6 +67,7 @@ def main() -> int:
          "enum { NATIVE_WOOD = 1, NATIVE_WATER = 2, NATIVE_ROCK = 4 };",
          "extern const uint8_t FLOOR_NATIVE[FL_COUNT];  /* creature type paying floor cost */",
          "extern const uint8_t FLOOR_DROWN[FL_COUNT];   /* drowning check for non-natives */",
+         "extern const uint8_t FEATURE_TOUGH[FE_COUNT];  /* melee hits a feature survives (0: no/never) */",
          "/* Flying movement (costs.csv row air): constant, whatever is below. */",
          f"enum {{ AIR_AP_ORTH = {int(costs['air']['ap_orth'])}, AIR_AP_DIAG = {int(costs['air']['ap_diag'])} }};", "",
          "typedef enum { " + ", ".join(CATEGORIES.values()) + " } SpellCategory;",
@@ -107,6 +109,14 @@ def main() -> int:
     c += [f"    [{fl}] = {NATIVE[costs[t]['native']]}," for fl, t in FLOOR_TERRAIN]
     c += ["};", "", "const uint8_t FLOOR_DROWN[FL_COUNT] = {"]
     c += [f"    [{fl}] = {1 if costs[t]['hazard'] == 'drown' else 0}," for fl, t in FLOOR_TERRAIN]
+    c += ["};", "",
+          "const uint8_t FEATURE_TOUGH[FE_COUNT] = {"]
+    feat_ids = ["none", "wall", "door_closed", "door_open", "bed", "bookshelf",
+                "candle", "cauldron", "table", "chair", "drawers", "chest",
+                "tree", "rock"]
+    assert set(feat_ids) == set(features), sorted(set(feat_ids) ^ set(features))
+    c += [f"    [{i}] = {int(features[f]['toughness'])},   /* {f} */"
+          for i, f in enumerate(feat_ids)]
     c += ["};", "", "const SpellDef SPELLS[SPELL_COUNT] = {"]
     c += [f"    [SP_{r['id'].upper()}] = {{{cstr(r['name'])}, {CATEGORIES[r['category']]}, "
           f"{int(r['mana_base'])}, {int(r['mana_step'])}, {1 if r['amiga'] == 'yes' else 0}, "

@@ -224,11 +224,20 @@ uint8_t world_air_step_cost(bool diagonal)
     return diagonal ? AIR_AP_DIAG : AIR_AP_ORTH;
 }
 
-static void spend(Unit *u, uint8_t ap)
+void world_spend(World *w, uint8_t unit, uint8_t ap)
 {
     uint8_t st = (uint8_t)((ap + 1) / 2);   /* half the AP, rounded up */
+    Unit *u = &w->units[unit];
     u->ap = (uint8_t)(u->ap - ap);
     u->sta = u->sta > st ? (uint8_t)(u->sta - st) : 0;
+}
+
+void world_remove_unit(World *w, uint8_t unit)
+{
+    if (unit >= w->unit_count)
+        return;
+    w->units[unit] = w->units[w->unit_count - 1];   /* swap with the last */
+    w->unit_count--;
 }
 
 bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
@@ -253,11 +262,13 @@ bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
         if (world_blocks(w, nx, ny) ||
             world_unit_at(w, nx, ny, UL_GROUND) != NO_UNIT)
             return false;
+        if (world_engaged(w, unit))
+            return false;                  /* bound, only the attack remains */
         cost = world_unit_step_cost(w, unit, nx, ny, dx != 0 && dy != 0);
     }
     if (u->ap < cost)
         return false;
-    spend(u, cost);
+    world_spend(w, unit, cost);
     u->x = (uint8_t)nx;
     u->y = (uint8_t)ny;
     return true;
@@ -277,7 +288,7 @@ bool world_take_off(World *w, uint8_t unit)
         return false;                         /* air slot taken */
     if (u->ap < ACTIONS[ACT_TAKE_OFF].ap)
         return false;
-    spend(u, ACTIONS[ACT_TAKE_OFF].ap);
+    world_spend(w, unit, ACTIONS[ACT_TAKE_OFF].ap);
     u->flags |= UF_FLYING;
     return true;
 }
@@ -296,7 +307,7 @@ bool world_land(World *w, uint8_t unit)
         return false;                         /* drowning floor (own rule) */
     if (u->ap < ACTIONS[ACT_LAND].ap)
         return false;
-    spend(u, ACTIONS[ACT_LAND].ap);
+    world_spend(w, unit, ACTIONS[ACT_LAND].ap);
     u->flags &= (uint8_t)~UF_FLYING;
     return true;
 }
@@ -312,6 +323,8 @@ void world_new_turn(World *w)
     for (i = 0; i < w->unit_count; i++) {
         Unit *u = &w->units[i];
         uint8_t full = (u->flags & UF_FLYING) ? u->ap_fly : u->ap_max;
+        if (u->flags & UF_WOUNDED)         /* bleeds until death (PM 17) */
+            u->con = u->con > 0 ? (uint8_t)(u->con - 1) : 0;
         uint16_t sta = (uint16_t)(u->sta + u->sta_max / 4);
         u->ap = u->sta < u->sta_max / 4 ? (uint8_t)(full / 2) : full;
         u->sta = (uint8_t)(sta > u->sta_max ? u->sta_max : sta);
@@ -320,6 +333,28 @@ void world_new_turn(World *w)
             u->mana = mana > u->mana_max || mana < u->mana ? u->mana_max : mana;
         }
     }
+    for (i = w->unit_count; i-- > 0;)      /* bleeders that died */
+        if (w->units[i].con == 0)
+            world_remove_unit(w, i);
+}
+
+bool world_engaged(const World *w, uint8_t unit)
+{
+    const Unit *u;
+    int8_t dx, dy;
+    if (unit >= w->unit_count)
+        return false;
+    u = &w->units[unit];
+    if (u->flags & UF_FLYING)
+        return false;                      /* flyers are never bound */
+    for (dx = -1; dx <= 1; dx++)
+        for (dy = -1; dy <= 1; dy++) {
+            uint8_t o = world_unit_at(w, (int16_t)(u->x + dx),
+                                      (int16_t)(u->y + dy), UL_GROUND);
+            if (o != NO_UNIT && w->units[o].owner != u->owner)
+                return true;               /* enemy at the sleeve (GDD 6) */
+        }
+    return false;
 }
 
 BumpKind world_bump_kind(const World *w, uint8_t unit, int8_t dx, int8_t dy)
@@ -363,7 +398,7 @@ bool world_open_door(World *w, uint8_t unit, int16_t x, int16_t y)
         return false;                    /* creature without hands */
     if (u->ap < ACTIONS[ACT_OPEN_DOOR].ap)
         return false;
-    spend(u, ACTIONS[ACT_OPEN_DOOR].ap);
+    world_spend(w, unit, ACTIONS[ACT_OPEN_DOOR].ap);
     w->feature[y][x] = FE_DOOR_OPEN;
     world_map_changed(w);                /* static view layers change */
     return true;
