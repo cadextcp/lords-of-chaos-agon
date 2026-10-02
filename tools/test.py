@@ -97,9 +97,11 @@ def main() -> int:
     run_host = not args.emu
     run_emu = not args.host
     if not args.no_build:
+        if build.generate() != 0:
+            return 1
         if run_host and build.build_host() != 0:
             return 1
-        if run_emu and build.build_agon(clean=False) != 0:
+        if run_emu and build.build_agon() != 0:
             return 1
 
     ok = True

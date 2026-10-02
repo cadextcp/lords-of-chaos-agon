@@ -1,18 +1,20 @@
 #include "selftest.h"
 
 #include <stdio.h>
+#include <string.h>
 
-#include "demo.h"
 #include "rng.h"
-#include "screen.h"
+#include "view.h"
+#include "world.h"
 
-/* screen_hash() after demo_init(DEMO_SEED). Must be identical on host and
- * Agon; update deliberately when the demo scene changes. */
-#define DEMO_SEED 42UL
-#define DEMO_HASH 0xF0A1B598UL
+/* view_hash() of the wizard house with the cursor on the wizard.
+ * Must be identical on host and Agon; update deliberately when the map,
+ * tiles or composition rules change. */
+#define HOUSE_VIEW_HASH 0xC356BB16UL
 
 static selftest_log_fn out;
 static uint16_t fails;
+static World world;
 
 static void check(int ok, const char *what)
 {
@@ -21,6 +23,31 @@ static void check(int ok, const char *what)
         fails++;
     snprintf(buf, sizeof buf, "%s %s", ok ? "ok  " : "FAIL", what);
     out(buf);
+}
+
+static int has_layer(const FieldLayers *f, uint8_t id)
+{
+    uint8_t i;
+    for (i = 0; i < f->n; i++)
+        if (f->id[i] == id)
+            return 1;
+    return 0;
+}
+
+/* Every window field of the fast (cached) path must equal view_compose(). */
+static int fast_equals_reference(void)
+{
+    FieldLayers ref;
+    uint8_t vx, vy;
+    for (vy = 0; vy < VIEW_H; vy++)
+        for (vx = 0; vx < VIEW_W; vx++) {
+            const FieldLayers *f = view_field(vx, vy);
+            view_compose(&world, (int16_t)(view_origin_x() + vx),
+                         (int16_t)(view_origin_y() + vy), &ref);
+            if (f->n != ref.n || memcmp(f->id, ref.id, ref.n) != 0)
+                return 0;
+        }
+    return 1;
 }
 
 static void test_rng(void)
@@ -33,49 +60,96 @@ static void test_rng(void)
     check(rng_next(&r) == 270369UL, "rng: xorshift32 #1");
     check(rng_next(&r) == 67634689UL, "rng: xorshift32 #2");
     check(rng_next(&r) == 2647435461UL, "rng: xorshift32 #3");
-
     rng_seed(&r, 0);
     check(r.state != 0, "rng: zero seed remapped");
-
     for (i = 0; i < 500; i++)
         if (rng_range(&r, 7) >= 7)
             in_range = 0;
     check(in_range, "rng: range bound");
 }
 
-static void test_screen(void)
+static void test_world(void)
 {
-    screen_clear(0);
-    check(screen_dirty_count() == SCREEN_W * SCREEN_H, "screen: clear marks all dirty");
-    screen_clean_all();
-    check(screen_dirty_count() == 0, "screen: clean");
-    screen_put(3, 4, ' ', 0, 0);
-    check(screen_dirty_count() == 0, "screen: unchanged put stays clean");
-    screen_put(3, 4, 'A', 7, 0);
-    check(screen_dirty_count() == 1 && screen_is_dirty(3, 4), "screen: changed put marks one cell");
-    screen_put(SCREEN_W, 0, 'X', 7, 0);
-    check(screen_dirty_count() == 1, "screen: out of bounds ignored");
+    world_load(&world, &MAP_WIZARD_HOUSE);
+    check(world.w == 9 && world.h == 9 && !world.wrap, "world: house is 9x9, no wrap");
+    check(world.unit_count == 2 && world.units[0].x == 3 && world.units[0].y == 4,
+          "world: wizard at 3,4");
+    check(world.feature[3][5] == FE_DOOR_OPEN, "world: open door at 5,3");
+    check(world_blocks(&world, 0, 0) && world_blocks(&world, 1, 1), "world: wall and bed block");
+    check(!world_blocks(&world, 3, 3), "world: cauldron is walkable");
+    check(world_blocks(&world, -1, 0), "world: outside a small map blocks");
 }
 
-static void test_demo(void)
+static void test_view(void)
+{
+    FieldLayers f;
+
+    view_compose(&world, 0, 0, &f);   /* top-left corner: walls E and S */
+    check(f.n >= 2 && f.id[0] == T_FLOOR_STONE && has_layer(&f, T_WALL_00 + (2 | 4)),
+          "view: corner wall mask E+S");
+
+    view_compose(&world, 5, 3, &f);   /* door between stone and path */
+    check(has_layer(&f, T_DOOR_V_OPEN), "view: door orientation vertical");
+    check(has_layer(&f, T_FLOOR_PATH_HALF_E) && !has_layer(&f, T_FLOOR_STONE_HALF_W),
+          "view: half floor only where neighbour floor differs");
+
+    view_compose(&world, 3, 4, &f);   /* wizard on a rug */
+    check(f.n == 3 && f.id[0] == T_FLOOR_STONE && f.id[1] == T_DECOR_RUG &&
+          f.id[2] == T_WIZARD_P1, "view: layer order floor, rug, wizard");
+
+    view_set_phase(1);
+    view_compose(&world, 1, 2, &f);
+    check(has_layer(&f, T_CANDLE_1), "view: candle animation phase");
+    view_set_phase(0);
+}
+
+static void test_dirty_and_move(void)
 {
     char buf[48];
     uint32_t h;
-    uint8_t x, y;
 
-    demo_init(DEMO_SEED);
-    h = screen_hash();
-    snprintf(buf, sizeof buf, "demo: hash=0x%08lX", (unsigned long)h);
+    view_set_origin(0, 0);
+    view_set_cursor(3, 4, T_CURSOR_GREEN);
+    view_invalidate();
+    check(view_update(&world) == VIEW_W * VIEW_H, "view: first frame all dirty");
+    h = view_hash();
+    snprintf(buf, sizeof buf, "view: hash=0x%08lX", (unsigned long)h);
     out(buf);
-    check(h == DEMO_HASH, "demo: deterministic scene hash");
+    check(h == HOUSE_VIEW_HASH, "view: deterministic house hash");
+    check(fast_equals_reference(), "view: cached fast path equals reference");
+    view_clean();
+    check(view_update(&world) == 0, "view: unchanged frame is clean");
 
-    /* Walking into the border wall must be blocked. */
-    for (x = 0; x < SCREEN_W; x++)
-        demo_move(DIR_W);
-    check(demo_wizard_x() >= 1, "demo: wall blocks movement");
-    y = demo_wizard_y();
-    demo_move(DIR_NONE);
-    check(demo_wizard_y() == y, "demo: no-op move");
+    check(world_move_unit(&world, 0, 0, 1), "move: wizard south");
+    view_set_cursor(3, 5, T_CURSOR_GREEN);
+    check(view_update(&world) == 2, "view: a step dirties exactly 2 fields");
+    view_set_phase(1);
+    view_update(&world);
+    check(fast_equals_reference(), "view: fast path equals reference (moved, phase 1)");
+    view_set_phase(0);
+    view_update(&world);
+    view_clean();
+
+    check(!world_move_unit(&world, 0, 0, 5), "move: no jumping into walls");
+    world.units[0].x = 1;
+    world.units[0].y = 5;
+    check(!world_move_unit(&world, 0, -1, 0), "move: wall blocks");
+    check(!world_move_unit(&world, 0, 0, 1), "move: table blocks");
+}
+
+static void test_ap(void)
+{
+    world_load(&world, &MAP_WIZARD_HOUSE);
+    check(world.units[0].ap == 40, "ap: wizard starts with 40");
+    check(world_step_cost(&world, 7, 3, false) == 3 && world_step_cost(&world, 2, 2, false) == 4,
+          "ap: path 3, floor 4");
+    check(world_step_cost(&world, 2, 2, true) == 6 && world_step_cost(&world, 7, 3, true) == 5,
+          "ap: diagonal = 3/2 rounded up");
+    check(world_move_unit(&world, 0, 1, 1) && world.units[0].ap == 34, "ap: diagonal step costs 6");
+    world.units[0].ap = 3;
+    check(!world_move_unit(&world, 0, 0, 1), "ap: not enough AP blocks");
+    world_new_turn(&world);
+    check(world.units[0].ap == 40, "ap: new turn refills");
 }
 
 uint16_t core_selftest(selftest_log_fn log)
@@ -83,7 +157,10 @@ uint16_t core_selftest(selftest_log_fn log)
     out = log;
     fails = 0;
     test_rng();
-    test_screen();
-    test_demo();
+    test_world();
+    test_view();
+    test_dirty_and_move();
+    test_ap();
+    world_load(&world, &MAP_WIZARD_HOUSE);   /* leave a clean state */
     return fails;
 }

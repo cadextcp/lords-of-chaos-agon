@@ -17,6 +17,7 @@ pixel font; the Agon draws its own 8x8 system font.
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -29,47 +30,20 @@ T = 24
 W, H = 320, 240
 SCALE = 3
 
-# ---- scene: wizard house (inspired by observation B2, own layout) -------
-# floor: s=stone w=wood g=grass p=path
-FLOOR = [
-    "ssssssggg",
-    "ssssssggg",
-    "ssssssggg",
-    "ssssssppp",
-    "ssssssggg",
-    "swwwwsggg",
-    "swwwwsggg",
-    "swwwwsggg",
-    "ssssssggg",
-]
-# feature: #=wall D=door(v, open) B=bed S=bookshelf K=candle C=cauldron
-#          T=table h=chair M=drawers X=chest t=tree
-FEATURE = [
-    "######.t.",
-    "#B.SS#...",
-    "#K..K#...",
-    "#..C.D...",
-    "#K..K#...",
-    "#....#.t.",
-    "#Th.M#...",
-    "#X...#...",
-    "######...",
-]
-DECOR = [  # r=rug
-    ".........",
-    ".........",
-    "...r.....",
-    "..r.r....",
-    "...r.....",
-    ".........",
-    ".........",
-    ".........",
-    ".........",
-]
-UNITS = {(3, 4): "wizard_p1", (8, 3): "goblin"}
-OBJECTS = {(3, 7): "obj_scroll"}
+# ---- scene: same source as the game (data/maps/wizard_house.txt) ------
+sys.path.insert(0, str(ROOT / "tools"))
+from gen_maps import parse  # noqa: E402
+
+_MAP = parse(ROOT / "data" / "maps" / "wizard_house.txt")
+FLOOR = [_MAP["floor"][i * 9:(i + 1) * 9] for i in range(9)]
+FEATURE = [_MAP["feature"][i * 9:(i + 1) * 9] for i in range(9)]
+DECOR = [_MAP["decor"][i * 9:(i + 1) * 9] for i in range(9)]
+_OWN = {"OWN_P1": "_p1", "OWN_P2": "_p2", "OWN_P3": "_p3", "OWN_P4": "_p4", "OWN_NEUTRAL": ""}
+UNITS = {(x, y): ("wizard" + _OWN[o] if k == "CR_WIZARD" else "goblin")
+         for x, y, k, o in _MAP["units"]}
+OBJECTS = {(x, y): t[2:].lower() for x, y, t in _MAP["objects"]}
 REMEMBERED = {(x, y) for x in (6, 7, 8) for y in (6, 7, 8)}
-CURSOR = ((3, 4), "cursor_green")
+CURSOR = (next(iter(UNITS)), "cursor_green")
 
 FEATURE_TILES = {"B": "bed", "S": "bookshelf", "K": "candle_0", "C": "cauldron",
                  "T": "table", "h": "chair", "M": "drawers", "X": "chest", "t": "tree"}
@@ -86,7 +60,6 @@ BARS = [  # (icon, colour, fill 0..1) - Amiga order/colours (B2.4)
 def tile(name: str) -> Image.Image:
     if name.endswith(("_p1", "_p2", "_p3", "_p4", "_neutral")):
         base, owner = name.rsplit("_", 1)
-        import sys
         sys.path.insert(0, str(ROOT / "tools" / "art"))
         from make_tiles import owner_variant  # noqa: E402
         return owner_variant(Image.open(TILES / f"{base}.png").convert("RGBA"), owner)
@@ -95,7 +68,7 @@ def tile(name: str) -> Image.Image:
 
 def wall_mask(x: int, y: int) -> int:
     def solid(xx, yy):
-        return 0 <= yy < 9 and 0 <= xx < 9 and FEATURE[yy][xx] in "#D"
+        return 0 <= yy < 9 and 0 <= xx < 9 and FEATURE[yy][xx] in "#Dd"
     return (1 if solid(x, y - 1) else 0) | (2 if solid(x + 1, y) else 0) | \
            (4 if solid(x, y + 1) else 0) | (8 if solid(x - 1, y) else 0)
 
@@ -120,7 +93,7 @@ def floor_at(x: int, y: int) -> str:
 
 
 def is_wall(x: int, y: int) -> bool:
-    return 0 <= x < 9 and 0 <= y < 9 and FEATURE[y][x] in "#D"
+    return 0 <= x < 9 and 0 <= y < 9 and FEATURE[y][x] in "#Dd"
 
 
 # Wall tiles are split like on the Amiga (B2): each side of the wall line
@@ -151,8 +124,10 @@ def render_map(img: Image.Image) -> None:
             f = FEATURE[y][x]
             if f == "#":
                 img.alpha_composite(tile(f"wall_{wall_mask(x, y):02d}"), (ox, oy))
-            elif f == "D":
-                img.alpha_composite(tile("door_v_open"), (ox, oy))
+            elif f in "Dd":
+                vertical = is_wall(x, y - 1) or is_wall(x, y + 1)
+                name = f"door_{'v' if vertical else 'h'}_{'open' if f == 'd' else 'closed'}"
+                img.alpha_composite(tile(name), (ox, oy))
             elif f in FEATURE_TILES:
                 img.alpha_composite(tile(FEATURE_TILES[f]), (ox, oy))
             if (x, y) in OBJECTS:

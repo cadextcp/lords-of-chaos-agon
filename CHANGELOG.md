@@ -2,7 +2,29 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
-## [Unreleased] – M0 Fundament
+## [Unreleased] – M1 Grafik und Eingabe
+
+### Geändert
+- **Darstellungskonzept v2** (GDD D9–D11, ADR 0005): eigene 24×24-Pixelart in 3/4-Frontansicht, 9×9-Sicht, mehrere Ebenen pro Feld. Die 8×8-Glyphen-Demo ist entfernt.
+
+### Hinzugefügt
+- **Pixelart-Pipeline:**
+  - Agon-64-Palette (`assets/palette/agon64.gpl`)
+  - erste 44 Kacheln und 6 Icons
+  - `tools/build_tiles.py` (→ `tiles.bin` RGBA2222, Besitzerfarben, Halb-Böden)
+  - `tools/mockup.py`
+- **Karten als Text:** `data/maps/wizard_house.txt` und `tools/gen_maps.py`.
+- **Core:**
+  - `world` mit Boden-, Dekor- und Feature-Ebene, Möbel-Blockade und AP-Kosten (Weg 3, sonst 4, diagonal ×1,5)
+  - `view` mit Ebenen-Komposition, Wand-Auto-Tiling, Halb-Böden, Dirty-Feldern und Static-Cache
+- **Agon-Renderer:**
+  - Kacheln von SD in VDP-Buffer, Felder Ebene für Ebene
+  - Panel mit 6 Balken und Icons, Meldungszeilen
+  - Kerzen-Animation
+  - `--bench`: Voll-Redraw 48 ms (ADR 0006)
+- **Tests:** Welt-, View- und AP-Checks; schneller Pfad gleich Referenz; View-Hash plattformgleich.
+
+## M0 Fundament (`v0.1.0`)
 
 ### Hinzugefügt
 - **Projektgerüst:** `src/core` (plattformfrei), `src/agon` (VDP-Frontend), `host/` (PC-Frontend).

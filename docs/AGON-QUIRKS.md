@@ -11,6 +11,9 @@ Gesammeltes Plattformwissen. Teile stammen aus dem ersten Versuch (BBC BASIC, `L
 | V3 | `VDU 23,c,b0..b7` definiert Zeichen `c` (8×8) um. agondev: `vdp_redefine_character()`. Wir nutzen Codes ab 128 für eigene Glyphen. | ✅ (M0) |
 | V4 | Wird in die letzte Zelle (39,29) geschrieben, scrollt der Bildschirm. Der Renderer überspringt diese Zelle. | ✅ |
 | V5 | Bitmap-API: `VDU 23,27,2` **erzeugt** eine einfarbige Bitmap, gezeichnet wird mit `23,27,3`. Alpha ist binär. | ✅ (Versuch 1) |
+| V7 | **RGBA2222-Bitmaps** (Format 1): Bit 0–1 R, 2–3 G, 4–5 B, 6–7 A. Alpha 0 heißt transparent beim Zeichnen; Ebenen funktionieren damit. | ✅ (M1, `tools/build_tiles.py`) |
+| V8 | `vdp_set_pixel_coordinates()`: Ursprung oben links, y nach unten. Gilt für `draw_bitmap` und Rechtecke. | ✅ (M1) |
+| V9 | Kachel-Draw = `select_bitmap(buffer)` (5 Byte) + `draw_bitmap(x, y)` (7 Byte). 81 Felder mit etwa 3,2 Ebenen ≈ 38 ms Übertragung (ADR 0006). | ✅ (M1) |
 | V6 | Viele kleine VDU-Aufrufe sind langsam. Deshalb sammelt der Renderer Bytes in einen Puffer und gibt sie mit `mos_puts()` aus. Buffered Commands (`VDU 23,0,&A0`) prüft Spike M1. | ❓ (M1) |
 
 ## Emulator
@@ -32,6 +35,8 @@ Gesammeltes Plattformwissen. Teile stammen aus dem ersten Versuch (BBC BASIC, `L
 | T1 | agondev gibt es nur für Linux und macOS. Unter Windows läuft es in WSL; der Pfad wird als `/mnt/c/...` übergeben. In Git-Bash ist `MSYS_NO_PATHCONV=1` nötig, wenn man `wsl.exe` direkt aufruft. | ✅ |
 | T2 | Das agondev-Makefile kompiliert **alles unter `src/`**. Host-Code liegt daher in `host/` außerhalb von `src/`. | ✅ |
 | T3 | `int` ist 24 Bit, `long` 32 Bit. Im Core nur `stdint`-Typen verwenden. | ✅ |
+| T5 | **Das agondev-Makefile verfolgt keine Header-Abhängigkeiten.** Ein geänderter Header (z. B. das generierte `gen/tiles.h`) lässt alte `.o` stehen. `tools/build.py` baut deshalb standardmäßig clean (`--incremental` zum Überspringen). | ✅ (M1) |
+| T6 | `getsysvar_time()` zählt Zentisekunden in 2er-Schritten (VBLANK, 50 Hz). Für Benchmarks über mehrere Frames mitteln. | ✅ (M1) |
 | T4 | Assembler-Funktionen: Das erste Argument liegt bei `(iy+3)` nach `ld iy,0 / add iy,sp`, weil die Rücksprungadresse 3 Byte groß ist. Symbole werden mit `_` exportiert. | ✅ (M0) |
 
 ## Hardware (Zielgerät)

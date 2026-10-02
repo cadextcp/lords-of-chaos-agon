@@ -1,0 +1,80 @@
+/*
+ * World state: map layers (floor, decor, feature), units and objects.
+ * Platform-free; the view (view.h) turns it into tile layers for drawing.
+ */
+#ifndef LOC_WORLD_H
+#define LOC_WORLD_H
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "map_def.h"
+
+#define MAP_MAX_W 36
+#define MAP_MAX_H 36
+#define MAX_UNITS 32
+#define MAX_OBJECTS 64
+#define NO_UNIT 0xFF
+
+typedef enum { FL_STONE, FL_WOOD, FL_GRASS, FL_PATH, FL_COUNT } Floor;
+typedef enum { DE_NONE, DE_RUG, DE_PENTACLE } Decor;
+typedef enum {
+    FE_NONE, FE_WALL, FE_DOOR_CLOSED, FE_DOOR_OPEN, FE_BED, FE_BOOKSHELF,
+    FE_CANDLE, FE_CAULDRON, FE_TABLE, FE_CHAIR, FE_DRAWERS, FE_CHEST, FE_TREE,
+    FE_COUNT
+} Feature;
+
+typedef struct {
+    uint8_t x, y;
+    uint8_t kind;   /* CreatureKind */
+    uint8_t owner;  /* Owner */
+    uint8_t ap, ap_max;
+} Unit;
+
+typedef struct {
+    uint8_t x, y;
+    uint8_t tile;
+} Object;
+
+typedef struct {
+    uint8_t w, h, wrap;
+    uint8_t generation;   /* bumped whenever the map layers change (view cache) */
+    uint8_t floor[MAP_MAX_H][MAP_MAX_W];
+    uint8_t decor[MAP_MAX_H][MAP_MAX_W];
+    uint8_t feature[MAP_MAX_H][MAP_MAX_W];
+    Unit units[MAX_UNITS];
+    uint8_t unit_count;
+    Object objects[MAX_OBJECTS];
+    uint8_t object_count;
+} World;
+
+void world_load(World *w, const MapDef *def);
+/* Call after changing floor/decor/feature (door opened ...). */
+void world_map_changed(World *w);
+
+/* Normalise (x, y) for wrapping maps. Returns false if outside a
+ * non-wrapping map. */
+bool world_wrap(const World *w, int16_t *x, int16_t *y);
+
+/* Feature at (x, y); FE_NONE outside a non-wrapping map. */
+uint8_t world_feature(const World *w, int16_t x, int16_t y);
+/* Floor at (x, y); FL_GRASS outside a non-wrapping map. */
+uint8_t world_floor(const World *w, int16_t x, int16_t y);
+/* Wall or door: forms the connected wall line (GDD 11.2). */
+bool world_is_wall_line(const World *w, int16_t x, int16_t y);
+/* Feature blocks ground movement (GDD 3.3 furniture table). */
+bool world_blocks(const World *w, int16_t x, int16_t y);
+
+uint8_t world_unit_at(const World *w, int16_t x, int16_t y);
+/* AP cost to enter (x, y); diagonal steps cost 3/2, rounded up (GDD 5.3). */
+uint8_t world_step_cost(const World *w, int16_t x, int16_t y, bool diagonal);
+/* Move a unit one step (8 directions); false if blocked, occupied, outside
+ * or not enough AP. Spends the AP on success. */
+bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy);
+/* Start of a turn: refill every unit's AP. */
+void world_new_turn(World *w);
+
+/* Character for dumps (floor/feature/unit at a glance). */
+char world_char(const World *w, int16_t x, int16_t y);
+
+#endif

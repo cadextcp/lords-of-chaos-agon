@@ -1,37 +1,56 @@
 /*
  * Host (PC) frontend for the platform-free core.
  *
- *   loc_host --selftest     run core self-test, exit code = failures
- *   loc_host --dump [seed]  print the demo scene as ASCII and exit
- *   loc_host [seed]         line-based play: w/a/s/d + Enter, q quits
+ *   loc_host --selftest   run core self-test, exit code 1 on failure
+ *   loc_host --dump       print the wizard house as ASCII and exit
+ *   loc_host --layers     print the tile layers of every view field
+ *   loc_host              line-based play: w/a/s/d + Enter, q quits
  */
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
-#include "../src/core/demo.h"
-#include "../src/core/screen.h"
 #include "../src/core/selftest.h"
+#include "../src/core/view.h"
+#include "../src/core/world.h"
+
+static World world;
 
 static void print_line(const char *line)
 {
     puts(line);
 }
 
-static Dir key_to_dir(int c)
+static void dump(void)
 {
-    switch (c) {
-    case 'w': return DIR_N;
-    case 's': return DIR_S;
-    case 'a': return DIR_W;
-    case 'd': return DIR_E;
-    default:  return DIR_NONE;
+    char line[MAP_MAX_W + 1];
+    int16_t x, y;
+    for (y = 0; y < world.h; y++) {
+        for (x = 0; x < world.w; x++)
+            line[x] = world_char(&world, x, y);
+        line[world.w] = '\0';
+        puts(line);
+    }
+}
+
+static void layers(void)
+{
+    uint8_t vx, vy, i;
+    view_set_origin(0, 0);
+    view_invalidate();
+    view_update(&world);
+    for (vy = 0; vy < VIEW_H; vy++) {
+        for (vx = 0; vx < VIEW_W; vx++) {
+            const FieldLayers *f = view_field(vx, vy);
+            printf("%u,%u:", vx, vy);
+            for (i = 0; i < f->n; i++)
+                printf(" %u", f->id[i]);
+            putchar('\n');
+        }
     }
 }
 
 int main(int argc, char **argv)
 {
-    uint32_t seed = 42;
     int c;
 
     if (argc > 1 && strcmp(argv[1], "--selftest") == 0) {
@@ -39,21 +58,28 @@ int main(int argc, char **argv)
         puts(fails ? "=== TEST FAIL ===" : "=== TEST PASS ===");
         return fails ? 1 : 0;
     }
+    world_load(&world, &MAP_WIZARD_HOUSE);
     if (argc > 1 && strcmp(argv[1], "--dump") == 0) {
-        if (argc > 2)
-            seed = (uint32_t)strtoul(argv[2], NULL, 0);
-        demo_init(seed);
-        screen_dump(print_line);
+        dump();
         return 0;
     }
-    if (argc > 1)
-        seed = (uint32_t)strtoul(argv[1], NULL, 0);
+    if (argc > 1 && strcmp(argv[1], "--layers") == 0) {
+        layers();
+        return 0;
+    }
 
-    demo_init(seed);
-    screen_dump(print_line);
+    dump();
     while ((c = getchar()) != EOF && c != 'q') {
-        if (demo_move(key_to_dir(c)))
-            screen_dump(print_line);
+        int8_t dx = 0, dy = 0;
+        switch (c) {
+        case 'w': dy = -1; break;
+        case 's': dy = 1; break;
+        case 'a': dx = -1; break;
+        case 'd': dx = 1; break;
+        default: continue;
+        }
+        if (world_move_unit(&world, 0, dx, dy))
+            dump();
     }
     return 0;
 }
