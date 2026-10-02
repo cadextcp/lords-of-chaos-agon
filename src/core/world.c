@@ -232,6 +232,15 @@ void world_spend(World *w, uint8_t unit, uint8_t ap)
     u->sta = u->sta > st ? (uint8_t)(u->sta - st) : 0;
 }
 
+/* Add a freshly initialised unit (summons); returns its index. */
+uint8_t world_spawn_unit(World *w, uint8_t owner, uint8_t kind, uint8_t x, uint8_t y)
+{
+    if (w->unit_count >= MAX_UNITS || kind >= CR_COUNT)
+        return NO_UNIT;
+    init_unit(&w->units[w->unit_count], x, y, kind, owner);
+    return w->unit_count++;
+}
+
 void world_remove_unit(World *w, uint8_t unit)
 {
     if (unit >= w->unit_count)

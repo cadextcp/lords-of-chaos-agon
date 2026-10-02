@@ -9,6 +9,7 @@
 #include "../core/gen/data.h"
 #include "../core/names.h"
 #include "../core/sight.h"
+#include "../core/spells.h"
 #include "../core/view.h"
 
 #define SCREEN_MODE 8
@@ -274,6 +275,25 @@ void render_panel_at(const World *w, const Sight *s, int16_t x, int16_t y)
         snprintf(buf, sizeof buf, "%-13.13s", i < n ? ground[i] : "");
         text_at(TEXT_COL_PANEL, (uint8_t)(24 + i), C_BRIGHT_WHITE, buf);
     }
+}
+
+void render_spell_list(const Spellbook *book)
+{
+    uint8_t row = 0, letter = 'a';
+    uint16_t i;
+    black(0, 0, MAP_PX - 1, MAP_PX - 1);
+    text_at(0, 0, C_BRIGHT_YELLOW, "Zauber            Stufe Mana");
+    for (i = 0; i < SPELL_COUNT && letter <= 'z'; i++) {
+        char line[28];
+        if (book->level[i] == 0)
+            continue;
+        snprintf(line, sizeof line, "%c %-17.17s %2u    %3u", letter,
+                 SPELLS[i].name, book->level[i], spell_mana((uint8_t)i, book->level[i]));
+        text_at(0, (uint8_t)(2 + row), C_BRIGHT_WHITE, line);
+        row++;
+        letter++;
+    }
+    text_at(0, 22, C_GREY, "Esc bricht ab.");
 }
 
 void render_message(uint8_t line, uint8_t colour, const char *text)

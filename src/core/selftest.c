@@ -789,6 +789,56 @@ static void test_combat(void)
     }
 }
 
+static void test_spells(void)
+{
+    Spellbook book;
+
+    spellbook_default(&book, OWN_P1);
+    check(book.level[SP_GIANT_BAT] == 2 && book.level[SP_MAGIC_BOLT] == 1 &&
+          book.level[SP_DWARF] == 1, "spells: default p1 book");
+    check(SUMMON_KIND[SP_DWARF] == CR_DWARF && SUMMON_KIND[SP_GIANT_BAT] == CR_GIANT_BAT &&
+          SUMMON_KIND[SP_MAGIC_BOLT] == 0xFF, "spells: summon kinds from the table");
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 1;                       /* the wizard at 6,6 */
+    check(spell_can_cast(&world, &book, 0, SP_GIANT_BAT), "spells: castable");
+    world.units[0].flags |= UF_FLYING;
+    check(!spell_can_cast(&world, &book, 0, SP_GIANT_BAT), "spells: not from the air");
+    world.units[0].flags &= (uint8_t)~UF_FLYING;
+    world.units[0].mana = 3;
+    check(!spell_can_cast(&world, &book, 0, SP_GIANT_BAT), "spells: too little mana");
+    world.units[0].mana = 80;
+    world.units[0].ap = 5;
+    check(!spell_can_cast(&world, &book, 0, SP_GIANT_BAT), "spells: too little AP");
+
+    world.units[0].ap = 40;
+    {
+        uint8_t got = spell_summon(&world, &book, 0, SP_GIANT_BAT);
+        check(got == 2 && world.unit_count == 3, "spells: level 2 summons two bats");
+        check(world.units[1].kind == CR_GIANT_BAT && world.units[1].owner == OWN_P1 &&
+              world.units[1].ap == 24 && world.units[1].sta == 75,
+              "spells: summoned with its own values");
+        check(world.units[0].ap == 30 && world.units[0].mana == 71 &&
+              book.level[SP_GIANT_BAT] == 1, "spells: 10 AP, 9 mana, one level");
+    }
+
+    {   /* no room: mana lost, nothing appears (GDD 7.2) */
+        uint8_t k;
+        static const int8_t DX[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+        static const int8_t DY[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
+        for (k = 0; k < 8; k++) {
+            int16_t x = (int16_t)(world.units[0].x + DX[k]);
+            int16_t y = (int16_t)(world.units[0].y + DY[k]);
+            if (world_wrap(&world, &x, &y) && !world_blocks(&world, x, y))
+                world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, (uint8_t)x, (uint8_t)y);
+        }
+        world.units[0].ap = 40;
+        check(spell_summon(&world, &book, 0, SP_GIANT_BAT) == 0 &&
+              world.units[0].mana == 71 - 7 && book.level[SP_GIANT_BAT] == 0,
+              "spells: without room the mana is lost");
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -808,6 +858,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_flight();
     test_bump_and_look();
     test_combat();
+    test_spells();
     load_house();   /* leave a clean state */
     return fails;
 }

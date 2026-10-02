@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 #include "../core/sight.h"
+#include "../core/spells.h"
 #include "../core/world.h"
 
 /* Screen mode, cursor off, upload tiles.bin to the VDP. False on error
@@ -30,6 +31,10 @@ typedef enum { CURSOR_GREEN, CURSOR_WHITE, CURSOR_YELLOW, CURSOR_RED,
                CURSOR_BLUE } CursorColour;
 void render_cursor(int16_t vx, int16_t vy, uint8_t colour, bool visible);
 
+/* Spell list overlay (GDD 5.1: lists over the map window). Only spells
+ * with a level left; letters a.. pick, Esc closes. Redraw via
+ * view_invalidate + render_fields afterwards. */
+void render_spell_list(const Spellbook *book);
 /* One of the three message lines (0..2) below the map. */
 void render_message(uint8_t line, uint8_t colour, const char *text);
 void render_shutdown(void);
