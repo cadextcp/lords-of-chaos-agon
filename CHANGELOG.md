@@ -23,6 +23,11 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
   - Kerzen-Animation
   - `--bench`: Voll-Redraw 48 ms (ADR 0006)
 - **Tests:** Welt-, View- und AP-Checks; schneller Pfad gleich Referenz; View-Hash plattformgleich.
+- **Info-Panel (#6):**
+  - Einheiten mit Werten: Stamina, Constitution, Combat, Defence, Mana, Status-Flags (vorläufig bis M2)
+  - Gehen kostet Stamina (AP/2), eine neue Runde stellt 25 % wieder her
+  - 5 Status-Icons, Namen-Tabelle (`names.c`), „Am Boden“ zeigt Objekt, Möbel, Teppich bzw. Boden
+  - Mockup-Panel an das Agon-Layout angeglichen
 - **Sprite-Cursor und Animation (#4):**
   - Cursor als VDP-Sprite (4 Farben, blinkt)
   - `view_animate()` tauscht nur animierte Felder: Kerzen 16 → 6 ms pro Frame

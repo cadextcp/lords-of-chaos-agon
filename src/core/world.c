@@ -53,8 +53,15 @@ static const bool FEATURE_BLOCKS[FE_COUNT] = {
 /* Orthogonal AP cost per floor (data/costs.csv, GDD 5.3). */
 static const uint8_t FLOOR_COST[FL_COUNT] = {
     [FL_STONE] = 4, [FL_WOOD] = 4, [FL_GRASS] = 4, [FL_PATH] = 3};
-/* AP per turn until creature data arrives in M2 (GDD 5.3: wizard ~40). */
-static const uint8_t KIND_AP[] = {[CR_WIZARD] = 40, [CR_GOBLIN] = 30};
+/* Provisional stats until data/creatures.csv arrives in M2 (GDD 4.1, 5.3):
+ * ap, stamina, constitution, combat, defence, mana, flags. */
+typedef struct {
+    uint8_t ap, sta, con, com, def, mana, flags;
+} KindStats;
+static const KindStats KIND[] = {
+    [CR_WIZARD] = {40, 60, 30, 10, 12, 80, 0},
+    [CR_GOBLIN] = {30, 45, 32, 9, 9, 0, 0},
+};
 
 void world_load(World *w, const MapDef *def)
 {
@@ -82,8 +89,17 @@ void world_load(World *w, const MapDef *def)
         w->units[i].y = def->units[i].y;
         w->units[i].kind = def->units[i].kind;
         w->units[i].owner = def->units[i].owner;
-        w->units[i].ap_max = KIND_AP[def->units[i].kind];
-        w->units[i].ap = w->units[i].ap_max;
+        {
+            const KindStats *k = &KIND[def->units[i].kind];
+            Unit *u = &w->units[i];
+            u->flags = k->flags;
+            u->ap = u->ap_max = k->ap;
+            u->sta = u->sta_max = k->sta;
+            u->con = u->con_max = k->con;
+            u->com = k->com;
+            u->def = k->def;
+            u->mana = u->mana_max = k->mana;
+        }
     }
     w->unit_count = i;
     for (i = 0; i < def->object_count && i < MAX_OBJECTS; i++) {
@@ -167,6 +183,10 @@ bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
     if (u->ap < cost)
         return false;
     u->ap = (uint8_t)(u->ap - cost);
+    {   /* stamina: half the AP, rounded up (GDD 5.3) */
+        uint8_t st = (uint8_t)((cost + 1) / 2);
+        u->sta = u->sta > st ? (uint8_t)(u->sta - st) : 0;
+    }
     u->x = (uint8_t)nx;
     u->y = (uint8_t)ny;
     return true;
@@ -175,8 +195,12 @@ bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
 void world_new_turn(World *w)
 {
     uint8_t i;
-    for (i = 0; i < w->unit_count; i++)
-        w->units[i].ap = w->units[i].ap_max;
+    for (i = 0; i < w->unit_count; i++) {
+        Unit *u = &w->units[i];
+        uint16_t sta = (uint16_t)(u->sta + u->sta_max / 4);
+        u->ap = u->ap_max;
+        u->sta = (uint8_t)(sta > u->sta_max ? u->sta_max : sta);
+    }
 }
 
 char world_char(const World *w, int16_t x, int16_t y)

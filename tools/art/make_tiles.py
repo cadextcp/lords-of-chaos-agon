@@ -535,9 +535,15 @@ ICON_MAPS = {
     "sword":  [".....kk.", "....kwk.", "...kwk..", "k.kwk...", "kkwk....", ".kgk....", "kk.k....", "........"],
     "shield": ["kkkkkkk.", "kbbwbbk.", "kbbwbbk.", "kwwwwwk.", ".kbwbk..", "..kbk...", "...k....", "........"],
     "star":   ["...k....", "..kpk...", "kkkpkkk.", ".kpppk..", "..kpk...", ".kp.pk..", ".k...k..", "........"],
+    # status icons (PM 11): undead, flying, mount, fatal wound, invisible
+    "st_undead":    [".kkkkk..", "kwwwwwk.", "kwkwkwk.", "kwwwwwk.", ".kwkwk..", ".kwwwk..", "..kkk...", "........"],
+    "st_fly":       ["k.......", "kck.....", "kcck....", ".kccck..", "..kccck.", "...kkkk.", "........", "........"],
+    "st_mount":     ["....kk..", "...kyyk.", "kkkyyyk.", "kyyyyk..", "kykkyk..", "kk..kk..", "........", "........"],
+    "st_wound":     ["...k....", "..krk...", "..krk...", ".krrrk..", "krrrrrk.", ".krrrk..", "..kkk...", "........"],
+    "st_invisible": ["........", ".kkkkk..", "kgwwwgk.", "kwgkgwk.", "kgwwwgk.", ".kkkkk..", "k.....k.", "........"],
 }
 ICON_LEGEND = {"k": C["black"], "g": C["green"], "y": C["yellow"], "r": C["bred"],
-               "w": C["white"], "b": C["blue"], "p": C["pink"]}
+               "w": C["white"], "b": C["blue"], "p": C["pink"], "c": C["lblue"]}
 
 
 def icon(rows):

@@ -24,11 +24,19 @@ typedef enum {
     FE_COUNT
 } Feature;
 
+/* Status flags shown as panel icons (PM 11). */
+enum { UF_UNDEAD = 1, UF_FLYING = 2, UF_MOUNT = 4, UF_WOUNDED = 8, UF_INVISIBLE = 16 };
+
 typedef struct {
     uint8_t x, y;
     uint8_t kind;   /* CreatureKind */
     uint8_t owner;  /* Owner */
+    uint8_t flags;  /* UF_* */
     uint8_t ap, ap_max;
+    uint8_t sta, sta_max;     /* stamina */
+    uint8_t con, con_max;     /* constitution */
+    uint8_t com, def;         /* combat, defence */
+    uint8_t mana, mana_max;   /* wizards only */
 } Unit;
 
 typedef struct {
@@ -71,7 +79,7 @@ uint8_t world_step_cost(const World *w, int16_t x, int16_t y, bool diagonal);
 /* Move a unit one step (8 directions); false if blocked, occupied, outside
  * or not enough AP. Spends the AP on success. */
 bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy);
-/* Start of a turn: refill every unit's AP. */
+/* Start of a turn: refill AP, recover 25 % stamina (GDD 5.3). */
 void world_new_turn(World *w);
 
 /* Character for dumps (floor/feature/unit at a glance). */

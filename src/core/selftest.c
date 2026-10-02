@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "chord.h"
+#include "names.h"
 #include "rng.h"
 #include "view.h"
 #include "world.h"
@@ -160,6 +161,32 @@ static void test_ap(void)
     check(world.units[0].ap == 40, "ap: new turn refills");
 }
 
+static void test_stats_and_names(void)
+{
+    const char *g[GROUND_MAX];
+    uint8_t n;
+
+    world_load(&world, &MAP_WIZARD_HOUSE);
+    check(world.units[0].sta == 60 && world.units[0].mana == 80, "stats: wizard stamina 60, mana 80");
+    world_move_unit(&world, 0, 1, 1);                         /* diagonal: 6 AP */
+    check(world.units[0].sta == 57, "stats: step costs half the AP as stamina");
+    world_new_turn(&world);
+    check(world.units[0].sta == 60, "stats: new turn recovers stamina (capped)");
+    world.units[0].sta = 10;
+    world_new_turn(&world);
+    check(world.units[0].sta == 25, "stats: recovery is 25 % of max");
+
+    n = ground_names(&world, 3, 7, g);                        /* scroll on wood */
+    check(n == 1 && g[0][0] == 'S', "names: object on the floor");
+    n = ground_names(&world, 3, 4, g);
+    check(n == 1 && g[0][0] == 'T', "names: rug (Teppich)");
+    n = ground_names(&world, 3, 3, g);
+    check(n == 1 && g[0][0] == 'K', "names: cauldron (Kessel)");
+    n = ground_names(&world, 2, 2, g);
+    check(n == 1 && g[0][0] == 'S' && g[0][1] == 't', "names: bare floor (Steinboden)");
+    check(name_unit(&world.units[1])[0] == 'G', "names: goblin");
+}
+
 static void test_chord(void)
 {
     Chord c;
@@ -221,6 +248,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_dirty_and_move();
     test_ap();
     test_chord();
+    test_stats_and_names();
     world_load(&world, &MAP_WIZARD_HOUSE);   /* leave a clean state */
     return fails;
 }

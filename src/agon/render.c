@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "../core/colors.h"
+#include "../core/names.h"
 #include "../core/view.h"
 
 #define SCREEN_MODE 8
@@ -139,51 +140,86 @@ static const uint8_t BAR_FILL[6] = {C_BRIGHT_GREEN, C_BRIGHT_YELLOW, C_BRIGHT_RE
 static const uint8_t BAR_EDGE[6] = {C_GREEN, C_YELLOW, C_RED, C_GREY, C_BLUE, C_MAGENTA};
 static const uint8_t BAR_ICON[6] = {T_ICON_BOOT, T_ICON_BOLT, T_ICON_HEART,
                                     T_ICON_SWORD, T_ICON_SHIELD, T_ICON_STAR};
+/* Status icons (PM 11) in UF_* bit order. */
+static const uint8_t STATUS_ICON[5] = {T_ICON_ST_UNDEAD, T_ICON_ST_FLY, T_ICON_ST_MOUNT,
+                                       T_ICON_ST_WOUND, T_ICON_ST_INVISIBLE};
+#define COMBAT_SCALE 50   /* combat/defence bar full at 50 (creature table max) */
+#define BAR_TOP 58
+#define BAR_BOTTOM 168
+
+static void black(int x0, int y0, int x1, int y1)
+{
+    vdp_gcol(0, C_BLACK);
+    vdp_filled_rectangle(x0, y0, x1, y1);
+}
 
 static void bar(uint8_t i, uint8_t value, uint8_t max)
 {
-    const int top = 56, bottom = 168;
     int x = PANEL_X + 8 + i * 16;
-    int h = max ? (bottom - top - 2) * value / max : 0;
+    int h;
+    if (max == 0) {                 /* e.g. mana of a non-wizard: no bar */
+        black(x, BAR_TOP, x + 7, BAR_BOTTOM + 12);
+        return;
+    }
+    if (value > max)
+        value = max;
+    h = (BAR_BOTTOM - BAR_TOP - 2) * value / max;
     vdp_gcol(0, BAR_EDGE[i]);
-    vdp_rectangle(x, top, x + 7, bottom);
-    vdp_gcol(0, C_BLACK);
-    vdp_filled_rectangle(x + 1, top + 1, x + 6, bottom - 1);
+    vdp_rectangle(x, BAR_TOP, x + 7, BAR_BOTTOM);
+    black(x + 1, BAR_TOP + 1, x + 6, BAR_BOTTOM - 1);
     if (h > 0) {
         vdp_gcol(0, BAR_FILL[i]);
-        vdp_filled_rectangle(x + 1, bottom - 1 - h, x + 6, bottom - 1);
+        vdp_filled_rectangle(x + 1, BAR_BOTTOM - 1 - h, x + 6, BAR_BOTTOM - 1);
     }
-    draw_tile(BAR_ICON[i], x, bottom + 4);
+    draw_tile(BAR_ICON[i], x, BAR_BOTTOM + 4);
 }
 
+/* Panel (GDD 11.1), 104 px = text columns 27..39:
+ *   portrait 24x24 in a frame, right of it level + status icons,
+ *   name, AP/mana figures, 6 bars with icons, "Am Boden" list. */
 void render_panel(const World *w, uint8_t unit)
 {
     char buf[16];
     const Unit *u = &w->units[unit];
-    FieldLayers f;
+    const char *ground[GROUND_MAX];
+    uint8_t i, n;
 
     vdp_gcol(0, C_BRIGHT_BLUE);
     vdp_rectangle(PANEL_X + 4, 4, PANEL_X + 31, 31);
-    vdp_gcol(0, C_BLACK);
-    vdp_filled_rectangle(PANEL_X + 5, 5, PANEL_X + 30, 30);
+    black(PANEL_X + 5, 5, PANEL_X + 30, 30);
     draw_tile(u->kind == CR_WIZARD ? (uint8_t)(T_WIZARD_P1 + u->owner) : T_GOBLIN,
               PANEL_X + 6, 6);
-    text_at(TEXT_COL_PANEL, 5, C_BRIGHT_WHITE, u->kind == CR_WIZARD ? "Zauberer-1" : "Goblin    ");
-    snprintf(buf, sizeof buf, "AP %2u/%2u  ", u->ap, u->ap_max);
-    text_at(TEXT_COL_PANEL, 6, C_GREY, buf);
+    text_at(32, 1, C_GREY, u->kind == CR_WIZARD ? "Stufe 1" : "       ");
+    for (i = 0; i < 5; i++) {
+        int x = 256 + i * 9;
+        black(x, 16, x + 7, 23);
+        if (u->flags & (1u << i))
+            draw_tile(STATUS_ICON[i], x, 16);
+    }
 
-    /* AP live; the others are placeholders until creature data (M2). */
+    snprintf(buf, sizeof buf, "%-13.13s", name_unit(u));
+    text_at(TEXT_COL_PANEL, 5, C_BRIGHT_WHITE, buf);
+    snprintf(buf, sizeof buf, "AP %2u  ", u->ap);
+    text_at(TEXT_COL_PANEL, 6, C_BRIGHT_GREEN, buf);
+    if (u->mana_max)
+        snprintf(buf, sizeof buf, "Ma%3u", u->mana);
+    else
+        snprintf(buf, sizeof buf, "     ");
+    text_at(34, 6, C_BRIGHT_MAGENTA, buf);
+
     bar(0, u->ap, u->ap_max);
-    bar(1, 34, 40);
-    bar(2, 28, 40);
-    bar(3, 10, 40);
-    bar(4, 12, 40);
-    bar(5, 36, 40);
+    bar(1, u->sta, u->sta_max);
+    bar(2, u->con, u->con_max);
+    bar(3, u->com, COMBAT_SCALE);
+    bar(4, u->def, COMBAT_SCALE);
+    bar(5, u->mana, u->mana_max);
 
-    view_compose(w, u->x, u->y, &f);
-    text_at(TEXT_COL_PANEL, 24, C_GREY, "Am Boden:");
-    text_at(TEXT_COL_PANEL, 25, C_BRIGHT_WHITE,
-            w->decor[u->y][u->x] == DE_RUG ? "Teppich   " : "Boden     ");
+    text_at(TEXT_COL_PANEL, 23, C_GREY, "Am Boden:");
+    n = ground_names(w, u->x, u->y, ground);
+    for (i = 0; i < GROUND_MAX; i++) {
+        snprintf(buf, sizeof buf, "%-13.13s", i < n ? ground[i] : "");
+        text_at(TEXT_COL_PANEL, (uint8_t)(24 + i), C_BRIGHT_WHITE, buf);
+    }
 }
 
 void render_message(uint8_t line, uint8_t colour, const char *text)
