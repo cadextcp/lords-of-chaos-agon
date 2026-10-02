@@ -1,6 +1,6 @@
 # ADR 0004 – MODE 8, 1 Zeichen = 1 Feld, Kartenfenster 27×24
 
-- **Status:** angenommen (2026-10-02), Entscheidung D8 im GDD
+- **Status:** **ersetzt durch ADR 0005** (2026-10-02, Review 2: „zu weit weg“). Ursprünglich D8 im GDD.
 - **Kontext:**
   - Das Amiga-Original zeigt 7×7 große Kacheln. Das alte GDD (Versuch 1) plante 20×20.
   - Die Sichtweite beträgt 9 Felder am Boden und 11 in der Luft; es müssen also mindestens 19×19 bzw. 23×23 Felder sichtbar sein.

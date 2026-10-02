@@ -21,7 +21,10 @@
         bin/loc.bin                             build/host/loc_host
 ```
 
-**Regel:** `src/core` darf keine Header aus `agon/` oder `host/` einbinden und keine VDP- oder MOS-Funktionen aufrufen. Alles, was der Core zeigen will, landet im **Cell-Grid** (`screen.h`): Glyph, Vordergrund- und Hintergrundfarbe pro Zelle, plus Dirty-Bits. Das Frontend zeichnet nur, was sich geändert hat.
+**Regel:** `src/core` darf keine Header aus `agon/` oder `host/` einbinden und keine VDP- oder MOS-Funktionen aufrufen. Alles, was der Core zeigen will, beschreibt er als Daten, das Frontend zeichnet.
+
+- **M0 (veraltet):** Zellen-Grid (`screen.h`) mit Glyph und Farben pro Zelle.
+- **Ab M1 (D9, ADR 0005):** pro sichtbarem Feld eine Liste von **Kachel-IDs** (Boden, Dekor, Feature, Objekt, Einheiten, Effekt, Sicht-Overlay) plus Dirty-Bits. Das Agon-Frontend zeichnet sie als VDP-Bitmaps übereinander; der Host gibt sie als Text bzw. PNG aus.
 
 ## Konventionen für den Core
 

@@ -4,8 +4,8 @@ Jeder Milestone endet mit etwas **Spielbarem bzw. Prüfbarem** auf dem Agon. Inh
 
 | Milestone | Inhalt | Exit-Kriterium | Tag |
 |---|---|---|---|
-| **M0 Fundament** | Repo, Setup/Build/Test/Run-Tools, CI, Demo „Hello Glyph“, Docs, ADRs | `tools/test.py` grün lokal und in CI; GUI zeigt eigene Glyphen | `v0.1.0` |
-| **M1 Tech-Spikes** | (a) Vollbild-Redraw 27×24 messen (Ziel unter 100 ms); (b) Buffered VDP Commands; (c) **Eingabe-Spike mit Cherry G84-4100**: Pfeil-Akkorde, Pos1/Ende/Bild, `<>`-Taste, Auto-Repeat; (d) Palette-Cycling; (e) Daten vom SD laden; (f) Layout-Mockup 27×24 + Panel | ADR „Rendering“ und ADR „Eingabe“ mit Messwerten | `v0.2.0` |
+| **M0 Fundament** | Repo, Setup/Build/Test/Run-Tools, CI, Demo-Szene (Pipeline-Nachweis, Glyph-Optik inzwischen verworfen), Docs, ADRs | `tools/test.py` grün lokal und in CI; GUI zeigt die Demo | `v0.1.0` |
+| **M1 Grafik und Eingabe** | (a) **Pixelart-Pipeline**: Palette, `build_tiles.py`, `mockup.py`, erste eigene 24×24-Kacheln (Zauberer-Haus); (b) **Bitmap-Kachel-Renderer** auf dem Agon: Ebenen, transparente Pixel, Redraw 9×9 messen (Ziel unter 50 ms), VDP-Speicher; (c) Buffered VDP Commands; (d) Frame-Animation und Hardware-Sprite-Cursor; (e) **Eingabe-Spike mit Cherry G84-4100**; (f) Kacheln und Daten vom SD laden | Das Zauberer-Haus aus dem Mockup läuft auf dem Agon; ADR „Rendering“ und ADR „Eingabe“ mit Messwerten | `v0.2.0` |
 | **M2 Core-Skelett** | Karte 36×36 mit Wrap-around, Ebenen, Sicht und Hidden Map, Kreatur- und Kostendaten aus CSV, aktive Einheit, Bewegung, Bump, `Tab`, Look-Modus, Rundenablauf | Ein Zauberer und Kreaturen bewegen sich auf einer Testkarte, auf Agon und Host | `v0.3.0` |
 | **M3 Classic spielbar** | Kampf, Beschwörungen, Bolt/Lightning, Basis-Objekte, Portal und VP, einfache KI, eigenes Szenario 1 | Eine Partie gegen einen KI-Zauberer lässt sich komplett durchspielen | `v0.4.0` |
 | **M4 Classic komplett** | Alle 45 Zauber und Tränke, Flächeneffekte, Wizard Designer, Kampagne, Szenarien 2 und 3, Setup-Panel, Speichern | Funktionsumfang ≈ Amiga-Version (Einzelspieler) | `v1.0.0` |
