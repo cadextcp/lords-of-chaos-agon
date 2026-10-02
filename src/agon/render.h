@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "../core/sight.h"
 #include "../core/world.h"
 
 /* Screen mode, cursor off, upload tiles.bin to the VDP. False on error
@@ -19,6 +20,8 @@ bool render_init(void);
 uint8_t render_fields(void);
 /* Info panel for one unit: portrait, name, 6 bars, ground info. */
 void render_panel(const World *w, uint8_t unit);
+/* Look mode: the examined field (unit panel when one is visible). */
+void render_panel_at(const World *w, const Sight *s, int16_t x, int16_t y);
 /* Cursor frame as a VDP sprite (GDD 11.2): drawn over the map, so moving
  * or blinking it redraws no fields. Colours follow the Amiga code. */
 /* Frame order = upload order in render_init(); blue = unit in the air

@@ -1,6 +1,6 @@
 # Übergabe: Stand und nächste Schritte
 
-> Stand: 2026-10-03 · nach M2e (#17) · CI grün
+> Stand: 2026-10-03 · **M2 vollständig** (#13–#18) · CI grün
 > Für die nächste Person bzw. den nächsten Agenten. Zuerst `CLAUDE.md` lesen (Regeln, Befehle), dann dieses Dokument.
 
 ---
@@ -11,7 +11,7 @@
 |---|---|
 | **M0 Fundament** | ✅ Toolchain, Tests, CI, Docs |
 | **M1 Grafik und Eingabe** | ✅ Software-seitig fertig: #1 Renderer, #4 Sprite und Animation, #5 Datenladen, #6 Panel. Offen: #2 (optional), #3 und #7 (brauchen echte Hardware) |
-| **M2 Core-Skelett** | 🟡 Halb fertig: ✅ #13 M2a Terrains und Testland, ✅ #14 M2b Kreaturen (Daten und Pixelart), ✅ #15 M2c Rundenablauf, ✅ #16 M2d Sicht und Hidden Map, ✅ #17 M2e Luft- und Bodenebene. Offen: **#18 M2f Bump und Look-Modus** |
+| **M2 Core-Skelett** | ✅ #13 Terrains/Testland, #14 Kreaturen, #15 Rundenablauf, #16 Sicht/Hidden Map, #17 Luft-/Bodenebene, #18 Bump/Look-Modus |
 | M3–M5 | geplant, siehe `docs/ROADMAP.md` |
 
 **Was heute läuft:**
@@ -21,6 +21,7 @@
 - Bewegung mit Pfeilen, Akkorden, Pos1/Ende/Bild, Tastenwiederholung; AP/Stamina aus `data/costs.csv`.
 - Rundenende: AP, 25 % Stamina, 4 % Mana; Erschöpfung (Stamina < 25 %) halbiert die AP `[PM 12]`.
 - Info-Panel mit 6 Balken, Status-Icons und „Am Boden“-Liste, folgt der aktiven Einheit; Meldungszeile „Runde n – Zauberer-1: <Einheit>“.
+- Bump/Look (M2f): Gegen geschlossene Türen laufen öffnet sie (6 AP, nur mit Händen); Gegner/Terrain-Bump meldet „Kampf in M3“; `x` = Look-Modus (weißer Cursor, Panel zeigt Feld/Einheit, `Esc` beendet).
 - Fliegen (M2e): Boden- und Luft-Ebene pro Feld, `<`/`>` Aufsteigen/Landen (4 AP), Flug 4/6 AP über allem, kein Landen auf Wasser; Flieger 3 px höher mit Schatten, blauer Cursor in der Luft; Rundenende füllt das Ebenen-Budget (D15). Demo: `--fly` (ISO-Taste im Emulator nicht sendbar).
 - Hidden Map (M2d): Unerforscht schwarz, Erinnert abgedunkelt (Raster), Gegner nur bei Sichtlinie (Bresenham, Chebyshev 9/11, GDD D14). Sicht-Neuberechnung pro eigenem Schritt ~162 ms (Emulator, ADR 0009).
 - Kerzen und Wasser sind animiert, der Cursor ist ein blinkender VDP-Sprite.
@@ -120,17 +121,20 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 
 ---
 
-## 7. Nächste Schritte (M2f)
+## 7. Nächste Schritte: M3-Aufteilung mit dem Nutzer
 
-**Workflow:** pro Issue ein Branch `m2/<x>-…`, Selftest-Checks ergänzen, Emulator-Screenshot, CHANGELOG, dann PR mit `Closes #n` und Auto-Merge.
+**M2 ist vollständig (#13–#18).** M3 „Classic spielbar“ (ROADMAP, Ziel `v0.4.0`) hat noch **keine Issues**. Wie bei M2 (Commit „GDD: … M2 breakdown“) zuerst eine Aufteilung im GDD vorschlagen und mit dem Nutzer abstimmen (2–4 Optionen mit Empfehlung), dann Issues anlegen und wie gewohnt abarbeiten.
 
-### M2f – Bump und Look-Modus (#18), als Nächstes
+**Workflow:** pro Issue ein Branch `m3/<x>-…`, Selftest-Checks ergänzen, Emulator-Screenshot, CHANGELOG, dann PR mit `Closes #n` und Auto-Merge.
 
-- Bump auf geschlossene Tür: Tür öffnen (`ACTIONS[ACT_OPEN_DOOR]`, nur mit `CF_USE`), danach `world_map_changed()` (View-Cache).
-- Bump auf Gegner: Meldung „Kampf folgt in M3“.
-- Look-Modus `x`: freier Cursor, Sprite-Frame weiß, Steuerung per Akkorden; Panel und Meldungszeile zeigen das untersuchte Feld bzw. die Einheit (`render_panel` auf beliebige Einheit bzw. Feld erweitern); `Esc` beendet.
-
-**Danach M3 (Classic spielbar):** Kampf (Formel ist eigenes Design, Host-Simulation zum Balancing), Beschwörungen (`spell_mana()` existiert), Bolt/Lightning, Objekte, Portal und Siegpunkte, einfache KI, eigenes Szenario 1.
+**M3-Bausteine laut ROADMAP (Vorschlagsgrundlage):**
+- **Kampf:** eigene Formel (D7; Host-Simulation zum Balancing), Nahkampf/Bump-Angriff, Return Attack `[PM 18]`, Fernkampf (Bögen), Terrain-Angriff (Zähigkeit). Bolt/Lightning als erste Zauber mit Reichweite.
+- **Beschwörungen:** Zauberliste `c`, Zielmodus (Cursor gelb/blau/rot), `spell_mana()` existiert; Kreatur erscheint neben dem Zauberer, gehört dem Beschwörer.
+- **Objekte:** Aufheben `g` / Fallenlassen `d` / Werfen `t`, „in Benutzung“, Tränke und Brauen später (M4).
+- **Portal und Siegpunkte `[PM 29]`:** Erscheinen in der Rundenspanne, Betreten = Rettung, Punkte aus der Tabelle (Szenario-Daten).
+- **Einfache KI:** Verhaltensprofile (GDD §10), rechnet nur mit eigener Sicht (Hidden Movement).
+- **Szenario 1 „The Many Coloured Land“:** eigene Karte nach GDD §9.1 mit Platzierungen, Schätzen, Portal.
+- Ziel-Meilenstein: eine komplette Partie gegen einen KI-Zauberer im Emulator durchspielbar.
 
 ---
 
