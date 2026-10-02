@@ -54,4 +54,5 @@ Gesammeltes Plattformwissen. Teile stammen aus dem ersten Versuch (BBC BASIC, `L
 | # | Thema | Status |
 |---|---|---|
 | H1 | Tastatur **Cherry G84-4100**, deutsches Layout, ohne Ziffernblock: Pfeil-Akkorde, Sondertasten und Auto-Repeat prüft Spike M1 (GDD §5.2). | ❓ (M1) |
+| H3 | Lange Dateinamen (`maps/wizard_house.map`) funktionieren im Emulator (hostfs). Auf der echten FAT-SD-Karte noch prüfen (#7). | ❓ |
 | H2 | MOS- bzw. VDP-Version auf dem echten Agon Light: noch festzustellen und mit dem Emulator-Pin abgleichen. | ❓ |

@@ -56,7 +56,9 @@ typedef struct {
     uint8_t object_count;
 } World;
 
-void world_load(World *w, const MapDef *def);
+/* Load a binary map (.map, ADR 0008). Validates everything first; on
+ * false the world is left unchanged. */
+bool world_load_bin(World *w, const uint8_t *data, uint16_t len);
 /* Call after changing floor/decor/feature (door opened ...). */
 void world_map_changed(World *w);
 

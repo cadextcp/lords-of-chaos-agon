@@ -6,6 +6,7 @@
 #include "chord.h"
 #include "names.h"
 #include "rng.h"
+#include "spells.h"
 #include "view.h"
 #include "world.h"
 
@@ -17,6 +18,11 @@
 static selftest_log_fn out;
 static uint16_t fails;
 static World world;
+
+static void load_house(void)
+{
+    world_load_bin(&world, MAPBIN_WIZARD_HOUSE, MAPBIN_WIZARD_HOUSE_LEN);
+}
 
 static void check(int ok, const char *what)
 {
@@ -72,7 +78,25 @@ static void test_rng(void)
 
 static void test_world(void)
 {
-    world_load(&world, &MAP_WIZARD_HOUSE);
+    static uint8_t bad[300];
+    uint16_t i;
+
+    check(world_load_bin(&world, MAPBIN_WIZARD_HOUSE, MAPBIN_WIZARD_HOUSE_LEN),
+          "map: binary house loads");
+    for (i = 0; i < MAPBIN_WIZARD_HOUSE_LEN && i < sizeof bad; i++)
+        bad[i] = MAPBIN_WIZARD_HOUSE[i];
+    bad[0] = 'X';
+    check(!world_load_bin(&world, bad, MAPBIN_WIZARD_HOUSE_LEN), "map: bad magic rejected");
+    bad[0] = 'L';
+    bad[5] ^= 1;
+    check(!world_load_bin(&world, bad, MAPBIN_WIZARD_HOUSE_LEN), "map: stale tile count rejected");
+    bad[5] ^= 1;
+    check(!world_load_bin(&world, bad, 100), "map: truncated file rejected");
+    bad[MAPBIN_HEADER] = FL_COUNT;
+    check(!world_load_bin(&world, bad, MAPBIN_WIZARD_HOUSE_LEN), "map: out-of-range floor rejected");
+    check(world.w == 9 && world.units[0].x == 3, "map: failed load leaves world unchanged");
+
+    load_house();
     check(world.w == 9 && world.h == 9 && !world.wrap, "world: house is 9x9, no wrap");
     check(world.unit_count == 2 && world.units[0].x == 3 && world.units[0].y == 4,
           "world: wizard at 3,4");
@@ -148,7 +172,7 @@ static void test_dirty_and_move(void)
 
 static void test_ap(void)
 {
-    world_load(&world, &MAP_WIZARD_HOUSE);
+    load_house();
     check(world.units[0].ap == 40, "ap: wizard starts with 40");
     check(world_step_cost(&world, 7, 3, false) == 3 && world_step_cost(&world, 2, 2, false) == 4,
           "ap: path 3, floor 4");
@@ -166,7 +190,7 @@ static void test_stats_and_names(void)
     const char *g[GROUND_MAX];
     uint8_t n;
 
-    world_load(&world, &MAP_WIZARD_HOUSE);
+    load_house();
     check(world.units[0].sta == 60 && world.units[0].mana == 80, "stats: wizard stamina 60, mana 80");
     world_move_unit(&world, 0, 1, 1);                         /* diagonal: 6 AP */
     check(world.units[0].sta == 57, "stats: step costs half the AP as stamina");
@@ -185,6 +209,18 @@ static void test_stats_and_names(void)
     n = ground_names(&world, 2, 2, g);
     check(n == 1 && g[0][0] == 'S' && g[0][1] == 't', "names: bare floor (Steinboden)");
     check(name_unit(&world.units[1])[0] == 'G', "names: goblin");
+}
+
+static void test_data(void)
+{
+    check(spell_mana(SP_GIANT_BAT, 0) == 5 && spell_mana(SP_GIANT_BAT, 3) == 11,
+          "data: giant bat mana 5 + 2/level");
+    check(spell_mana(SP_GOLD_DRAGON, 8) == 231, "data: gold dragon level 8 = 231");
+    check(SPELLS[SP_SUPER_POTION].amiga == 0 && SPELLS[SP_BOMB_POTION].known == 0,
+          "data: super potion not on Amiga, bomb potion cost unknown");
+    check(FLOOR_AP[FL_PATH] == 3 && FLOOR_AP[FL_STONE] == 4, "data: floor costs from costs.csv");
+    check(ACTIONS[ACT_CAST].ap == 10 && ACTIONS[ACT_MELEE].stamina == 4,
+          "data: action costs from actions.csv");
 }
 
 static void test_chord(void)
@@ -249,6 +285,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_ap();
     test_chord();
     test_stats_and_names();
-    world_load(&world, &MAP_WIZARD_HOUSE);   /* leave a clean state */
+    test_data();
+    load_house();   /* leave a clean state */
     return fails;
 }

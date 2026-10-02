@@ -33,7 +33,10 @@
   - Zufall kommt ausschließlich aus `rng.h` (xorshift32, geseedet).
   - Kein `rand()`, keine Gleitkommazahlen in Spielregeln.
 - **Keine dynamische Speicherverwaltung** im Spielbetrieb. Statische Pools haben feste Obergrenzen.
-- **Daten** liegen in `data/*.csv` und werden später per Generator zu const-Tabellen in C.
+- **Daten (ADR 0008):**
+  - Regeltabellen (`data/*.csv`) werden zu const-Tabellen kompiliert (`gen/data.c`).
+  - Karten (`data/maps/*.txt`) werden zu `.map`-Dateien, die das Spiel von SD lädt (`world_load_bin`, vollständig validiert).
+  - Kacheln kommen als `tiles.bin` von SD.
 
 ## Warum zwei Builds?
 

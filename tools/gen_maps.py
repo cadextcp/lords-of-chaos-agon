@@ -4,42 +4,83 @@
 # dependencies = []
 # ///
 """
-Compile data/maps/<name>.txt into src/core/gen/maps.c (generated, not committed).
+Compile data/maps/<name>.txt into binary maps (ADR 0008).
 
     uv run tools/gen_maps.py
 
-The map text format is documented at the top of data/maps/wizard_house.txt.
-Character legends are validated here; the C side (src/core/world.c) maps the
-characters to floor/feature/decor types.
+Outputs (generated, not committed):
+  build/maps/<name>.map     loaded by the game from /loc/maps on the SD card
+  src/core/gen/maps.c       the same bytes as C arrays (selftest, host build)
+
+.map format v1 (all u8):
+  "LOCM" | version=1 | tile_count u16 LE | w | h | wrap
+  | floor[w*h] | feature[w*h] | decor[w*h]          (enum values, row-major)
+  | unit_count | units: x y kind owner
+  | object_count | objects: x y tile
+
+Enum values are read from src/core/world.h / map_def.h / gen/tiles.h, so
+the C side and this compiler cannot drift apart. The text format is
+documented at the top of data/maps/wizard_house.txt.
 """
 
 from __future__ import annotations
 
 import re
+import struct
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MAPS = ROOT / "data" / "maps"
-OUT = ROOT / "src" / "core" / "gen" / "maps.c"
+OUT_DIR = ROOT / "build" / "maps"
+OUT_C = ROOT / "src" / "core" / "gen" / "maps.c"
+CORE = ROOT / "src" / "core"
 
-FLOOR_CHARS = set("swgp")
-FEATURE_CHARS = set(".#DdBSKCThMXt")
-DECOR_CHARS = set(".r*")
+# Character legends -> C enum names (values come from the headers).
+FLOOR = {"s": "FL_STONE", "w": "FL_WOOD", "g": "FL_GRASS", "p": "FL_PATH"}
+FEATURE = {".": "FE_NONE", "#": "FE_WALL", "D": "FE_DOOR_CLOSED", "d": "FE_DOOR_OPEN",
+           "B": "FE_BED", "S": "FE_BOOKSHELF", "K": "FE_CANDLE", "C": "FE_CAULDRON",
+           "T": "FE_TABLE", "h": "FE_CHAIR", "M": "FE_DRAWERS", "X": "FE_CHEST",
+           "t": "FE_TREE"}
+DECOR = {".": "DE_NONE", "r": "DE_RUG", "*": "DE_PENTACLE"}
 KINDS = {"wizard": "CR_WIZARD", "goblin": "CR_GOBLIN"}
-OWNERS = {"p1": "OWN_P1", "p2": "OWN_P2", "p3": "OWN_P3", "p4": "OWN_P4", "neutral": "OWN_NEUTRAL"}
+OWNERS = {"p1": "OWN_P1", "p2": "OWN_P2", "p3": "OWN_P3", "p4": "OWN_P4",
+          "neutral": "OWN_NEUTRAL"}
+
+
+def c_enums(*headers: Path) -> dict[str, int]:
+    """Values of all enumerators in the given headers (simple C enums)."""
+    values: dict[str, int] = {}
+    for h in headers:
+        text = re.sub(r"/\*.*?\*/", "", h.read_text(encoding="utf-8"), flags=re.S)
+        for body in re.findall(r"enum\s*\{(.*?)\}", text, flags=re.S):
+            nxt = 0
+            for item in body.split(","):
+                item = item.strip()
+                if not item:
+                    continue
+                if "=" in item:
+                    name, val = (x.strip() for x in item.split("=", 1))
+                    nxt = int(val, 0) if re.fullmatch(r"-?(0x)?[0-9a-fA-F]+", val) else values[val]
+                else:
+                    name = item
+                values[name] = nxt
+                nxt += 1
+    return values
 
 
 def parse(path: Path) -> dict:
+    """Text map -> dict with char grids (also used by tools/mockup.py)."""
     m = {"wrap": 0, "units": [], "objects": []}
     section = None
     grids: dict[str, list[str]] = {"floor": [], "feature": [], "decor": []}
     for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.split("#", 1)[0].rstrip() if not section in grids else raw.rstrip()
-        if section in grids and line.startswith("#") and not set(line) <= FEATURE_CHARS:
+        line = raw.rstrip()
+        if section not in grids and line.startswith("#"):
             continue
         if not line.strip():
-            section = None if section in grids and grids[section] else section
+            if section in grids and grids[section]:
+                section = None
             continue
         word = line.split()[0]
         if word == "size":
@@ -58,46 +99,52 @@ def parse(path: Path) -> dict:
             m["objects"].append((int(x), int(y), "T_" + name.upper()))
         else:
             raise SystemExit(f"{path.name}: unexpected line: {raw!r}")
-    for key, chars in (("floor", FLOOR_CHARS), ("feature", FEATURE_CHARS), ("decor", DECOR_CHARS)):
+    for key, legend in (("floor", FLOOR), ("feature", FEATURE), ("decor", DECOR)):
         rows = grids[key]
         if len(rows) != m["h"] or any(len(r) != m["w"] for r in rows):
             raise SystemExit(f"{path.name}: {key} must be {m['w']}x{m['h']}")
-        bad = set("".join(rows)) - chars
+        bad = set("".join(rows)) - set(legend)
         if bad:
             raise SystemExit(f"{path.name}: {key} has unknown characters {sorted(bad)}")
         m[key] = "".join(rows)
     return m
 
 
-def c_name(path: Path) -> str:
-    return "MAP_" + re.sub(r"\W", "_", path.stem).upper()
+def encode(m: dict, enums: dict[str, int]) -> bytes:
+    if not (1 <= m["w"] <= 36 and 1 <= m["h"] <= 36):
+        raise SystemExit("map size must be 1..36")
+    out = bytearray(b"LOCM")
+    out += struct.pack("<BHBBB", 1, enums["TILE_COUNT"], m["w"], m["h"], m["wrap"])
+    for key, legend in (("floor", FLOOR), ("feature", FEATURE), ("decor", DECOR)):
+        out += bytes(enums[legend[c]] for c in m[key])
+    out.append(len(m["units"]))
+    for x, y, kind, owner in m["units"]:
+        out += bytes((x, y, enums[kind], enums[owner]))
+    out.append(len(m["objects"]))
+    for x, y, tile in m["objects"]:
+        if tile not in enums:
+            raise SystemExit(f"unknown object tile {tile}")
+        out += bytes((x, y, enums[tile]))
+    return bytes(out)
 
 
 def main() -> int:
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    out = ["/* GENERATED by tools/gen_maps.py from data/maps/<name>.txt - do not edit. */",
-           '#include "../map_def.h"', '#include "tiles.h"', ""]
+    enums = c_enums(CORE / "world.h", CORE / "map_def.h", CORE / "gen" / "tiles.h")
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    OUT_C.parent.mkdir(parents=True, exist_ok=True)
+    c = ["/* GENERATED by tools/gen_maps.py from data/maps/<name>.txt - do not edit. */",
+         '#include "../map_def.h"', ""]
     for path in sorted(MAPS.glob("*.txt")):
-        m = parse(path)
-        n = c_name(path)
-        units = ", ".join(f"{{{x}, {y}, {k}, {o}}}" for x, y, k, o in m["units"])
-        objs = ", ".join(f"{{{x}, {y}, {t}}}" for x, y, t in m["objects"])
-        out += [
-            f"static const MapUnit {n}_units[] = {{{units}}};",
-            f"static const MapObject {n}_objects[] = {{{objs}}};",
-            f"const MapDef {n} = {{",
-            f"    {m['w']}, {m['h']}, {m['wrap']},",
-            f'    "{m["floor"]}",',
-            f'    "{m["feature"]}",',
-            f'    "{m["decor"]}",',
-            f"    {n}_units, {len(m['units'])},",
-            f"    {n}_objects, {len(m['objects'])},",
-            "};", "",
-        ]
-        print(f"[maps] {path.name} -> {n} ({m['w']}x{m['h']}, {len(m['units'])} units)")
-    OUT.write_text("\n".join(out), newline="\n")
+        data = encode(parse(path), enums)
+        (OUT_DIR / f"{path.stem}.map").write_bytes(data)
+        name = "MAPBIN_" + re.sub(r"\W", "_", path.stem).upper()
+        rows = [", ".join(f"0x{b:02X}" for b in data[i:i + 16]) for i in range(0, len(data), 16)]
+        c += [f"const uint8_t {name}[] = {{", *(f"    {r}," for r in rows), "};",
+              f"const uint16_t {name}_LEN = {len(data)};", ""]
+        print(f"[maps] {path.name} -> build/maps/{path.stem}.map ({len(data)} bytes)")
+    OUT_C.write_text("\n".join(c), newline="\n")
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    sys.exit(main())
