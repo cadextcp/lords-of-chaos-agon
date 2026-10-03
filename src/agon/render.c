@@ -133,6 +133,13 @@ static void draw_tile(uint16_t id, int x, int y)
     vdp_draw_bitmap(x, y);
 }
 
+/* Public single-tile draw for non-map screens (lexicon portraits, M5). */
+void render_draw_tile(uint16_t id, int x, int y)
+{
+    if (id < TILE_COUNT)
+        draw_tile(id, x, y);
+}
+
 /* The small copy of a mount tile, centred and standing on the field's
  * baseline (x, y = top-left of the full tile). */
 static void draw_small_mount(uint16_t id, int x, int y)

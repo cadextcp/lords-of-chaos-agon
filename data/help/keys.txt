@@ -1,0 +1,116 @@
+# Help pages, compiled by tools/gen_help.py into build/help/<name>.hlp
+# (loaded from the SD card, ADR 0011 - loc.bin stays under the 250 KB mark).
+#
+# Format: "= Titel" starts a page, the lines below are its body.
+# Umlauts may be written as ae/oe/ue/ss or as äöüß (converted to the
+# umfont glyph codes). Max 26 body lines and 38 columns per page.
+
+= Steuerung
+Pfeiltasten  bewegen (Akkorde fuer
+             Diagonalen: zwei Pfeile
+             zusammen)
+Pos1/Bild-auf, Ende/Bild-ab
+             Diagonale Einzelschritte
+Tab          naechste Einheit
+Shift+Tab    vorige Einheit
+Leertaste    Einheit fertig
+Shift+E      Zug beenden (zweimal)
+Enter        Aktionsmenue
+x            Feld untersuchen (Look)
+m            Gesamtkarte
+l            Nachrichten
+i            Lexikon
+F1           diese Hilfe
+Esc          abbrechen / zurueck
+
+= Aktionen
+g  aufheben          d  fallen lassen
+w  in die Hand nehmen
+e  essen             q  trinken
+v  Phiole fuellen    r  lesen
+t  werfen            f  Bogen
+c  Zauber wirken
+b  aufsteigen / absteigen (Reittier)
+<  abheben           >  landen
+Anrempeln: Tuer oeffnen, Truhe,
+  Gegner und Terrain angreifen
+
+= Ziel des Spiels
+Du fuehrst einen Zauberer und seine
+Kreaturen durch ein Szenario. Ziel:
+mit dem Zauberer durch das Portal
+entkommen - und dabei so viele
+Siegpunkte wie moeglich holen.
+
+Punkte gibt es fuer getragene
+Schaetze (Gold, Edelsteine ...),
+die du durchs Portal rettest, und
+fuer besiegte Gegner. Was du nicht
+durchs Portal schaffst, ist verloren.
+
+Stirbt dein Zauberer, hast du
+verloren - egal wie viel Beute der
+Rest der Gruppe traegt.
+
+= Runden und AP
+Eine Runde: erst die freien Kreaturen,
+dann die Zauberer der Reihe nach.
+In Runde 1 ist nur Zaubern erlaubt.
+
+Jede Einheit hat Aktionspunkte (AP).
+Alles kostet AP: Schritte, Angriffe,
+Zauber, Aufheben. Ausdauer (STA)
+haelt die Einheit auf Trab: sie wird
+zur Runde nur teils aufgefuellt.
+
+Die Balken rechts zeigen AP, Ausdauer,
+Konstitution, Kampf, Verteidigung und
+Mana. Wunden bluten: eine toedliche
+Wunde kostet pro Runde Konstitution.
+
+= Kampf
+Anrempeln greift an. Trefferchance
+haengt von Kampf gegen Verteidigung
+ab, Waffen und Schilde zaehlen mit.
+
+Der Angegriffene schlaegt zurueck,
+solange er AP und Ausdauer hat.
+Wer sich aus dem Kampf zieht, riskiert
+einen freien Schlag des Gegners.
+
+Untote verwunden nur untote oder
+magisch bewaffnete Angreifer - und
+Zauber. Unter halber Konstitution
+kaempft man schlechter.
+
+= Magie
+c oeffnet das Zauberbuch; Buchstabe
+waehlt den Zauber, Pfeile zielen,
+Enter wirkt. Mana reicht fuer wenige
+Zauber pro Runde - es regeneriert
+langsam.
+
+Beschwoerungen rufen Kaempfer ins
+Spiel. Bolt und Blitz schlagen zu,
+Feuer, Brei, Ranken und Flut
+beherrschen das Gelaende. Shield
+schuetzt, Teleport und Auge erkunden,
+Curse und Subversion schwaechen.
+
+Tränke braut man am Kessel: Zutat
+hineinwerfen, Phiole fuellen (v),
+trinken (q). Die Bombenphiole wirft
+man mit t.
+
+= Objekte
+g hebt auf, d laesst fallen, w nimmt
+das naechste Objekt in die Hand.
+Nur Waffen in der Hand kaempfen mit
+ihren Werten; ein getragenes Schild
+verteidigt immer.
+
+Schluessel oeffnen Tueren und Truhen
+und verbrauchen sich dabei. Truhen
+per Anrempeln oeffnen - drin liegen
+Schaetze. Essen und Pilze heilen,
+Schriftrollen geben Hinweise.

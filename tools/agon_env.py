@@ -72,7 +72,7 @@ def run_linux(cmd: list[str], cwd: Path | None = None, check: bool = True,
 
 
 def stage_game() -> Path:
-    """Copy loc.bin, tiles.bin and maps/*.map to /loc on the staged SD card."""
+    """Copy loc.bin, tiles.bin, maps, scenarios and help to /loc on the SD."""
     if not AGON_BIN.exists():
         raise FileNotFoundError(f"{AGON_BIN} missing - run: uv run tools/build.py")
     if not SDCARD.exists():
@@ -93,4 +93,9 @@ def stage_game() -> Path:
         (dest / "scenarios").mkdir(exist_ok=True)
         for f in scenarios.glob("*.scn"):
             shutil.copy2(f, dest / "scenarios" / f.name)
+    helpdir = BUILD / "help"
+    if helpdir.exists():
+        (dest / "help").mkdir(exist_ok=True)
+        for f in helpdir.glob("*.hlp"):
+            shutil.copy2(f, dest / "help" / f.name)
     return dest

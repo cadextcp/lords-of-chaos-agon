@@ -4,6 +4,7 @@
 
 #include <stdbool.h>
 
+#include "../core/lexicon.h"
 #include "../core/spells.h"
 #include "../core/world.h"
 
@@ -21,6 +22,10 @@ bool scnfile_load(Spellbook *books, const char *path);
  * values (the caller then falls back to the stock wizards). */
 bool wizards_save(void);
 bool wizards_load(void);
+/* Lexicon of discoveries "/lexicon.dat" (M5); load returns false when
+ * missing or invalid (start with an empty one). */
+bool lexicon_save(const Lexicon *lex);
+bool lexicon_load(Lexicon *lex);
 /* Save game blob "/save.dat" (M4i). write stores len bytes; read
  * returns the bytes read (0 when missing; a blob cut at cap fails the
  * length gate of save_deserialize). */

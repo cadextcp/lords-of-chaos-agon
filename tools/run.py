@@ -56,6 +56,10 @@ def main() -> int:
     ap.add_argument("--keytest", action="store_true", help="keyboard spike: log every key event")
     ap.add_argument("--endscreen", action="store_true", help="show the end screen (dev)")
     ap.add_argument("--endscreen-lose", action="store_true", help="show the game over screen (dev)")
+    ap.add_argument("--helppage", action="store_true", help="show the help viewer (dev, M5)")
+    ap.add_argument("--lexicon", action="store_true", help="show the lexicon, all seen (dev, M5)")
+    ap.add_argument("--tutorial", action="store_true",
+                    help="start the guided tutorial map (M5)")
     ap.add_argument("--house", action="store_true", help="wizard house map (dev)")
     ap.add_argument("--testland", action="store_true", help="testland map (dev)")
     ap.add_argument("--no-menu", action="store_true",
@@ -95,10 +99,16 @@ def main() -> int:
         mode.append("--free-round1")
     if args.fly:
         mode.append("--fly")
+    if args.tutorial:
+        mode.append("--tutorial")
     if args.endscreen:
         mode = ["--endscreen"]
     elif args.endscreen_lose:
         mode = ["--endscreen-lose"]
+    elif args.helppage:
+        mode = ["--helppage"]
+    elif args.lexicon:
+        mode = ["--lexicon"]
     write_autoexec(mode, args.keyboard)
 
     cmd = [str(env.GUI_EMULATOR), "--sdcard", str(env.SDCARD.resolve()),

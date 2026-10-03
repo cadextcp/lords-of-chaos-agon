@@ -48,6 +48,8 @@ void render_menu_text(uint8_t col, uint8_t row, uint8_t colour,
  * full-screen screen call view_invalidate() and redraw the game. */
 void render_screen_clear(void);
 void render_frame(int x0, int y0, int x1, int y1, uint8_t colour);
+/* One tile by id at a pixel position (lexicon portraits, M5). */
+void render_draw_tile(uint16_t id, int x, int y);
 void render_shutdown(void);
 
 #endif

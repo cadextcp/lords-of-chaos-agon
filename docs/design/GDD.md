@@ -668,6 +668,27 @@ Wie beim Amiga werden pro Feld **mehrere Ebenen übereinander** gezeichnet (B1.2
 - Einfache Effekte über den Agon-Soundkanal: Schritt, Treffer, Zauber, Portal.
 - Musik ist optional [X].
 
+### 11.5 Hilfe, Tutorial und Lexikon [C] (M5)
+
+- **Hilfeseiten** (F1, Hauptmenü): seitenweise Texte (Steuerung, Aktionen,
+  Spielziel, Runden/AP, Kampf, Magie, Objekte), ←/→ blättert. Die Texte liegen
+  als `.hlp`-Dateien auf der SD-Karte (`/loc/help`, ADR 0011), nicht im
+  Programm — Umlaute über die umdefinierten Font-Glyphen (M4j). Die erste
+  Seite ist die Tastenliste (früher die statische F1-Überlagerung).
+- **Geführtes Tutorial** (Hauptmenü): kleine Karte (16×12) mit Zauberer,
+  Zwerg, Schluessel, Truhe, Goblin und Portal (oeffnet Runde 2). Eine
+  Schritt-Engine im Core (`tutorial.c`) prüft Weltzustand plus zwei
+  Meldungen (Tab gedrückt, Zauber gewirkt): Bewegen → Einheit wechseln →
+  Schluessel aufheben → Truhe oeffnen → Goblin besiegen → Zaubern → Portal.
+  Die Hinweiszeile steht in Meldungszeile 3; Texte aus `help/tutorial.hlp`.
+  Die Runde-1-Bewegungssperre [PM 7] ist im Tutorial aufgehoben.
+- **Lexikon** (Taste `i`, Hauptmenü): was der Spieler je gesehen hat —
+  Kreaturen (26) und Objekte (40) als Bitmasken, persistent in
+  `/loc/lexicon.dat`. Liste zeigt nur Entdecktes mit Namen, Rest „???“;
+  Enter öffnet die Detailseite mit Porträt, Werten aus den Tabellen und
+  Kurztext aus `help/lexicon.hlp`. Markiert wird beim Sehen (Sichtregel)
+  und Aufheben.
+
 ---
 
 ## 12. Chaos-Erweiterungen [X] (nach v1.0)
