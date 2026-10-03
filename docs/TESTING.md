@@ -41,6 +41,17 @@ uv run tools/run.py --dump --time 10 --free-round1 --keys "dddw" --screenshot
 | `build/host/loc_host --layers` | Ebenen-Liste (Tile-IDs) jedes Fensterfelds auf dem Host |
 | `build/host/loc_host --dump` | Karte als ASCII |
 
+## Auf der echten Hardware (Agon Light 2 per USB)
+
+Der Agon hängt per USB (CH340, 115200 Baud) am PC. Die Werkzeuge liegen im Lumagon-Repo (`scripts/agonload.py`, Konsolenmodus muss laufen: `autoexec.txt` mit `VDU 23 0 254 1`). Es darf immer nur ein Skript den COM-Port offen haben.
+
+1. Bauen: `uv run tools/build.py --all` (oder `tools/test.py`).
+2. Dateien nach `/loc` auf der Karte: `bin/loc.bin`, `build/tiles.bin`, `build/maps/*.map` nach `loc/maps/`, `build/scenarios/*.scn` nach `loc/scenarios/`. Je Datei `python scripts/agonload.py DATEI loc/…  --am-mos-prompt --kein-neustart` (CRC32-geprüft; `loc.bin` dauert etwa 3 Minuten, `tiles.bin` knapp 2).
+3. Selftest: am MOS-Prompt `cd /loc`, `loc --selftest`, Ausgabe über USB lesen (`=== TEST PASS ===`).
+4. Bench: `loc --bench`, etwa 45 s warten, dann am Gerät **Esc** drücken (über USB nicht möglich, siehe Quirk H5), danach `TYPE /loc/loc.log`. Messwerte: `docs/AGON-QUIRKS.md`, Abschnitt Hardware.
+
+Das Spiel selbst lässt sich ohne Monitor nicht beurteilen; Grafik, Tastatur und Gefühl der Eingabe prüft der Nutzer am Gerät.
+
 ## Bekannte Grenzen
 
 - Der CLI-Emulator hat **keinen VDP**. VDP-Aufrufe, die auf eine Antwort warten (z. B. `vdp_mode`), dürfen im Selftest-Pfad nicht vorkommen.

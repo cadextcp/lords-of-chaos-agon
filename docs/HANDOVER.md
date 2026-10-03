@@ -203,6 +203,7 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 - **Hardware-Test des Nutzers (#3, #7):** Er wird mit jedem Teil wichtiger; KI-Runden und Sicht kosten auf dem Emulator schon spürbar Zeit.
   - Auf die SD-Karte nach `/loc`: `bin/loc.bin`, `build/tiles.bin`, `build/maps/`, `build/scenarios/`.
   - Dann `SET KEYBOARD 2`, `cd /loc`, `loc --keytest`, `loc --bench`, `loc`.
+  - **Stand 2026-10-03 (Hardware, Stand `037521f`):** Upload nach `/loc` per USB, `loc --selftest` PASS und `loc --bench` sind gelaufen (Werte in `docs/AGON-QUIRKS.md`, Ablauf in `docs/TESTING.md`); lange Dateinamen auf FAT sind geklärt. Das Spiel selbst, `--keytest` und die Eingabe am Gerät stehen noch aus. Der Lumagon-Autostart ist auf der Karte abgeschaltet (Sicherung `/autoexec.lum`).
   - Zu klären:
     - Akkorde ohne Ghosting?
     - Codes für `<`/`>`?
