@@ -18,7 +18,7 @@ wait_tx:
 	in0 a, (UART0_LSR)
 	bit 6, a
 	jr z, wait_tx
-	ld de, 200000		; ~0.1 s at 18.432 MHz
+	ld de, 600000		; ~0.3 s at 18.432 MHz (CI needs the headroom)
 settle:
 	dec de
 	ld hl, 0
