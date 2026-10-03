@@ -2159,6 +2159,11 @@ static void test_m4e(void)
     check(OBJECTS[OBJ_SPEAR].weapon == WEAPON_SPEAR &&
           OBJECTS[OBJ_SLAYER].weight == 6,
           "m4e: the new weapons exist as objects");
+    check(strcmp(name_object(T_OBJ_SWORD), "Schwert") == 0 &&
+          strcmp(name_object(T_OBJ_RUBY), "Rubin") == 0 &&
+          strcmp(name_object(T_OBJ_VIAL_FULL), "Phiole (voll)") == 0 &&
+          strcmp(name_object(T_OBJ_SCROLL), "Schriftrolle") == 0,
+          "objects show their own names on the ground and in look mode");
 
     {   /* riding: mount, ride along, dismount */
         wizard = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 6, 7);

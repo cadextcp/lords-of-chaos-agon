@@ -66,10 +66,13 @@ const char *name_decor(uint8_t decor)
 
 const char *name_object(uint16_t tile)
 {
-    switch (tile) {
-    case T_OBJ_SCROLL: return "Schriftrolle";
-    default: return "Gegenstand";
-    }
+    uint8_t k;
+    if (tile == T_OBJ_VIAL_FULL)
+        return "Phiole (voll)";          /* one tile for all filled vials */
+    for (k = 0; k < OBJ_COUNT; k++)
+        if (OBJECTS[k].tile == tile)
+            return OBJECTS[k].name;      /* German name from objects.csv */
+    return "Gegenstand";
 }
 
 const char *describe_field(const World *w, const Sight *s, int16_t x, int16_t y,
