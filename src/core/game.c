@@ -2,6 +2,7 @@
 
 #include "gen/data.h"
 #include "items.h"
+#include "ride.h"
 #include "rng.h"
 
 void game_init(Game *g, int16_t x, int16_t y, uint8_t rmin, uint8_t rmax,
@@ -16,8 +17,11 @@ void game_init(Game *g, int16_t x, int16_t y, uint8_t rmin, uint8_t rmax,
     g->escaped = 0;
     g->eye_x = g->eye_y = -1;
     g->eye_rounds = 0;
-    for (i = 0; i < OWN_NEUTRAL; i++)
+    for (i = 0; i < OWN_NEUTRAL; i++) {
         g->vp[i] = 0;
+        g->kills[i] = 0;
+        g->loot_vp[i] = 0;
+    }
 }
 
 void game_new_round(Game *g, uint8_t round)
@@ -46,6 +50,7 @@ bool game_try_enter_portal(Game *g, World *w, uint8_t unit)
         if (OBJECTS[u->items[i]].category == OC_TREASURE)
             vp = (uint16_t)(vp + OBJECTS[u->items[i]].vp);
     g->vp[u->owner] = (uint16_t)(g->vp[u->owner] + vp);
+    g->loot_vp[u->owner] = (uint16_t)(g->loot_vp[u->owner] + vp - VP_ESCAPE);
     g->escaped |= (uint8_t)(1u << u->owner);
     world_remove_unit(w, unit);
     return true;
@@ -60,6 +65,8 @@ void game_kill_credit(Game *g, const Kill *k)
     if (k->killer_kind == CR_WIZARD && k->melee)
         vp = (uint16_t)(vp * 2);               /* AMI 4 */
     g->vp[k->killer_owner] = (uint16_t)(g->vp[k->killer_owner] + vp);
+    if (g->kills[k->killer_owner] < 255)
+        g->kills[k->killer_owner]++;
 }
 
 void game_credit_kills(Game *g, World *w)
@@ -70,13 +77,33 @@ void game_credit_kills(Game *g, World *w)
     w->kill_count = 0;
 }
 
-bool game_over(const Game *g, const World *w)
+/* Does `owner` still field a wizard (0xFF: any owner)? */
+static bool wizard_alive(const World *w, uint8_t owner)
 {
     uint8_t i;
+    for (i = 0; i < w->unit_count; i++) {
+        const Unit *u = &w->units[i];
+        if (owner != 0xFF && u->owner != owner)
+            continue;
+        if (u->kind == CR_WIZARD ||
+            ((u->flags & UF_RIDDEN) && u->rider_kind == CR_WIZARD))
+            return true;
+    }
+    return false;
+}
+
+bool game_over(const Game *g, const World *w)
+{
     if (g->portal_x < 0)
         return false;                    /* no portal: endless test map */
-    for (i = 0; i < w->unit_count; i++)
-        if (w->units[i].kind == CR_WIZARD)
-            return false;
-    return true;
+    return !wizard_alive(w, 0xFF);
+}
+
+GameOutcome game_outcome(const Game *g, const World *w, uint8_t owner)
+{
+    if (owner >= OWN_NEUTRAL || g->portal_x < 0)
+        return OUT_RUNNING;
+    if (g->escaped & (uint8_t)(1u << owner))
+        return OUT_WIN;
+    return wizard_alive(w, owner) ? OUT_RUNNING : OUT_LOSE;
 }

@@ -2617,6 +2617,61 @@ static void test_m4g(void)
     }
 }
 
+static void test_m5a(void)
+{
+    Game g;
+    Rng rng;
+    uint8_t wiz, mount;
+
+    rng_seed(&rng, 3);
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 0;
+    area_reset();
+    game_init(&g, 6, 6, 1, 1, &rng);
+    game_new_round(&g, 1);
+    wiz = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 5, 5);
+    world_spawn_unit(&world, OWN_P2, CR_WIZARD, 9, 9);
+    check(game_outcome(&g, &world, OWN_P1) == OUT_RUNNING,
+          "m5a: a living wizard keeps the game running");
+    check(game_outcome(&g, &world, OWN_NEUTRAL) == OUT_RUNNING,
+          "m5a: independents never win or lose");
+
+    world.units[wiz].x = 6;
+    world.units[wiz].y = 6;
+    g.vp[OWN_P1] = 0;
+    check(game_try_enter_portal(&g, &world, wiz) &&
+          game_outcome(&g, &world, OWN_P1) == OUT_WIN &&
+          game_outcome(&g, &world, OWN_P2) == OUT_RUNNING,
+          "m5a: escaping through the portal wins");
+    check(g.vp[OWN_P1] == VP_ESCAPE && g.loot_vp[OWN_P1] == 0,
+          "m5a: the escape scores VP without loot");
+
+    world_remove_unit(&world, 0);          /* p2 wizard is the only unit */
+    world.unit_count = 0;
+    wiz = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 5, 5);
+    game_init(&g, 6, 6, 1, 1, &rng);
+    world_kill_unit(&world, wiz, CR_GOBLIN, OWN_P2, true);
+    check(game_outcome(&g, &world, OWN_P1) == OUT_LOSE,
+          "m5a: a dead wizard loses");
+    game_credit_kills(&g, &world);
+    check(g.kills[OWN_P2] == 1, "m5a: the kill is counted");
+
+    world.unit_count = 0;
+    world_spawn_unit(&world, OWN_P1, CR_WIZARD, 5, 5);
+    mount = world_spawn_unit(&world, OWN_P1, CR_UNICORN, 5, 6);
+    world.units[0].ap = 40;
+    check(ride_mount(&world, 0, 5, 6), "m5a: wizard mounts the unicorn");
+    (void)mount;
+    check(game_outcome(&g, &world, OWN_P1) == OUT_RUNNING &&
+          !game_over(&g, &world),
+          "m5a: a riding wizard still counts as alive");
+
+    game_init(&g, -1, -1, 1, 1, &rng);
+    world.unit_count = 0;
+    check(game_outcome(&g, &world, OWN_P1) == OUT_RUNNING,
+          "m5a: maps without a portal never end");
+}
+
 static void test_m4h(void)
 {
     Rng rng;
@@ -2845,6 +2900,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m4f();
     test_m4g();
     test_m4h();
+    test_m5a();
     test_m4i();
     test_m4k_ai();
     test_m4_review();

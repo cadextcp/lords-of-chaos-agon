@@ -24,7 +24,11 @@ typedef struct {
     uint16_t vp[OWN_NEUTRAL];
     int16_t eye_x, eye_y;         /* Magic Eye: sight from here (M4b) */
     uint8_t eye_rounds;           /* ticks down each round */
+    uint8_t kills[OWN_NEUTRAL];   /* credited kills (end screen, M5a) */
+    uint16_t loot_vp[OWN_NEUTRAL];/* treasure VP carried through the portal */
 } Game;
+
+typedef enum { OUT_RUNNING, OUT_WIN, OUT_LOSE } GameOutcome;
 
 /* Portal at (x, y); opens between round rmin and rmax (deterministic
  * through the passed RNG). */
@@ -43,7 +47,12 @@ void game_kill_credit(Game *g, const Kill *k);
 /* Credit every logged kill (world_kill_unit) and clear the log. Call
  * after every action that may kill. */
 void game_credit_kills(Game *g, World *w);
-/* Over when no wizard remains on the map (escaped or dead). */
+/* Over when no wizard remains on the map (escaped or dead). A wizard
+ * riding a mount still counts (the pair is one unit, M4e). */
 bool game_over(const Game *g, const World *w);
+/* How the game stands for one owner: OUT_WIN once his wizard escaped
+ * through the portal, OUT_LOSE when it is gone without escaping, else
+ * OUT_RUNNING. Maps without a portal never end. */
+GameOutcome game_outcome(const Game *g, const World *w, uint8_t owner);
 
 #endif

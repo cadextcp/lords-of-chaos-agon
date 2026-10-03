@@ -39,6 +39,7 @@ static void log_push(const char *line);   /* message ring (M4j) */
 #include "../core/sight.h"
 #include "../core/turn.h"
 #include "../core/wizard.h"
+#include "screens.h"
 #include "../core/view.h"
 #include "../core/world.h"
 #include "emu.h"
@@ -74,6 +75,7 @@ static int16_t look_x, look_y;
 static bool spell_list = false;    /* c: pick a spell (GDD 5.1) */
 static bool targeting = false;     /* aiming (Enter casts/throws/fires) */
 static bool game_ended = false;    /* final score shown, only Esc left */
+static bool end_pending = false;   /* outcome decided: show the end screen */
 typedef enum { TA_SPELL, TA_THROW, TA_FIRE } TargetKind;
 static TargetKind target_kind;
 static uint8_t target_spell;
@@ -208,6 +210,8 @@ static void settle(void)
 {
     game_credit_kills(&game, &world);
     turn_revalidate(&turns, &world);
+    if (!game_ended && game_outcome(&game, &world, OWN_P1) != OUT_RUNNING)
+        end_pending = true;              /* escaped or fallen (M5a) */
 }
 
 /* Round hook for turn_end_phase: the portal opens on its round, also
@@ -1122,6 +1126,75 @@ static const char *menu_loop(bool *free_round1)
     return NULL;
 }
 
+/* ---------- end of the game (M5a) ---------- */
+
+static const char *const SCEN_MAP[3] = {
+    "maps/many_coloured_land.map", "maps/slayers_dungeon.map",
+    "maps/ragarils_domain.map",
+};
+static const char *const SCEN_TITLE[3] = {
+    "The Many Coloured Land", "Slayer's Dungeon", "Ragaril's Domain",
+};
+
+/* 1..3 for the campaign scenarios, 0 for test maps. */
+static uint8_t scenario_number(const char *map)
+{
+    uint8_t i;
+    for (i = 0; map && i < 3; i++)
+        if (strcmp(map, SCEN_MAP[i]) == 0)
+            return (uint8_t)(i + 1);
+    return 0;
+}
+
+/* Clear everything the finished game left in the frontend. */
+static void reset_play_state(void)
+{
+    game_ended = false;
+    end_pending = false;
+    confirm_end = false;
+    look_mode = false;
+    spell_list = false;
+    targeting = false;
+    overlay_open = false;
+    overlay_is_context = false;
+    replay_valid = false;
+    cursor_on = true;
+    save_loaded = false;
+    area_reset();
+    view_invalidate();                   /* the end screen blanked the map */
+}
+
+/* The outcome is decided: book the campaign result, show the end screen.
+ * True = back to the main menu, false = quit. */
+static bool end_flow(const char *map)
+{
+    EndInfo info;
+    Wizard *w = &wizard_slots[0];
+    uint8_t sc = scenario_number(map);
+    uint8_t level = w->level;
+
+    memset(&info, 0, sizeof info);
+    info.name = w->name;
+    info.scenario = sc ? SCEN_TITLE[sc - 1] : NULL;
+    info.outcome = (game.escaped & (1u << OWN_P1)) ? OUT_WIN : OUT_LOSE;
+    info.rounds = turns.round;
+    info.vp = game.vp[OWN_P1];
+    info.loot_vp = game.loot_vp[OWN_P1];
+    info.kills = game.kills[OWN_P1];
+    if (info.outcome == OUT_WIN && sc) {     /* VP -> XP, level up (GDD 9) */
+        wizard_campaign_result(w, info.vp, sc);
+        wizards_save();
+        info.campaign = true;
+        info.xp_gain = info.vp;
+        info.xp_total = w->xp;
+        info.level = w->level;
+        info.level_up = w->level > level;
+    }
+    render_cursor(0, 0, CURSOR_GREEN, false);    /* sprite stays above the screen */
+    sound_play(info.outcome == OUT_WIN ? SND_PORTAL : SND_DEATH);
+    return screen_end(&info);
+}
+
 int main(int argc, char **argv)
 {
     struct keyboard_event_t e;
@@ -1135,6 +1208,30 @@ int main(int argc, char **argv)
 
     if (argc > 1 && strcmp(argv[1], "--selftest") == 0)
         return selftest();
+    if (argc > 1 && (strcmp(argv[1], "--endscreen") == 0 ||
+                     strcmp(argv[1], "--endscreen-lose") == 0)) {
+        EndInfo demo;                    /* dev: look at the end screen */
+        memset(&demo, 0, sizeof demo);
+        demo.name = "Zauberer";
+        demo.scenario = SCEN_TITLE[0];
+        demo.outcome = strcmp(argv[1], "--endscreen") == 0 ? OUT_WIN : OUT_LOSE;
+        demo.rounds = 21;
+        demo.vp = 143;
+        demo.loot_vp = 90;
+        demo.kills = 4;
+        demo.campaign = demo.outcome == OUT_WIN;
+        demo.xp_gain = 143;
+        demo.xp_total = 183;
+        demo.level = 2;
+        demo.level_up = true;
+        render_init();
+        umfont_install();
+        kbuf_init(16);
+        screen_end(&demo);
+        kbuf_deinit();
+        render_shutdown();
+        return 0;
+    }
     if (argc > 1 && strcmp(argv[1], "--keytest") == 0) {
         log_open(true);
         keytest_run();
@@ -1210,6 +1307,7 @@ int main(int argc, char **argv)
     }
     umfont_install();                    /* ae/oe/ue/ss for the UI (M4j) */
     kbuf_init(16);
+menu_start:
     if (!dump && !do_bench) {            /* main menu (GDD 2.3, M4f) */
         const char *chosen = menu_loop(&free_round1);
         if (!chosen) {
@@ -1584,19 +1682,14 @@ dispatch:
                     view_set_portal(game.portal_open ? game.portal_x : -1,
                                     game.portal_y);
                     if (game_over(&game, &world) ||
-                        !turn_humans_present(&turns, &world)) {
-                        char msg[48];
-                        snprintf(msg, sizeof msg,
-                                 "Spielende! Zauberer-1: %u VP  Zauberer-2: %u VP",
-                                 game.vp[OWN_P1], game.vp[OWN_P2]);
-                        render_message(0, C_BRIGHT_YELLOW, msg);
-                        render_message(1, C_GREY, "Esc beendet.");
-                        game_ended = true;
+                        !turn_humans_present(&turns, &world) ||
+                        game_outcome(&game, &world, OWN_P1) != OUT_RUNNING) {
+                        end_pending = true;       /* shown by the main loop */
                     } else if (game.portal_open && turns.round == game.portal_round)
                         render_message(0, C_BRIGHT_MAGENTA, "Das Portal oeffnet sich!");
                     else
                         render_message(1, C_BRIGHT_GREEN, "Neue Runde.");
-                    if (!game_ended) {     /* autosave each round (GDD 2.3) */
+                    if (!game_ended && !end_pending) {   /* autosave (GDD 2.3) */
                         copy_name(saved_map, sizeof saved_map, map_path);
                         if (save_to_sd())
                             render_message(2, C_GREY, "Gespeichert.");
@@ -1635,6 +1728,24 @@ dispatch:
                 } else {
                     running = false;
                 }
+            }
+        }
+        if (end_pending) {                       /* outcome decided (M5a) */
+            end_pending = false;
+            if (dump || do_bench) {              /* scripted runs: message only */
+                char msg[48];
+                snprintf(msg, sizeof msg,
+                         "Spielende! Zauberer-1: %u VP  Zauberer-2: %u VP",
+                         game.vp[OWN_P1], game.vp[OWN_P2]);
+                render_message(0, C_BRIGHT_YELLOW, msg);
+                render_message(1, C_GREY, "Esc beendet.");
+                game_ended = true;
+            } else if (end_flow(map_path)) {
+                reset_play_state();
+                map_path = NULL;                 /* force the map reload */
+                goto menu_start;
+            } else {
+                running = false;
             }
         }
         now = (uint16_t)getsysvar_time();
