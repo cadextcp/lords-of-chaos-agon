@@ -2710,6 +2710,66 @@ static void test_m4i(void)
     }
 }
 
+static void test_m4k_ai(void)
+{
+    Rng rng;
+    uint8_t guard, wiz;
+
+    world_load_bin(&world, MAPBIN_SLAYERS_DUNGEON, MAPBIN_SLAYERS_DUNGEON_LEN);
+    world.unit_count = 0;
+    area_reset();
+
+    {   /* a guard opens his crypt door to reach an intruder */
+        uint8_t w1;
+        guard = world_spawn_unit(&world, OWN_NEUTRAL, CR_ZOMBIE, 6, 4);
+        world.units[guard].flags |= UF_UNDEAD;
+        world.feature[3][7] = FE_DOOR_CLOSED;   /* door east of the guard */
+        w1 = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 9, 4);
+        world.units[guard].ap = 30;
+        rng_seed(&rng, 5);
+        ai_guard(&world, &rng, guard, 8);       /* wide range: intruder first */
+        check(world.feature[3][7] == FE_DOOR_OPEN ||
+              world.units[guard].x > 6,
+              "m4k: the guard opens the crypt door (or came through)");
+        (void)w1;
+    }
+
+    {   /* the wizard AI pries open a chest on the treasure path */
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 0;
+        area_reset();
+        wiz = world_spawn_unit(&world, OWN_P2, CR_WIZARD, 8, 6);
+        world.units[wiz].ap = 40;
+        world.feature[6][9] = FE_CHEST;         /* chest east of the wizard */
+        {   /* a diamond inside the chest */
+            world.objects[world.object_count].x = 9;
+            world.objects[world.object_count].y = 6;
+            world.objects[world.object_count].tile = T_OBJ_DIAMOND;
+            world.object_count++;
+        }
+        {   /* force the treasure walk: no enemies, chest on the way */
+            Game g;
+            Spellbook books2[OWN_NEUTRAL];
+            AiCtx ctx;
+            Turns t;
+            memset(books2, 0, sizeof books2);
+            game_init(&g, -1, -1, 1, 1, &rng);
+            ctx.books = books2;
+            ctx.game = &g;
+            memset(&t, 0, sizeof t);
+            t.phase = OWN_P2;
+            t.rng = rng;
+            /* nearest_treasure needs line of sight: the wizard looks at
+             * the chest field; the diamond lies under the chest */
+            ai_wizard_phase(&t, &world, &ctx);
+            check(world.feature[6][9] == FE_NONE &&
+                  (world.unit_count >= 1),
+                  "m4k: the AI opened the chest on its path");
+        }
+    }
+    area_reset();
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -2745,6 +2805,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m4g();
     test_m4h();
     test_m4i();
+    test_m4k_ai();
     test_m4_review();
     load_house();   /* leave a clean state */
     return fails;
