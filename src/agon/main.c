@@ -277,22 +277,7 @@ static void cast_targeted(bool dump)
                           : target_spell == SP_GOOEY_BLOB ? AREA_BLOB
                           : target_spell == SP_TANGLE_VINE ? AREA_VINE
                           : AREA_FLOOD;
-            uint8_t lvl = books[OWN_P1].level[target_spell];
-            /* pay here: the area module is spell-agnostic */
-            {
-                Unit *wu = &world.units[wiz];
-                uint8_t mana = spell_mana(target_spell, lvl);
-                if (!world_wrap(&world, &target_x, &target_y) ||
-                    !area_terrain_ok(kind, world.floor[target_y][target_x],
-                                     world.feature[target_y][target_x])) {
-                    render_message(1, C_BRIGHT_RED, "Das Ziel nimmt das nicht an.");
-                    return;
-                }
-                world_spend(&world, wiz, ACTIONS[ACT_CAST].ap);
-                wu->mana = (uint8_t)(wu->mana - mana);
-                books[OWN_P1].level[target_spell] = (uint8_t)(lvl - 1);
-                area_cast(&world, kind, lvl, OWN_P1, target_x, target_y);
-            }
+            /* range, sight, terrain and payment: spell_apply */
             render_message(1, C_BRIGHT_MAGENTA,
                            kind == AREA_FIRE ? "Es brennt!"
                            : kind == AREA_BLOB ? "Klebriger Brei!"
@@ -550,7 +535,7 @@ static void bench(void)
         Rng brng;
         area_reset();
         area_cast(&world, AREA_FIRE, 4, OWN_P1, 5, 20);
-        area_cast(&world, AREA_BLOB, 4, OWN_P2, 15, 20);
+        area_cast(&world, AREA_BLOB, 4, OWN_P2, 13, 20);
         area_cast(&world, AREA_VINE, 4, OWN_NEUTRAL, 25, 20);
         area_cast(&world, AREA_FLOOD, 4, OWN_P2, 30, 20);
         rng_seed(&brng, 4);

@@ -1,5 +1,6 @@
 #include "spells.h"
 
+#include "area.h"
 #include "brew.h"
 #include "combat.h"
 #include "effect.h"
@@ -394,6 +395,23 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
                 continue;
             effect_grant(t, EFF_MAGIC_WEAPON, level, (uint8_t)(2 * level));
         }
+        out->allowed = true;
+        return CAST_OK;
+    }
+
+    case SP_MAGIC_FIRE:                /* area effects (M4d): see area.c */
+    case SP_GOOEY_BLOB:
+    case SP_TANGLE_VINE:
+    case SP_FLOOD: {
+        AreaKind kind = spell == SP_MAGIC_FIRE ? AREA_FIRE
+                      : spell == SP_GOOEY_BLOB ? AREA_BLOB
+                      : spell == SP_TANGLE_VINE ? AREA_VINE : AREA_FLOOD;
+        if (!reachable(w, u, &x, &y))
+            return CAST_REJECTED;
+        level = b->level[spell];
+        if (!area_cast(w, kind, level, u->owner, x, y))
+            return CAST_REJECTED;        /* terrain refuses: nothing paid */
+        pay_for_spell(w, b, wiz, spell, x, y);
         out->allowed = true;
         return CAST_OK;
     }
