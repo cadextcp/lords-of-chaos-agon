@@ -465,6 +465,18 @@ void render_menu_text(uint8_t col, uint8_t row, uint8_t colour,
     text_at(col, row, colour, text);
 }
 
+void render_screen_clear(void)
+{
+    black(0, 0, 319, 239);
+}
+
+void render_frame(int x0, int y0, int x1, int y1, uint8_t colour)
+{
+    vdp_gcol(0, colour);
+    vdp_rectangle(x0, y0, x1, y1);
+    vdp_rectangle(x0 + 2, y0 + 2, x1 - 2, y1 - 2);
+}
+
 void render_message(uint8_t line, uint8_t colour, const char *text)
 {
     char buf[TEXT_COLS];

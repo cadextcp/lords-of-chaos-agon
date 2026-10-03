@@ -43,6 +43,11 @@ void render_message(uint8_t line, uint8_t colour, const char *text);
 void render_menu_clear(void);
 void render_menu_text(uint8_t col, uint8_t row, uint8_t colour,
                       const char *text);
+/* Full-screen helpers for the title/end/help screens (M5a): the whole
+ * 320x240 screen black, and a 2 px frame in pixel coordinates. After a
+ * full-screen screen call view_invalidate() and redraw the game. */
+void render_screen_clear(void);
+void render_frame(int x0, int y0, int x1, int y1, uint8_t colour);
 void render_shutdown(void);
 
 #endif

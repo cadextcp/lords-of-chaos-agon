@@ -54,6 +54,8 @@ def main() -> int:
     ap.add_argument("--dump", action="store_true", help="game writes loc.log screen dumps")
     ap.add_argument("--bench", action="store_true", help="game measures redraw times -> loc.log")
     ap.add_argument("--keytest", action="store_true", help="keyboard spike: log every key event")
+    ap.add_argument("--endscreen", action="store_true", help="show the end screen (dev)")
+    ap.add_argument("--endscreen-lose", action="store_true", help="show the game over screen (dev)")
     ap.add_argument("--house", action="store_true", help="wizard house map (dev)")
     ap.add_argument("--testland", action="store_true", help="testland map (dev)")
     ap.add_argument("--no-menu", action="store_true",
@@ -93,6 +95,10 @@ def main() -> int:
         mode.append("--free-round1")
     if args.fly:
         mode.append("--fly")
+    if args.endscreen:
+        mode = ["--endscreen"]
+    elif args.endscreen_lose:
+        mode = ["--endscreen-lose"]
     write_autoexec(mode, args.keyboard)
 
     cmd = [str(env.GUI_EMULATOR), "--sdcard", str(env.SDCARD.resolve()),
