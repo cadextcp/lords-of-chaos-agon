@@ -2485,8 +2485,7 @@ static void test_m4h(void)
             world.object_count++;
         }
         ai_wizard_phase(&t, &world, &ctx);
-        check(items_kind_at(&world, 9, 9) == NO_ITEM ||
-              world.unit_count == 0,
+        check(items_kind_at(&world, 9, 9) == NO_ITEM,
               "m4h: the AI picks up the treasure on its field");
         (void)wiz;
     }

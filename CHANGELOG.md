@@ -5,6 +5,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ## [Unreleased] – M4 Classic komplett
 
 ### Behoben
+- **Nachbesserung M4h:** Die Zauberer-KI läuft nur noch zu Schätzen, die sie sieht (vorher ging sie zum ersten Schatz der Objektliste, auch unsichtbar); Magic Bolt trifft den nächsten sichtbaren Gegner statt den ersten in der Einheitenliste, mit genau einem Wurf pro Phase.
 - **Nachbesserung M4f:** Designer: `-` senkt Attribute jetzt (volle XP-Rückgabe, nie unter den Startwert); Menüpunkt „Zauberer zurücksetzen“ ist korrekt benannt und fragt vor dem Löschen nach; `wizards.dat` hat Kopf (Magic, Version, Strukturgröße) und wird auf gültige Werte geprüft, sonst Stock-Zauberer; Szenario 0 im Kampagnenergebnis wird ignoriert (kein Shift um −1).
 - **Nachbesserung M4e:** Karten mit Dach, aber ohne Portal, wurden vom Loader falsch geparst (v4 schreibt jetzt immer einen Portal-Block, `0xFF` = kein Portal); `world.c` bindet `ride.h` ein statt einer lokalen `extern`-Deklaration.
 - **Review-Fixes M4a–c:**
