@@ -473,6 +473,12 @@ bump:
                 render_message(1, C_BRIGHT_RED, "Da geht es nicht weiter.");
                 return;
             }
+            if (world.units[att].ap < ACTIONS[ACT_MELEE].ap) {
+                snprintf(msg, sizeof msg, "Zu wenig AP: Angriff kostet %u.",
+                         ACTIONS[ACT_MELEE].ap);
+                render_message(1, C_BRIGHT_RED, msg);
+                return;
+            }
             snprintf(name, sizeof name, "%s", name_unit(&world.units[other]));
             snprintf(aname, sizeof aname, "%s", name_unit(&world.units[att]));
             if (!combat_melee(&world, &turns.rng, att, other, &r)) {
