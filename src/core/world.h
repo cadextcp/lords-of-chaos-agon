@@ -38,6 +38,7 @@ typedef struct Cauldron {
     uint8_t x, y;
     uint8_t potion;   /* SP_* potion spell it holds, 0xFF = empty */
     uint8_t doses;    /* draughts left */
+    uint8_t level;    /* brewed spell level: strength and duration (F1) */
 } Cauldron;
 
 /* Timed effect on a unit (M4b, D22/F1): kind, strength, rounds left. */
@@ -169,6 +170,8 @@ void world_kill_unit(World *w, uint8_t victim, uint8_t killer_kind,
 /* Add a freshly initialised unit (summons) with a fresh id; returns its
  * index. */
 uint8_t world_spawn_unit(World *w, uint8_t owner, uint8_t kind, uint8_t x, uint8_t y);
+/* Chebyshev distance between two fields, honouring wrap-around. */
+uint8_t world_distance(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1);
 /* Index of the unit with this id, NO_UNIT when it is gone. */
 uint8_t world_find_unit(const World *w, uint8_t id);
 /* Ground unit standing next to a living enemy: bound (GDD 6), only the

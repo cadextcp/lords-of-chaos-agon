@@ -38,8 +38,9 @@ uint8_t ai_nearest_enemy(const World *w, uint8_t unit, uint8_t range)
     u = &w->units[unit];
     for (i = 0; i < w->unit_count; i++) {
         uint8_t d;
-        if (!unit_is_enemy(w, unit, i) || !melee_reachable(u, &w->units[i]))
-            continue;
+        if (!unit_is_enemy(w, unit, i) || !melee_reachable(u, &w->units[i]) ||
+            (w->units[i].flags & UF_INVISIBLE))
+            continue;                    /* invisible: unseen (GDD 7.2) */
         d = chebyshev(w, u, &w->units[i]);
         if (d > range || d >= best_d)
             continue;
@@ -155,7 +156,7 @@ static void wizard_actions(Turns *t, World *w, AiCtx *ctx, uint8_t owner)
         uint8_t foe = NO_UNIT;
         for (i = 0; i < w->unit_count; i++) {
             const Unit *f = &w->units[i];
-            if (f->owner == owner || (f->flags & UF_FLYING))
+            if (f->owner == owner || (f->flags & (UF_FLYING | UF_INVISIBLE)))
                 continue;
             if (chebyshev(w, &w->units[wiz], f) <= 1 &&
                 sight_visible(&sight, w, f->x, f->y)) {

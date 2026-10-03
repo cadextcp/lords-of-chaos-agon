@@ -117,7 +117,7 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 6. **Der CLI-Emulator führt `autoexec.txt` aus.** `test.py` und `run.py` schreiben es jeweils neu.
 7. **Bash-Tool unter Windows:** Heredocs mit Sonderzeichen oder Anführungszeichen brechen; Skripte lieber per Datei schreiben (`.cache/*.py`). Für `wsl.exe` direkt `MSYS_NO_PATHCONV=1` setzen.
 8. **Der Agon-Systemfont hat keine Umlaute.** UI-Texte ohne ä/ö/ü („Tuer“).
-9. **Tile-IDs sind 16 Bit** (236 Kacheln). Für Kreaturen `CREATURE_TILE[kind] + owner` verwenden.
+9. **Tile-IDs sind 16 Bit** (seit M4c über 255). Tile-Tabellen nie als `uint8_t` anlegen; die Panel-Icons sind daran schon einmal gescheitert. Für Kreaturen `CREATURE_TILE[kind] + owner` verwenden.
 10. **Kachel-PNGs sind jetzt Quelle.** `tools/art/make_tiles.py` überschreibt sie, also nur mit `--only NAME` neu erzeugen.
 11. **Unit-Indizes sind instabil.** `world_remove_unit` tauscht mit der letzten Einheit. Über Aktionen hinweg Einheiten deshalb per `Unit.id` und `world_find_unit` halten. Tode immer über `world_kill_unit` bzw. `combat_damage` laufen lassen, damit die VP stimmen. Im Frontend nach jeder Aktion `settle()` aufrufen (Kills abrechnen, aktive Einheit neu finden).
 

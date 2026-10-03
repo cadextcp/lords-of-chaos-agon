@@ -56,6 +56,8 @@ bool items_pick_up(World *w, uint8_t unit)
     kind = items_kind_at(w, u->x, u->y);
     if (kind == NO_ITEM || u->item_count >= UNIT_ITEMS)
         return false;
+    if (kind == OBJ_CAULDRON_FULL)
+        return false;                    /* it would spill (GDD 7.2) */
     if ((uint16_t)items_weight(w, unit) + OBJECTS[kind].weight >
         CREATURES[u->kind].carry)
         return false;                    /* too heavy (GDD 8) */
@@ -253,8 +255,10 @@ uint8_t items_combat(const World *w, uint8_t unit)
     u = &w->units[unit];
     com = u->com;
     weapon = in_use_weapon(u);
-    if (weapon != WEAPON_NONE)
-        com = (uint8_t)(com + WEAPONS[weapon].combat);
+    if (weapon != WEAPON_NONE) {         /* enchanted: double values (GDD 6.1) */
+        uint8_t bonus = WEAPONS[weapon].combat;
+        com = (uint8_t)(com + ((u->flags & UF_MAGIC_WEAPON) ? 2 * bonus : bonus));
+    }
     if (effect_active(u, EFF_STRENGTH))
         com = (uint8_t)(com + effect_power(u, EFF_STRENGTH));
     malus = con_malus(u);               /* below 50 % Con (GDD 4.1) */
@@ -271,7 +275,8 @@ uint8_t items_defence(const World *w, uint8_t unit)
     def = u->def;
     for (i = 0; i < u->item_count; i++) {   /* ONE carried shield counts (D21) */
         if (OBJECTS[u->items[i]].weapon == WEAPON_SHIELD) {
-            def = (uint8_t)(def + WEAPONS[WEAPON_SHIELD].defence);
+            uint8_t bonus = WEAPONS[WEAPON_SHIELD].defence;
+            def = (uint8_t)(def + ((u->flags & UF_MAGIC_WEAPON) ? 2 * bonus : bonus));
             break;
         }
     }

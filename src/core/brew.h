@@ -36,8 +36,10 @@ bool brew_drink(World *w, uint8_t unit);
 bool brew_fill(World *w, uint8_t unit);
 /* Drink a filled vial that is in use. */
 bool brew_drink_vial(World *w, uint8_t unit);
-/* Throw the filled vial in use: the bomb explodes (area damage), other
- * potions shatter harmlessly. */
+/* Throw the filled vial in use (up to 6 fields, stops at walls and
+ * units): the bomb explodes on the 3x3 around the impact, friend and
+ * foe alike (D21); other potions shatter harmlessly. False when the
+ * object in use is no filled vial. */
 bool brew_throw_vial(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy);
 
 /* The potion an ingredient belongs to (SP_*), WEAPON_NONE-like sentinel

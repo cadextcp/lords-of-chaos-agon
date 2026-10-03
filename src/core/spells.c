@@ -77,9 +77,6 @@ uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
     if (kind >= CR_COUNT)
         return 0;
     {   /* dragons need a cauldron with dragon herb (PM 21, M4c) */
-        uint8_t k;
-        for (k = 0; k < CR_COUNT; k++)
-            ;
         if (kind == CR_GOLD_DRAGON || kind == CR_GREEN_DRAGON ||
             kind == CR_RED_DRAGON) {
             if (!brew_dragon_ready(w, wiz))
@@ -241,6 +238,14 @@ static bool resist_roll(Rng *rng, uint8_t level, uint8_t mr, int8_t bonus)
     return rng_range(rng, 100) < (uint16_t)p;
 }
 
+/* Targeted spells need the field within SPELL_RANGE and in sight (D17);
+ * only Magic Fire will do without (GDD 7.2). */
+static bool reachable(const World *w, const Unit *u, int16_t *x, int16_t *y)
+{
+    return world_wrap(w, x, y) && in_range(w, u, *x, *y) &&
+           sight_has_los(w, u->x, u->y, *x, *y);
+}
+
 /* Find a free, non-massive landing field near (x, y) for Teleport. */
 static bool free_field(const World *w, int16_t x, int16_t y)
 {
@@ -281,18 +286,10 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
         return CAST_OK;                /* the caller reveals the area */
 
     case SP_TELEPORT: {                /* inaccurate jump, 0 AP after */
-        int16_t dx, dy, dist;
+        int16_t dist;
         if (!world_wrap(w, &x, &y))
             return CAST_REJECTED;
-        dx = (int16_t)(x - u->x);
-        dy = (int16_t)(y - u->y);
-        if (w->wrap) {
-            if (dx > w->w / 2) dx = (int16_t)(dx - w->w);
-            if (dx < -w->w / 2) dx = (int16_t)(dx + w->w);
-            if (dy > w->h / 2) dy = (int16_t)(dy - w->h);
-            if (dy < -w->h / 2) dy = (int16_t)(dy + w->h);
-        }
-        dist = (int16_t)((dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy));
+        dist = world_distance(w, u->x, u->y, x, y);   /* Chebyshev (D17) */
         if (dist > SPELL_RANGE)
             return CAST_REJECTED;
         pay_for_spell(w, b, wiz, spell, x, y);
@@ -300,11 +297,10 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
             uint8_t tries = 0;
             int16_t tx = x, ty = y;
             do {
-                if (tries) {
-                    tx = (int16_t)(x + (int16_t)rng_range(rng, dist / 4 + 1) -
-                                   (int16_t)(dist / 8 + 1));
-                    ty = (int16_t)(y + (int16_t)rng_range(rng, dist / 4 + 1) -
-                                   (int16_t)(dist / 8 + 1));
+                if (tries) {            /* -s..+s, s = dist/4 but at least 1 */
+                    int16_t s = (int16_t)(dist / 4 > 0 ? dist / 4 : 1);
+                    tx = (int16_t)(x + (int16_t)rng_range(rng, (uint16_t)(2 * s + 1)) - s);
+                    ty = (int16_t)(y + (int16_t)rng_range(rng, (uint16_t)(2 * s + 1)) - s);
                 }
                 tries++;
             } while (!free_field(w, tx, ty) && tries < 12);
@@ -319,7 +315,10 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
     }
 
     case SP_CURSE: {                   /* deadly wound (GDD 7.2) */
-        uint8_t target = world_unit_at(w, x, y, UL_GROUND);
+        uint8_t target;
+        if (!reachable(w, u, &x, &y))
+            return CAST_REJECTED;
+        target = world_unit_at(w, x, y, UL_GROUND);
         if (target == NO_UNIT)
             return CAST_REJECTED;
         level = b->level[spell];
@@ -335,8 +334,11 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
     }
 
     case SP_SUBVERSION: {              /* creature changes sides */
-        uint8_t target = world_unit_at(w, x, y, UL_GROUND);
+        uint8_t target;
         Unit *t;
+        if (!reachable(w, u, &x, &y))
+            return CAST_REJECTED;
+        target = world_unit_at(w, x, y, UL_GROUND);
         if (target == NO_UNIT)
             return CAST_REJECTED;
         t = &w->units[target];
@@ -356,26 +358,25 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
 
     case SP_MAGIC_ATTACK: {            /* whole kind in the area, own too */
         uint8_t i, radius = 2;
-        uint8_t kind;
-        uint8_t center = world_unit_at(w, x, y, UL_GROUND);
+        uint8_t kind, center, caster_kind, caster_owner;
+        if (!reachable(w, u, &x, &y))
+            return CAST_REJECTED;
+        center = world_unit_at(w, x, y, UL_GROUND);
         if (center == NO_UNIT)
             return CAST_REJECTED;
         kind = w->units[center].kind;
         level = b->level[spell];
         pay_for_spell(w, b, wiz, spell, x, y);
+        caster_kind = u->kind;          /* the caster may die in the blast */
+        caster_owner = u->owner;
         out->allowed = true;
-        for (i = w->unit_count; i-- > 0;) {
+        for (i = w->unit_count; i-- > 0;) {   /* removal swaps in done units */
             Unit *t = &w->units[i];
-            int16_t ddx = (int16_t)(t->x - x), ddy = (int16_t)(t->y - y);
-            if (t->kind != kind)
-                continue;
-            if (ddx < 0) ddx = (int16_t)(-ddx);
-            if (ddy < 0) ddy = (int16_t)(-ddy);
-            if (ddx > radius || ddy > radius)
+            if (t->kind != kind || world_distance(w, x, y, t->x, t->y) > radius)
                 continue;
             if (resist_roll(rng, level, t->mr, -10)) {
                 out->splash_hits++;
-                combat_damage(w, i, t->con, u->kind, u->owner, false, NULL);
+                combat_damage(w, i, t->con, caster_kind, caster_owner, false, NULL);
             }
         }
         return CAST_OK;
@@ -383,7 +384,7 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
 
     case SP_ENCHANT: {                 /* weapons on the field become magic */
         uint8_t i;
-        if (!world_wrap(w, &x, &y))
+        if (!reachable(w, u, &x, &y))
             return CAST_REJECTED;
         level = b->level[spell];
         pay_for_spell(w, b, wiz, spell, x, y);

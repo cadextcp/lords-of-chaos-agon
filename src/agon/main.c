@@ -213,7 +213,8 @@ static void throw_or_fire(bool dump)
     if (dx > 0) sx = 1; else if (dx < 0) sx = -1; else sx = 0;
     if (dy > 0) sy = 1; else if (dy < 0) sy = -1; else sy = 0;
     if (target_kind == TA_THROW) {
-        if (items_throw(&world, &turns.rng, active(), sx, sy))
+        if (brew_throw_vial(&world, &turns.rng, active(), sx, sy) ||
+            items_throw(&world, &turns.rng, active(), sx, sy))
             render_message(1, C_BRIGHT_YELLOW, "Geworfen!");
         else
             render_message(1, C_BRIGHT_RED, "Nichts zu werfen.");
@@ -306,7 +307,7 @@ static void cast_targeted(bool dump)
             snprintf(msg, sizeof msg, "Magie trifft %u Kreaturen.",
                      shot.splash_hits);
             render_message(1, C_BRIGHT_YELLOW, msg);
-            turn_revalidate(&turns, &world);
+            settle();
             update_sight();
             frame(dump);
             return;

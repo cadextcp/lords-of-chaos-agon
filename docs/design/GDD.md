@@ -806,7 +806,7 @@ Die Vorschläge sind als **Startwerte** übernommen (D22). Jede Frage wird vor i
 
 | # | Frage | Teil | Entscheidung bzw. Startwert |
 |---|---|---|---|
-| F1 | Wirkdauer von Tränken und Zaubern | b, c | Trank: `Runden = 8 × Trankstufe / Potion Consumption`, mindestens 1 (Zauberer mit 3 → Stufe 3 hält 8 Runden, Drache mit 10 → 2). Zauber wie Magic Shield: `2 × Stufe` Runden. Eigenes Design (D7). |
+| F1 | Wirkdauer von Tränken und Zaubern | b, c | Trank: `Runden = 8 × Trankstufe / Potion Consumption`, mindestens 1 (Zauberer mit 3 → Stufe 3 hält 8 Runden, Drache mit 10 → 2). Zauber wie Magic Shield: `2 × Stufe` Runden. Eigenes Design (D7). Der Kessel merkt sich die gebraute Stufe; Phiolen wirken vorerst mit Stufe 2, bis Objekte Zusatzdaten tragen. |
 | F2 | Chancen für Subversion, Curse, Magic Attack | b | Wie D16: `50 + 5 × (4 × Stufe − Magic Resistance / 4)`, begrenzt auf 10–90 %. Curse +20 Punkte (GDD: bessere Chance), Magic Attack −10. |
 | F3 | Teleport-Ungenauigkeit | b | Abweichung bis `Distanz / 4` Felder (zufällig, auf freies Feld); massives Ziel lässt den Zauber scheitern; danach 0 AP. |
 | F4 | Ausbreitung der Flächen | d | Stärke = Zauberstufe. Am Rundenende versucht jedes Feld einmal, ein passendes Nachbarfeld zu belegen (Chance `Stärke × 10 %`); neue Felder erhalten `Stärke − 1`, alte verlieren 1. Höchstens 48 Felder je Fläche (Leistung). |
