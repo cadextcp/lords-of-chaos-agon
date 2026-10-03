@@ -173,10 +173,7 @@ units
 8 30 zombie neutral
 33 12 lion neutral
 22 20 crocodile neutral
-13 14 dwarf p1
-14 2 giant_bat p1
 9 6 goblin neutral
-6 7 unicorn p1
 
 objects
 5 9 obj_scroll

@@ -2210,6 +2210,15 @@ static void test_m4e(void)
     {   /* roof: loaded from the v4 map, blocks sight and landing */
         world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND,
                        MAPBIN_MANY_COLOURED_LAND_LEN);
+        {   /* scenario 1 starts with the wizard alone (creatures come from
+             * the spellbook) */
+            uint8_t k, own = 0;
+            for (k = 0; k < world.unit_count; k++)
+                if (world.units[k].owner == OWN_P1)
+                    own++;
+            check(own == 1 && world.units[0].kind == CR_WIZARD,
+                  "scenario 1: player 1 starts with the wizard only");
+        }
         world.unit_count = 0;
         check(world_has_roof(&world, 5, 5) && !world_has_roof(&world, 20, 19),
               "m4e: the house carries a roof");
