@@ -19,6 +19,7 @@
 #define VK_PGDN 0x95
 /* Measured with loc --keytest (M2c): Tab/Shift+Tab share the vkey and
  * differ in kmod, Space is a vkey, not an ASCII hit. */
+#define VK_F1 0x9F   /* measured with loc --keytest in the emulator (F2 = 0xA0) */
 #define VK_TAB 0x8E
 #define VK_SPACE 0x01
 #define KMOD_SHIFT 0x02

@@ -22,6 +22,15 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
   - Teleport streut symmetrisch und misst Chebyshev; Magic Attack und die Bombe rechnen mit Wrap-around und schreiben Kills dem richtigen Werfer bzw. Zaubernden zu.
 
 ### Hinzugefügt
+- **M4j Politur (#52):**
+  - **Kontextmenü mit Enter** (GDD §5.1.4): alle aktuell möglichen Aktionen mit Taste und AP-Kosten (unmögliche ausgeblendet), Buchstabe wirkt direkt, Esc schließt
+  - **Big Map `m`** (GDD §11.1): 36×36 als 4×4-Blöcke im Kartenfenster, eigene Einheiten weiß, Feinde rot, Portal magenta
+  - **Nachrichten-Log `l`**: Ringpuffer mit den letzten 10 Ereignissen (Kills, Zauber-Treffer, Rettung, Beschwörungen)
+  - **Hilfe F1**: vollständige Tastenübersicht
+  - **Sound** (GDD §11.4): Schritte, Treffer, Zauber, Aufheben, Portal, Tod über den Agon-Audiokanal (VDU 23,0,135)
+  - **Umlaut-Font**: der Systemfont wird in einen VDP-Puffer kopiert und um ä/ö/ü/ß ergänzt (CP437-Codes), UI-Texte können echte Umlaute tragen
+  - Bugfix: `run.py --no-menu` kollidierte nicht mehr mit `--bench`
+
 - **M4i Speichern und Setup (#51):**
   - `src/core/save.[ch]`: binärer Spielstand (Welt, Zug-State, Portal/VP, Zauberbücher, Ladungen) mit Magic/Version/Größen-Gates; FNV-Hash für die Abnahme
   - **Autosave am Rundenende** in `save.dat` (GDD §2.3), Meldung „Gespeichert."

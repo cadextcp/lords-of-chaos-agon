@@ -13,7 +13,7 @@
 | **M1 Grafik und Eingabe** | ✅ Software-seitig fertig (#1, #4, #5, #6). Offen: #2 (optional), #3 und #7 (brauchen echte Hardware) |
 | **M2 Core-Skelett** | ✅ #13–#18: Terrains, Kreaturen, Rundenablauf, Sicht/Hidden Map, Luft-/Bodenebene, Bump/Look |
 | **M3 Classic spielbar** | ✅ #27–#33 und #41: Kampf, Beschwörungen, Bolt/Lightning, Objekte/Waffen, Portal/VP, KI, Szenario 1; Review-Fixes und Regeln D21 |
-| **M4 Classic komplett (v1.0)** | 🔨 3 von 10 Teilen: ✅ M4a (#43), ✅ M4b (#44), ✅ M4c (#45), Review-Fixes #57. Offen: M4d–M4j (#46–#52) |
+| **M4 Classic komplett (v1.0)** | ✅ 10 von 10 Teilen (#43–#52) — M4j als PR, danach Tag `v1.0.0` |
 | M5+ Chaos | geplant, siehe `docs/ROADMAP.md` |
 
 **Was heute läuft (Emulator):**
