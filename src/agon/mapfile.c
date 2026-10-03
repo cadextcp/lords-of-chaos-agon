@@ -1,6 +1,7 @@
 #include "mapfile.h"
 
 #include "../core/spells.h"
+#include "../core/wizard.h"
 
 #include <agon/mos.h>
 
@@ -36,4 +37,25 @@ bool scnfile_load(Spellbook *books, const char *path)
     if (len == 0 || len >= sizeof scnbuf)
         return false;
     return spellbook_load(books, scnbuf, (uint16_t)len);
+}
+
+bool wizards_save(void)
+{
+    uint8_t fh = mos_fopen("wizards.dat", FA_WRITE | FA_CREATE_ALWAYS);
+    if (!fh)
+        return false;
+    mos_fwrite(fh, (char *)wizard_slots, sizeof wizard_slots);
+    mos_fclose(fh);
+    return true;
+}
+
+bool wizards_load(void)
+{
+    uint8_t fh = mos_fopen("wizards.dat", FA_READ);
+    uint24_t len;
+    if (!fh)
+        return false;
+    len = mos_fread(fh, (char *)wizard_slots, sizeof wizard_slots);
+    mos_fclose(fh);
+    return len == sizeof wizard_slots;
 }

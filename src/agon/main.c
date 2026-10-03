@@ -32,6 +32,7 @@
 #include "../core/selftest.h"
 #include "../core/sight.h"
 #include "../core/turn.h"
+#include "../core/wizard.h"
 #include "../core/view.h"
 #include "../core/world.h"
 #include "emu.h"
@@ -563,6 +564,120 @@ static void bench(void)
     render_message(1, C_BRIGHT_YELLOW, buf);
 }
 
+/* ---------- main menu (GDD 2.3, M4f) ---------- */
+
+static void draw_menu(uint8_t cursor)
+{
+    static const char *const ITEMS[] = {
+        "Szenario 1 starten",
+        "Zauberer entwerfen",
+        "Zauberer laden (Start)",
+        "Spiel beenden",
+    };
+    uint8_t i;
+    render_menu_clear();
+    render_menu_text(2, 2, C_BRIGHT_YELLOW, "LORDS OF CHAOS");
+    for (i = 0; i < 4; i++) {
+        render_menu_text(4, (uint8_t)(5 + i), C_BRIGHT_WHITE,
+                         i == cursor ? ">" : " ");
+        render_menu_text(6, (uint8_t)(5 + i), C_BRIGHT_WHITE, ITEMS[i]);
+    }
+    render_menu_text(2, 22, C_GREY, "Pfeile + Enter");
+}
+
+/* One designer screen: raise attributes with +/-, Esc leaves (the XP
+ * total lives in the header). */
+static void designer_loop(uint8_t slot)
+{
+    struct keyboard_event_t e;
+    static const char *const ATTRS[WA_COUNT] = {
+        "Kampf", "Verteidigung", "Magieresistenz", "Konstitution", "Ausdauer"};
+    Wizard *w = &wizard_slots[slot];
+    uint8_t cursor = 0;
+    bool running = true;
+    char buf[40];
+    while (running) {
+        render_menu_clear();
+        snprintf(buf, sizeof buf, "%s   Stufe %u   XP %u", w->name, w->level,
+                 w->xp);
+        render_menu_text(2, 1, C_BRIGHT_YELLOW, buf);
+        {
+            uint8_t i;
+            for (i = 0; i < WA_COUNT; i++) {
+                snprintf(buf, sizeof buf, "%c %-14.14s %3u (max %u)",
+                         i == cursor ? '>' : ' ', ATTRS[i],
+                         wizard_attr(w, (WizardAttr)i),
+                         wizard_attr_max((WizardAttr)i));
+                render_menu_text(3, (uint8_t)(4 + i), C_BRIGHT_WHITE, buf);
+            }
+        }
+        render_menu_text(3, 12, C_GREY, "Hoch/Runter waehlen, +/- erhoehen,");
+        render_menu_text(3, 13, C_GREY, "Esc zurueck ins Menue.");
+        while (!kbuf_poll_event(&e))
+            ;
+        if (!e.isdown)
+            continue;
+        if (e.vkey == VK_ESC) {
+            running = false;
+        } else if (e.vkey == VK_UP) {
+            cursor = cursor ? (uint8_t)(cursor - 1) : WA_COUNT - 1;
+        } else if (e.vkey == VK_DOWN) {
+            cursor = (uint8_t)((cursor + 1) % WA_COUNT);
+        } else if (e.ascii == '+' || e.ascii == '-') {
+            wizard_raise(w, (WizardAttr)cursor);
+        }
+    }
+}
+
+/* The menu: returns the chosen map path or NULL to quit. Slot 0 is the
+ * player wizard (loaded from SD, else stock). */
+static const char *menu_loop(bool *free_round1)
+{
+    struct keyboard_event_t e;
+    static const char *const SCENARIOS[] = {
+        "maps/many_coloured_land.map",
+    };
+    uint8_t cursor = 0;
+    bool running = true;
+    if (!wizards_load()) {
+        uint8_t i;
+        for (i = 0; i < WIZARD_SLOTS; i++)
+            wizard_slot_reset(i);
+    }
+    while (running) {
+        draw_menu(cursor);
+        while (!kbuf_poll_event(&e))
+            ;
+        if (!e.isdown)
+            continue;
+        if (e.vkey == VK_UP) {
+            cursor = cursor ? (uint8_t)(cursor - 1) : 3;
+        } else if (e.vkey == VK_DOWN) {
+            cursor = (uint8_t)((cursor + 1) % 4);
+        } else if (e.ascii == 13 || e.vkey == VK_SPACE) {
+            switch (cursor) {
+            case 0:
+                wizard_apply_to_world(&wizard_slots[0], &world, active());
+                memcpy(&books[OWN_P1], wizard_book(&wizard_slots[0]),
+                       sizeof(Spellbook));
+                wizards_save();
+                *free_round1 = false;
+                return SCENARIOS[0];
+            case 1:
+                designer_loop(0);
+                break;
+            case 2:
+                wizard_slot_reset(0);   /* stock wizard over the slot */
+                wizards_save();
+                break;
+            default:
+                return NULL;
+            }
+        }
+    }
+    return NULL;
+}
+
 int main(int argc, char **argv)
 {
     struct keyboard_event_t e;
@@ -648,13 +763,55 @@ int main(int argc, char **argv)
         log_close();
         return 1;
     }
+    kbuf_init(16);
+    if (!dump && !do_bench) {            /* main menu (GDD 2.3, M4f) */
+        const char *chosen = menu_loop(&free_round1);
+        if (!chosen) {
+            kbuf_deinit();
+            render_shutdown();
+            log_close();
+            return 0;
+        }
+        if (chosen != map_path) {        /* reload for the chosen scenario */
+            if (!mapfile_load(&world, chosen)) {
+                kbuf_deinit();
+                render_shutdown();
+                log_close();
+                return 1;
+            }
+            map_path = chosen;
+            /* everything derived from the map must be rebuilt */
+            brew_register_map_cauldrons(&world);
+            turn_init(&turns, &world, TURN_SEED, 1u << OWN_P1);
+            game_init(&game, world.portal_x, world.portal_y, world.portal_rmin,
+                      world.portal_rmax, &turns.rng);
+            game_new_round(&game, turns.round);
+            view_set_portal(game.portal_open ? game.portal_x : -1, game.portal_y);
+            if (free_round1)
+                turns.round1_lock = false;
+            {
+                static AiCtx ai_ctx2;
+                ai_ctx2.books = books;
+                ai_ctx2.game = &game;
+                turns.ai = ai_wizard_phase;
+                turns.ai_ctx = &ai_ctx2;
+                turns.on_round = on_round;
+                turns.round_ctx = &game;
+            }
+            sight_init(&p1_sight, OWN_P1);
+            update_sight();
+            view_set_sight(&p1_sight);
+        }
+        /* the designer wizard becomes unit 0 (F5: no items, own book) */
+        wizard_apply_to_world(&wizard_slots[0], &world, active());
+        memcpy(&books[OWN_P1], wizard_book(&wizard_slots[0]), sizeof(Spellbook));
+    }
     frame(dump);
     render_message(1, C_BRIGHT_YELLOW, "Willkommen in Testland.");
     render_message(2, C_BRIGHT_BLUE, "Tab Einheit  Leertaste fertig  E Zugende");
     if (do_bench)
         bench();
 
-    kbuf_init(16);
     chord_init(&chord, WINDOW_CS, DELAY_CS, REPEAT_CS);
     next_anim = getsysvar_time() + ANIM_CS;
     next_blink = getsysvar_time() + BLINK_CS;
