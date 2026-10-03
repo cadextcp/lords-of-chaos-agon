@@ -1486,6 +1486,7 @@ static void test_m4b(void)
     world.units[1].y = 5;
     world.units[1].mr = 46;
     world.units[1].con = world.units[1].con_max = 32;
+    world.feature[5][8] = FE_DOOR_OPEN;         /* targets need sight (D17) */
     memset(&book, 0, sizeof book);
 
     {   /* effects: grant, tick, expire */
@@ -1716,8 +1717,8 @@ static void test_m4c(void)
         u->ap = 40;
         check(brew_drink(&world, 0) && effect_active(u, EFF_STRENGTH),
               "m4c: drinking grants the strength effect");
-        check(items_combat(&world, 0) == 10 + 4,
-              "m4c: strength +4 combat while active");
+        check(items_combat(&world, 0) == 10 + 2,
+              "m4c: brewed at level 1: strength +2 (F1)");
     }
 
     {   /* bomb vial explodes in the area */
@@ -1767,6 +1768,103 @@ static void test_m4c(void)
     }
 }
 
+/* Regressions from the M4a-c review. */
+static void test_m4_review(void)
+{
+    Spellbook book;
+    Rng rng;
+    Unit *u;
+    CombatResult r;
+    uint8_t g;
+
+    rng_seed(&rng, 11);
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 1;                    /* the wizard at 6,6 */
+    u = &world.units[0];
+
+    /* flying potion: ground budget in the air, lands when it wears off */
+    effect_grant(u, EFF_FLYING, 1, 2);
+    check(world_take_off(&world, 0), "m4r: the potion lets the wizard fly");
+    world_new_turn(&world);
+    check((u->flags & UF_FLYING) && u->ap == u->ap_max,
+          "m4r: airborne on a potion keeps the ground AP");
+    world_new_turn(&world);
+    check(!(u->flags & UF_FLYING), "m4r: lands when the potion wears off");
+
+    /* cauldrons: the object is the truth, full ones stay put */
+    u->ap = 40;
+    brew_set_cauldron(&world, 6, 6, false, 0xFF);
+    check(brew_cauldron_at(&world, 6, 6) != NULL, "m4r: empty cauldron placed");
+    check(items_pick_up(&world, 0) && brew_cauldron_at(&world, 6, 6) == NULL,
+          "m4r: a carried cauldron leaves no ghost behind");
+    u->in_use = (uint8_t)(u->item_count - 1);
+    u->x = 9;
+    u->y = 5;
+    check(items_drop(&world, 0) && brew_cauldron_at(&world, 9, 5) != NULL &&
+          brew_cauldron_at(&world, 9, 5)->doses == 0,
+          "m4r: set down elsewhere it is an empty cauldron again");
+    brew_set_cauldron(&world, 9, 5, true, SP_HEALING_POTION);
+    u->ap = 40;
+    check(!items_pick_up(&world, 0), "m4r: a full cauldron cannot be carried");
+    check(brew_ingredient_potion(OBJ_DRAGON_HERB) == 0xFF,
+          "m4r: dragon herb brews no healing potion");
+
+    /* targeted spells need range and sight (D17) */
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 1;
+    u = &world.units[0];
+    memset(&book, 0, sizeof book);
+    book.level[SP_CURSE] = 3;
+    g = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 20, 20);
+    {
+        SpellShot shot;
+        u->ap = 40;
+        u->mana = 80;
+        check(spell_apply(&world, &book, 0, SP_CURSE, world.units[g].x,
+                          world.units[g].y, &rng, &shot) == CAST_REJECTED &&
+              book.level[SP_CURSE] == 3,
+              "m4r: no curse beyond the spell range");
+        world.units[g].x = 12;               /* behind the house wall */
+        world.units[g].y = 6;
+        check(spell_apply(&world, &book, 0, SP_CURSE, 12, 6, &rng, &shot) ==
+              CAST_REJECTED, "m4r: no curse through walls");
+    }
+
+    /* the AI does not see invisible units */
+    world.units[g].x = 7;
+    world.units[g].y = 6;
+    world.units[g].owner = OWN_NEUTRAL;
+    check(ai_nearest_enemy(&world, g, 9) == 0, "m4r: the goblin sees the wizard");
+    effect_grant(u, EFF_INVISIBLE, 1, 3);
+    check(ai_nearest_enemy(&world, g, 9) == NO_UNIT,
+          "m4r: but not the invisible wizard");
+    effect_tick(u);
+    effect_tick(u);
+    effect_tick(u);
+
+    /* the defender strikes back after a harmless blow (GDD 6, 4.2) */
+    world.units[g].kind = CR_ZOMBIE;
+    world.units[g].flags |= UF_UNDEAD;
+    world.units[g].owner = OWN_P2;
+    world.units[g].ap = 30;
+    world.units[g].sta = 40;
+    u->ap = 40;
+    check(combat_melee(&world, &rng, 0, g, &r) && !r.hit && r.returned,
+          "m4r: undead shrug off the blow and strike back");
+
+    /* enchanted weapons double their values (GDD 6.1) */
+    u->items[0] = OBJ_SWORD;
+    u->item_count = 1;
+    u->in_use = 0;
+    u->con = u->con_max;
+    {
+        uint8_t plain = items_combat(&world, 0);
+        effect_grant(u, EFF_MAGIC_WEAPON, 1, 2);
+        check(items_combat(&world, 0) == plain + WEAPONS[WEAPON_SWORD].combat,
+              "m4r: an enchanted sword counts double");
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -1796,6 +1894,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m4a();
     test_m4b();
     test_m4c();
+    test_m4_review();
     load_house();   /* leave a clean state */
     return fails;
 }

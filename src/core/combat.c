@@ -69,18 +69,19 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
         return false;
 
     world_spend(w, att, ACTIONS[ACT_MELEE].ap);
-    if (!items_can_harm_undead(w, att, def))
-        return true;                     /* clanks off harmlessly (GDD 4.2) */
-    ok_to_hit = rng_range(rng, 100) <
+    /* normal weapons clank off the undead (GDD 4.2); either way the
+     * defender strikes back below, hit or miss (GDD 6) */
+    ok_to_hit = items_can_harm_undead(w, att, def) &&
+                rng_range(rng, 100) <
                 combat_hit_chance(items_combat(w, att), items_defence(w, def));
-    if (!ok_to_hit)
-        return true;
-    out->hit = true;
-    out->damage = roll_damage(a, rng);   /* base value; weapon bonus in chance */
-    out->died = combat_damage(w, def, out->damage, a->kind, a->owner, true,
-                              &out->wound);
-    if (out->died)
-        return true;                       /* the dead do not strike back */
+    if (ok_to_hit) {
+        out->hit = true;
+        out->damage = roll_damage(a, rng);   /* base value; weapon bonus in chance */
+        out->died = combat_damage(w, def, out->damage, a->kind, a->owner, true,
+                                  &out->wound);
+        if (out->died)
+            return true;                   /* the dead do not strike back */
+    }
 
     d = &w->units[def];                    /* pointer refreshed, not removed */
     if (d->ap >= ACTIONS[ACT_RETURN_ATTACK].ap &&

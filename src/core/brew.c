@@ -18,8 +18,7 @@ static const struct {
     { OBJ_SULPH, SP_SPEED_POTION },
     { OBJ_FAIRYWING, SP_FLYING_POTION },
     { OBJ_NITRO, SP_BOMB_POTION },
-    { OBJ_DRAGON_HERB, SP_HEALING_POTION },
-    { OBJ_APPLE, SP_HEALING_POTION },
+    { OBJ_APPLE, SP_HEALING_POTION },    /* dragon herb is for dragons only */
 };
 
 /* A filled vial carries its brew; the vial object kind tells which. */
@@ -91,13 +90,42 @@ void brew_register_map_cauldrons(World *w)
         }
 }
 
+static bool cauldron_object_at(const World *w, int16_t x, int16_t y)
+{
+    uint8_t i;
+    for (i = 0; i < w->object_count; i++)
+        if (w->objects[i].x == x && w->objects[i].y == y &&
+            (w->objects[i].tile == T_OBJ_CAULDRON_EMPTY ||
+             w->objects[i].tile == T_OBJ_CAULDRON_FULL))
+            return true;
+    return false;
+}
+
+/* The cauldron object on the ground is the truth; the record only adds
+ * its contents. Records whose object was carried away are dropped, an
+ * (empty) cauldron set down elsewhere gets a fresh record. */
 Cauldron *brew_cauldron_at(World *w, int16_t x, int16_t y)
 {
     uint8_t i;
+    for (i = w->cauldron_count; i-- > 0;)
+        if (!cauldron_object_at(w, w->cauldrons[i].x, w->cauldrons[i].y))
+            w->cauldrons[i] = w->cauldrons[--w->cauldron_count];
+    if (!cauldron_object_at(w, x, y))
+        return NULL;
     for (i = 0; i < w->cauldron_count; i++)
         if (w->cauldrons[i].x == x && w->cauldrons[i].y == y)
             return &w->cauldrons[i];
-    return NULL;
+    if (w->cauldron_count >= CAULDRONS_MAX)
+        return NULL;
+    {
+        Cauldron *c = &w->cauldrons[w->cauldron_count++];
+        c->x = (uint8_t)x;
+        c->y = (uint8_t)y;
+        c->potion = 0xFF;
+        c->doses = 0;
+        c->level = 0;
+        return c;
+    }
 }
 
 void brew_set_cauldron(World *w, int16_t x, int16_t y, bool full,
@@ -198,7 +226,10 @@ bool brew_cast(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
             consume_ground(w, u->x, u->y, INGREDIENTS[i].object);
     brew_set_cauldron(w, u->x, u->y, true, spell);
     c = brew_cauldron_at(w, u->x, u->y);
-    c->doses = (uint8_t)(level + 3);     /* level+3 draughts (GDD 7.2) */
+    if (c) {
+        c->doses = (uint8_t)(level + 3); /* level+3 draughts (GDD 7.2) */
+        c->level = level;
+    }
     return true;
 }
 
@@ -233,7 +264,7 @@ bool brew_drink(World *w, uint8_t unit)
     if (u->ap < ACTIONS[ACT_DRINK].ap)
         return false;
     world_spend(w, unit, ACTIONS[ACT_DRINK].ap);
-    if (!apply_potion(w, unit, c->potion, 2))
+    if (!apply_potion(w, unit, c->potion, c->level ? c->level : 1))
         return false;
     if (--c->doses == 0)                 /* drunk empty */
         brew_set_cauldron(w, u->x, u->y, false, 0xFF);
@@ -295,7 +326,7 @@ bool brew_drink_vial(World *w, uint8_t unit)
 bool brew_throw_vial(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
 {
     Unit *u;
-    uint8_t kind;
+    uint8_t kind, thrower_kind, thrower_owner;
     int16_t x, y, dist;
     (void)rng;
     if (unit >= w->unit_count || (dx == 0 && dy == 0))
@@ -312,28 +343,28 @@ bool brew_throw_vial(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
     u->items[u->in_use] = u->items[u->item_count - 1];
     u->item_count--;
     u->in_use = NO_ITEM;
+    thrower_kind = u->kind;              /* the blast may reorder units */
+    thrower_owner = u->owner;
 
     x = u->x;
     y = u->y;
-    for (dist = 0; dist < 6; dist++) {
+    for (dist = 0; dist < 6; dist++) {   /* flies until wall or unit */
         int16_t nx = (int16_t)(x + dx), ny = (int16_t)(y + dy);
         if (!world_wrap(w, &nx, &ny) || world_blocks(w, nx, ny))
             break;
         x = nx;
         y = ny;
+        if (world_unit_at(w, x, y, UL_GROUND) != NO_UNIT ||
+            world_unit_at(w, x, y, UL_AIR) != NO_UNIT)
+            break;                       /* shatters on the target */
     }
     if (kind != OBJ_VIAL_BOMB)
         return true;                     /* shatters harmlessly */
-    {   /* bomb: everyone around the impact takes a hit (Amiga) */
+    {   /* bomb: everyone around the impact takes a hit (Amiga, D21) */
         uint8_t i;
-        for (i = w->unit_count; i-- > 0;) {
-            Unit *t = &w->units[i];
-            int16_t ddx = (int16_t)(t->x - x), ddy = (int16_t)(t->y - y);
-            if (ddx < 0) ddx = (int16_t)(-ddx);
-            if (ddy < 0) ddy = (int16_t)(-ddy);
-            if (ddx <= 1 && ddy <= 1)
-                combat_damage(w, i, 20, u->kind, u->owner, false, NULL);
-        }
+        for (i = w->unit_count; i-- > 0;)    /* removal swaps in done units */
+            if (world_distance(w, x, y, w->units[i].x, w->units[i].y) <= 1)
+                combat_damage(w, i, 20, thrower_kind, thrower_owner, false, NULL);
     }
     return true;
 }

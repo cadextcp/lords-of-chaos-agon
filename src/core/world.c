@@ -247,6 +247,20 @@ void world_spend(World *w, uint8_t unit, uint8_t ap)
     u->sta = u->sta > st ? (uint8_t)(u->sta - st) : 0;
 }
 
+uint8_t world_distance(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1)
+{
+    int16_t dx = (int16_t)(x1 - x0), dy = (int16_t)(y1 - y0);
+    if (w->wrap) {
+        if (dx > w->w / 2) dx = (int16_t)(dx - w->w);
+        if (dx < -w->w / 2) dx = (int16_t)(dx + w->w);
+        if (dy > w->h / 2) dy = (int16_t)(dy - w->h);
+        if (dy < -w->h / 2) dy = (int16_t)(dy + w->h);
+    }
+    if (dx < 0) dx = (int16_t)-dx;
+    if (dy < 0) dy = (int16_t)-dy;
+    return (uint8_t)(dx > dy ? dx : dy);
+}
+
 uint8_t world_find_unit(const World *w, uint8_t id)
 {
     uint8_t i;
@@ -394,7 +408,8 @@ void world_new_turn(World *w)
     uint8_t i;
     for (i = 0; i < w->unit_count; i++) {
         Unit *u = &w->units[i];
-        uint8_t full = (u->flags & UF_FLYING) ? u->ap_fly : u->ap_max;
+        /* airborne on a flying potion (no wings): the ground budget */
+        uint8_t full = (u->flags & UF_FLYING) && u->ap_fly ? u->ap_fly : u->ap_max;
         if (u->flags & UF_WOUNDED)         /* bleeds until death (PM 17) */
             u->con = u->con > 0 ? (uint8_t)(u->con - 1) : 0;
         uint16_t sta;
@@ -409,6 +424,14 @@ void world_new_turn(World *w)
             u->ap = (uint8_t)(u->ap * 2);
         u->sta = (uint8_t)(sta > u->sta_max ? u->sta_max : sta);
         effect_tick(u);                   /* durations run down (GDD 2.1) */
+        if ((u->flags & UF_FLYING) && u->ap_fly == 0 &&
+            !effect_active(u, EFF_FLYING)) {  /* the potion wore off */
+            if (world_unit_at(w, u->x, u->y, UL_GROUND) == NO_UNIT &&
+                !FLOOR_DROWN[w->floor[u->y][u->x]])
+                u->flags &= (uint8_t)~UF_FLYING;  /* sinks to the ground */
+            else
+                effect_grant(u, EFF_FLYING, 1, 1);  /* hovers on, no room */
+        }
         if (u->mana_max) {
             uint8_t mana = (uint8_t)(u->mana + u->mana_max / 25);
             u->mana = mana > u->mana_max || mana < u->mana ? u->mana_max : mana;

@@ -149,10 +149,10 @@ static void text_at(uint8_t col, uint8_t row, uint8_t colour, const char *s)
 static const uint8_t BAR_FILL[6] = {C_BRIGHT_GREEN, C_BRIGHT_YELLOW, C_BRIGHT_RED,
                                     C_WHITE, C_BRIGHT_BLUE, C_BRIGHT_MAGENTA};
 static const uint8_t BAR_EDGE[6] = {C_GREEN, C_YELLOW, C_RED, C_GREY, C_BLUE, C_MAGENTA};
-static const uint8_t BAR_ICON[6] = {T_ICON_BOOT, T_ICON_BOLT, T_ICON_HEART,
+static const uint16_t BAR_ICON[6] = {T_ICON_BOOT, T_ICON_BOLT, T_ICON_HEART,
                                     T_ICON_SWORD, T_ICON_SHIELD, T_ICON_STAR};
 /* Status icons (PM 11) in UF_* bit order. */
-static const uint8_t STATUS_ICON[5] = {T_ICON_ST_UNDEAD, T_ICON_ST_FLY, T_ICON_ST_MOUNT,
+static const uint16_t STATUS_ICON[5] = {T_ICON_ST_UNDEAD, T_ICON_ST_FLY, T_ICON_ST_MOUNT,
                                        T_ICON_ST_WOUND, T_ICON_ST_INVISIBLE};
 #define COMBAT_SCALE 50   /* combat/defence bar full at 50 (creature table max) */
 #define BAR_TOP 58

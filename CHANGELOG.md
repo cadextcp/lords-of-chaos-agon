@@ -4,6 +4,20 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 
 ## [Unreleased] – M4 Classic komplett
 
+### Behoben
+- **Review-Fixes M4a–c:**
+  - Panel zeigte Kreaturen statt der Balken- und Status-Icons: Seit M4c liegen die Icon-Tile-IDs über 255, `BAR_ICON`/`STATUS_ICON` waren `uint8_t`.
+  - Flugtrank: Wer ohne Flügel fliegt, bekam in der Luft 0 AP pro Runde und blieb nach Ablauf des Tranks oben. Jetzt gilt das Boden-Budget, nach Ablauf landet die Einheit (oder schwebt weiter, bis Platz ist).
+  - Die Bombenphiole explodierte nie, `t` warf sie wie einen normalen Gegenstand. Phiolen fliegen jetzt bis zur ersten Einheit und zerplatzen dort.
+  - Curse, Subversion, Magic Attack und Enchant brauchten weder Reichweite noch Sichtlinie (D17).
+  - Kessel: Der Inhalt hing an einer Liste statt am Kessel-Objekt; nach dem Wegtragen blieb ein „Geisterkessel“. Jetzt ist das Objekt maßgeblich, volle Kessel lassen sich nicht tragen.
+  - Getränke aus dem Kessel wirkten immer mit Stufe 2 statt mit der gebrauten Stufe (F1). Phiolen bleiben vorerst bei Stufe 2.
+  - Drachenkraut braute nebenbei Heiltränke und wurde dabei verbraucht; es dient jetzt nur den Drachen.
+  - Die KI sah unsichtbare Einheiten.
+  - Rückschlag auch nach einem Fehlschlag und nach harmlosen Hieben gegen Untote (GDD §6); bisher schlug der Verteidiger nur nach einem Treffer zurück.
+  - Verzauberte Waffen (Enchant) zählen doppelt (GDD §6.1).
+  - Teleport streut symmetrisch und misst Chebyshev; Magic Attack und die Bombe rechnen mit Wrap-around und schreiben Kills dem richtigen Werfer bzw. Zaubernden zu.
+
 ### Hinzugefügt
 - **M4c Tränke und Brauen (#45):**
   - `src/core/brew.[ch]`: Kessel (bis 4 pro Karte, leer/voll, Stufen) und Phiolen als Objekte; Brauen braucht leeren Kessel + Zutat auf dem Zaubererfeld, füllt `Stufe+3` Schlucke (GDD §7.2), verbraucht die Zutat und eine Zauberstufe
