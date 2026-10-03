@@ -153,6 +153,7 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
 
     out->n = 0;
     out->air = 0;
+    out->ride = 0;
     fl = w->floor[wy][wx];
     fe = w->feature[wy][wx];
     push(out, FLOOR_TILE[fl]);
@@ -257,9 +258,17 @@ static void apply_roof_rule(const World *w, int16_t wx, int16_t wy,
     roof_refresh(w);
     if (!roof_open[wy][wx])
         return;
-    for (j = 0; j < out->n; j++)
-        if (out->id[j] != T_ROOF)
+    for (j = 0; j < out->n; j++) {
+        if (out->id[j] != T_ROOF) {
             out->id[k++] = out->id[j];
+        } else {                         /* keep the layer masks in step */
+            uint16_t low = (uint16_t)((1u << k) - 1u);
+            out->air = (uint16_t)((out->air & low) |
+                                  ((out->air >> (k + 1)) << k));
+            out->ride = (uint16_t)((out->ride & low) |
+                                   ((out->ride >> (k + 1)) << k));
+        }
+    }
     out->n = k;
 }
 
@@ -270,6 +279,16 @@ static void push_unit(const World *w, const Unit *un, FieldLayers *out, bool air
     if (sight_map && un->owner != sight_map->owner &&
         (!sight_visible(sight_map, w, un->x, un->y) || (un->flags & UF_INVISIBLE)))
         return;
+    {   /* a rider sits behind its mount, lifted by the renderer (M4k): the
+         * mount's body hides the rider's legs, no extra artwork needed */
+        uint8_t rk = ride_rider_kind(un);
+        if (rk < CR_COUNT && out->n + 2 <= VIEW_MAX_LAYERS) {
+            if (air)
+                out->air |= (uint16_t)(1u << out->n);
+            out->ride |= (uint16_t)(1u << out->n);
+            out->id[out->n++] = (uint16_t)(CREATURE_TILE[rk] + un->owner);
+        }
+    }
     if (air)
         push_air(out, (uint16_t)(CREATURE_TILE[un->kind] + un->owner));
     else
@@ -285,6 +304,7 @@ static void apply_sight(const World *w, int16_t wx, int16_t wy, FieldLayers *out
     if (!sight_explored(sight_map, w, wx, wy)) {
         out->n = 0;
         out->air = 0;
+        out->ride = 0;
         push(out, T_UNEXPLORED);
     } else if (!sight_visible(sight_map, w, wx, wy)) {
         push(out, T_OVERLAY_REMEMBERED);
@@ -474,8 +494,9 @@ uint8_t view_update(const World *w)
                     if (is_animated(f.id[i]))
                         animated[vy][vx] = 1;
             }
-            had_air[vy][vx] = fields[vy][vx].air != 0;
+            had_air[vy][vx] = (fields[vy][vx].air | fields[vy][vx].ride) != 0;
             if (!valid || f.n != fields[vy][vx].n || f.air != fields[vy][vx].air ||
+                f.ride != fields[vy][vx].ride ||
                 memcmp(f.id, fields[vy][vx].id, f.n * sizeof f.id[0]) != 0) {
                 fields[vy][vx] = f;
                 dirty[vy][vx] = 1;
@@ -491,9 +512,11 @@ uint8_t view_update(const World *w)
         for (vx = 0; vx < VIEW_W; vx++) {
             if (!dirty[vy][vx])
                 continue;
-            if (vy > 0 && (fields[vy][vx].air || had_air[vy][vx]))
+            if (vy > 0 && ((fields[vy][vx].air | fields[vy][vx].ride) ||
+                           had_air[vy][vx]))
                 dirty[vy - 1][vx] = 1;
-            if (vy + 1 < VIEW_H && fields[vy + 1][vx].air)
+            if (vy + 1 < VIEW_H &&
+                (fields[vy + 1][vx].air | fields[vy + 1][vx].ride))
                 dirty[vy + 1][vx] = 1;
         }
     }
