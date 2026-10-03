@@ -73,7 +73,7 @@ def c_enums(*headers: Path) -> dict[str, int]:
 
 def parse(path: Path) -> dict:
     """Text map -> dict with char grids (also used by tools/mockup.py)."""
-    m = {"wrap": 0, "units": [], "objects": []}
+    m = {"wrap": 0, "units": [], "objects": [], "portal": None}
     section = None
     grids: dict[str, list[str]] = {"floor": [], "feature": [], "decor": []}
     for raw in path.read_text(encoding="utf-8").splitlines():
@@ -89,6 +89,9 @@ def parse(path: Path) -> dict:
             m["w"], m["h"] = map(int, line.split()[1:3])
         elif word == "wrap":
             m["wrap"] = int(line.split()[1])
+        elif word == "portal":
+            x, y, rmin, rmax = map(int, line.split()[1:5])
+            m["portal"] = (x, y, rmin, rmax)
         elif word in ("floor", "feature", "decor", "units", "objects") and len(line.split()) == 1:
             section = word
         elif section in grids:
@@ -129,6 +132,9 @@ def encode(m: dict, enums: dict[str, int]) -> bytes:
         if tile not in enums:
             raise SystemExit(f"unknown object tile {tile}")
         out += bytes((x, y)) + struct.pack("<H", enums[tile])
+    if m["portal"] is not None:          # v3: scenario portal
+        out[4] = 3
+        out += bytes(m["portal"])
     return bytes(out)
 
 

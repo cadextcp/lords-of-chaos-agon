@@ -5,6 +5,14 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ## [Unreleased] – M3 Classic spielbar
 
 ### Hinzugefügt
+- **M3g Szenario 1 „The Many Coloured Land“ (#33):**
+  - Kartenformat v3 mit `portal x y rmin rmax`-Sektion (v2-Karten laden weiter); Welt trägt Portal-Position und Rundenspanne
+  - 4 neue Schatz-Kacheln (Runenstein 6, Zauberstab 8, Rubin 20, Diamant 30 VP) neben Gold/Smaragd — die komplette Schatztabelle aus GDD §9.1
+  - Szenario-Karte `data/maps/many_coloured_land.txt` (eigene Karte im Geist des Originals, D2): bunte Regionen, 6+ Schätze, KI-Zauberer, Portal Runde 12–15 bei (26,3)
+  - `loc` startet jetzt Szenario 1; `loc --testland` öffnet die Entwicklungskarte
+  - komplette Partie im Emulator durchspielbar und dokumentiert (p1 entkommt, p2-KI beschwört/flieht/zieht VP)
+
+### Hinzugefügt
 - **M3f Einfache KI (#32):**
   - `src/core/ai.[ch]`: Unabhängige jagen das nächste sichtbare Ziel (ein Strahl pro Kandidat — Hidden Movement wird respektiert), greifen an, wenn angrenzend; ohne Beute Umherstreifen
   - Zauberer-KI pro Phase: eigene Kreaturen jagen zuerst, Nahkampf gegen sichtbare Angrenzende, beschwört solange Begleitung < 3 und Mana reicht (günstigster Zauber), läuft zum Portal (auch vor dem Öffnen) und tritt hindurch, sobald es offen ist
