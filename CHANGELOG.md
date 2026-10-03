@@ -4,6 +4,11 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 
 ## [Unreleased] – M5 Präsentationsrunde
 
+### Hinzugefügt (M5d: Titelbild + Titelmusik)
+- **Titelbild** vor dem Hauptmenü: eigene 320×240-Pixelart (Nachthimmel, Mond, Turm, Zauberer mit Stab, Portal, Schriftzug „LORDS OF CHAOS“) in der Agon-64-Palette. `tools/art/make_title.py` erzeugt `assets/title/title.png` (Quelle), `tools/build_title.py` kompiliert nach `/loc/title.bin` (76 800 Byte RGBA2222, ADR 0011). Neuer Streaming-Loader `render_show_title()`: häppchenweises Laden über den Staging-Puffer in einen eigenen VDP-Puffer (0x4000), wiederholte `write_block_data`-Aufrufe hängen an (QUIRKS S1). Ohne Datei zeigt der Titel Text. Taste führt ins Menü. **Das Motiv ist ein Vorschlag/Platzhalter — vom Nutzer abzustimmen.**
+- **Titelmusik:** eigener dreistimmiger Satz in A-Moll (Lead square, Bass triangle, Arpeggio sine — nichts kopiert, D7) als Notentabelle `data/music/title.txt`, kompiliert durch `tools/gen_music.py` nach `/loc/music/title.bin`. Sequencer `src/agon/music.[ch]` auf den VDP-Audiokanälen 1–3 (Kanal 0 bleibt Effekten), nicht blockierend — Titel- und Menüschleife pollen, **jeder Tastendruck beendet die Musik**.
+- SD-Staging nimmt `title.bin` und `music/` mit.
+
 ### Hinzugefügt (M5c: Ereignisse, Kampfanimation, Sound)
 - **Ereignis-Ring im Core (`src/core/events.[ch]`):** `EV_SWING/HIT/WOUND/MISS/DEATH/SPELL/SMASH` mit Position und Beteiligten. Reine Beobachtung — RNG, Weltzustand, Savegames und View-Logik bleiben unberührt (Selftest prüft Ereignisfolge und identische Würfel). Emitted aus Nahkampf/Freiem Schlag/Rückschlag, `combat_damage` (alle Schadensquellen), `world_kill_unit` und Blutungstod, `pay_for_spell` (jeder Zauber inkl. Beschwörung/Brauen), Terrain-Angriff und Blitz.
 - **Kampf-/Todesanimation (`src/agon/fx.c`):** spielt den Ring ab — Slash-/Treffer-/Verfehlt-Overlays, rote Schadenszahl, Todessequenz in 4 Frames (Aufblitzen → Verblassen → Staub/Kreuz), Zauberblitz und Trümmerwolke. Sieben neue Kacheln (`fx_*`, `tools/art/make_tiles.py`), `view_mark_dirty()` zum sauberen Neuzeichnen einzelner Felder. Kurze getimete Frames; Tasten während der Show werden verworfen (K5). In Skript-Runs (`--dump/--bench`) deaktiviert, damit keine Skripttasten verloren gehen.

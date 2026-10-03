@@ -477,6 +477,50 @@ void render_screen_clear(void)
     black(0, 0, 319, 239);
 }
 
+/* Title bitmap (M5d): streamed into its own VDP buffer far above the
+ * tile bank (0x2000 + tiles + mounts). 320x240 RGBA2222 = 76 800 bytes,
+ * written in chunks through the small staging buffer; repeated
+ * write_block_data calls append to the buffer. The bitmap stays in VDP
+ * RAM for the program run - the menu redraws over it. */
+#define TITLE_BUFFER 0x4000
+
+bool render_show_title(void)
+{
+    uint8_t fh, head[8];
+    uint16_t w, h;
+    uint24_t total, sent = 0, n;
+    fh = mos_fopen("title.bin", FA_READ);
+    if (!fh)
+        return false;
+    if (mos_fread(fh, (char *)head, 8) != 8 || memcmp(head, "LOCB", 4) != 0 ||
+        head[4] != 1) {
+        mos_fclose(fh);
+        return false;
+    }
+    w = (uint16_t)(head[5] | (head[6] << 8));
+    h = head[7];
+    total = (uint24_t)w * h;
+    if (w != 320 || h != 240) {
+        mos_fclose(fh);
+        return false;
+    }
+    vdp_adv_clear_buffer(TITLE_BUFFER);
+    do {
+        n = mos_fread(fh, (char *)pixels, sizeof pixels);
+        if (n == 0)
+            break;
+        vdp_adv_write_block_data(TITLE_BUFFER, (int)n, (char *)pixels);
+        sent += n;
+    } while (sent < total);
+    mos_fclose(fh);
+    if (sent != total)
+        return false;
+    vdp_adv_select_bitmap(TITLE_BUFFER);
+    vdp_adv_bitmap_from_buffer(320, 240, FORMAT_RGBA2222);
+    vdp_draw_bitmap(0, 0);
+    return true;
+}
+
 void render_frame(int x0, int y0, int x1, int y1, uint8_t colour)
 {
     vdp_gcol(0, colour);

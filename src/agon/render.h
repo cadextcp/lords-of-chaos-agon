@@ -50,6 +50,9 @@ void render_screen_clear(void);
 void render_frame(int x0, int y0, int x1, int y1, uint8_t colour);
 /* One tile by id at a pixel position (lexicon portraits, M5). */
 void render_draw_tile(uint16_t id, int x, int y);
+/* Stream /loc/title.bin (RGBA2222, ADR 0011) into a VDP buffer and show
+ * it as a 320x240 bitmap. False when the file is missing or invalid. */
+bool render_show_title(void);
 void render_shutdown(void);
 
 #endif

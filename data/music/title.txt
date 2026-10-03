@@ -1,0 +1,29 @@
+# Title theme (M5d) - own composition in the spirit of a Chaos-titled
+# fantasy game (D7: nothing copied). A minor, 4 phrases of 8 eighths.
+#
+# Format (tools/gen_music.py):
+#   tempo <quarter notes per minute>
+#   channel <waveform: square|triangle|sawtooth|sine>
+#   <note>:<eighths> ...  notes like a4, gs4, cb5, r = rest
+#
+# Channel 1 plays the lead, 2 the bass, 3 a soft arpeggio (see music.c).
+
+tempo 96
+
+channel square
+a4:2 a4:2 c5:2 b4:2 a4:4 e4:4
+a4:2 a4:2 d5:2 c5:2 b4:4 gs4:4
+e5:2 e5:2 f5:2 e5:2 d5:4 c5:4
+b4:2 c5:2 b4:2 gs4:2 a4:8
+
+channel triangle
+a2:4 e3:4 f2:4 c3:4
+g2:4 d3:4 e2:4 e2:4
+a2:4 e3:4 f2:4 c3:4
+g2:4 e2:4 a2:8
+
+channel sine
+a3:2 c4:2 e4:2 c4:2 a3:2 c4:2 e4:2 c4:2
+f3:2 a3:2 c4:2 a3:2 g3:2 b3:2 d4:2 b3:2
+a3:2 c4:2 e4:2 c4:2 a3:2 c4:2 e4:2 c4:2
+e3:2 gs3:2 b3:2 gs3:2 a3:2 c4:2 e4:2 c4:2

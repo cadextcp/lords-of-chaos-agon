@@ -25,6 +25,14 @@ Gesammeltes Plattformwissen. Teile stammen aus dem ersten Versuch (BBC BASIC, `L
 | A2 | Wellenformen pro Kanal: `vdp_audio_set_waveform` mit 0=Square, 1=Triangle, 2=Sawtooth, 3=Sine, 4=Noise, 5=VIC-Noise (Konstanten in vdp.h). Hüllkurven: `vdp_audio_volume_envelope_ADSR(ch, attack-ms, decay-ms, sustain-%, release-ms)`; danach wieder `disable`, sonst wirkt sie für die nächste Note weiter. | ✅ (API) |
 | A3 | Audio-Befehle enthalten 0x00-Bytes (Frequenz/Dauer u16): nie über `printf` senden, immer die agondev-Wrapper (die MOS-puts mit Längenangabe nutzen). | ✅ (wie alle VDU-23-Befehle) |
 | A4 | Der CLI-Emulator hat kein Audio (wie E1 kein VDP): Klang nur im GUI-Emulator/auf Hardware prüfbar. | ✅ |
+| A5 | Musik auf Kanälen 1–3 neben Effekten auf Kanal 0 funktioniert; pro Kanal werden Noten gequeued, lange Notenfolgen spielen ohne Programmblockade. Getaktet über `getsysvar_time()` (Zentisekunden, vorzeichenbehaftet vergleichen wegen Überlauf). | ✅ (M5d, GUI) |
+
+## VDP-Speicher und Streaming (M5d)
+
+| # | Quirk | Status |
+|---|---|---|
+| S1 | **Gestreamte Bitmaps:** wiederholte `vdp_adv_write_block_data(bufferId, n, data)`-Aufrufe *hängen an* (sequenzielle Schreibposition). So lässt sich ein 320×240-RGBA2222-Bild (76 800 Byte) in 576-Byte-Häppchen durch einen kleinen Staging-Puffer laden; danach `select_bitmap` + `bitmap_from_buffer(320,240,1)` + `draw_bitmap(0,0)`. | ✅ (GUI-Emulator, Titelbild) |
+| S2 | VDP-RAM-Budget: Kachelbank (291 Kacheln ≤576 B + Reit-Tiere, Puffer ab 0x2000) + Titel (Puffer 0x4000, 75 KB) laufen im Emulator zusammen; **auf Hardware nachzumessen** (Kacheln + Bitmaps + Titel). Kein `delete_bitmap` in der API — das Titel-Bitmap bleibt für den Programmlauf belegt. | ❓ (Hardware offen) |
 
 ## Emulator
 

@@ -46,4 +46,9 @@ const char *tutorial_hint_line(uint8_t step);
  * the detail page (portrait, values, description). Blocking, Esc leaves. */
 void screen_lexicon(const Lexicon *lex);
 
+/* Title screen (M5d): the streamed title bitmap (/loc/title.bin) and the
+ * title music (/loc/title.bin's neighbour music/title.bin). Any key
+ * stops the music and returns. */
+bool screen_title(void);
+
 #endif
