@@ -405,7 +405,7 @@ static void test_turn(void)
     check(t.active == 0, "turn: back on the wizard");
 
     turn_finish_unit(&t, &world);
-    check((t.done & 1u) != 0 && t.active == 10,
+    check(world.units[0].done && t.active == 10,
           "turn: space finishes the wizard, dwarf is next");
     check(turn_units_left(&t, &world), "turn: unfinished units are left");
     turn_finish_unit(&t, &world);
@@ -421,7 +421,8 @@ static void test_turn(void)
     check(world.units[0].ap == 40 && world.units[0].sta == 60 &&
           world.units[0].mana == 80,
           "turn: round end refills AP, stamina and mana");
-    check(t.done == 0, "turn: new phase clears the finished flags");
+    check(!world.units[0].done && !world.units[10].done && !world.units[11].done,
+          "turn: new phase clears the finished flags");
 
     moved = 0;
     for (i = 0; i < world.unit_count; i++)
@@ -1040,13 +1041,28 @@ static void test_game(void)
         view_set_sight(NULL);
     }
 
-    {   /* kill credit: wizard melee doubled, ranged single (AMI 4) */
+    {   /* kill credit: the victim's value, wizard melee doubled (AMI 4) */
+        Kill k = {CR_GOBLIN, OWN_NEUTRAL, CR_WIZARD, OWN_P1, true};
+        uint16_t gob = CREATURES[CR_GOBLIN].vp;
         game_init(&g, -1, -1, 1, 1, &rng);
-        game_kill_credit(&g, OWN_P1, CR_WIZARD, true);    /* melee: 20*2 */
-        game_kill_credit(&g, OWN_P1, CR_WIZARD, false);   /* ranged: 20 */
-        game_kill_credit(&g, OWN_P2, CR_GIANT_BAT, true); /* creature vp */
-        check(g.vp[OWN_P1] == 60 && g.vp[OWN_P2] == CREATURES[CR_GIANT_BAT].vp,
-              "game: kills score, wizard melee doubled");
+        game_kill_credit(&g, &k);                  /* wizard melee: x2 */
+        k.melee = false;
+        game_kill_credit(&g, &k);                  /* wizard ranged: x1 */
+        k.killer_kind = CR_GIANT_BAT;
+        k.killer_owner = OWN_P2;
+        k.melee = true;
+        game_kill_credit(&g, &k);                  /* creature melee: x1 */
+        check(g.vp[OWN_P1] == 3 * gob && g.vp[OWN_P2] == gob,
+              "game: kills score the victim's value");
+        k.victim_kind = CR_WIZARD;
+        k.victim_owner = OWN_P1;
+        game_kill_credit(&g, &k);
+        check(g.vp[OWN_P2] == gob + CREATURES[CR_WIZARD].vp,
+              "game: a wizard kill scores the wizard's value");
+        k.victim_owner = OWN_P2;
+        game_kill_credit(&g, &k);
+        check(g.vp[OWN_P2] == gob + CREATURES[CR_WIZARD].vp,
+              "game: friendly fire scores nothing");
     }
 }
 
@@ -1122,6 +1138,118 @@ static void test_ai(void)
     }
 }
 
+static uint8_t rounds_seen;
+
+static void count_round(Turns *t, World *w, void *ctx)
+{
+    (void)w;
+    rounds_seen++;
+    game_new_round((Game *)ctx, t->round);
+}
+
+/* Regressions from the M3 review: unit removal reorders the list, kills
+ * score the victim, the turn loop ends without humans, > 24 units. */
+static void test_review_fixes(void)
+{
+    Turns t;
+    Rng rng;
+    Game g;
+    Spellbook books[OWN_NEUTRAL];
+    AiCtx ctx;
+    uint8_t a, b, i, a_id, b_id;
+
+    rng_seed(&rng, 7);
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 0;
+    world_spawn_unit(&world, OWN_P1, CR_WIZARD, 5, 5);
+    world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, 10, 10);
+    a = world_spawn_unit(&world, OWN_P1, CR_DWARF, 12, 12);
+    b = world_spawn_unit(&world, OWN_P1, CR_GIANT_BAT, 14, 14);
+    a_id = world.units[a].id;
+    b_id = world.units[b].id;
+    check(a_id != b_id && world_find_unit(&world, a_id) == a,
+          "fix: units get distinct ids");
+    turn_init(&t, &world, 1, 1u << OWN_P1);
+    turn_next_unit(&t, &world, false);
+    check(t.active == a, "fix: the dwarf is active");
+    world.units[b].done = true;
+    world_kill_unit(&world, 1, CR_DWARF, OWN_P1, true);   /* goblin dies */
+    turn_revalidate(&t, &world);
+    check(world.units[t.active].id == a_id && !world.units[t.active].done,
+          "fix: active unit survives a death elsewhere");
+    check(world.units[world_find_unit(&world, b_id)].done,
+          "fix: done flags move with their units");
+    check(world.kill_count == 1 && world.kills[0].victim_kind == CR_GOBLIN,
+          "fix: the kill is logged");
+    world_kill_unit(&world, t.active, CR_GOBLIN, OWN_NEUTRAL, true);
+    check(world.kill_count == 1, "fix: independents' kills are not logged");
+    turn_revalidate(&t, &world);
+    check(t.active < world.unit_count && world.units[t.active].owner == OWN_P1,
+          "fix: a dead active unit hands over to another");
+    game_init(&g, -1, -1, 1, 1, &rng);
+    game_credit_kills(&g, &world);
+    check(g.vp[OWN_P1] == CREATURES[CR_GOBLIN].vp && world.kill_count == 0,
+          "fix: logged kills are credited once");
+
+    {   /* a refused melee leaves a clean result (the AI reads it) */
+        CombatResult r;
+        memset(&r, 0xAA, sizeof r);
+        check(!combat_melee(&world, &rng, 0, 0, &r) && !r.died && !r.attacker_died,
+              "fix: refused melee zeroes the result");
+    }
+
+    /* more than 24 units: the eZ80 int is 24 bit (no bit masks) */
+    world.unit_count = 0;
+    for (i = 0; i < 30; i++)
+        world_spawn_unit(&world, OWN_P1, CR_GOBLIN, i, 20);
+    turn_init(&t, &world, 1, 1u << OWN_P1);
+    for (i = 0; i < 29; i++)
+        turn_finish_unit(&t, &world);
+    check(t.active == 29 && turn_units_left(&t, &world),
+          "fix: finish flags beyond unit 24");
+    turn_finish_unit(&t, &world);
+    check(!turn_units_left(&t, &world), "fix: all 30 units finished");
+
+    /* no human left: the AI plays on, the round hook opens the portal,
+     * the escaped wizard ends the loop */
+    load_house();
+    {
+        uint8_t x = world.units[0].x, y = world.units[0].y;
+        world.unit_count = 0;
+        world_spawn_unit(&world, OWN_P2, CR_WIZARD, x, y);
+        for (i = 0; i < OWN_NEUTRAL; i++)
+            spellbook_default(&books[i], i);
+        ctx.books = books;
+        ctx.game = &g;
+        game_init(&g, x, y, 3, 3, &rng);          /* opens under him */
+        turn_init(&t, &world, 1, 1u << OWN_P1);
+        t.ai = ai_wizard_phase;
+        t.ai_ctx = &ctx;
+        t.on_round = count_round;
+        t.round_ctx = &g;
+        rounds_seen = 0;
+        turn_end_phase(&t, &world);
+        check(g.portal_open && rounds_seen == 2 && t.round == 3,
+              "fix: round hook opens the portal in AI rounds");
+        check((g.escaped & (1u << OWN_P2)) != 0,
+              "fix: the AI escapes, the turn loop returns");
+
+        world.unit_count = 0;                     /* no portal: bounded */
+        world_spawn_unit(&world, OWN_P2, CR_WIZARD, x, y);
+        game_init(&g, -1, -1, 1, 1, &rng);
+        turn_init(&t, &world, 1, 1u << OWN_P1);
+        t.ai = ai_wizard_phase;
+        t.ai_ctx = &ctx;
+        t.on_round = count_round;
+        t.round_ctx = &g;
+        rounds_seen = 0;
+        turn_end_phase(&t, &world);
+        check(rounds_seen == TURN_AUTOPLAY_ROUNDS &&
+              t.round == 1 + TURN_AUTOPLAY_ROUNDS,
+              "fix: AI autoplay stops after its bound");
+    }
+}
+
 static void test_scenario(void)
 {
     world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
@@ -1179,6 +1307,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_items();
     test_game();
     test_ai();
+    test_review_fixes();
     test_scenario();
     load_house();   /* leave a clean state */
     return fails;

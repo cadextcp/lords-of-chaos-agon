@@ -1,5 +1,8 @@
 #include "items.h"
 
+#include <stddef.h>
+
+#include "combat.h"
 #include "gen/data.h"
 #include "sight.h"
 
@@ -118,18 +121,6 @@ static uint8_t roll(uint8_t base, Rng *rng)
     return d == 0 ? 1 : (uint8_t)d;
 }
 
-static void hit_unit(World *w, Rng *rng, uint8_t target, uint8_t base)
-{
-    Unit *t = &w->units[target];
-    uint8_t dmg = roll(base, rng);
-    if (dmg > t->con_max / 4)
-        t->flags |= UF_WOUNDED;
-    if (dmg >= t->con)
-        world_remove_unit(w, target);
-    else
-        t->con = (uint8_t)(t->con - dmg);
-}
-
 bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
 {
     Unit *u;
@@ -163,8 +154,9 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
         if (target != NO_UNIT) {        /* thrown weapons hit flyers too */
             if (rng_range(rng, 100) < 50 + 5 * (int16_t)(items_combat(w, unit) -
                                                         w->units[target].def))
-                hit_unit(w, rng, target,
-                         weapon != WEAPON_NONE ? WEAPONS[weapon].thrown : 1);
+                combat_damage(w, target,
+                              roll(weapon != WEAPON_NONE ? WEAPONS[weapon].thrown : 1, rng),
+                              u->kind, u->owner, false, NULL);
             x = (int16_t)(nx - dx);     /* lands in front of the target */
             y = (int16_t)(ny - dy);
             world_wrap(w, &x, &y);
@@ -222,12 +214,7 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
         uint8_t dmg = roll(WEAPONS[weapon].ranged, rng);
         if (damage)
             *damage = dmg;
-        if (dmg > w->units[target].con_max / 4)
-            w->units[target].flags |= UF_WOUNDED;
-        if (dmg >= w->units[target].con)
-            world_remove_unit(w, target);
-        else
-            w->units[target].con = (uint8_t)(w->units[target].con - dmg);
+        combat_damage(w, target, dmg, u->kind, u->owner, false, NULL);
     }
     return true;
 }

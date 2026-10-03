@@ -58,6 +58,7 @@ static bool look_mode = false;     /* x: examine any field (GDD 5.1) */
 static int16_t look_x, look_y;
 static bool spell_list = false;    /* c: pick a spell (GDD 5.1) */
 static bool targeting = false;     /* aiming (Enter casts/throws/fires) */
+static bool game_ended = false;    /* final score shown, only Esc left */
 typedef enum { TA_SPELL, TA_THROW, TA_FIRE } TargetKind;
 static TargetKind target_kind;
 static uint8_t target_spell;
@@ -184,6 +185,22 @@ static void update_sight(void)
     sight_compute(&world, &p1_sight);
 }
 
+/* After any action that may kill: credit the logged kills (M3e) and
+ * find the active unit again - deaths reorder the unit list. */
+static void settle(void)
+{
+    game_credit_kills(&game, &world);
+    turn_revalidate(&turns, &world);
+}
+
+/* Round hook for turn_end_phase: the portal opens on its round, also
+ * in rounds the AI plays on its own. */
+static void on_round(Turns *t, World *w, void *ctx)
+{
+    (void)w;
+    game_new_round((Game *)ctx, t->round);
+}
+
 /* Throw or fire at the aimed field (direction = first step towards it). */
 static void throw_or_fire(bool dump)
 {
@@ -197,17 +214,15 @@ static void throw_or_fire(bool dump)
             render_message(1, C_BRIGHT_YELLOW, "Geworfen!");
         else
             render_message(1, C_BRIGHT_RED, "Nichts zu werfen.");
+        settle();
     } else {
         uint8_t dmg = 0;
-        uint8_t before = world.unit_count;
         if (items_fire(&world, &turns.rng, active(), target_x, target_y, &dmg)) {
             if (dmg)
                 render_message(1, C_BRIGHT_YELLOW, "Schuss trifft!");
             else
                 render_message(1, C_GREY, "Schuss daneben.");
-            if (world.unit_count < before)
-                game_kill_credit(&game, OWN_P1, CR_WIZARD, false);
-            turn_revalidate(&turns, &world);
+            settle();
         } else {
             render_message(1, C_BRIGHT_RED, "Kein Ziel in Reichweite.");
         }
@@ -242,11 +257,9 @@ static void cast_targeted(bool dump)
     render_message(1, shot.hit ? C_BRIGHT_YELLOW : C_GREY, msg);
     if (shot.terrain_smashed)
         render_message(2, C_BRIGHT_YELLOW, "Blitz schlaegt das Terrain ein!");
-    if (world.unit_count < count_before) {
-        game_kill_credit(&game, OWN_P1, CR_WIZARD, false);   /* ranged */
-        turn_revalidate(&turns, &world);
+    if (world.unit_count < count_before)
         render_message(2, C_BRIGHT_RED, "Mindestens eine Kreatur stirbt.");
-    }
+    settle();
     update_sight();
     frame(dump);
 }
@@ -278,7 +291,7 @@ static void step(uint8_t m, bool dump)
             snprintf(msg, sizeof msg, "Gerettet! Zauberer-1: %u VP.",
                      game.vp[OWN_P1]);
             render_message(0, C_BRIGHT_MAGENTA, msg);
-            turn_on_unit_removed(&turns, &world, mover);
+            settle();
         } else
             render_message(1, C_GREY, "");
         update_sight();
@@ -327,10 +340,6 @@ static void step(uint8_t m, bool dump)
             else
                 snprintf(msg, sizeof msg, "Verfehlt.");
             render_message(1, r.hit || r.died ? C_BRIGHT_YELLOW : C_GREY, msg);
-            if (r.died) {
-                game_kill_credit(&game, OWN_P1, world.units[active()].kind, true);
-                turn_on_unit_removed(&turns, &world, other);
-            }
             if (r.returned) {
                 if (r.attacker_died) {
                     snprintf(msg, sizeof msg, "Rueckschlag toetet %s!", aname);
@@ -342,8 +351,7 @@ static void step(uint8_t m, bool dump)
                 render_message(2, r.attacker_died ? C_BRIGHT_RED :
                                r.return_hit ? C_BRIGHT_RED : C_GREY, msg);
             }
-            if (r.attacker_died)
-                turn_on_unit_removed(&turns, &world, att);
+            settle();
             update_sight();
             frame(dump);
             return;
@@ -489,6 +497,8 @@ int main(int argc, char **argv)
         ai_ctx.game = &game;
         turns.ai = ai_wizard_phase;
         turns.ai_ctx = &ai_ctx;
+        turns.on_round = on_round;
+        turns.round_ctx = &game;
     }
     game_init(&game, world.portal_x, world.portal_y, world.portal_rmin,
               world.portal_rmax, &turns.rng);   /* portal from the map (v3) */
@@ -531,6 +541,8 @@ int main(int argc, char **argv)
          * repeat keys that were already released (ADR 0007). */
         while (running && kbuf_poll_event(&e)) {
             now = (uint16_t)getsysvar_time();
+            if (game_ended && !(e.isdown && e.vkey == VK_ESC))
+                continue;                        /* game over: Esc only */
             if (spell_list && e.isdown) {        /* letters pick (a is WASD too) */
                 if (e.vkey == VK_ESC) {
                     spell_list = false;
@@ -712,19 +724,24 @@ int main(int argc, char **argv)
                                    "Zug beenden? Nochmal E=ja, Esc=nein.");
                 } else {
                     confirm_end = false;
-                    turn_end_phase(&turns, &world);
-                    game_new_round(&game, turns.round);
+                    if (!turn_humans_present(&turns, &world))
+                        render_message(1, C_BRIGHT_YELLOW, "Die KI spielt zu Ende ...");
+                    turn_end_phase(&turns, &world);    /* round hook: portal */
+                    game_credit_kills(&game, &world);
                     view_set_portal(game.portal_open ? game.portal_x : -1,
                                     game.portal_y);
-                    if (game.portal_open && turns.round == game.portal_round)
-                        render_message(0, C_BRIGHT_MAGENTA, "Das Portal oeffnet sich!");
-                    else if (game_over(&game, &world)) {
+                    if (game_over(&game, &world) ||
+                        !turn_humans_present(&turns, &world)) {
                         char msg[48];
                         snprintf(msg, sizeof msg,
                                  "Spielende! Zauberer-1: %u VP  Zauberer-2: %u VP",
                                  game.vp[OWN_P1], game.vp[OWN_P2]);
                         render_message(0, C_BRIGHT_YELLOW, msg);
-                    } else
+                        render_message(1, C_GREY, "Esc beendet.");
+                        game_ended = true;
+                    } else if (game.portal_open && turns.round == game.portal_round)
+                        render_message(0, C_BRIGHT_MAGENTA, "Das Portal oeffnet sich!");
+                    else
                         render_message(1, C_BRIGHT_GREEN, "Neue Runde.");
                     update_sight();
                     frame(dump);

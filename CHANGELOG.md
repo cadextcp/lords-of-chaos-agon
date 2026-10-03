@@ -4,6 +4,18 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 
 ## [Unreleased] – M3 Classic spielbar
 
+### Behoben
+- **Review-Fixes M3:**
+  - Das Spiel hing in einer Endlosschleife, wenn der Mensch keine Einheiten mehr hatte (z. B. nach der Flucht durchs Portal). Die KI spielt jetzt zu Ende, bis kein Zauberer mehr da ist, höchstens 40 Runden (`TURN_AUTOPLAY_ROUNDS`). Danach kommt die Abrechnung und nur noch Esc wirkt.
+  - Das Portal öffnet sich jetzt auch in Runden, die die KI allein spielt: Runden-Hook `turns.on_round` statt Aufruf in `main.c`.
+  - Nach einem Tod war oft die falsche Einheit aktiv, und Fertig-Markierungen wurden vertauscht. Einheiten haben jetzt eine stabile `id`, das Fertig-Flag liegt an der Einheit, und `turn_revalidate` findet die aktive Einheit über die ID wieder. `turn_on_unit_removed` entfällt.
+  - Kill-VP zählen jetzt den Wert des **Opfers** statt den des Killers. Tode laufen über `world_kill_unit` mit Protokoll, `game_credit_kills` rechnet ab. Treffer auf eigene Einheiten zählen nicht, mehrere Tote pro Blitz zählen einzeln, Fernkampf nennt den echten Schützen, und die KI bekommt ihre Kills ebenfalls gutgeschrieben.
+  - Ein tödlicher Wurf konnte dem Spieler eine fremde Einheit als aktive geben.
+  - Die KI las nach einem abgelehnten Nahkampf ein uninitialisiertes `CombatResult`; `combat_melee` nullt das Ergebnis jetzt immer.
+  - Die KI behielt nach Toden veraltete Indizes, und Jäger konnten doppelt handeln. Jetzt wird über ID-Schnappschüsse iteriert (`ai_run_hunters`).
+  - Die Fertig-Bits als `1u << i` waren auf dem eZ80 ab Einheit 24 undefiniert (24-Bit-`int`).
+  - Die vier Kopien der Schadensanwendung sind zu `combat_damage` zusammengeführt.
+
 ### Hinzugefügt
 - **M3g Szenario 1 „The Many Coloured Land“ (#33):**
   - Kartenformat v3 mit `portal x y rmin rmax`-Sektion (v2-Karten laden weiter); Welt trägt Portal-Position und Rundenspanne

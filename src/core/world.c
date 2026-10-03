@@ -111,8 +111,10 @@ bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
     for (i = 0; i < n; i++) {
         const uint8_t *u = &b[pos + 4u * i];
         init_unit(&w->units[i], u[0], u[1], u[2], u[3]);
+        w->units[i].id = i;
     }
     w->unit_count = n;
+    w->next_id = n;
     pos = (uint16_t)(pos + 4u * n);
     w->object_count = b[pos++];
     for (i = 0; i < w->object_count; i++) {
@@ -244,12 +246,30 @@ void world_spend(World *w, uint8_t unit, uint8_t ap)
     u->sta = u->sta > st ? (uint8_t)(u->sta - st) : 0;
 }
 
-/* Add a freshly initialised unit (summons); returns its index. */
+uint8_t world_find_unit(const World *w, uint8_t id)
+{
+    uint8_t i;
+    if (id == NO_UNIT)
+        return NO_UNIT;
+    for (i = 0; i < w->unit_count; i++)
+        if (w->units[i].id == id)
+            return i;
+    return NO_UNIT;
+}
+
+/* Add a freshly initialised unit (summons); returns its index. The id
+ * counter wraps after 255 spawns, so ids still in use are skipped. */
 uint8_t world_spawn_unit(World *w, uint8_t owner, uint8_t kind, uint8_t x, uint8_t y)
 {
+    Unit *u;
     if (w->unit_count >= MAX_UNITS || kind >= CR_COUNT)
         return NO_UNIT;
-    init_unit(&w->units[w->unit_count], x, y, kind, owner);
+    while (w->next_id == NO_UNIT || world_find_unit(w, w->next_id) != NO_UNIT)
+        w->next_id++;
+    u = &w->units[w->unit_count];
+    init_unit(u, x, y, kind, owner);
+    u->id = w->next_id++;
+    u->done = false;
     return w->unit_count++;
 }
 
@@ -259,6 +279,22 @@ void world_remove_unit(World *w, uint8_t unit)
         return;
     w->units[unit] = w->units[w->unit_count - 1];   /* swap with the last */
     w->unit_count--;
+}
+
+void world_kill_unit(World *w, uint8_t victim, uint8_t killer_kind,
+                     uint8_t killer_owner, bool melee)
+{
+    if (victim >= w->unit_count)
+        return;
+    if (killer_owner < OWN_NEUTRAL && w->kill_count < MAX_KILLS) {
+        Kill *k = &w->kills[w->kill_count++];
+        k->victim_kind = w->units[victim].kind;
+        k->victim_owner = w->units[victim].owner;
+        k->killer_kind = killer_kind;
+        k->killer_owner = killer_owner;
+        k->melee = melee;
+    }
+    world_remove_unit(w, victim);
 }
 
 bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)

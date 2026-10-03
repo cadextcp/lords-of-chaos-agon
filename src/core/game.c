@@ -46,13 +46,23 @@ bool game_try_enter_portal(Game *g, World *w, uint8_t unit)
     return true;
 }
 
-void game_kill_credit(Game *g, uint8_t killer_owner, uint8_t killer_kind,
-                      bool melee)
+void game_kill_credit(Game *g, const Kill *k)
 {
-    uint16_t vp = CREATURES[killer_kind].vp;   /* wizards count as 20 */
-    if (killer_kind == CR_WIZARD && melee)
+    uint16_t vp;
+    if (k->killer_owner >= OWN_NEUTRAL || k->killer_owner == k->victim_owner)
+        return;                                /* independents, friendly fire */
+    vp = CREATURES[k->victim_kind].vp;         /* wizards count as 20 */
+    if (k->killer_kind == CR_WIZARD && k->melee)
         vp = (uint16_t)(vp * 2);               /* AMI 4 */
-    g->vp[killer_owner] = (uint16_t)(g->vp[killer_owner] + vp);
+    g->vp[k->killer_owner] = (uint16_t)(g->vp[k->killer_owner] + vp);
+}
+
+void game_credit_kills(Game *g, World *w)
+{
+    uint8_t i;
+    for (i = 0; i < w->kill_count; i++)
+        game_kill_credit(g, &w->kills[i]);
+    w->kill_count = 0;
 }
 
 bool game_over(const Game *g, const World *w)

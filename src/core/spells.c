@@ -78,33 +78,26 @@ uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
     return placed;
 }
 
-/* One bolt-like shot at whatever stands on (x, y) (any layer). */
-static bool shoot_field(World *w, Rng *rng, uint8_t wiz, int16_t x, int16_t y,
-                        uint8_t *damage)
+/* One bolt-like shot at whatever stands on (x, y) (any layer). The
+ * caster comes by value: a lightning splash may kill the caster himself
+ * (or reorder the unit list) before the remaining fields are rolled. */
+static bool shoot_field(World *w, Rng *rng, const Unit *caster, int16_t x,
+                        int16_t y, uint8_t *damage)
 {
     uint8_t target = world_unit_at(w, x, y, UL_GROUND);
+    *damage = 0;
     if (target == NO_UNIT)
         target = world_unit_at(w, x, y, UL_AIR);
-    if (target == NO_UNIT) {
-        *damage = 0;
+    if (target == NO_UNIT)
         return false;
-    }
-    if (rng_range(rng, 100) >= combat_hit_chance(w->units[wiz].com,
+    if (rng_range(rng, 100) >= combat_hit_chance(caster->com,
                                                  w->units[target].def))
         return false;
-    *damage = (uint8_t)((w->units[wiz].com +
-                         rng_range(rng, (uint16_t)(w->units[wiz].com + 1))) / 4);
+    *damage = (uint8_t)((caster->com +
+                         rng_range(rng, (uint16_t)(caster->com + 1))) / 4);
     if (*damage == 0)
         *damage = 1;
-    {
-        Unit *t = &w->units[target];
-        if (*damage > t->con_max / 4)
-            t->flags |= UF_WOUNDED;
-        if (*damage >= t->con)
-            world_remove_unit(w, target);
-        else
-            t->con = (uint8_t)(t->con - *damage);
-    }
+    combat_damage(w, target, *damage, caster->kind, caster->owner, false, NULL);
     return true;
 }
 
@@ -154,10 +147,12 @@ bool spell_bolt(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
         return false;
     {
         uint8_t before = w->unit_count;
+        Unit caster;
         if (!pay_for_spell(w, b, wiz, spell, x, y))
             return false;
+        caster = w->units[wiz];
         out->allowed = true;
-        out->hit = shoot_field(w, rng, wiz, x, y, &out->damage);
+        out->hit = shoot_field(w, rng, &caster, x, y, &out->damage);
         out->died = w->unit_count < before;
     }
     return true;
@@ -169,10 +164,14 @@ bool spell_lightning(World *w, Spellbook *b, uint8_t wiz,
     static const int8_t DX[8] = {0, 1, 1, 1, 0, -1, -1, -1};
     static const int8_t DY[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
     uint8_t i;
+    Unit caster;
     /* massive target fields are rejected (GDD 7.2) */
     if (world_wrap(w, &x, &y) && world_blocks(w, x, y) &&
         FEATURE_TOUGH[world_feature(w, x, y)] == 0)
         return false;
+    if (wiz >= w->unit_count)
+        return false;
+    caster = w->units[wiz];              /* before the bolt reorders units */
     if (!spell_bolt(w, b, wiz, SP_MAGIC_LIGHTNING, x, y, rng, out))
         return false;
     /* smash destructible terrain at the target */
@@ -187,7 +186,7 @@ bool spell_lightning(World *w, Spellbook *b, uint8_t wiz,
         uint8_t before = w->unit_count;
         if (!world_wrap(w, &nx, &ny))
             continue;
-        if (shoot_field(w, rng, wiz, nx, ny, &dmg))
+        if (shoot_field(w, rng, &caster, nx, ny, &dmg))
             out->splash_hits++;
         if (w->unit_count < before)
             out->died = true;

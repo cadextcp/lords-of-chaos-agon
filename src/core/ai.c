@@ -109,16 +109,27 @@ void ai_hunter(World *w, Rng *rng, uint8_t unit)
     }
 }
 
-/* One wizard phase (GDD 10): own creatures hunt, then the wizard melees
- * an adjacent enemy, summons while under company and walks to the
- * portal - through it as soon as it is open. */
-void ai_wizard_phase(Turns *t, World *w, void *ctx_ptr)
+void ai_run_hunters(World *w, Rng *rng, uint8_t owner, uint8_t skip_id)
 {
-    AiCtx *ctx = ctx_ptr;
+    uint8_t ids[MAX_UNITS], n = 0, i;
+    for (i = 0; i < w->unit_count; i++)
+        if (w->units[i].owner == owner && w->units[i].id != skip_id)
+            ids[n++] = w->units[i].id;
+    for (i = 0; i < n; i++) {
+        uint8_t u = world_find_unit(w, ids[i]);
+        if (u != NO_UNIT)                 /* not killed meanwhile */
+            ai_hunter(w, rng, u);
+    }
+}
+
+/* The wizard's own actions; returns early once he is gone. Unit indices
+ * change with every death, so the wizard is re-found by id after each
+ * step that may kill. */
+static void wizard_actions(Turns *t, World *w, AiCtx *ctx, uint8_t owner)
+{
     static Sight sight;
-    uint8_t owner = t->phase, wiz = NO_UNIT, i, own = 0;
-    if (!ctx || !ctx->books || !ctx->game)
-        return;
+    uint8_t wiz = NO_UNIT, wiz_id, i, own = 0;
+
     for (i = 0; i < w->unit_count; i++) {
         if (w->units[i].owner != owner)
             continue;
@@ -126,15 +137,15 @@ void ai_wizard_phase(Turns *t, World *w, void *ctx_ptr)
         if (w->units[i].kind == CR_WIZARD)
             wiz = i;
     }
-    if (wiz == NO_UNIT) {
-        for (i = w->unit_count; i-- > 0;)
-            if (w->units[i].owner == owner)
-                ai_hunter(w, &t->rng, i);
+    if (wiz == NO_UNIT) {                 /* leaderless creatures still hunt */
+        ai_run_hunters(w, &t->rng, owner, NO_UNIT);
         return;
     }
-    for (i = w->unit_count; i-- > 0;)   /* own creatures hunt first */
-        if (w->units[i].owner == owner && i != wiz)
-            ai_hunter(w, &t->rng, i);
+    wiz_id = w->units[wiz].id;
+    ai_run_hunters(w, &t->rng, owner, wiz_id);   /* own creatures first */
+    wiz = world_find_unit(w, wiz_id);
+    if (wiz == NO_UNIT)
+        return;
 
     sight_init(&sight, owner);
     sight_compute(w, &sight);
@@ -152,20 +163,19 @@ void ai_wizard_phase(Turns *t, World *w, void *ctx_ptr)
                 break;
             }
         }
-        if (foe != NO_UNIT) {
-            combat_melee(w, &t->rng, wiz, foe, &r);
-            if (r.died)
-                turn_on_unit_removed(t, w, foe);
-            if (r.attacker_died) {
-                turn_on_unit_removed(t, w, wiz);
-                return;
-            }
+        if (foe != NO_UNIT && combat_melee(w, &t->rng, wiz, foe, &r)) {
+            wiz = world_find_unit(w, wiz_id);
+            if (wiz == NO_UNIT)
+                return;                   /* fell to the return blow */
         }
     }
 
-    while (own < 3 && wiz < w->unit_count &&    /* summon company */
-           w->units[wiz].ap >= ACTIONS[ACT_CAST].ap) {
-        uint8_t pick = 0xFF, k, best = 0xFF;
+    own = 0;                              /* recount after the hunt */
+    for (i = 0; i < w->unit_count; i++)
+        if (w->units[i].owner == owner)
+            own++;
+    while (own < 3 && w->units[wiz].ap >= ACTIONS[ACT_CAST].ap) {
+        uint8_t pick = 0xFF, k, best = 0xFF;   /* summon company */
         for (k = 0; k < SPELL_COUNT; k++) {
             uint8_t cost = spell_mana(k, ctx->books[owner].level[k]);
             if (ctx->books[owner].level[k] == 0 ||
@@ -176,21 +186,32 @@ void ai_wizard_phase(Turns *t, World *w, void *ctx_ptr)
             pick = k;
         }
         if (pick == 0xFF || spell_summon(w, &ctx->books[owner], wiz, pick) == 0)
-            break;
+            break;                        /* spawning appends: wiz stays */
         own++;
     }
 
-    if (ctx->game->portal_x >= 0 && wiz < w->unit_count) {
+    if (ctx->game->portal_x >= 0) {
         uint8_t k;
-        for (k = 0; k < 8; k++) {       /* walk, and step through */
-            if (wiz >= w->unit_count || w->units[wiz].ap < 4)
+        for (k = 0; k < 8; k++) {         /* walk, and step through */
+            if (w->units[wiz].ap < 4)
                 break;
-            if (game_try_enter_portal(ctx->game, w, wiz)) {
-                turn_on_unit_removed(t, w, wiz);
+            if (game_try_enter_portal(ctx->game, w, wiz))
                 return;
-            }
             if (!ai_step_toward(w, wiz, ctx->game->portal_x, ctx->game->portal_y))
                 break;
         }
     }
+}
+
+/* One wizard phase (GDD 10): own creatures hunt, then the wizard melees
+ * an adjacent enemy, summons while under company and walks to the
+ * portal - through it as soon as it is open. */
+void ai_wizard_phase(Turns *t, World *w, void *ctx_ptr)
+{
+    AiCtx *ctx = ctx_ptr;
+    if (!ctx || !ctx->books || !ctx->game)
+        return;
+    wizard_actions(t, w, ctx, t->phase);
+    game_credit_kills(ctx->game, w);      /* the AI scores its kills too */
+    turn_revalidate(t, w);
 }
