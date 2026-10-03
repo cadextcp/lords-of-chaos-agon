@@ -203,6 +203,7 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 - **Hardware-Test des Nutzers (#3, #7):** Er wird mit jedem Teil wichtiger; KI-Runden und Sicht kosten auf dem Emulator schon spürbar Zeit.
   - Auf die SD-Karte nach `/loc`: `bin/loc.bin`, `build/tiles.bin`, `build/maps/`, `build/scenarios/`.
   - Dann `SET KEYBOARD 2`, `cd /loc`, `loc --keytest`, `loc --bench`, `loc`.
+  - **Runde 1 ohne Bewegung:** `loc` startet mit der Original-Regel `[PM 7]` - in Runde 1 ist nur Zaubern moeglich (Meldung „Runde 1: nur Zaubern (PM 7)."). `Shift+E` (+ `E` bestaetigen) beendet den Zug, ab Runde 2 wird bewegt. `loc --free-round1` hebt die Sperre auf (so starten auch die Emulator-Skripte).
   - **Stand 2026-10-03 (Hardware, Stand `037521f`):** Upload nach `/loc` per USB, `loc --selftest` PASS und `loc --bench` sind gelaufen (Werte in `docs/AGON-QUIRKS.md`, Ablauf in `docs/TESTING.md`); lange Dateinamen auf FAT sind geklärt. Das Spiel selbst, `--keytest` und die Eingabe am Gerät stehen noch aus. Der Lumagon-Autostart ist auf der Karte abgeschaltet (Sicherung `/autoexec.lum`).
   - Zu klären:
     - Akkorde ohne Ghosting?
