@@ -8,6 +8,7 @@
 #include "../core/colors.h"
 #include "../core/gen/data.h"
 #include "../core/names.h"
+#include "../core/ride.h"
 #include "../core/sight.h"
 #include "../core/spells.h"
 #include "../core/view.h"
@@ -110,6 +111,31 @@ void render_cursor(int16_t vx, int16_t vy, uint8_t colour, bool visible)
     vdp_refresh_sprites();
 }
 
+/* Rider drawn behind its mount (M4k): lifted so that torso and head show
+ * over the mount's back while the mount's body hides legs and feet. The
+ * offset depends on the mount, read from the mount tile that follows. */
+#define RIDE_LIFT 7
+static void ride_offset(uint16_t mount_tile, int *dx, int *dy)
+{
+    static const struct { uint8_t kind; int8_t dx, dy; } MOUNTS[] = {
+        { CR_UNICORN, -2, RIDE_LIFT },
+        { CR_PEGASUS, -2, RIDE_LIFT },
+        { CR_GRYPHON, -1, RIDE_LIFT },
+        { CR_ELEPHANT, -1, RIDE_LIFT },
+    };
+    uint8_t i;
+    *dx = 0;
+    *dy = RIDE_LIFT;
+    for (i = 0; i < sizeof MOUNTS / sizeof MOUNTS[0]; i++) {
+        uint16_t base = CREATURE_TILE[MOUNTS[i].kind];
+        if (mount_tile >= base && mount_tile - base <= OWN_NEUTRAL) {
+            *dx = MOUNTS[i].dx;
+            *dy = MOUNTS[i].dy;
+            return;
+        }
+    }
+}
+
 uint8_t render_fields(void)
 {
     uint8_t vx, vy, i, n = 0;
@@ -120,13 +146,21 @@ uint8_t render_fields(void)
                 continue;
             f = view_field(vx, vy);
             for (i = 0; i < f->n; i++) {
+                int x = vx * TILE_PX;
                 int y = vy * TILE_PX;
-                if (f->air & (1u << i)) {       /* flyer, slightly higher */
+                if (f->air & (1u << i))         /* flyer, slightly higher */
                     y -= 3;
-                    if (y < 0)
-                        y = 0;
+                if ((f->ride & (1u << i)) && i + 1 < f->n) {
+                    int dx, dy;                 /* rider behind the mount */
+                    ride_offset(f->id[i + 1], &dx, &dy);
+                    x += dx;
+                    y -= dy;
                 }
-                draw_tile(f->id[i], vx * TILE_PX, y);
+                if (y < 0)
+                    y = 0;
+                if (x < 0)
+                    x = 0;
+                draw_tile(f->id[i], x, y);
             }
             n++;
         }
@@ -198,7 +232,17 @@ void render_panel(const World *w, uint8_t unit)
     vdp_gcol(0, C_BRIGHT_BLUE);
     vdp_rectangle(PANEL_X + 4, 4, PANEL_X + 31, 31);
     black(PANEL_X + 5, 5, PANEL_X + 30, 30);
-    draw_tile((uint16_t)(CREATURE_TILE[u->kind] + u->owner), PANEL_X + 6, 6);
+    {   /* a rider shows behind his mount, lifted a little (M4k) */
+        uint8_t rk = ride_rider_kind(u);
+        int dx = 0, dy = 0;
+        uint16_t mount_tile = (uint16_t)(CREATURE_TILE[u->kind] + u->owner);
+        if (rk < CR_COUNT) {
+            ride_offset(mount_tile, &dx, &dy);
+            draw_tile((uint16_t)(CREATURE_TILE[rk] + u->owner), PANEL_X + 6 + dx,
+                      6 - (dy > 2 ? 2 : dy));
+        }
+        draw_tile(mount_tile, PANEL_X + 6, 6);
+    }
     text_at(32, 1, C_GREY, u->kind == CR_WIZARD ? "Stufe 1" : "       ");
     for (i = 0; i < 5; i++) {
         int x = 256 + i * 9;

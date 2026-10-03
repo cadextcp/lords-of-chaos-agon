@@ -74,7 +74,7 @@ static int fast_equals_reference(void)
             const FieldLayers *f = view_field(vx, vy);
             view_compose(&world, (int16_t)(view_origin_x() + vx),
                          (int16_t)(view_origin_y() + vy), &ref);
-            if (f->n != ref.n || f->air != ref.air ||
+            if (f->n != ref.n || f->air != ref.air || f->ride != ref.ride ||
                 memcmp(f->id, ref.id, ref.n * sizeof ref.id[0]) != 0)
                 return 0;
         }
@@ -2169,6 +2169,29 @@ static void test_m4e(void)
               ride_rider_kind(&world.units[0]) == CR_WIZARD,
               "m4e: the wizard mounts the unicorn");
         mount = 0;                       /* the list re-ordered on removal */
+        {   /* the pair is drawn as rider layer behind the mount layer (M4k) */
+            FieldLayers rf;
+            uint8_t li, rl = 0xFF;
+            view_set_sight(NULL);
+            view_compose(&world, 6, 6, &rf);
+            for (li = 0; li < rf.n; li++)
+                if (rf.ride & (1u << li))
+                    rl = li;
+            check(rl != 0xFF && rf.id[rl] == T_WIZARD_P1 &&
+                  rf.id[rl + 1] == T_UNICORN_P1 && rf.air == 0 &&
+                  rf.ride == (uint16_t)(1u << rl),
+                  "m4k: the rider layer sits right behind the mount");
+            world.units[mount].flags |= UF_FLYING;    /* a flying mount */
+            view_compose(&world, 6, 6, &rf);
+            rl = 0xFF;                                /* the shadow shifts it */
+            for (li = 0; li < rf.n; li++)
+                if (rf.ride & (1u << li))
+                    rl = li;
+            check(rl != 0xFF && rf.id[rl + 1] == T_UNICORN_P1 &&
+                  (rf.air & (1u << rl)) && (rf.air & (1u << (rl + 1))),
+                  "m4k: both layers of a flying pair are airborne");
+            world.units[mount].flags &= (uint8_t)~UF_FLYING;
+        }
         {   /* `b` finds a mount on any of the eight neighbour fields */
             static const int8_t NX[8] = {0, 1, 1, 1, 0, -1, -1, -1};
             static const int8_t NY[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
