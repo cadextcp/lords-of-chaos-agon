@@ -118,6 +118,10 @@ static int selftest(void)
     selftest_set_verbose(false);
     fails = core_selftest(print_line);
     printf(fails ? "=== TEST FAIL ===\r\n" : "=== TEST PASS ===\r\n");
+    /* The fake VDP drops the first console bytes after the boot banner
+     * (packet desync); a sacrificial line keeps the verdict readable. */
+    printf("
+.");
     fflush(stdout);                      /* reach the UART before the exit */
     emu_exit(fails ? 1 : 0);
     return fails ? 1 : 0;
