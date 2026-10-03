@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "ai.h"
+#include "brew.h"
 #include "effect.h"
 #include "chord.h"
 #include "combat.h"
@@ -24,7 +25,7 @@
  * tiles or composition rules change. Changed for M2d: the new unexplored
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
  * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures. */
-#define HOUSE_VIEW_HASH 0x7B9097F4UL
+#define HOUSE_VIEW_HASH 0x46DA1048UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -1635,6 +1636,137 @@ static void test_m4b(void)
     }
 }
 
+static void test_m4c(void)
+{
+    Spellbook book;
+    Rng rng;
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 1;                    /* the wizard at 6,6 */
+    memset(&book, 0, sizeof book);
+    book.level[SP_HEALING_POTION] = 2;
+    book.level[SP_STRENGTH_POTION] = 1;
+    book.level[SP_GOLD_DRAGON] = 1;
+
+    {   /* brewing needs cauldron + ingredient, yields level+3 doses */
+        Cauldron *c;
+        world.units[0].ap = 40;
+        world.units[0].mana = 80;
+        check(!brew_cast(&world, &book, 0, SP_HEALING_POTION),
+              "m4c: no brewing without a cauldron");
+        brew_set_cauldron(&world, 6, 6, false, 0xFF);
+        check(!brew_cast(&world, &book, 0, SP_HEALING_POTION),
+              "m4c: no brewing without the ingredient");
+        {   /* apple lies on the field: healing ingredient (GDD 7.2) */
+            world.objects[world.object_count].x = 6;
+            world.objects[world.object_count].y = 6;
+            world.objects[world.object_count].tile = T_OBJ_APPLE;
+            world.object_count++;
+        }
+        check(brew_cast(&world, &book, 0, SP_HEALING_POTION) &&
+              (c = brew_cauldron_at(&world, 6, 6)) != NULL &&
+              c->doses == 5 && c->potion == SP_HEALING_POTION &&
+              book.level[SP_HEALING_POTION] == 1 &&
+              world.units[0].mana == 80 - (5 + 2 * 3),
+              "m4c: brewing fills level+3 doses and burns one level");
+    }
+
+    {   /* drinking heals wounds and consumes doses */
+        Unit *u = &world.units[0];
+        u->con = 10;
+        u->sta = 0;
+        u->flags |= UF_WOUNDED;
+        u->ap = 40;
+        check(brew_drink(&world, 0) && u->con == 30 && u->sta == 60 &&
+              !(u->flags & UF_WOUNDED),
+              "m4c: the healing draught cures everything");
+        check(brew_cauldron_at(&world, 6, 6)->doses == 4,
+              "m4c: one dose down");
+    }
+
+    {   /* fill a vial, drink it */
+        Unit *u = &world.units[0];
+        u->items[0] = OBJ_VIAL_EMPTY;
+        u->item_count = 1;
+        u->in_use = 0;
+        u->ap = 40;
+        check(brew_fill(&world, 0) && u->items[0] == OBJ_VIAL_HEALING &&
+              brew_cauldron_at(&world, 6, 6)->doses == 3,
+              "m4c: filling takes a dose from the cauldron");
+        u->con = 5;
+        u->ap = 40;
+        check(brew_drink_vial(&world, 0) && u->con == 30 &&
+              u->item_count == 0,
+              "m4c: drinking the vial heals");
+    }
+
+    {   /* strength potion effect via brewing (M4b machinery) */
+        Unit *u = &world.units[0];
+        u->ap = 40;
+        u->mana = 80;
+        {
+            world.objects[world.object_count].x = 6;
+            world.objects[world.object_count].y = 6;
+            world.objects[world.object_count].tile = T_OBJ_MISTLETOE;
+            world.object_count++;
+        }
+        check(brew_cast(&world, &book, 0, SP_STRENGTH_POTION) &&
+              effect_active(u, EFF_STRENGTH) == false,
+              "m4c: brewed strength waits in the cauldron");
+        u->ap = 40;
+        check(brew_drink(&world, 0) && effect_active(u, EFF_STRENGTH),
+              "m4c: drinking grants the strength effect");
+        check(items_combat(&world, 0) == 10 + 4,
+              "m4c: strength +4 combat while active");
+    }
+
+    {   /* bomb vial explodes in the area */
+        Unit *u = &world.units[0];
+        uint8_t g1, g2;
+        rng_seed(&rng, 3);
+        u->x = 12;                        /* open grass, wall to the west */
+        u->y = 6;
+        world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, 9, 6);
+        world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, 10, 7);
+        g1 = world.unit_count - 2;
+        g2 = world.unit_count - 1;
+        u->items[0] = OBJ_VIAL_BOMB;
+        u->item_count = 1;
+        u->in_use = 0;
+        u->ap = 40;
+        check(brew_throw_vial(&world, &rng, 0, -1, 0),
+              "m4c: the bomb flies");
+        check(world.units[g1].con < 32 || world.units[g2].con < 32 ||
+              world.unit_count < 3,
+              "m4c: the explosion wounds the goblins");
+    }
+
+    {   /* dragons need the herb, and spend it */
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 1;
+        book.level[SP_GOLD_DRAGON] = 1;
+        world.units[0].mana = 200;
+        world.units[0].ap = 40;
+        check(spell_summon(&world, &book, 0, SP_GOLD_DRAGON) == 0,
+              "m4c: no dragon without a cauldron");
+        brew_set_cauldron(&world, 6, 6, false, 0xFF);
+        check(spell_summon(&world, &book, 0, SP_GOLD_DRAGON) == 0,
+              "m4c: no dragon without dragon herb");
+        {
+            world.objects[world.object_count].x = 6;
+            world.objects[world.object_count].y = 6;
+            world.objects[world.object_count].tile = T_OBJ_DRAGON_HERB;
+            world.object_count++;
+        }
+        check(spell_summon(&world, &book, 0, SP_GOLD_DRAGON) == 1 &&
+              world.units[1].kind == CR_GOLD_DRAGON &&
+              !items_kind_at(&world, 6, 6) == false,   /* herb spent */
+              "m4c: the dragon rises and the herb is spent");
+        check(items_kind_at(&world, 6, 6) != OBJ_DRAGON_HERB,
+              "m4c: the herb is gone after the summon");
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -1663,6 +1795,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_scenario();
     test_m4a();
     test_m4b();
+    test_m4c();
     load_house();   /* leave a clean state */
     return fails;
 }

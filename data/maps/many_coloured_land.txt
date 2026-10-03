@@ -141,6 +141,8 @@ units
 
 objects
 5 9 obj_scroll
+7 6 obj_cauldron_empty
+7 6 obj_apple
 6 8 obj_sword
 5 8 obj_shield
 10 3 obj_bow

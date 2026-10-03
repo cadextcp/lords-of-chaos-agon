@@ -1,5 +1,6 @@
 #include "spells.h"
 
+#include "brew.h"
 #include "combat.h"
 #include "effect.h"
 #include "items.h"
@@ -65,6 +66,7 @@ uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
     static const int8_t DX[8] = {0, 1, 1, 1, 0, -1, -1, -1};
     static const int8_t DY[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
     uint8_t level, mana, want, placed = 0, i, free_count = 0, kind;
+    bool dragon_herb_spend = false;
     const Unit *u;
     if (!spell_can_cast(w, b, wiz, spell) || SPELLS[spell].category != SPC_SUMMON)
         return 0;
@@ -74,6 +76,17 @@ uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
     kind = SUMMON_KIND[spell];                /* one summon spell per kind */
     if (kind >= CR_COUNT)
         return 0;
+    {   /* dragons need a cauldron with dragon herb (PM 21, M4c) */
+        uint8_t k;
+        for (k = 0; k < CR_COUNT; k++)
+            ;
+        if (kind == CR_GOLD_DRAGON || kind == CR_GREEN_DRAGON ||
+            kind == CR_RED_DRAGON) {
+            if (!brew_dragon_ready(w, wiz))
+                return 0;
+            dragon_herb_spend = true;
+        }
+    }
     for (i = 0; i < 8; i++) {
         int16_t x = (int16_t)(u->x + DX[i]), y = (int16_t)(u->y + DY[i]);
         if (world_wrap(w, &x, &y) && !world_blocks(w, x, y) &&
@@ -83,6 +96,10 @@ uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
     /* all or nothing: not enough room for the whole level and the mana
      * is lost (GDD 7.2) */
     want = free_count >= level ? level : 0;
+    if (want == 0)
+        dragon_herb_spend = false;       /* failed: the herb survives */
+    else if (dragon_herb_spend)
+        brew_dragon_spend(w, wiz);
     world_spend(w, wiz, ACTIONS[ACT_CAST].ap);
     w->units[wiz].mana = (uint8_t)(u->mana - mana);
     b->level[spell] = (uint8_t)(level - 1);

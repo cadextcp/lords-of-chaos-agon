@@ -140,7 +140,7 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 | M4i | #51 | Speichern und Setup |
 | M4j | #52 | Politur |
 
-**Als Nächstes: M4a (#43).** Die Designfragen F1–F9 (GDD §16.1) sind Startwerte; vor jedem Teil kurz mit dem Nutzer bestätigen. Der Nutzer liefert Regelantworten oft als Recherche aus den Quellen; Originalwerte daraus sind nur Anker (D7).
+**Fortschritt 2026-10-03:** M4a (#53), M4b (#54), M4c (#56) fertig und CI-grün — gestapelt als `m4/a-classic-gaps` → `m4/b-effects` → `m4/c-potions` (in dieser Reihenfolge mergen; #54/#56 haben ihre Base auf dem Vorgänger). **Als Nächstes: M4d (#46)** (braucht nur M4a), M4e (#47) ist unabhängig. Die Designfragen F1–F9 (GDD §16.1) sind Startwerte; vor jedem Teil kurz mit dem Nutzer bestätigen. Der Nutzer liefert Regelantworten oft als Recherche aus den Quellen; Originalwerte daraus sind nur Anker (D7).
 
 **Workflow:** pro Issue ein Branch `m4/<x>-…`, Selftest-Checks, Emulator-Screenshot, CHANGELOG, PR mit `Closes #n`. Merge nach grünem CI macht der Nutzer.
 
