@@ -746,6 +746,7 @@ Spalte „WinUAE“: Was sich im Amiga-Original direkt beobachten lässt (●), 
 | D11 | Perspektive | **3/4-Frontansicht wie auf dem Amiga** für Möbel, Wände und Kreaturen; flache Böden; Halb-Böden an Wänden (§11.2). |
 | D12 | Kreaturwerte | **Kreaturtabelle des Originals `[PM 34]` als Startwerte** für alle 25 Kreaturen (`data/creatures.csv`). Balancing später; Abweichungen werden in der CSV kommentiert. |
 | D13 | Kreaturgrafik | **Alle 25 Kreaturen bekommen schon in M2 eigene 24×24-Pixelart** (3/4-Ansicht, Besitzerfarben). |
+| D22 | M4-Aufteilung (Review 3) | **Zehn Teile M4a–M4j** in der Reihenfolge von §16: erst Systeme, dann Kampagne, Szenarien, KI, Speichern, Politur. **Kampagne ohne Gegenstände** (F5), **Dächer sichtbar** und innen ausgeblendet (F7). Die Formeln F1–F4 und die Vorschläge F6, F8, F9 gelten als Startwerte. |
 | D21 | Regeln aus dem M3-Review | **Rückschlag gegen Flieger:** Greift ein Flieger selbst am Boden an, schlägt der Verteidiger zurück; von unten angreifen geht weiter nicht. **Blitz ohne Freund-Feind-Erkennung:** Der Splash trifft alle 8 Nachbarfelder, auch eigene Einheiten und den Zaubernden (Gollop-Tradition); eigene Opfer bringen keine VP. **Eine Trefferformel für alle Angriffe:** Werfen, Bogen und Bolt nutzen D16 (10–90 %, Defence inklusive Schild). **Schilde stapeln nicht:** Ein getragener Schild zählt immer (D18), weitere nicht. **Beute fällt:** Wer stirbt (Kampf, Zauber, Verbluten), lässt alles Getragene auf sein Feld fallen, Flieger auf den Boden darunter; wer durchs Portal entkommt, nimmt es mit. |
 | D20 | Einfache KI (M3f) | **Jäger für Unabhängige** (nächstes Ziel per Sichtstrahl, Angriff wenn angrenzend, sonst Umherstreifen); **Zauberer-KI**: Kreaturen jagen zuerst, dann Nahkampf/Beschwörung (günstigster Zauber, bis 3 Begleiter)/Weg zum Portal und Eintritt. Kein Schummeln: Ziele nur in eigener Sichtlinie. |
 | D19 | Portal und VP (M3e) | **Erscheinungsrunde** deterministisch aus der Szenario-Spanne (RNG mit Partie-Saat); **Entkommen +10 VP** plus getragene Schätze (objektbezogen aus objects.csv); Kills nach Kreaturtabelle, Zauberer im Nahkampf doppelt (AMI 4), Fernkampf einfach; Spielende ohne Zauberer. |
@@ -769,6 +770,48 @@ Spalte „WinUAE“: Was sich im Amiga-Original direkt beobachten lässt (●), 
 | M1 Spikes | §11 neu: Bitmap-Kachel-Renderer (Ebenen, Bandbreite, VDP-Speicher, Frame-Animation, Hardware-Sprite-Cursor), Pixelart-Pipeline und Mockup, Eingabe-Spike mit der G84-4100 (§5.2). Parallel: WinUAE-Beobachtungs-Session 1 (Kartengröße, AP-Kosten, Terrain-Katalog). |
 | M2 Core-Skelett | §3 (Karte, Ebenen, Sicht, Hidden Map), §4 (Daten), §5.1 (aktive Einheit, Bewegung, Bump, `Tab`, Look-Modus), Rundenablauf §2.1 |
 | M3 Classic spielbar | §6 Kampf, §7 Beschwörungen und Bolt/Lightning, §8 Basis-Objekte, §9 Portal und VP, §10 einfache KI, eigenes Szenario 1 |
-| M4 Classic komplett (v1.0) | Alle 45 Zauber und Tränke, Flächeneffekte, Wizard Designer, Kampagne, eigene Szenarien 2 und 3, Setup-Panel, Speichern |
+| M4 Classic komplett (v1.0) | Alle 45 Zauber und Tränke, Flächeneffekte, Wizard Designer, Kampagne, eigene Szenarien 2 und 3, Setup-Panel, Speichern. Aufteilung M4a–M4j und offene Fragen: §16 |
 | nach v1.0 | Hotseat-Multiplayer, Timer, Maus, Expansion-Kit-Inhalte |
 | M5+ | §12 Chaos |
+
+---
+
+## 16. M4-Aufteilung „Classic komplett“ (Review 3, 2026-10-03, entschieden: D22)
+
+**Ziel:** Funktionsumfang ≈ Amiga-Version im Einzelspieler, Tag `v1.0.0` (ROADMAP). M4 ist deutlich größer als M3. Jeder Teil endet wie bisher mit Selftests, Emulator-Beleg, CHANGELOG und PR.
+
+**Leitlinien:**
+- **Mechanik vor Inhalt:** Erst die Systeme (Wirkungen, Flächen, Behälter), dann Kampagne und Szenarien, die sie nutzen.
+- **KI-Minimum pro Teil:** Jede neue Mechanik kommt mit einer einfachen KI-Nutzung oder wenigstens einer KI, die sie sicher ignoriert. Der Ausbau der KI folgt in M4h.
+- **Budget:** `loc.bin` hat nach M3 137 KB. Die Größe im CI-Bericht beobachten; ab etwa 250 KB folgt ein ADR (Daten vom SD statt einkompiliert, Overlays).
+
+| Teil | Inhalt | GDD | Abnahme |
+|---|---|---|---|
+| **M4a Classic-Lücken und Szenario-Format** | Untote nur durch Untote, magische Waffen und Zauber verletzbar (§4.2). Malus unter 50 % Constitution (§4.1). Nahrung mit EAT (Apfel, Pilz, magische Varianten). Schlüssel und Truhen als Behälter-Features, Schriftrollen mit READ (§8). **Szenario-Datei** `data/scenarios/` mit Karte, Zauberbüchern und Parametern der KI-Zauberer; das Test-Zauberbuch entfällt (§9.1). | §4, §8, §9.1 | Szenario 1 lädt Zauberbücher aus der Datei; Untote lassen sich mit normalen Waffen nicht verletzen |
+| **M4b Wirkungen und sonstige Zauber** | Zeitlich begrenzte Wirkungen pro Einheit (Art, Stärke, Restrunden), Tick am Rundenende (§2.1), Status-Icons im Panel. Zauber: Magic Shield, Magic Eye, Teleport, Curse, Subversion, Magic Attack, Enchant (magisch-Flag pro getragenem Objekt). | §7.2 | Jeder der 7 Zauber wirkt im Emulator; Wirkungen laufen nach ihrer Dauer ab |
+| **M4c Tränke und Brauen** | Kessel (leer/voll, Schlucke) und Phiole als Objekte, 7 Zutaten, 7 Trankzauber (Amiga-Satz, kein Super Potion), DRINK, FILL, Werfen der Bombe. Mehrere Tränke wirken gleichzeitig. Drachen-Beschwörung mit Drachenkraut im Kessel (§7.2, `[PM 21]`). | §7.2, §8 | Brauen → Trinken → Wirkung → Ablauf; ein Drache entsteht nur mit Kraut |
+| **M4d Flächeneffekte** | Neue Feld-Ebene „Effekt“ (§3.2) mit Stärke. Magic Fire, Gooey Blob, Tangle Vine, Flood: Ausbreitung am Rundenende, deterministisch über den Partie-RNG. Schaden, Objekte verbrennen, Ertrinken, Feuer löschen. Eigene animierte Kacheln. Kills zählen einfach (§9). | §3.2, §7.2 | Ein Feuer breitet sich aus und erlischt reproduzierbar; Rundenende mit 4 aktiven Flächen bleibt unter 0,5 s im Emulator |
+| **M4e Kampf komplett** | Restliche Waffen (Knife, Spear, Club, Axe, Ninja Star, Slayer, Magic Slayer) mit eigenen Werten (D7). **Reiten** (RIDE, RIDER, Angriff vom befreundeten Feld). **Dächer** als Datenfeld im Kartenformat v4: blockieren Sicht und Landung (§3.2). | §3.2, §4.2, §6 | Ein Zauberer reitet ein Einhorn in den Kampf; Flieger können auf Dächern nicht landen |
+| **M4f Zauberer und Kampagne** | Hauptmenü (§2.3), Wizard Designer mit Attributen und Zauberstufen (§7.3), 4 Zauberer-Plätze auf SD, VP → XP 1:1, Stufenaufstieg, Szenario-Folge 1 → 2 → 3, Wiederholen erlaubt (§9). | §2.3, §7.3, §9 | Ein entworfener Zauberer spielt Szenario 1, steigt auf und gibt XP im Designer aus |
+| **M4g Szenarien 2 und 3** | „Slayer's Dungeon“ und „Ragaril's Domain“ als eigene Karten im Geist der Originale (D2), mit Schätzen, Portal-Timing und Gegnerauswahl aus §9.1. | §9.1 | Beide Szenarien sind durchspielbar |
+| **M4h KI-Ausbau** | Wächter-Profil (§10). Zauberer-KI nutzt Angriffszauber, Tränke und Flächen, sammelt Schätze. Rechenbudget ≤ 2 s pro KI-Zug messen (Emulator, später Hardware). | §10 | Die KI gewinnt gelegentlich gegen einen passiven Spieler; Zugzeit gemessen und dokumentiert |
+| **M4i Speichern und Setup** | Spielstand am Rundenende auf SD, höchstens 5 Ladungen im Einzelspieler (§2.3). Setup-Panel nur mit den für Einzelspieler relevanten Einstellungen (§2.2). | §2.2, §2.3 | Speichern, Neustart, Laden ergibt denselben Spielstand (Hash) |
+| **M4j Politur** | Kontextmenü mit Enter, Big Map `m` (§3.1), Log `l`, Hilfe F1, Sound (§11.4), Font mit Umlauten, Kunst-Schulden (offene Türen). | §5.1, §11 | Vollständige Partie ohne Hilfe von außen spielbar |
+
+**Abhängigkeiten:** a → b → c (Tränke nutzen die Wirkungen aus b). d braucht nur a. e ist unabhängig. f braucht a; g braucht c, d und e (Szenario-Inhalte). h nach g, i nach f, j zum Schluss.
+
+### 16.1 Designfragen zu M4
+
+Die Vorschläge sind als **Startwerte** übernommen (D22). Jede Frage wird vor ihrem Teil noch einmal geprüft; Balancing später über die CSV-Dateien.
+
+| # | Frage | Teil | Entscheidung bzw. Startwert |
+|---|---|---|---|
+| F1 | Wirkdauer von Tränken und Zaubern | b, c | Trank: `Runden = 8 × Trankstufe / Potion Consumption`, mindestens 1 (Zauberer mit 3 → Stufe 3 hält 8 Runden, Drache mit 10 → 2). Zauber wie Magic Shield: `2 × Stufe` Runden. Eigenes Design (D7). |
+| F2 | Chancen für Subversion, Curse, Magic Attack | b | Wie D16: `50 + 5 × (4 × Stufe − Magic Resistance / 4)`, begrenzt auf 10–90 %. Curse +20 Punkte (GDD: bessere Chance), Magic Attack −10. |
+| F3 | Teleport-Ungenauigkeit | b | Abweichung bis `Distanz / 4` Felder (zufällig, auf freies Feld); massives Ziel lässt den Zauber scheitern; danach 0 AP. |
+| F4 | Ausbreitung der Flächen | d | Stärke = Zauberstufe. Am Rundenende versucht jedes Feld einmal, ein passendes Nachbarfeld zu belegen (Chance `Stärke × 10 %`); neue Felder erhalten `Stärke − 1`, alte verlieren 1. Höchstens 48 Felder je Fläche (Leistung). |
+| F5 | Was überträgt die Kampagne? | f | **Entschieden:** Attribute, Zauberstufen (voll aufgefüllt) und XP. Schätze werden beim Durchschreiten des Portals zu VP und danach zu XP. Waffen, Schilde, Tränke und Schlüssel bleiben im Szenario; der Zauberer startet unbewaffnet. |
+| F6 | Startwerte, Kosten und Obergrenzen im Wizard Designer | f | Einmal im Amiga-Designer (WinUAE) ablesen und als Anker nehmen (§13 ●), dann eigene Werte. |
+| F7 | Dächer: nur Regel oder auch sichtbar? | e | **Entschieden:** sichtbar. Von außen sieht man das Dach; steht eine eigene Einheit im Gebäude, wird das Dach über dem Gebäude ausgeblendet. |
+| F8 | 5-Ladungen-Grenze beibehalten? | i | Ja, aber im Setup abschaltbar. |
+| F9 | Setup-Panel und Timer in v1.0? | i | Nur die Zufalls-Zauberer-Stufe; Spiellänge folgt aus dem Szenario, Timer nach v1.0. |
