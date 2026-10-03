@@ -5,6 +5,13 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ## [Unreleased] – M4 Classic komplett
 
 ### Hinzugefügt
+- **M4c Tränke und Brauen (#45):**
+  - `src/core/brew.[ch]`: Kessel (bis 4 pro Karte, leer/voll, Stufen) und Phiolen als Objekte; Brauen braucht leeren Kessel + Zutat auf dem Zaubererfeld, füllt `Stufe+3` Schlucke (GDD §7.2), verbraucht die Zutat und eine Zauberstufe
+  - 7 Zutaten (Mistelzweig, Kleeblatt, Kristall, Schwefel, Feeenschwingel, Nitro, Drachenkraut; Apfel heilt mit), 12 neue Kacheln
+  - Trinken `q` (Kessel oder Phiole, 4 AP), Füllen `v` (6 AP, Phiole trägt ihren Trank als eigenes Objekt); Wirkungen und F1-Dauern aus M4b; Bombenphiole explodiert beim Wurf im 3×3-Bereich
+  - Drachen-Beschwörung braucht Kessel mit Drachenkraut unterm Zauberer; das Kraut wird bei Erfolg verbraucht `[PM 21]`
+  - Kessel-Objekte aus Karten werden beim Laden registriert
+
 - **M4b Wirkungen und sonstige Zauber (#44):**
   - `src/core/effect.[ch]`: zeitlich begrenzte Wirkungen pro Einheit (Art, Stärke, Rundenzahl, 4 Plätze), Tick am Rundenende; `UF_INVISIBLE`/`UF_MAGIC_WEAPON` folgen ihrer Wirkung
   - Wirkungen in den Werten: Schild/Schutz +Verteidigung, Stärke +Kampf, Schnell doppelt AP und dreifache Ausdauer-Regeneration, Flugg-Trank erlaubt Start ohne `ap_fly`; Status-Icons im Panel (Schild/Schwert/Stern/Blitz)

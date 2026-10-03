@@ -32,6 +32,14 @@ typedef enum {
 enum { UF_UNDEAD = 1, UF_FLYING = 2, UF_MOUNT = 4, UF_WOUNDED = 8,
        UF_INVISIBLE = 16, UF_MAGIC_WEAPON = 32 /* enchanted (M4b Enchant) */ };
 
+/* Brewing cauldron on a field (M4c, GDD 7.2). */
+#define CAULDRONS_MAX 4
+typedef struct Cauldron {
+    uint8_t x, y;
+    uint8_t potion;   /* SP_* potion spell it holds, 0xFF = empty */
+    uint8_t doses;    /* draughts left */
+} Cauldron;
+
 /* Timed effect on a unit (M4b, D22/F1): kind, strength, rounds left. */
 typedef enum {
     EFF_SHIELD, EFF_PROTECT, EFF_STRENGTH, EFF_INVISIBLE, EFF_SPEED,
@@ -91,6 +99,8 @@ typedef struct {
     uint8_t next_id;              /* unit ids, see world_spawn_unit */
     Kill kills[MAX_KILLS];        /* deaths not yet credited */
     uint8_t kill_count;
+    Cauldron cauldrons[CAULDRONS_MAX];
+    uint8_t cauldron_count;
 } World;
 
 /* Load a binary map (.map, ADR 0008). Validates everything first; on

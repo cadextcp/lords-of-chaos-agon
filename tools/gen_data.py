@@ -112,7 +112,7 @@ def main() -> int:
          "       WEAPON_MAGIC_SLAYER, WEAPON_COUNT };",
          "#define WEAPON_NONE 0xFF",
          "extern const WeaponDef WEAPONS[WEAPON_COUNT];",
-         "enum { OC_WEAPON, OC_TREASURE, OC_SCROLL, OC_FOOD, OC_KEY };",
+         "enum { OC_WEAPON, OC_TREASURE, OC_SCROLL, OC_FOOD, OC_KEY, OC_POTION, OC_INGREDIENT };",
          "typedef struct { const char *name; uint8_t category, weight, vp, weapon;",
          "                  uint8_t eat_con, eat_mana;   /* food values (GDD 8) */"
          " uint16_t tile; } ObjectDef;",

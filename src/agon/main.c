@@ -19,6 +19,7 @@
 #include <string.h>
 
 #include "../core/ai.h"
+#include "../core/brew.h"
 #include "../core/chord.h"
 #include "../core/combat.h"
 #include "../core/colors.h"
@@ -574,6 +575,7 @@ int main(int argc, char **argv)
         bool ok = scnfile_load(books, "scenarios/many_coloured_land.scn");
         log_line(ok ? "SCN loaded" : "SCN missing - empty books");
     }
+    brew_register_map_cauldrons(&world);
     turn_init(&turns, &world, TURN_SEED, 1u << OWN_P1);
     {
         static AiCtx ai_ctx;              /* books + game for the wizard AI */
@@ -643,6 +645,13 @@ int main(int argc, char **argv)
                         uint8_t wiz = active();
                         if (world.units[wiz].kind != CR_WIZARD) {
                             render_message(1, C_BRIGHT_RED, "Nur Zauberer zaubern.");
+                        } else if (SPELLS[i].category == SPC_POTION) {
+                            if (brew_cast(&world, &books[OWN_P1], wiz, (uint8_t)i))
+                                render_message(1, C_BRIGHT_GREEN,
+                                               "Der Kessel brodelt.");
+                            else
+                                render_message(1, C_BRIGHT_RED,
+                                               "Brauen braucht Kessel und Zutat.");
                         } else if (SPELLS[i].category == SPC_SUMMON) {
                             uint8_t got = spell_summon(&world, &books[OWN_P1], wiz, (uint8_t)i);
                             if (got)
@@ -750,6 +759,22 @@ int main(int argc, char **argv)
                     else
                         render_message(1, C_BRIGHT_RED, "Keine Schriftrolle in der Hand.");
                 }
+                frame(dump);
+            } else if (e.ascii == 'q') {            /* quaff: vial or cauldron */
+                confirm_end = false;
+                if (brew_drink_vial(&world, active()))
+                    render_message(1, C_BRIGHT_GREEN, "Phiole getrunken.");
+                else if (brew_drink(&world, active()))
+                    render_message(1, C_BRIGHT_GREEN, "Aus dem Kessel getrunken.");
+                else
+                    render_message(1, C_BRIGHT_RED, "Nichts zu trinken hier.");
+                frame(dump);
+            } else if (e.ascii == 'v') {            /* fill the empty vial */
+                confirm_end = false;
+                if (brew_fill(&world, active()))
+                    render_message(1, C_BRIGHT_GREEN, "Phiole gefuellt.");
+                else
+                    render_message(1, C_BRIGHT_RED, "Kein Kessel oder keine leere Phiole.");
                 frame(dump);
             } else if (e.ascii == 'w') {            /* wield next */
                 confirm_end = false;

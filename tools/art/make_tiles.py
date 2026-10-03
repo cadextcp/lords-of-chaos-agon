@@ -730,6 +730,93 @@ def key_(col):
     return im
 
 
+def cauldron_obj(full):
+    im = new()
+    ellipse(im, (5, 10, 18, 21), fill=C["dgrey"], outline=C["black"])
+    ellipse(im, (7, 12, 16, 15), fill=C["lgreen"] if full else C["dgrey"])
+    px(im, 4, 11, C["dbrown"])
+    px(im, 19, 11, C["dbrown"])
+    if full:
+        for x in range(8, 16, 2):
+            px(im, x, 9, C["lgreen"])
+            px(im, x + 1, 8, C["green"])
+    return im
+
+
+def vial(filled):
+    """filled: 0 empty (grey), 1 potion (cyan), 2 bomb (red)."""
+    im = new()
+    rect(im, 10, 7, 13, 9, C["dgrey"])
+    fill = C["dgrey"] if filled == 0 else C["bred"] if filled == 2 else C["cyan"]
+    ellipse(im, (8, 10, 15, 20), fill=fill, outline=C["grey"])
+    px(im, 10, 12, C["white"])
+    px(im, 9, 13, C["white"])
+    return im
+
+
+def mistletoe():
+    im = new()
+    for i in range(8):
+        ellipse(im, (5 + i, 10 + (i % 3), 9 + i, 14 + (i % 3)),
+                fill=C["dgreen"] if i % 2 else C["green"])
+    px(im, 13, 9, C["cream"])
+    px(im, 15, 12, C["cream"])
+    return im
+
+
+def clover():
+    im = new()
+    ellipse(im, (6, 8, 12, 14), fill=C["green"])
+    ellipse(im, (11, 8, 17, 14), fill=C["green"])
+    ellipse(im, (8, 13, 14, 19), fill=C["green"])
+    line(im, [(12, 18), (12, 22)], C["lgreen"])
+    return im
+
+
+def crystal():
+    im = new()
+    poly(im, [(12, 6), (17, 12), (12, 21), (7, 12)], C["lblue"])
+    poly(im, [(12, 8), (15, 12), (12, 19), (9, 12)], C["white"])
+    return outline(im)
+
+
+def sulph():
+    im = new()
+    ellipse(im, (6, 10, 17, 20), fill=C["yellow"], outline=C["gold"])
+    px(im, 9, 13, C["orange"])
+    px(im, 13, 16, C["orange"])
+    px(im, 12, 12, C["cream"])
+    return outline(im)
+
+
+def fairywing():
+    im = new()
+    ellipse(im, (5, 8, 12, 15), fill=C["lviolet"], outline=C["violet"])
+    ellipse(im, (11, 8, 18, 15), fill=C["lblue"], outline=C["blue"])
+    line(im, [(11, 15), (11, 21)], C["skin"])
+    return im
+
+
+def nitro():
+    im = new()
+    rect(im, 8, 9, 15, 20, C["red"])
+    rect(im, 9, 6, 14, 9, C["dgrey"])
+    px(im, 10, 12, C["yellow"])
+    px(im, 12, 15, C["yellow"])
+    px(im, 13, 12, C["yellow"])
+    return outline(im)
+
+
+def dragon_herb():
+    im = new()
+    for i in range(6):
+        px(im, 7 + i * 2, 20 - i, C["dgreen"])
+        px(im, 7 + i * 2, 19 - i, C["green"])
+    ellipse(im, (13, 6, 18, 11), fill=C["red"], outline=C["dred"])
+    px(im, 15, 8, C["orange"])
+    return im
+
+
 def portal(phase):
     """Swirling portal: an arch of stones around a pulsing centre."""
     im = new()
@@ -854,6 +941,15 @@ def all_tiles() -> dict[str, Image.Image]:
         "obj_apple": apple(False), "obj_mushroom": mushroom(False),
         "obj_magic_apple": apple(True), "obj_magic_mushroom": mushroom(True),
         "obj_door_key": key_(C["yellow"]), "obj_chest_key": key_(C["cyan"]),
+        "obj_cauldron_empty": cauldron_obj(False),
+        "obj_cauldron_full": cauldron_obj(True),
+        "obj_vial_empty": vial(0),
+        "obj_vial_full": vial(1),
+        "obj_vial_bomb": vial(2),
+        "obj_mistletoe": mistletoe(), "obj_clover": clover(),
+        "obj_crystal": crystal(), "obj_sulph": sulph(),
+        "obj_fairywing": fairywing(), "obj_nitro": nitro(),
+        "obj_dragon_herb": dragon_herb(),
         "portal_0": portal(0), "portal_1": portal(1),
         "overlay_remembered": remembered(), "unexplored": unexplored(),
         "air_shadow": air_shadow(),

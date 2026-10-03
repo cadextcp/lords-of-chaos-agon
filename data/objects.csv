@@ -1,6 +1,7 @@
 # Object kinds on the ground (GDD 8). tile: assets/tiles/<tile>.png.
 # category: weapon (weapons.csv), treasure (vp through the portal, GDD 9),
-# scroll (read), food (eat_con/eat_mana), key. weight counts against the
+# scroll (read), food (eat_con/eat_mana), key, potion (brewing, M4c),
+# ingredient. weight counts against the
 # carry limit. Keys vanish after use (GDD 8).
 id,name,category,tile,weight,vp,eat_con,eat_mana
 scroll,Schriftrolle,scroll,obj_scroll,1,0,0,0
@@ -20,3 +21,20 @@ magic_apple,Magischer Apfel,food,obj_magic_apple,1,0,0,4
 magic_mushroom,Magischer Pilz,food,obj_magic_mushroom,1,0,0,6
 door_key,Tuerschluessel,key,obj_door_key,1,0,0,0
 chest_key,Truhenschluessel,key,obj_chest_key,1,0,0,0
+cauldron_empty,Kessel (leer),potion,obj_cauldron_empty,8,0,0,0
+cauldron_full,Kessel (voll),potion,obj_cauldron_full,8,0,0,0
+vial_empty,Phiole (leer),potion,obj_vial_empty,1,0,0,0
+vial_strength,Phiole Staerke,potion,obj_vial_full,1,0,0,0
+vial_protection,Phiole Schutz,potion,obj_vial_full,1,0,0,0
+vial_invisibility,Phiole Unsichtbar,potion,obj_vial_full,1,0,0,0
+vial_speed,Phiole Schnell,potion,obj_vial_full,1,0,0,0
+vial_flying,Phiole Fliegen,potion,obj_vial_full,1,0,0,0
+vial_healing,Phiole Heilkraut,potion,obj_vial_full,1,0,0,0
+vial_bomb,Bombenphiole,potion,obj_vial_bomb,1,0,0,0
+mistletoe,Mistelzweig,ingredient,obj_mistletoe,1,0,0,0
+clover,Kleeblatt,ingredient,obj_clover,1,0,0,0
+crystal,Kristall,ingredient,obj_crystal,1,0,0,0
+sulph,Schwefel,ingredient,obj_sulph,1,0,0,0
+fairywing,Feeenschwingel,ingredient,obj_fairywing,1,0,0,0
+nitro,Nitro,ingredient,obj_nitro,1,0,0,0
+dragon_herb,Drachenkraut,ingredient,obj_dragon_herb,1,0,0,0
