@@ -730,6 +730,60 @@ def key_(col):
     return im
 
 
+def roof():
+    """Visible roof (F7, M4e): red shingles with a ridge, drawn over a
+    building when no own unit stands inside."""
+    im = new()
+    rect(im, 0, 4, 23, 20, C["red"])
+    for y in range(5, 20, 4):
+        line(im, [(0, y), (23, y)], C["dred"])
+    line(im, [(0, 4), (12, 0), (23, 4)], C["dred"])
+    line(im, [(0, 5), (12, 1), (23, 5)], C["bred"])
+    return im
+
+
+def weapon_art(kind):
+    """The seven remaining weapons (M4e), all bottom-centre."""
+    im = new()
+    if kind == "knife":
+        for i in range(6):
+            px(im, 10 + i, 18 - i, C["white"])
+            px(im, 11 + i, 18 - i, C["grey"])
+        px(im, 9, 19, C["tan"])
+        px(im, 8, 20, C["tan"])
+    elif kind == "spear":
+        for i in range(12):
+            px(im, 6 + i, 20 - i, C["lwood"])
+        line(im, [(16, 7), (18, 5)], C["white"])
+        line(im, [(17, 8), (18, 6)], C["grey"])
+    elif kind == "club":
+        for i in range(9):
+            px(im, 7 + i, 20 - i, C["wood"])
+        ellipse(im, (12, 5, 19, 12), fill=C["dbrown"], outline=C["black"])
+    elif kind == "axe":
+        for i in range(10):
+            px(im, 6 + i, 21 - i, C["lwood"])
+        rect(im, 13, 5, 18, 10, C["grey"])
+        rect(im, 14, 6, 17, 9, C["white"])
+    elif kind == "ninja_star":
+        for (dx, dy) in ((0, -4), (0, 4), (-4, 0), (4, 0)):
+            rect(im, 12 + dx - 1, 14 + dy - 1, 12 + dx + 1, 14 + dy + 1,
+                 C["white"])
+        px(im, 12, 14, C["dgrey"])
+    elif kind == "slayer":
+        for i in range(9):
+            px(im, 8 + i, 19 - i, C["lviolet"])
+            px(im, 9 + i, 19 - i, C["violet"])
+        line(im, [(6, 18), (8, 20)], C["tan"])
+    else:  # magic slayer
+        for i in range(9):
+            px(im, 8 + i, 19 - i, C["lblue"])
+            px(im, 9 + i, 19 - i, C["blue"])
+        px(im, 16, 9, C["white"])
+        line(im, [(6, 18), (8, 20)], C["tan"])
+    return im
+
+
 def cauldron_obj(full):
     im = new()
     ellipse(im, (5, 10, 18, 21), fill=C["dgrey"], outline=C["black"])
@@ -981,6 +1035,12 @@ def all_tiles() -> dict[str, Image.Image]:
         "obj_crystal": crystal(), "obj_sulph": sulph(),
         "obj_fairywing": fairywing(), "obj_nitro": nitro(),
         "obj_dragon_herb": dragon_herb(),
+        "obj_knife": weapon_art("knife"), "obj_spear": weapon_art("spear"),
+        "obj_club": weapon_art("club"), "obj_axe": weapon_art("axe"),
+        "obj_ninja_star": weapon_art("ninja_star"),
+        "obj_slayer": weapon_art("slayer"),
+        "obj_magic_slayer": weapon_art("magic slayer"),
+        "roof": roof(),
         "area_fire_0": area_tile("fire", 0), "area_fire_1": area_tile("fire", 1),
         "area_blob_0": area_tile("blob", 0), "area_blob_1": area_tile("blob", 1),
         "area_vine_0": area_tile("vine", 0), "area_vine_1": area_tile("vine", 1),

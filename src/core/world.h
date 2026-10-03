@@ -69,6 +69,7 @@ typedef struct {
     uint8_t item_count;
     uint8_t in_use;           /* index into items, 0xFF = bare hands */
     uint8_t id;               /* stable while the unit lives (indices shift) */
+    uint8_t rider_kind;       /* kind carried on this mount, 0xFF = none */
     bool done;                /* finished for this phase (space, turn.h) */
     Effect effects[UNIT_EFFECTS];   /* timed, tick at the round end (M4b) */
 } Unit;
@@ -102,6 +103,7 @@ typedef struct {
     uint8_t kill_count;
     Cauldron cauldrons[CAULDRONS_MAX];
     uint8_t cauldron_count;
+    uint8_t roof[MAP_MAX_W * MAP_MAX_H / 8 + 1];   /* v4: bit per field */
 } World;
 
 /* Load a binary map (.map, ADR 0008). Validates everything first; on
@@ -126,6 +128,8 @@ bool world_blocks_sight(const World *w, int16_t x, int16_t y);
 /* Same test for coordinates already normalised inside the map (ray fast
  * path; see world.c). */
 bool world_blocks_sight_at(const World *w, uint8_t x, uint8_t y);
+/* Roof of the field (v4 maps): blocks sight and landing (GDD 3.2). */
+bool world_has_roof(const World *w, int16_t x, int16_t y);
 /* Eight blocking flags of row y starting at column x, packed MSB-first;
  * see world.c. */
 uint8_t world_sight_byte(const World *w, uint8_t y, uint8_t x);
@@ -152,7 +156,7 @@ uint8_t world_air_step_cost(bool diagonal);
  * only respect the air layer. Spends the AP on success. */
 bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy);
 /* Take off (<) / land (>): pay the action cost (actions.csv), switch
- * layers. Landing needs a free ground slot; roofs do not exist yet
+ * layers. Landing needs a free ground slot and no roof (v4 maps)
  * (GDD 3.1, deferred). */
 bool world_take_off(World *w, uint8_t unit);
 bool world_land(World *w, uint8_t unit);

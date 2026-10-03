@@ -20,6 +20,7 @@
 
 #include "../core/ai.h"
 #include "../core/area.h"
+#include "../core/ride.h"
 #include "../core/brew.h"
 #include "../core/chord.h"
 #include "../core/combat.h"
@@ -801,6 +802,29 @@ int main(int argc, char **argv)
                     else
                         render_message(1, C_BRIGHT_RED, "Keine Schriftrolle in der Hand.");
                 }
+                frame(dump);
+            } else if (e.ascii == 'b') {            /* board / dismount */
+                confirm_end = false;
+                if (world.units[active()].flags & UF_RIDDEN) {
+                    if (ride_dismount(&world, active()))
+                        render_message(1, C_BRIGHT_GREEN, "Abgestiegen.");
+                    else
+                        render_message(1, C_BRIGHT_RED, "Kein Platz zum Absteigen.");
+                } else {
+                    int16_t mx = world.units[active()].x;
+                    int16_t my = (int16_t)(world.units[active()].y - 1);
+                    if (ride_mount(&world, active(), mx, my) ||
+                        ride_mount(&world, active(),
+                                   (int16_t)(mx - 1), my) ||
+                        ride_mount(&world, active(),
+                                   (int16_t)(mx + 1), (int16_t)(my + 1))) {
+                        turn_revalidate(&turns, &world);
+                        render_message(1, C_BRIGHT_GREEN, "Aufgesessen!");
+                    } else
+                        render_message(1, C_BRIGHT_RED,
+                                       "Kein Reittier in Reichweite.");
+                }
+                update_sight();
                 frame(dump);
             } else if (e.ascii == 'q') {            /* quaff: vial or cauldron */
                 confirm_end = false;

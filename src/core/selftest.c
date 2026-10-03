@@ -6,6 +6,7 @@
 #include "ai.h"
 #include "area.h"
 #include "brew.h"
+#include "ride.h"
 #include "effect.h"
 #include "chord.h"
 #include "combat.h"
@@ -26,7 +27,7 @@
  * tiles or composition rules change. Changed for M2d: the new unexplored
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
  * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures. */
-#define HOUSE_VIEW_HASH 0x56D21FC0UL
+#define HOUSE_VIEW_HASH 0xCEE5C0B2UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -2140,6 +2141,99 @@ static void test_m4d(void)
     }
 }
 
+static void test_m4e(void)
+{
+    FieldLayers f;
+    Rng rng;
+    uint8_t wizard, mount, enemy;
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 0;
+    area_reset();
+
+    check(WEAPONS[WEAPON_KNIFE].thrown == 2 && WEAPONS[WEAPON_SPEAR].ranged == 0 &&
+          WEAPONS[WEAPON_CLUB].combat == 2 && WEAPONS[WEAPON_MAGIC_SLAYER].combat == 8,
+          "m4e: weapon values from weapons.csv");
+    check(OBJECTS[OBJ_SPEAR].weapon == WEAPON_SPEAR &&
+          OBJECTS[OBJ_SLAYER].weight == 6,
+          "m4e: the new weapons exist as objects");
+
+    {   /* riding: mount, ride along, dismount */
+        wizard = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 6, 7);
+        mount = world_spawn_unit(&world, OWN_P1, CR_UNICORN, 6, 6);
+        world.units[wizard].ap = 40;
+        check(ride_mount(&world, wizard, 6, 6) && world.unit_count == 1 &&
+              (world.units[0].flags & UF_RIDDEN) &&
+              ride_rider_kind(&world.units[0]) == CR_WIZARD,
+              "m4e: the wizard mounts the unicorn");
+        mount = 0;                       /* the list re-ordered on removal */
+        check(world_move_unit(&world, mount, 0, -1),
+              "m4e: the pair rides as one unit");
+        check(!world_engaged(&world, mount),
+              "m4e: the rider attacks from anywhere (D21)");
+        world.units[mount].ap = 40;
+        check(ride_dismount(&world, mount) && world.unit_count == 2 &&
+              !(world.units[mount].flags & UF_RIDDEN),
+              "m4e: dismounting brings the rider back");
+    }
+
+    {   /* roof: loaded from the v4 map, blocks sight and landing */
+        world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND,
+                       MAPBIN_MANY_COLOURED_LAND_LEN);
+        world.unit_count = 0;
+        check(world_has_roof(&world, 5, 5) && !world_has_roof(&world, 20, 19),
+              "m4e: the house carries a roof");
+        view_set_sight(NULL);
+        view_compose(&world, 5, 5, &f);
+        check(has_layer(&f, T_ROOF), "m4e: the roof is visible outside");
+        {
+            world_spawn_unit(&world, OWN_P1, CR_WIZARD, 5, 5);
+            view_compose(&world, 5, 5, &f);
+            check(!has_layer(&f, T_ROOF),
+                  "m4e: an own unit inside hides the roof (F7)");
+            view_set_sight(NULL);
+        }
+        {   /* flying units cannot land on a roof */
+            uint8_t bat = world_spawn_unit(&world, OWN_P1, CR_GIANT_BAT, 5, 5);
+            world.units[bat].flags |= UF_FLYING;
+            check(!world_land(&world, bat),
+                  "m4e: no landing under the roof");
+        }
+    }
+
+    {   /* the new weapons in the melee path (values land via items_*) */
+        uint8_t a, b;
+        a = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 6, 6);
+        b = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 7, 6);
+        world.units[a].items[0] = OBJ_AXE;
+        world.units[a].item_count = 1;
+        world.units[a].in_use = 0;
+        check(items_combat(&world, a) == 10 + 3,
+              "m4e: the axe gives +3 combat");
+        rng_seed(&rng, 5);
+        check(combat_hit_chance(items_combat(&world, a),
+                                items_defence(&world, b)) == 70,
+              "m4e: axe vs goblin hits 70 %");
+    }
+
+    {   /* enemy in the roofed house is hidden from outside rays */
+        world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND,
+                       MAPBIN_MANY_COLOURED_LAND_LEN);
+        world.unit_count = 0;
+        world_spawn_unit(&world, OWN_P1, CR_WIZARD, 20, 19);
+        world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 5, 5);
+        {
+            Sight s;
+            sight_init(&s, OWN_P1);
+            sight_compute(&world, &s);
+            check(!sight_visible(&s, &world, 5, 5),
+                  "m4e: the roof hides the enemy inside");
+        }
+        view_set_sight(NULL);
+    }
+    (void)enemy;
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -2170,6 +2264,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m4b();
     test_m4c();
     test_m4d();
+    test_m4e();
     test_m4_review();
     load_house();   /* leave a clean state */
     return fails;

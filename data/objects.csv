@@ -6,7 +6,13 @@
 id,name,category,tile,weight,vp,eat_con,eat_mana
 scroll,Schriftrolle,scroll,obj_scroll,1,0,0,0
 sword,Schwert,weapon,obj_sword,4,0,0,0
-magic_slayer,Magie-Slayer,weapon,obj_sword,6,0,0,0
+knife,Messer,weapon,obj_knife,1,0,0,0
+spear,Speer,weapon,obj_spear,5,0,0,0
+club,Keule,weapon,obj_club,5,0,0,0
+axe,Axt,weapon,obj_axe,6,0,0,0
+ninja_star,Wurfstern,weapon,obj_ninja_star,1,0,0,0
+slayer,Slayer,weapon,obj_slayer,6,0,0,0
+magic_slayer,Magie-Slayer,weapon,obj_magic_slayer,6,0,0,0
 bow,Bogen,weapon,obj_bow,3,0,0,0
 shield,Schild,weapon,obj_shield,4,0,0,0
 gold,Gold,treasure,obj_gold,6,40,0,0
