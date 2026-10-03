@@ -391,6 +391,8 @@ bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
     world_spend(w, unit, cost);
     u->x = (uint8_t)nx;
     u->y = (uint8_t)ny;
+    if (!(u->flags & UF_FLYING))
+        world_engage(w, unit);             /* arriving next to an enemy binds both */
     return true;
 }
 
@@ -491,6 +493,8 @@ bool world_engaged(const World *w, uint8_t unit)
     u = &w->units[unit];
     if (u->flags & UF_FLYING)
         return false;                      /* flyers are never bound */
+    if (!(u->flags & UF_ENGAGED))
+        return false;                      /* free again since its last phase */
     for (dx = -1; dx <= 1; dx++)
         for (dy = -1; dy <= 1; dy++) {
             uint8_t o = world_unit_at(w, (int16_t)(u->x + dx),
@@ -499,6 +503,34 @@ bool world_engaged(const World *w, uint8_t unit)
                 return true;               /* enemy at the sleeve (GDD 6) */
         }
     return false;
+}
+
+void world_engage(World *w, uint8_t unit)
+{
+    Unit *u;
+    int8_t dx, dy;
+    if (unit >= w->unit_count)
+        return;
+    u = &w->units[unit];
+    if (u->flags & UF_FLYING)
+        return;
+    for (dx = -1; dx <= 1; dx++)
+        for (dy = -1; dy <= 1; dy++) {
+            uint8_t o = world_unit_at(w, (int16_t)(u->x + dx),
+                                      (int16_t)(u->y + dy), UL_GROUND);
+            if (o != NO_UNIT && w->units[o].owner != u->owner) {
+                u->flags |= UF_ENGAGED;
+                w->units[o].flags |= UF_ENGAGED;
+            }
+        }
+}
+
+void world_release(World *w, uint8_t owner)
+{
+    uint8_t i;
+    for (i = 0; i < w->unit_count; i++)
+        if (w->units[i].owner == owner)
+            w->units[i].flags &= (uint8_t)~UF_ENGAGED;
 }
 
 BumpKind world_bump_kind(const World *w, uint8_t unit, int8_t dx, int8_t dy)
@@ -525,6 +557,10 @@ BumpKind world_bump_kind(const World *w, uint8_t unit, int8_t dx, int8_t dy)
             return BUMP_TERRAIN;
         if (world_unit_at(w, nx, ny, UL_GROUND) != NO_UNIT)
             return BUMP_UNIT;
+        if (area_blocks_kind(w, nx, ny))
+            return BUMP_HELD;
+        if (world_engaged(w, unit))
+            return BUMP_ENGAGED;
         cost = world_unit_step_cost(w, unit, nx, ny, dx != 0 && dy != 0);
     }
     return u->ap >= cost ? BUMP_OK : BUMP_NO_AP;
