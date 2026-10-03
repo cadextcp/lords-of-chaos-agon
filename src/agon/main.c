@@ -183,6 +183,8 @@ static void frame(bool dump)
 static void update_sight(void)
 {
     sight_compute(&world, &p1_sight);
+    if (game.eye_rounds > 0)
+        sight_add_eye(&p1_sight, &world, game.eye_x, game.eye_y);
 }
 
 /* After any action that may kill: credit the logged kills (M3e) and
@@ -240,14 +242,79 @@ static void cast_targeted(bool dump)
     bool ok;
     uint8_t count_before = world.unit_count;
 
-    if (target_spell == SP_MAGIC_LIGHTNING)
-        ok = spell_lightning(&world, &books[OWN_P1], wiz, target_x, target_y,
-                             &turns.rng, &shot);
-    else
-        ok = spell_bolt(&world, &books[OWN_P1], wiz, target_spell, target_x,
-                        target_y, &turns.rng, &shot);
-    if (!ok) {
-        render_message(1, C_BRIGHT_RED, "Ausser Reichweite oder Sicht.");
+    if (target_spell == SP_MAGIC_BOLT || target_spell == SP_MAGIC_LIGHTNING) {
+        if (target_spell == SP_MAGIC_LIGHTNING)
+            ok = spell_lightning(&world, &books[OWN_P1], wiz, target_x, target_y,
+                                 &turns.rng, &shot);
+        else
+            ok = spell_bolt(&world, &books[OWN_P1], wiz, target_spell, target_x,
+                            target_y, &turns.rng, &shot);
+        if (!ok) {
+            render_message(1, C_BRIGHT_RED, "Ausser Reichweite oder Sicht.");
+            return;
+        }
+    } else {
+        CastResult cr = spell_apply(&world, &books[OWN_P1], wiz, target_spell,
+                                    target_x, target_y, &turns.rng, &shot);
+        if (cr == CAST_REJECTED) {
+            render_message(1, C_BRIGHT_RED, "Ausser Reichweite oder Sicht.");
+            return;
+        }
+        if (cr == CAST_NO_RES) {
+            render_message(1, C_GREY, "Das Ziel widersteht.");
+            settle();
+            update_sight();
+            frame(dump);
+            return;
+        }
+        if (target_spell == SP_MAGIC_EYE) {
+            game.eye_x = target_x;      /* reveal from there (GDD 7.2) */
+            game.eye_y = target_y;
+            game.eye_rounds = 1;
+            render_message(1, C_BRIGHT_CYAN, "Auge eroeffnet.");
+            settle();
+            update_sight();
+            frame(dump);
+            return;
+        }
+        if (target_spell == SP_MAGIC_SHIELD) {
+            render_message(1, C_BRIGHT_CYAN, "Schild aktiv.");
+            settle();
+            update_sight();
+            frame(dump);
+            return;
+        }
+        if (target_spell == SP_TELEPORT) {
+            render_message(1, C_BRIGHT_CYAN, "Teleportiert!");
+            update_sight();
+            frame(dump);
+            return;
+        }
+        if (target_spell == SP_SUBVERSION) {
+            render_message(1, C_BRIGHT_YELLOW, "Die Kreatur wechselt die Seite!");
+            update_sight();
+            frame(dump);
+            return;
+        }
+        if (target_spell == SP_CURSE) {
+            render_message(1, C_BRIGHT_YELLOW, "Toedliche Wunde!");
+            frame(dump);
+            return;
+        }
+        if (target_spell == SP_MAGIC_ATTACK) {
+            snprintf(msg, sizeof msg, "Magie trifft %u Kreaturen.",
+                     shot.splash_hits);
+            render_message(1, C_BRIGHT_YELLOW, msg);
+            turn_revalidate(&turns, &world);
+            update_sight();
+            frame(dump);
+            return;
+        }
+        if (target_spell == SP_ENCHANT) {
+            render_message(1, C_BRIGHT_CYAN, "Waffen verzaubert.");
+            frame(dump);
+            return;
+        }
         return;
     }
     if (shot.hit)
@@ -583,14 +650,13 @@ int main(int argc, char **argv)
                             else
                                 render_message(1, C_BRIGHT_RED, "Kein Platz - Mana verloren.");
                             update_sight();
-                        } else if (i == SP_MAGIC_BOLT || i == SP_MAGIC_LIGHTNING) {
+                        } else {
+                            /* everything else aims through the cursor */
                             targeting = true;
                             target_kind = TA_SPELL;
                             target_spell = (uint8_t)i;
                             target_x = world.units[wiz].x;
                             target_y = world.units[wiz].y;
-                        } else {
-                            render_message(1, C_BRIGHT_YELLOW, "Zauber folgt spaeter.");
                         }
                     }
                     frame(dump);
@@ -605,8 +671,12 @@ int main(int argc, char **argv)
                     render_message(2, C_GREY, "");
                     frame(dump);
                 } else if (e.ascii == 13 || e.vkey == VK_SPACE) {
-                    /* aiming at the caster cancels without cost (GDD 7.1) */
-                    if (target_x == world.units[active()].x &&
+                    /* aiming at the caster cancels without cost (GDD 7.1)
+                     * - except for spells that target the caster himself */
+                    if (target_kind == TA_SPELL &&
+                        target_spell != SP_MAGIC_SHIELD &&
+                        target_spell != SP_ENCHANT &&
+                        target_x == world.units[active()].x &&
                         target_y == world.units[active()].y) {
                         targeting = false;
                         render_message(1, C_GREY, "Abgebrochen.");

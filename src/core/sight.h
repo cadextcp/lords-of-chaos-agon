@@ -33,5 +33,8 @@ bool sight_visible(const Sight *s, const World *w, int16_t x, int16_t y);
 /* Clear ground line between two fields (endpoints exclusive, GDD 3.4),
  * honouring wrap-around. For targeting (M3c). */
 bool sight_has_los(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1);
+/* Magic Eye (M4b): mark the fields around (x, y) visible and explored,
+ * ignoring walls, like an airborne observer. */
+void sight_add_eye(Sight *s, const World *w, int16_t x, int16_t y);
 
 #endif

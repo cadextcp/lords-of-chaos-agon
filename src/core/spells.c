@@ -1,6 +1,7 @@
 #include "spells.h"
 
 #include "combat.h"
+#include "effect.h"
 #include "items.h"
 #include "sight.h"
 
@@ -210,4 +211,176 @@ bool spell_lightning(World *w, Spellbook *b, uint8_t wiz,
             out->died = true;
     }
     return true;
+}
+
+/* F2: resistance chances, D16 style. */
+static bool resist_roll(Rng *rng, uint8_t level, uint8_t mr, int8_t bonus)
+{
+    int16_t p = (int16_t)(50 + 5 * ((int16_t)(4 * level) - mr / 4) + bonus);
+    if (p < 10)
+        p = 10;
+    if (p > 90)
+        p = 90;
+    return rng_range(rng, 100) < (uint16_t)p;
+}
+
+/* Find a free, non-massive landing field near (x, y) for Teleport. */
+static bool free_field(const World *w, int16_t x, int16_t y)
+{
+    return world_wrap(w, &x, &y) && !world_blocks(w, x, y) &&
+           world_unit_at(w, x, y, UL_GROUND) == NO_UNIT;
+}
+
+CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
+                       int16_t x, int16_t y, Rng *rng, SpellShot *out)
+{
+    uint8_t level;
+    Unit *u;
+    memset(out, 0, sizeof *out);
+    if (wiz >= w->unit_count)
+        return CAST_REJECTED;
+    u = &w->units[wiz];
+    if (!spell_can_cast(w, b, wiz, spell))
+        return CAST_REJECTED;
+
+    switch (spell) {
+    case SP_MAGIC_SHIELD:              /* self: +2*level def for 2*level rounds */
+        if (!world_wrap(w, &x, &y) || x != u->x || y != u->y)
+            return CAST_REJECTED;      /* targets the caster only */
+        level = b->level[spell];
+        pay_for_spell(w, b, wiz, spell, x, y);
+        if (!effect_grant(u, EFF_SHIELD, (uint8_t)(2 * level),
+                          (uint8_t)(2 * level)))
+            return CAST_REJECTED;      /* no effect slot free */
+        return CAST_OK;
+
+    case SP_MAGIC_EYE:                 /* sight from a point, one round */
+        if (!world_wrap(w, &x, &y) || !in_range(w, u, x, y) ||
+            !sight_has_los(w, u->x, u->y, x, y))
+            return CAST_REJECTED;
+        pay_for_spell(w, b, wiz, spell, x, y);
+        out->allowed = true;
+        out->damage = 0;
+        return CAST_OK;                /* the caller reveals the area */
+
+    case SP_TELEPORT: {                /* inaccurate jump, 0 AP after */
+        int16_t dx, dy, dist;
+        if (!world_wrap(w, &x, &y))
+            return CAST_REJECTED;
+        dx = (int16_t)(x - u->x);
+        dy = (int16_t)(y - u->y);
+        if (w->wrap) {
+            if (dx > w->w / 2) dx = (int16_t)(dx - w->w);
+            if (dx < -w->w / 2) dx = (int16_t)(dx + w->w);
+            if (dy > w->h / 2) dy = (int16_t)(dy - w->h);
+            if (dy < -w->h / 2) dy = (int16_t)(dy + w->h);
+        }
+        dist = (int16_t)((dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy));
+        if (dist > SPELL_RANGE)
+            return CAST_REJECTED;
+        pay_for_spell(w, b, wiz, spell, x, y);
+        {   /* F3: scatter up to dist/4 fields, onto a free field */
+            uint8_t tries = 0;
+            int16_t tx = x, ty = y;
+            do {
+                if (tries) {
+                    tx = (int16_t)(x + (int16_t)rng_range(rng, dist / 4 + 1) -
+                                   (int16_t)(dist / 8 + 1));
+                    ty = (int16_t)(y + (int16_t)rng_range(rng, dist / 4 + 1) -
+                                   (int16_t)(dist / 8 + 1));
+                }
+                tries++;
+            } while (!free_field(w, tx, ty) && tries < 12);
+            if (!free_field(w, tx, ty))
+                return CAST_REJECTED;  /* massive or busy: fails (GDD 7.2) */
+            u->x = (uint8_t)tx;
+            u->y = (uint8_t)ty;
+        }
+        u->ap = 0;                     /* exhausted after the jump */
+        out->allowed = true;
+        return CAST_OK;
+    }
+
+    case SP_CURSE: {                   /* deadly wound (GDD 7.2) */
+        uint8_t target = world_unit_at(w, x, y, UL_GROUND);
+        if (target == NO_UNIT)
+            return CAST_REJECTED;
+        level = b->level[spell];
+        pay_for_spell(w, b, wiz, spell, x, y);
+        if (!resist_roll(rng, level, w->units[target].mr, 20)) {
+            out->allowed = true;
+            return CAST_NO_RES;
+        }
+        out->allowed = true;
+        out->hit = true;
+        w->units[target].flags |= UF_WOUNDED;
+        return CAST_OK;
+    }
+
+    case SP_SUBVERSION: {              /* creature changes sides */
+        uint8_t target = world_unit_at(w, x, y, UL_GROUND);
+        Unit *t;
+        if (target == NO_UNIT)
+            return CAST_REJECTED;
+        t = &w->units[target];
+        if (t->kind == CR_WIZARD || (t->flags & UF_MOUNT))
+            return CAST_REJECTED;      /* not on wizards or mounts (GDD 7.2) */
+        level = b->level[spell];
+        pay_for_spell(w, b, wiz, spell, x, y);
+        if (!resist_roll(rng, level, t->mr, 0)) {
+            out->allowed = true;
+            return CAST_NO_RES;
+        }
+        out->allowed = true;
+        out->hit = true;
+        t->owner = u->owner;
+        return CAST_OK;
+    }
+
+    case SP_MAGIC_ATTACK: {            /* whole kind in the area, own too */
+        uint8_t i, radius = 2;
+        uint8_t kind;
+        uint8_t center = world_unit_at(w, x, y, UL_GROUND);
+        if (center == NO_UNIT)
+            return CAST_REJECTED;
+        kind = w->units[center].kind;
+        level = b->level[spell];
+        pay_for_spell(w, b, wiz, spell, x, y);
+        out->allowed = true;
+        for (i = w->unit_count; i-- > 0;) {
+            Unit *t = &w->units[i];
+            int16_t ddx = (int16_t)(t->x - x), ddy = (int16_t)(t->y - y);
+            if (t->kind != kind)
+                continue;
+            if (ddx < 0) ddx = (int16_t)(-ddx);
+            if (ddy < 0) ddy = (int16_t)(-ddy);
+            if (ddx > radius || ddy > radius)
+                continue;
+            if (resist_roll(rng, level, t->mr, -10)) {
+                out->splash_hits++;
+                combat_damage(w, i, t->con, u->kind, u->owner, false, NULL);
+            }
+        }
+        return CAST_OK;
+    }
+
+    case SP_ENCHANT: {                 /* weapons on the field become magic */
+        uint8_t i;
+        if (!world_wrap(w, &x, &y))
+            return CAST_REJECTED;
+        level = b->level[spell];
+        pay_for_spell(w, b, wiz, spell, x, y);
+        for (i = 0; i < w->unit_count; i++) {
+            Unit *t = &w->units[i];
+            if (t->x != x || t->y != y)
+                continue;
+            effect_grant(t, EFF_MAGIC_WEAPON, level, (uint8_t)(2 * level));
+        }
+        out->allowed = true;
+        return CAST_OK;
+    }
+
+    default:
+        return CAST_REJECTED;
+    }
 }
