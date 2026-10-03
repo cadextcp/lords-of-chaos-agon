@@ -2,6 +2,16 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – M4 Classic komplett
+
+### Hinzugefügt
+- **M4a Classic-Lücken und Szenario-Format (#43):**
+  - Untote nur durch Untote, magische Waffen (Magic Slayer, Enchant-Flag) und Zauber verletzbar `[PM 18]` — Bogen/Wurf/Nahkampf prüfen, Zauber umgehen die Regel
+  - Unter 50 % Constitution: −2 Combat und − Defence (Startwert, GDD §4.1)
+  - Nahrung: Apfel/Pilz heilen Constitution, magische Varianten Mana (`e`, 6 AP), Werte aus objects.csv; 6 neue Kacheln
+  - Truhenspezialfall: Bump öffnet — mit Truhenschlüssel 8 AP (Schlüssel verschwindet), ohne 3× Aufbrechen; Loot-Tabelle wirft einen zufälligen Schatz aus; `r` liest Schriftrollen (8 AP, Hinweistext)
+  - Szenario-Dateien `data/scenarios/*.txt` → kompilierte `.scn` (LOCS v1) mit Zauberbüchern aller Zauberer; `spellbook_default` entfällt; Zauberbücher kommen aus der Datei
+
 ## [Unreleased] – M3 Classic spielbar
 
 ### Geändert

@@ -19,9 +19,9 @@ typedef struct {
     uint8_t level[SPELL_COUNT];
 } Spellbook;
 
-/* Starting books until the scenarios carry them (M3g): a small test set
- * per owner. */
-void spellbook_default(Spellbook *b, uint8_t owner);
+/* Fill the books of all wizards from a compiled scenario file (.scn,
+ * M4a): "LOCS" v1, see tools/gen_scenarios.py. False on malformed data. */
+bool spellbook_load(Spellbook *books, const uint8_t *data, uint16_t len);
 
 /* Everything needed for a cast: a grounded wizard with a known spell,
  * mana and AP for ACT_CAST. */

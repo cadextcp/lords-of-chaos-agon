@@ -29,7 +29,8 @@ typedef enum {
 } Feature;
 
 /* Status flags shown as panel icons (PM 11). */
-enum { UF_UNDEAD = 1, UF_FLYING = 2, UF_MOUNT = 4, UF_WOUNDED = 8, UF_INVISIBLE = 16 };
+enum { UF_UNDEAD = 1, UF_FLYING = 2, UF_MOUNT = 4, UF_WOUNDED = 8,
+       UF_INVISIBLE = 16, UF_MAGIC_WEAPON = 32 /* enchanted (M4b Enchant) */ };
 
 typedef struct {
     uint8_t x, y;

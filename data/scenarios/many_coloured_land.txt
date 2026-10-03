@@ -1,0 +1,8 @@
+# Scenario 1: The Many Coloured Land (GDD 9.1, D22).
+# One line per wizard: book entries are spell,level pairs (max level 8).
+# The map carries terrain, units, treasures and the portal.
+
+map many_coloured_land
+
+book p1 giant_bat 2, magic_bolt 1, dwarf 1
+book p2 goblin 2, magic_bolt 1

@@ -9,6 +9,7 @@
 #include "game.h"
 #include "items.h"
 #include "gen/maps.h"
+#include "gen/scenarios.h"
 #include "names.h"
 #include "rng.h"
 #include "sight.h"
@@ -22,7 +23,7 @@
  * tiles or composition rules change. Changed for M2d: the new unexplored
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
  * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures. */
-#define HOUSE_VIEW_HASH 0xEAE7E434UL
+#define HOUSE_VIEW_HASH 0x7B9097F4UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -804,10 +805,16 @@ static void test_combat(void)
 static void test_spells(void)
 {
     Spellbook book;
+    static Spellbook scnbooks[OWN_NEUTRAL];
 
-    spellbook_default(&book, OWN_P1);
-    check(book.level[SP_GIANT_BAT] == 2 && book.level[SP_MAGIC_BOLT] == 1 &&
-          book.level[SP_DWARF] == 1, "spells: default p1 book");
+    check(spellbook_load(scnbooks, SCN_MANY_COLOURED_LAND, SCN_MANY_COLOURED_LAND_LEN) &&
+          scnbooks[OWN_P1].level[SP_GIANT_BAT] == 2 &&
+          scnbooks[OWN_P1].level[SP_MAGIC_BOLT] == 1 &&
+          scnbooks[OWN_P1].level[SP_DWARF] == 1 &&
+          scnbooks[OWN_P2].level[SP_GOBLIN] == 2,
+          "spells: books from the scenario file");
+    memset(&book, 0, sizeof book);
+    book.level[SP_GIANT_BAT] = 2;       /* p1 test book for the casts below */
     check(SUMMON_KIND[SP_DWARF] == CR_DWARF && SUMMON_KIND[SP_GIANT_BAT] == CR_GIANT_BAT &&
           SUMMON_KIND[SP_MAGIC_BOLT] == 0xFF, "spells: summon kinds from the table");
 
@@ -861,7 +868,7 @@ static void test_bolt(void)
     world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
     world.unit_count = 1;
     world.feature[5][8] = FE_DOOR_OPEN; /* open the house door for lines */
-    spellbook_default(&book, OWN_P1);
+    memset(&book, 0, sizeof book);
     book.level[SP_MAGIC_BOLT] = 8;      /* enough casts for the tests */
     world.units[1].kind = CR_GOBLIN;    /* target on the path */
     world.units[1].owner = OWN_NEUTRAL;
@@ -902,7 +909,7 @@ static void test_bolt(void)
     check(book.level[SP_MAGIC_BOLT] == 7, "bolt: every cast burns one level");
 
     {   /* lightning: splash + terrain + wall rejection */
-        spellbook_default(&book, OWN_P1);
+        memset(&book, 0, sizeof book);
         book.level[SP_MAGIC_LIGHTNING] = 1;
         world.unit_count = 1;
         world.units[0].ap = 40;
@@ -1119,8 +1126,8 @@ static void test_ai(void)
     {   /* wizard AI: summons, then walks to the portal over rounds */
         uint8_t seen_summons = 0, k;
         uint8_t p2 = world_spawn_unit(&world, OWN_P2, CR_WIZARD, 2, 13);
-        spellbook_default(&books[OWN_P1], OWN_P1);
-        spellbook_default(&books[OWN_P2], OWN_P2);
+        memset(books, 0, sizeof books);
+        books[OWN_P2].level[SP_GOBLIN] = 2;
         (void)p2;
         game_init(&g, 26, 3, 1, 1, &rng);       /* portal open from round 1 */
         game_new_round(&g, 1);
@@ -1267,7 +1274,7 @@ static void test_review_fixes(void)
         world.unit_count = 0;
         world_spawn_unit(&world, OWN_P2, CR_WIZARD, x, y);
         for (i = 0; i < OWN_NEUTRAL; i++)
-            spellbook_default(&books[i], i);
+            memset(&books[i], 0, sizeof books[i]);
         ctx.books = books;
         ctx.game = &g;
         game_init(&g, x, y, 3, 3, &rng);          /* opens under him */
@@ -1332,6 +1339,132 @@ static void test_scenario(void)
           "scn: v2 testland stays portal-free");
 }
 
+static void test_m4a(void)
+{
+    Rng rng;
+
+    check(OBJECTS[OBJ_APPLE].eat_con == 4 && OBJECTS[OBJ_MAGIC_MUSHROOM].eat_mana == 6 &&
+          OBJECTS[OBJ_CHEST_KEY].category == OC_KEY,
+          "m4a: food and key values from objects.csv");
+
+    {   /* undead: only undead, magic weapons and spells wound (GDD 4.2) */
+        CombatResult r;
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 2;
+        world.units[1].kind = CR_ZOMBIE;
+        world.units[1].owner = OWN_NEUTRAL;
+        world.units[1].flags |= UF_UNDEAD;
+        world.units[1].x = 7;
+        world.units[1].y = 6;
+        world.units[1].con = world.units[1].con_max = 40;
+        world.units[1].ap = 0;              /* no return blows in this test */
+        rng_seed(&rng, 1);
+        combat_melee(&world, &rng, 0, 1, &r);
+        check(!r.hit && world.units[1].con == 40 && world.units[0].ap == 30,
+              "m4a: bare hands clank off the zombie");
+        world.units[0].ap = 40;
+        world.units[0].items[0] = OBJ_SWORD;
+        world.units[0].item_count = 1;
+        world.units[0].in_use = 0;
+        rng_seed(&rng, 1);
+        combat_melee(&world, &rng, 0, 1, &r);
+        check(!r.hit && world.units[1].con == 40,
+              "m4a: normal weapons cannot wound undead");
+        world.units[0].items[0] = OBJ_MAGIC_SLAYER;
+        world.units[0].item_count = 1;
+        world.units[0].in_use = 0;
+        {
+            uint8_t k, hit = 0;
+            for (k = 0; k < 30; k++) {
+                world.units[0].ap = 40;
+                world.units[1].con = 40;
+                rng_seed(&rng, 200 + k);
+                combat_melee(&world, &rng, 0, 1, &r);
+                hit = hit || r.hit;
+            }
+            check(hit, "m4a: the magic slayer wounds the zombie");
+        }
+        world.units[0].items[0] = OBJ_SWORD;
+        world.units[0].flags |= UF_MAGIC_WEAPON;   /* enchanted (M4b) */
+        {
+            uint8_t k, hit = 0;
+            for (k = 0; k < 30; k++) {
+                world.units[0].ap = 40;
+                world.units[1].con = 40;
+                rng_seed(&rng, 300 + k);
+                combat_melee(&world, &rng, 0, 1, &r);
+                hit = hit || r.hit;
+            }
+            check(hit, "m4a: enchanted weapons wound undead");
+        }
+    }
+
+    {   /* below half Constitution: -2 combat and defence (GDD 4.1) */
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 1;
+        world.units[0].con = world.units[0].con_max = 30;
+        check(items_combat(&world, 0) == 10 && items_defence(&world, 0) == 12,
+              "m4a: full strength values");
+        world.units[0].con = 14;              /* under 50 % */
+        check(items_combat(&world, 0) == 8 && items_defence(&world, 0) == 10,
+              "m4a: below half Constitution -2/-2");
+    }
+
+    {   /* eat and read */
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 1;
+        world.units[0].con = 10;
+        world.units[0].ap = 40;
+        world.units[0].items[0] = OBJ_APPLE;
+        world.units[0].item_count = 1;
+        world.units[0].in_use = 0;
+        check(items_eat(&world, 0) && world.units[0].con == 14 &&
+              world.units[0].item_count == 0 && world.units[0].ap == 34,
+              "m4a: eating an apple heals 4 Con");
+        world.units[0].items[0] = OBJ_MAGIC_MUSHROOM;
+        world.units[0].item_count = 1;
+        world.units[0].in_use = 0;
+        world.units[0].mana = 60;
+        check(items_eat(&world, 0) && world.units[0].mana == 66,
+              "m4a: the magic mushroom gives 6 mana");
+        world.units[0].items[0] = OBJ_SCROLL;
+        world.units[0].item_count = 1;
+        world.units[0].in_use = 0;
+        check(items_read(&world, 0) != NULL && world.units[0].item_count == 0,
+              "m4a: reading consumes the scroll");
+        check(!items_eat(&world, 0), "m4a: nothing edible left");
+    }
+
+    {   /* chests: key unlocks cheap, prying costs triple, loot drops */
+        bool destroyed = false;
+        uint8_t objects_before;
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 1;
+        world.units[0].x = 4;                /* next to the chest at 3,8 */
+        world.units[0].y = 8;
+        world.units[0].ap = 40;
+        world.feature[8][3] = FE_CHEST;
+        objects_before = world.object_count;
+        rng_seed(&rng, 9);
+        check(items_open_chest(&world, &rng, 0, 3, 8) &&
+              world.feature[8][3] == FE_NONE &&
+              world.object_count == objects_before + 1 &&
+              world.units[0].ap == 40 - ACTIONS[ACT_OPEN_CHEST].ap * 3,
+              "m4a: prying open costs triple AP and drops loot");
+        world.feature[8][3] = FE_CHEST;
+        world.units[0].items[0] = OBJ_CHEST_KEY;
+        world.units[0].item_count = 1;
+        world.units[0].in_use = 0;
+        rng_seed(&rng, 9);
+        check(items_open_chest(&world, &rng, 0, 3, 8) &&
+              world.units[0].item_count == 0 &&
+              world.units[0].ap == 40 - ACTIONS[ACT_OPEN_CHEST].ap * 3 -
+                                        ACTIONS[ACT_UNLOCK].ap,
+              "m4a: the key unlocks for 8 AP and vanishes");
+        (void)destroyed;
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -1358,6 +1491,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_ai();
     test_review_fixes();
     test_scenario();
+    test_m4a();
     load_house();   /* leave a clean state */
     return fails;
 }
