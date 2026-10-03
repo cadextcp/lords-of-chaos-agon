@@ -179,8 +179,8 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 | – | – | Review-Fixes M4a–c | ✅ #57 |
 | **M4d** | **#46** | **Flächeneffekte: Magic Fire, Gooey Blob, Tangle Vine, Flood** | **als Nächstes** |
 | **M4e** | **#47** | **Restliche Waffen, Reiten, Dächer (sichtbar, innen ausgeblendet; F7)** | **als Nächstes**, unabhängig |
-| **M4f** | **#48** | **Hauptmenü, Wizard Designer, Kampagne (keine Gegenstände; F5)** | **als Nächstes**, braucht M4a ✅ |
-| M4g | #49 | Szenarien 2 und 3 | offen, braucht c, d, e |
+| M4f | #48 | Hauptmenü, Wizard Designer, Kampagne (keine Gegenstände; F5) | ✅ PR |
+| **M4g** | **#49** | **Szenarien 2 und 3** | **als Nächstes** (c, d, e ✅) |
 | M4h | #50 | KI-Ausbau (Wächter, Zauber, Tränke; ≤ 2 s pro Zug) | offen, nach M4g |
 | M4i | #51 | Speichern und Setup | offen, nach M4f |
 | M4j | #52 | Politur (Kontextmenü, Big Map, Log, Hilfe, Sound, Umlaut-Font) | zum Schluss |
