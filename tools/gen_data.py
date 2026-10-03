@@ -112,9 +112,10 @@ def main() -> int:
          "       WEAPON_MAGIC_SLAYER, WEAPON_COUNT };",
          "#define WEAPON_NONE 0xFF",
          "extern const WeaponDef WEAPONS[WEAPON_COUNT];",
-         "enum { OC_WEAPON, OC_TREASURE, OC_SCROLL };",
+         "enum { OC_WEAPON, OC_TREASURE, OC_SCROLL, OC_FOOD, OC_KEY };",
          "typedef struct { const char *name; uint8_t category, weight, vp, weapon;",
-         "                  uint16_t tile; } ObjectDef;",
+         "                  uint8_t eat_con, eat_mana;   /* food values (GDD 8) */"
+         " uint16_t tile; } ObjectDef;",
          "extern const ObjectDef OBJECTS[OBJ_COUNT];",
          "", "#endif", ""]
 
@@ -160,7 +161,8 @@ def main() -> int:
         w = "WEAPON_NONE" if r["category"] != "weapon" else "WEAPON_" + r["id"].upper()
         c.append(f"    [OBJ_{r['id'].upper()}] = {{{cstr(r['name'])}, "
                  f"{'OC_' + r['category'].upper()}, {int(r['weight'])}, {int(r['vp'])}, "
-                 f"{w}, T_{r['tile'].upper()}}},")
+                 f"{w}, {int(r['eat_con'])}, {int(r['eat_mana'])}, "
+                 f"T_{r['tile'].upper()}}},")
     c += ["};", "", "const ActionDef ACTIONS[ACT_COUNT] = {"]
     c += [f"    [ACT_{r['action'].upper()}] = {{{int(r['ap'])}, {int(r['stamina'])}}},"
           for r in actions]

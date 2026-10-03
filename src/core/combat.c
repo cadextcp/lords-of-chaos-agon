@@ -69,6 +69,8 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
         return false;
 
     world_spend(w, att, ACTIONS[ACT_MELEE].ap);
+    if (!items_can_harm_undead(w, att, def))
+        return true;                     /* clanks off harmlessly (GDD 4.2) */
     ok_to_hit = rng_range(rng, 100) <
                 combat_hit_chance(items_combat(w, att), items_defence(w, def));
     if (!ok_to_hit)
@@ -85,7 +87,8 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
         d->sta >= ACTIONS[ACT_RETURN_ATTACK].stamina) {
         out->returned = true;
         world_spend(w, def, ACTIONS[ACT_RETURN_ATTACK].ap);
-        if (rng_range(rng, 100) <
+        if (items_can_harm_undead(w, def, att) &&
+            rng_range(rng, 100) <
             combat_hit_chance(items_combat(w, def), items_defence(w, att))) {
             out->return_hit = true;
             out->return_damage = roll_damage(d, rng);

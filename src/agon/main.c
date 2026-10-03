@@ -359,6 +359,17 @@ static void step(uint8_t m, bool dump)
         case BUMP_TERRAIN: {
             bool destroyed;
             char msg[48];
+            if (world_feature(&world, nx, ny) == FE_CHEST) {
+                if (items_open_chest(&world, &turns.rng, active(), nx, ny)) {
+                    render_message(1, C_BRIGHT_YELLOW, "Truhe geoeffnet!");
+                    update_sight();
+                } else {
+                    render_message(1, C_BRIGHT_RED, "Truhe laesst sich nicht oeffnen.");
+                }
+                frame(dump);
+                return;
+            }
+            {
             uint8_t dmg = combat_terrain(&world, &turns.rng, active(), nx, ny, &destroyed);
             if (dmg == 0) {
                 if (world_blocks(&world, nx, ny) &&
@@ -375,6 +386,7 @@ static void step(uint8_t m, bool dump)
             } else {
                 snprintf(msg, sizeof msg, "%u Schaden.", dmg);
                 render_message(1, C_GREY, msg);
+            }
             }
             frame(dump);
             return;
@@ -490,6 +502,11 @@ int main(int argc, char **argv)
             return 1;
         }
     }
+    {   /* spellbooks from the scenario file (M4a); test maps fall back
+         * to an empty book */
+        bool ok = scnfile_load(books, "scenarios/many_coloured_land.scn");
+        log_line(ok ? "SCN loaded" : "SCN missing - empty books");
+    }
     turn_init(&turns, &world, TURN_SEED, 1u << OWN_P1);
     {
         static AiCtx ai_ctx;              /* books + game for the wizard AI */
@@ -511,11 +528,6 @@ int main(int argc, char **argv)
         for (k = 0; k < world.unit_count; k++)
             if (world.units[k].owner == OWN_P1 && world.units[k].ap_fly)
                 world.units[k].flags |= UF_FLYING;
-    }
-    {
-        uint8_t o;
-        for (o = 0; o < OWN_NEUTRAL; o++)
-            spellbook_default(&books[o], o);
     }
     sight_init(&p1_sight, OWN_P1);
     update_sight();
@@ -651,6 +663,23 @@ int main(int argc, char **argv)
                 else
                     render_message(1, C_BRIGHT_RED, "Kein Objekt in der Hand.");
                 update_sight();
+                frame(dump);
+            } else if (e.ascii == 'e') {            /* eat in-use food */
+                confirm_end = false;
+                if (items_eat(&world, active()))
+                    render_message(1, C_BRIGHT_GREEN, "Gegessen.");
+                else
+                    render_message(1, C_BRIGHT_RED, "Kein Essen in der Hand.");
+                frame(dump);
+            } else if (e.ascii == 'r') {            /* read scroll in use */
+                confirm_end = false;
+                {
+                    const char *txt = items_read(&world, active());
+                    if (txt)
+                        render_message(1, C_BRIGHT_CYAN, txt);
+                    else
+                        render_message(1, C_BRIGHT_RED, "Keine Schriftrolle in der Hand.");
+                }
                 frame(dump);
             } else if (e.ascii == 'w') {            /* wield next */
                 confirm_end = false;

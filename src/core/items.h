@@ -36,8 +36,21 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
                 uint8_t *damage);
 /* Effective values with weapon bonuses (D16/D18/D21): in-use weapon
  * Combat; Defence plus one carried shield (in use or not, never more
- * than one). Every attack - melee, throw, bow, bolt - uses these. */
+ * than one). Every attack - melee, throw, bow, bolt - uses these.
+ * Below 50 % Constitution both suffer -2 (GDD 4.1). */
 uint8_t items_combat(const World *w, uint8_t unit);
 uint8_t items_defence(const World *w, uint8_t unit);
+/* Can the attacker wound the (possibly undead) defender (GDD 4.2)?
+ * Undead attackers, the Magic Slayer and enchanted weapons do; spells
+ * bypass the check entirely. */
+bool items_can_harm_undead(const World *w, uint8_t attacker, uint8_t defender);
+/* EAT the object in use (GDD 8): food heals Con or Mana, ACT_EAT. */
+bool items_eat(World *w, uint8_t unit);
+/* READ the scroll in use (GDD 8): a hint line, ACT_READ, scroll gone. */
+const char *items_read(World *w, uint8_t unit);
+/* Open the chest at (x, y): a carried chest key unlocks it (key
+ * vanishes, GDD 8), otherwise it is pried open at triple the AP.
+ * The chest drops a random treasure and disappears. */
+bool items_open_chest(World *w, Rng *rng, uint8_t unit, int16_t x, int16_t y);
 
 #endif

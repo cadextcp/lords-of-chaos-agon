@@ -88,4 +88,9 @@ def stage_game() -> Path:
         (dest / "maps").mkdir(exist_ok=True)
         for m in maps.glob("*.map"):
             shutil.copy2(m, dest / "maps" / m.name)
+    scenarios = BUILD / "scenarios"
+    if scenarios.exists():
+        (dest / "scenarios").mkdir(exist_ok=True)
+        for f in scenarios.glob("*.scn"):
+            shutil.copy2(f, dest / "scenarios" / f.name)
     return dest

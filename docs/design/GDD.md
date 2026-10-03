@@ -175,7 +175,7 @@ Möbel haben eine Zähigkeit wie Türen. Sie lassen sich zerschlagen, und Holzm�
 |---|---|
 | Action Points (Ground / Flying) | AP pro Runde am Boden bzw. im Flug. 0 bei Flying heißt: kann nicht fliegen |
 | Stamina | Ausdauer. Bewegung und Kampf verbrauchen sie, Teil-Regeneration pro Runde. Unter einer Schwelle ist die Kreatur **erschöpft** und bekommt nur halbe AP. `[PM 12]` |
-| Constitution | Lebenspunkte. Bei 0 tot; unter 50 % leiden AP, Kampf und Verteidigung. |
+| Constitution | Lebenspunkte. Bei 0 tot; unter 50 % leiden Kampf und Verteidigung (**−2/−2**, Startwert M4a) sowie die AP-Auffüllung (halbe AP, wie Erschöpfung). |
 | Combat / Defence | Angriff und Verteidigung, modifiziert durch Waffen und Tränke |
 | Magic Resistance | Widerstand gegen Subversion, Curse und Magic Attack |
 | Carry Limit | Zusatzgewicht, das getragen werden kann |

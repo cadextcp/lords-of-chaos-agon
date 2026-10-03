@@ -683,6 +683,53 @@ def diamond():
     return outline(im)
 
 
+def apple(magic):
+    im = new()
+    if magic:
+        ellipse(im, (7, 9, 16, 20), fill=C["violet"], outline=C["purple"])
+    else:
+        ellipse(im, (7, 9, 16, 20), fill=C["red"], outline=C["dred"])
+    px(im, 11, 8, C["dbrown"])
+    px(im, 12, 7, C["dbrown"])
+    px(im, 13, 8, C["dgreen"])
+    px(im, 14, 8, C["lgreen"])
+    if magic:
+        px(im, 9, 12, C["white"])
+        px(im, 13, 16, C["white"])
+        px(im, 15, 11, C["white"])
+    return outline(im)
+
+
+def mushroom(magic):
+    im = new()
+    if magic:
+        ellipse(im, (6, 8, 17, 14), fill=C["magenta"], outline=C["purple"])
+    else:
+        ellipse(im, (6, 8, 17, 14), fill=C["red"], outline=C["dred"])
+    rect(im, 9, 14, 14, 20, C["cream"])
+    px(im, 9, 10, C["white"])
+    px(im, 13, 12, C["white"])
+    px(im, 12, 9, C["white"])
+    if magic:
+        px(im, 7, 13, C["cyan"])
+        px(im, 15, 10, C["cyan"])
+        px(im, 11, 7, C["cyan"])
+    return outline(im)
+
+
+def key_(col):
+    im = new()
+    rect(im, 8, 14, 9, 21, col)
+    px(im, 7, 15, col)
+    px(im, 10, 15, col)
+    px(im, 7, 14, col)
+    px(im, 10, 14, col)
+    rect(im, 10, 16, 14, 17, col)
+    px(im, 14, 18, col)
+    px(im, 14, 20, col)
+    return im
+
+
 def portal(phase):
     """Swirling portal: an arch of stones around a pulsing centre."""
     im = new()
@@ -804,6 +851,9 @@ def all_tiles() -> dict[str, Image.Image]:
         "obj_gold": gold(), "obj_emerald": emerald(),
         "obj_rune_stone": rune_stone(), "obj_wand": wand(),
         "obj_ruby": ruby(), "obj_diamond": diamond(),
+        "obj_apple": apple(False), "obj_mushroom": mushroom(False),
+        "obj_magic_apple": apple(True), "obj_magic_mushroom": mushroom(True),
+        "obj_door_key": key_(C["yellow"]), "obj_chest_key": key_(C["cyan"]),
         "portal_0": portal(0), "portal_1": portal(1),
         "overlay_remembered": remembered(), "unexplored": unexplored(),
         "air_shadow": air_shadow(),

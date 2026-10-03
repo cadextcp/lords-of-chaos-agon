@@ -398,6 +398,8 @@ void world_new_turn(World *w)
             u->con = u->con > 0 ? (uint8_t)(u->con - 1) : 0;
         uint16_t sta = (uint16_t)(u->sta + u->sta_max / 4);
         u->ap = u->sta < u->sta_max / 4 ? (uint8_t)(full / 2) : full;
+        if (u->con < u->con_max / 2)      /* badly hurt (GDD 4.1) */
+            u->ap = (uint8_t)(u->ap / 2);
         u->sta = (uint8_t)(sta > u->sta_max ? u->sta_max : sta);
         if (u->mana_max) {
             uint8_t mana = (uint8_t)(u->mana + u->mana_max / 25);

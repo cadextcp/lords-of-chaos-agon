@@ -17,17 +17,34 @@ uint8_t spell_mana(uint8_t spell, uint8_t level)
     return m > 255 ? 255 : (uint8_t)m;
 }
 
-void spellbook_default(Spellbook *b, uint8_t owner)
+bool spellbook_load(Spellbook *books, const uint8_t *data, uint16_t len)
 {
-    memset(b, 0, sizeof *b);
-    if (owner == OWN_P1) {
-        b->level[SP_GIANT_BAT] = 2;
-        b->level[SP_MAGIC_BOLT] = 1;
-        b->level[SP_DWARF] = 1;
-    } else if (owner == OWN_P2) {
-        b->level[SP_GOBLIN] = 2;
-        b->level[SP_MAGIC_BOLT] = 1;
+    uint8_t books_n, i, pos;
+    memset(books, 0, sizeof(Spellbook) * OWN_NEUTRAL);
+    if (len < 6 || memcmp(data, "LOCS", 4) != 0 || data[4] != 1)
+        return false;
+    books_n = data[5];
+    pos = 6;
+    for (i = 0; i < books_n; i++) {
+        uint8_t who, entries, k;
+        if (pos + 2 > len)
+            return false;
+        who = data[pos++];
+        entries = data[pos++];
+        if (who >= OWN_NEUTRAL)
+            return false;
+        for (k = 0; k < entries; k++) {
+            uint8_t spell, level;
+            if (pos + 2 > len)
+                return false;
+            spell = data[pos++];
+            level = data[pos++];
+            if (spell >= SPELL_COUNT || level > SPELL_MAX_LEVEL)
+                return false;
+            books[who].level[spell] = level;
+        }
     }
+    return true;
 }
 
 bool spell_can_cast(const World *w, const Spellbook *b, uint8_t wiz, uint8_t spell)

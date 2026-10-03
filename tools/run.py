@@ -54,6 +54,7 @@ def main() -> int:
     ap.add_argument("--dump", action="store_true", help="game writes loc.log screen dumps")
     ap.add_argument("--bench", action="store_true", help="game measures redraw times -> loc.log")
     ap.add_argument("--keytest", action="store_true", help="keyboard spike: log every key event")
+    ap.add_argument("--house", action="store_true", help="wizard house map (dev)")
     ap.add_argument("--free-round1", action="store_true",
                     help="lift the round 1 movement lock (PM 7) for scripted runs")
     ap.add_argument("--fly", action="store_true",
@@ -76,6 +77,8 @@ def main() -> int:
     logfile.unlink(missing_ok=True)
     mode = (["--dump"] if args.dump else ["--bench"] if args.bench
             else ["--keytest"] if args.keytest else [])
+    if args.house:
+        mode.append("--house")
     if args.free_round1:
         mode.append("--free-round1")
     if args.fly:

@@ -152,7 +152,8 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
         if (target == NO_UNIT)
             target = world_unit_at(w, nx, ny, UL_AIR);
         if (target != NO_UNIT) {        /* thrown weapons hit flyers too */
-            if (rng_range(rng, 100) < combat_hit_chance(items_combat(w, unit),
+            if (items_can_harm_undead(w, unit, target) &&
+                rng_range(rng, 100) < combat_hit_chance(items_combat(w, unit),
                                                        items_defence(w, target)))
                 combat_damage(w, target,
                               roll(weapon != WEAPON_NONE ? WEAPONS[weapon].thrown : 1, rng),
@@ -209,7 +210,8 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
     if (target == NO_UNIT)
         return false;
     world_spend(w, unit, ACTIONS[ACT_FIRE].ap);
-    if (rng_range(rng, 100) < combat_hit_chance(items_combat(w, unit),
+    if (items_can_harm_undead(w, unit, target) &&
+        rng_range(rng, 100) < combat_hit_chance(items_combat(w, unit),
                                                 items_defence(w, target))) {
         uint8_t dmg = roll(WEAPONS[weapon].ranged, rng);
         if (damage)
@@ -219,10 +221,32 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
     return true;
 }
 
+/* Below half Constitution every fighter suffers (GDD 4.1). */
+static uint8_t con_malus(const Unit *u)
+{
+    return u->con < u->con_max / 2 ? 2 : 0;
+}
+
+/* Can this ATTACKER wound an UNDEAD defender (GDD 4.2)? Undead
+ * attackers, the Magic Slayer and enchanted weapons (M4b) do; normal
+ * weapons and bare hands do not. Callers pass the defender. */
+bool items_can_harm_undead(const World *w, uint8_t attacker, uint8_t defender)
+{
+    const Unit *a = &w->units[attacker];
+    uint8_t weapon;
+    if (!(w->units[defender].flags & UF_UNDEAD))
+        return true;                     /* the living are always woundable */
+    if (a->flags & UF_UNDEAD)
+        return true;
+    weapon = in_use_weapon(a);
+    return weapon != WEAPON_NONE &&
+           (weapon == WEAPON_MAGIC_SLAYER || a->flags & UF_MAGIC_WEAPON);
+}
+
 uint8_t items_combat(const World *w, uint8_t unit)
 {
     const Unit *u;
-    uint8_t weapon, com;
+    uint8_t weapon, com, malus;
     if (unit >= w->unit_count)
         return 0;
     u = &w->units[unit];
@@ -230,13 +254,14 @@ uint8_t items_combat(const World *w, uint8_t unit)
     weapon = in_use_weapon(u);
     if (weapon != WEAPON_NONE)
         com = (uint8_t)(com + WEAPONS[weapon].combat);
-    return com;
+    malus = con_malus(u);               /* below 50 % Con (GDD 4.1) */
+    return com > malus ? (uint8_t)(com - malus) : 0;
 }
 
 uint8_t items_defence(const World *w, uint8_t unit)
 {
     const Unit *u;
-    uint8_t i, def;
+    uint8_t i, def, malus;
     if (unit >= w->unit_count)
         return 0;
     u = &w->units[unit];
@@ -244,5 +269,101 @@ uint8_t items_defence(const World *w, uint8_t unit)
     for (i = 0; i < u->item_count; i++)     /* one carried shield counts (D21) */
         if (OBJECTS[u->items[i]].weapon == WEAPON_SHIELD)
             return (uint8_t)(def + WEAPONS[WEAPON_SHIELD].defence);
-    return def;
+    malus = con_malus(u);
+    return def > malus ? (uint8_t)(def - malus) : 0;
+}
+
+
+bool items_eat(World *w, uint8_t unit)
+{
+    Unit *u;
+    uint8_t kind;
+    if (unit >= w->unit_count)
+        return false;
+    u = &w->units[unit];
+    if (u->in_use == NO_ITEM || u->in_use >= u->item_count)
+        return false;
+    kind = u->items[u->in_use];
+    if (OBJECTS[kind].category != OC_FOOD)
+        return false;
+    if (u->ap < ACTIONS[ACT_EAT].ap)
+        return false;
+    world_spend(w, unit, ACTIONS[ACT_EAT].ap);
+    {
+        uint8_t heal = OBJECTS[kind].eat_con;
+        uint8_t mana = OBJECTS[kind].eat_mana;
+        if (heal && u->con < u->con_max)
+            u->con = (uint8_t)(u->con + heal > u->con_max ? u->con_max
+                                                          : u->con + heal);
+        if (mana && u->mana < u->mana_max)
+            u->mana = (uint8_t)(u->mana + mana > u->mana_max ? u->mana_max
+                                                             : u->mana + mana);
+    }
+    u->items[u->in_use] = u->items[u->item_count - 1];   /* consumed */
+    u->item_count--;
+    u->in_use = NO_ITEM;
+    return true;
+}
+
+const char *items_read(World *w, uint8_t unit)
+{
+    Unit *u;
+    uint8_t kind;
+    if (unit >= w->unit_count)
+        return NULL;
+    u = &w->units[unit];
+    if (u->in_use == NO_ITEM || u->in_use >= u->item_count)
+        return NULL;
+    kind = u->items[u->in_use];
+    if (OBJECTS[kind].category != OC_SCROLL)
+        return NULL;
+    if (u->ap < ACTIONS[ACT_READ].ap)
+        return NULL;
+    world_spend(w, unit, ACTIONS[ACT_READ].ap);
+    u->items[u->in_use] = u->items[u->item_count - 1];   /* read away */
+    u->item_count--;
+    u->in_use = NO_ITEM;
+    return "Gelesen: Das Portal kommt erst spaet.";   /* until scenarios carry texts */
+}
+
+/* Chest loot table (own values, D7): every chest holds one treasure. */
+static const uint8_t CHEST_LOOT[] = {
+    OBJ_GOLD, OBJ_GOLD, OBJ_EMERALD, OBJ_EMERALD, OBJ_RUBY,
+    OBJ_WAND, OBJ_RUNE_STONE, OBJ_DIAMOND,
+};
+
+bool items_open_chest(World *w, Rng *rng, uint8_t unit, int16_t x, int16_t y)
+{
+    Unit *u;
+    uint8_t i, ap, kind;
+    if (unit >= w->unit_count || !world_wrap(w, &x, &y))
+        return false;
+    if (w->feature[y][x] != FE_CHEST)
+        return false;
+    u = &w->units[unit];
+    kind = NO_ITEM;
+    for (i = 0; i < u->item_count; i++)     /* a key unlocks cheaply */
+        if (u->items[i] == OBJ_CHEST_KEY)
+            kind = i;
+    ap = kind != NO_ITEM ? ACTIONS[ACT_UNLOCK].ap
+                         : (uint8_t)(ACTIONS[ACT_OPEN_CHEST].ap * 3);
+    if (u->ap < ap)
+        return false;
+    if (!(CREATURES[u->kind].flags & CF_USE))
+        return false;                    /* hands needed */
+    world_spend(w, unit, ap);
+    if (kind != NO_ITEM) {               /* keys vanish after use (GDD 8) */
+        u->items[kind] = u->items[u->item_count - 1];
+        u->item_count--;
+    }
+    w->feature[y][x] = FE_NONE;          /* empty box stays as rubble-less */
+    world_map_changed(w);
+    if (w->object_count < MAX_OBJECTS) { /* the loot drops */
+        uint8_t loot = CHEST_LOOT[rng_range(rng, (uint16_t)(sizeof CHEST_LOOT))];
+        w->objects[w->object_count].x = (uint8_t)x;
+        w->objects[w->object_count].y = (uint8_t)y;
+        w->objects[w->object_count].tile = OBJECTS[loot].tile;
+        w->object_count++;
+    }
+    return true;
 }
