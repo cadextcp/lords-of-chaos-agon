@@ -45,6 +45,7 @@ static void log_push(const char *line);   /* message ring (M4j) */
 #include "../core/view.h"
 #include "../core/world.h"
 #include "emu.h"
+#include "fx.h"
 #include "input.h"
 #include "keytest.h"
 #include "log.h"
@@ -208,6 +209,7 @@ static void frame(bool dump)
         if (dump)
             log_frame(&world, view_hash());
     }
+    fx_drain_play(&world, &p1_sight);    /* swings, hits, deaths (M5c) */
 }
 
 /* Sight changes with every own move and at the round boundary (enemy
@@ -240,6 +242,17 @@ static void on_round(Turns *t, World *w, void *ctx)
     game_new_round((Game *)ctx, t->round);
 }
 
+/* After an AI phase (or the independents' steps): show what happened
+ * there (M5c) - the event ring carries swings, hits and deaths. */
+static void on_ai_events(Turns *t, World *w, void *ctx)
+{
+    (void)t;
+    (void)ctx;
+    view_update(w);                      /* their moves, before the show */
+    render_fields();
+    fx_drain_play(w, &p1_sight);
+}
+
 /* Throw or fire at the aimed field (direction = first step towards it). */
 static void throw_or_fire(bool dump)
 {
@@ -250,14 +263,17 @@ static void throw_or_fire(bool dump)
     if (dy > 0) sy = 1; else if (dy < 0) sy = -1; else sy = 0;
     if (target_kind == TA_THROW) {
         if (brew_throw_vial(&world, &turns.rng, active(), sx, sy) ||
-            items_throw(&world, &turns.rng, active(), sx, sy))
+            items_throw(&world, &turns.rng, active(), sx, sy)) {
+            sound_play(SND_THROW);
             render_message(1, C_BRIGHT_YELLOW, "Geworfen!");
+        }
         else
             render_message(1, C_BRIGHT_RED, "Nichts zu werfen.");
         settle();
     } else {
         uint8_t dmg = 0;
         if (items_fire(&world, &turns.rng, active(), target_x, target_y, &dmg)) {
+            sound_play(SND_BOW);
             if (dmg)
                 render_message(1, C_BRIGHT_YELLOW, "Schuss trifft!");
             else
@@ -438,7 +454,6 @@ static void step(uint8_t m, bool dump)
             combat_disengage_swings(&world, &turns.rng, active(), &fs)) {
             if (fs.hit) {
                 log_push("Freier Schlag erwischt uns.");
-                sound_play(SND_HIT);
                 render_message(1, C_BRIGHT_RED,
                                "Freier Schlag beim Wegziehen!");
             } else
@@ -469,6 +484,7 @@ bump:
         switch (world_bump_kind(&world, active(), dx, dy)) {
         case BUMP_DOOR:
             if (world_open_door(&world, active(), nx, ny)) {
+                sound_play(SND_DOOR);
                 render_message(1, C_BRIGHT_GREEN, "Tuer geoeffnet.");
                 update_sight();        /* the open door changes lines of sight */
             } else if (!(CREATURES[world.units[active()].kind].flags & CF_USE)) {
@@ -507,10 +523,6 @@ bump:
                 return;
             }
             if (r.died)
-                sound_play(SND_DEATH);
-            if (r.hit)
-                sound_play(SND_HIT);
-            if (r.died)
                 snprintf(msg, sizeof msg, "%s stirbt!", name);
             else if (r.wound)
                 snprintf(msg, sizeof msg, "Treffer: %u. Toedliche Wunde!", r.damage);
@@ -540,6 +552,7 @@ bump:
             char msg[48];
             if (world_feature(&world, nx, ny) == FE_CHEST) {
                 if (items_open_chest(&world, &turns.rng, active(), nx, ny)) {
+                    sound_play(SND_CHEST);
                     render_message(1, C_BRIGHT_YELLOW, "Truhe geoeffnet!");
                     update_sight();
                 } else {
@@ -1245,7 +1258,7 @@ static bool end_flow(const char *map)
         info.level_up = w->level > level;
     }
     render_cursor(0, 0, CURSOR_GREEN, false);    /* sprite stays above the screen */
-    sound_play(info.outcome == OUT_WIN ? SND_PORTAL : SND_DEATH);
+    sound_play(info.outcome == OUT_WIN ? SND_WIN : SND_LOSE);
     lexicon_save(&lex);                     /* discoveries survive the game (M5) */
     return screen_end(&info);
 }
@@ -1298,6 +1311,42 @@ int main(int argc, char **argv)
         render_shutdown();
         return 0;
     }
+    if (argc > 1 && strcmp(argv[1], "--fxdemo") == 0) {
+        struct keyboard_event_t e;       /* dev: every fx tile at once */
+        mapfile_load(&world, MAP_HOUSE);
+        sight_init(&p1_sight, OWN_P1);
+        sight_compute(&world, &p1_sight);
+        view_set_sight(NULL);            /* everything visible */
+        if (!render_init())
+            return 1;
+        umfont_install();
+        kbuf_init(16);
+        view_invalidate();
+        view_update(&world);
+        render_fields();
+        render_draw_tile(T_FX_SLASH, 2 * TILE_PX, 3 * TILE_PX);
+        render_draw_tile(T_FX_HIT, 3 * TILE_PX, 3 * TILE_PX);
+        render_draw_tile(T_FX_MISS, 4 * TILE_PX, 3 * TILE_PX);
+        render_draw_tile(T_FX_DEATH_0, 5 * TILE_PX, 3 * TILE_PX);
+        render_draw_tile(T_FX_DEATH_1, 2 * TILE_PX, 4 * TILE_PX);
+        render_draw_tile(T_FX_DEATH_2, 3 * TILE_PX, 4 * TILE_PX);
+        render_draw_tile(T_FX_DEATH_3, 4 * TILE_PX, 4 * TILE_PX);
+        sound_play(SND_SWING);
+        sound_play(SND_HIT);
+        sound_play(SND_MISS);
+        sound_play(SND_SPELL);
+        sound_play(SND_SMASH);
+        sound_play(SND_DEATH);
+        sound_play(SND_ROUND);
+        sound_play(SND_WIN);
+        do {                              /* the tiles stay on screen */
+            while (!kbuf_poll_event(&e))
+                ;
+        } while (!e.isdown);
+        kbuf_deinit();
+        render_shutdown();
+        return 0;
+    }
     if (argc > 1 && (strcmp(argv[1], "--helppage") == 0 ||
                      strcmp(argv[1], "--lexicon") == 0)) {
         render_init();                    /* dev: look at the M5 screens */
@@ -1346,6 +1395,7 @@ int main(int argc, char **argv)
 
     log_open(dump || do_bench);
     log_line("BOOT");
+    fx_set_enabled(!dump && !do_bench);  /* waits would eat scripted keys */
     {
         uint32_t t0 = getsysvar_time();
         bool ok = mapfile_load(&world, map_path);
@@ -1375,6 +1425,8 @@ int main(int argc, char **argv)
         turns.ai = ai_wizard_phase;
         turns.ai_ctx = &ai_ctx;
         turns.on_round = on_round;
+        turns.on_ai = on_ai_events;
+        turns.on_ai_ctx = 0;
         turns.round_ctx = &game;
     }
     game_init(&game, world.portal_x, world.portal_y, world.portal_rmin,
@@ -1435,6 +1487,8 @@ menu_start:
                 turns.ai = ai_wizard_phase;
                 turns.ai_ctx = &ai_ctx2;
                 turns.on_round = on_round;
+                turns.on_ai = on_ai_events;
+                turns.on_ai_ctx = 0;
                 turns.round_ctx = &game;
             }
             sight_init(&p1_sight, OWN_P1);
@@ -1455,6 +1509,8 @@ menu_start:
             turns.ai = ai_wizard_phase;
             turns.ai_ctx = &ai_ctx3;
             turns.on_round = on_round;
+            turns.on_ai = on_ai_events;
+            turns.on_ai_ctx = 0;
             turns.round_ctx = &game;
             update_sight();
             view_set_sight(&p1_sight);
@@ -1809,10 +1865,13 @@ dispatch:
                         !turn_humans_present(&turns, &world) ||
                         game_outcome(&game, &world, OWN_P1) != OUT_RUNNING) {
                         end_pending = true;       /* shown by the main loop */
-                    } else if (game.portal_open && turns.round == game.portal_round)
+                    } else if (game.portal_open && turns.round == game.portal_round) {
                         render_message(0, C_BRIGHT_MAGENTA, "Das Portal oeffnet sich!");
-                    else
+                        sound_play(SND_PORTAL);
+                    } else {
                         render_message(1, C_BRIGHT_GREEN, "Neue Runde.");
+                        sound_play(SND_ROUND);
+                    }
                     if (!game_ended && !end_pending) {   /* autosave (GDD 2.3) */
                         copy_name(saved_map, sizeof saved_map, map_path);
                         if (save_to_sd())

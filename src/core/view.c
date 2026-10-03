@@ -549,6 +549,14 @@ uint8_t view_animate(uint8_t p)
 
 bool view_dirty(uint8_t vx, uint8_t vy) { return dirty[vy][vx] != 0; }
 
+/* Force one field to repaint on the next render_fields() (fx overlays,
+ * M5c). The cached layers stay valid - only the screen pixels are stale. */
+void view_mark_dirty(uint8_t vx, uint8_t vy)
+{
+    if (vx < VIEW_W && vy < VIEW_H)
+        dirty[vy][vx] = 1;
+}
+
 const FieldLayers *view_field(uint8_t vx, uint8_t vy) { return &fields[vy][vx]; }
 
 void view_clean(void) { memset(dirty, 0, sizeof dirty); }

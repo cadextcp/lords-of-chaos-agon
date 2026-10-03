@@ -12,6 +12,7 @@
 #include "effect.h"
 #include "chord.h"
 #include "combat.h"
+#include "events.h"
 #include "game.h"
 #include "items.h"
 #include "lexicon.h"
@@ -30,8 +31,9 @@
  * Must be identical on host and Agon; update deliberately when the map,
  * tiles or composition rules change. Changed for M2d: the new unexplored
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
- * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures. */
-#define HOUSE_VIEW_HASH 0xCEE5C0B2UL
+ * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures;
+ * M5c added the seven fx tiles after "floor_*" (IDs shifted again). */
+#define HOUSE_VIEW_HASH 0x95BBF96AUL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -2984,6 +2986,125 @@ static void test_m5b_lexicon(void)
     }
 }
 
+/* ---------- M5c: presentation events ---------- */
+
+static void test_m5c_events(void)
+{
+    static GameEvent ev[EVENT_RING];
+    uint8_t n, i;
+    Rng rng;
+    CombatResult r;
+
+    events_reset();
+    check(events_drain(ev, EVENT_RING) == 0, "m5c: ring starts empty");
+    for (i = 0; i < 20; i++)
+        events_push(EV_HIT, 1, 2, 3, 4, 5, 6);
+    check(events_dropped() == 4, "m5c: full ring drops the new events");
+    n = events_drain(ev, EVENT_RING);
+    check(n == EVENT_RING, "m5c: drain returns the ring contents");
+    check(ev[0].a == 5 && ev[0].x == 1 && ev[0].owner == 4,
+          "m5c: order and payload kept");
+    check(events_drain(ev, EVENT_RING) == 0, "m5c: drain clears the ring");
+
+    /* a melee exchange: swing first, then hit or miss (and the reply) */
+    events_reset();
+    load_house();
+    world.units[1].owner = OWN_P2;       /* the goblin turns hostile */
+    world.units[1].x = 4;                /* next to the wizard (3,4) */
+    world.units[1].y = 4;
+    rng_seed(&rng, 3);
+    check(combat_melee(&world, &rng, 0, 1, &r), "m5c: melee runs");
+    n = events_drain(ev, EVENT_RING);
+    check(n >= 2, "m5c: melee emits at least swing and result");
+    check(ev[0].type == EV_SWING && ev[0].x == 4 && ev[0].y == 4 &&
+          ev[0].kind == CR_WIZARD,
+          "m5c: the swing names attacker and target field");
+    check(ev[1].type == EV_HIT || ev[1].type == EV_MISS,
+          "m5c: hit or miss follows the swing");
+    if (ev[1].type == EV_HIT && !r.died)
+        check(ev[1].a == r.damage, "m5c: the hit carries the damage");
+
+    /* kills report where and what died */
+    events_reset();
+    world_kill_unit(&world, 1, CR_WIZARD, OWN_P1, true);
+    n = events_drain(ev, EVENT_RING);
+    check(n == 1 && ev[0].type == EV_DEATH && ev[0].kind == CR_GOBLIN,
+          "m5c: a kill emits one death event");
+
+    /* terrain attacks swing (b=1) and may smash */
+    events_reset();
+    load_house();
+    rng_seed(&rng, 9);
+    {
+        bool destroyed = false;
+        (void)combat_terrain(&world, &rng, 0, 1, 6, &destroyed);  /* table */
+        n = events_drain(ev, EVENT_RING);
+        check(n >= 1 && ev[0].type == EV_SWING && ev[0].b == 1,
+              "m5c: terrain attack swings with the terrain flag");
+        if (n > 1)
+            check(ev[1].type == EV_SMASH && ev[1].x == 1 && ev[1].y == 6,
+                  "m5c: destruction emits a smash event");
+        else
+            check(!destroyed, "m5c: no smash event without destruction");
+    }
+
+    /* spells report id and target; the bolt itself hits or misses */
+    events_reset();
+    load_house();
+    world.units[1].owner = OWN_P2;       /* goblin inside, clear line */
+    world.units[1].x = 4;
+    world.units[1].y = 3;
+    {
+        Spellbook b;
+        SpellShot shot;
+        Rng r2;
+        memset(&b, 0, sizeof b);
+        b.level[SP_MAGIC_BOLT] = 1;
+        rng_seed(&r2, 11);
+        check(spell_bolt(&world, &b, 0, SP_MAGIC_BOLT, 4, 3, &r2, &shot),
+              "m5c: bolt cast at the goblin");
+        n = events_drain(ev, EVENT_RING);
+        check(n >= 1 && ev[0].type == EV_SPELL && ev[0].kind == SP_MAGIC_BOLT,
+              "m5c: the cast emits a spell event with the id");
+        check(ev[0].x == 4 && ev[0].y == 3, "m5c: the spell names its target");
+        if (n > 1)
+            check(ev[1].type == EV_HIT || ev[1].type == EV_MISS,
+                  "m5c: the bolt connects or whiffs");
+    }
+
+    /* bleeding out reports a death with the bleed flag */
+    events_reset();
+    load_house();
+    world.units[0].flags |= UF_WOUNDED;
+    world.units[0].con = 1;
+    world_new_turn(&world);
+    n = events_drain(ev, EVENT_RING);
+    check(n == 1 && ev[0].type == EV_DEATH && ev[0].a == 1,
+          "m5c: bleeding out emits a death event (a=1)");
+
+    /* emitting must not touch the RNG: two identical runs agree */
+    {
+        CombatResult r1, r2;
+        events_reset();
+        load_house();
+        world.units[1].owner = OWN_P2;
+        world.units[1].x = 4;
+        world.units[1].y = 4;
+        rng_seed(&rng, 42);
+        combat_melee(&world, &rng, 0, 1, &r1);
+        events_drain(ev, EVENT_RING);     /* the drain must not matter */
+        load_house();
+        world.units[1].owner = OWN_P2;
+        world.units[1].x = 4;
+        world.units[1].y = 4;
+        rng_seed(&rng, 42);
+        combat_melee(&world, &rng, 0, 1, &r2);
+        check(r1.hit == r2.hit && r1.damage == r2.damage &&
+              r1.returned == r2.returned && r1.return_hit == r2.return_hit,
+              "m5c: events do not change the dice");
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -3024,6 +3145,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m4_review();
     test_m5b_tutorial();
     test_m5b_lexicon();
+    test_m5c_events();
     load_house();   /* leave a clean state */
     return fails;
 }

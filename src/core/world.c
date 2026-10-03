@@ -4,6 +4,7 @@
 
 #include "area.h"
 #include "effect.h"
+#include "events.h"
 #include "gen/data.h"
 #include "items.h"
 #include "ride.h"
@@ -346,6 +347,8 @@ void world_kill_unit(World *w, uint8_t victim, uint8_t killer_kind,
 {
     if (victim >= w->unit_count)
         return;
+    events_push(EV_DEATH, w->units[victim].x, w->units[victim].y,
+                w->units[victim].kind, w->units[victim].owner, 0, 0);
     drop_carried(w, &w->units[victim]);
     if (killer_owner < OWN_NEUTRAL && w->kill_count < MAX_KILLS) {
         Kill *k = &w->kills[w->kill_count++];
@@ -475,6 +478,8 @@ void world_new_turn(World *w)
     }
     for (i = w->unit_count; i-- > 0;)      /* bleeders that died */
         if (w->units[i].con == 0) {
+            events_push(EV_DEATH, w->units[i].x, w->units[i].y,
+                        w->units[i].kind, w->units[i].owner, 1, 0);
             drop_carried(w, &w->units[i]);
             world_remove_unit(w, i);
         }

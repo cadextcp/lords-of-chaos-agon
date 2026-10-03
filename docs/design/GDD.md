@@ -663,10 +663,34 @@ Wie beim Amiga werden pro Feld **mehrere Ebenen übereinander** gezeichnet (B1.2
 - **Mockups:** `tools/mockup.py` rendert aus Kacheln und einer Szenen-Beschreibung ein 320×240-Bild des Spielbildschirms nach `docs/design/mockups/`. So lässt sich die Optik beurteilen, bevor der Agon-Renderer existiert.
 - Alle Grafiken sind eigene Arbeit (D10) und dürfen ins öffentliche Repo.
 
-### 11.4 Sound [C]
+### 11.4 Sound [C] (M5c ausgebaut)
 
 - Einfache Effekte über den Agon-Soundkanal: Schritt, Treffer, Zauber, Portal.
-- Musik ist optional [X].
+- **M5c:** Kanal 0 trägt die Effekte (1–3 bleiben für Musik, M5d). Jeder Effekt
+  wählt eine Wellenform (Square/Triangle/Saw/Sine/Noise/VIC-Noise über
+  `vdp_audio_set_waveform`), eine ADSR-Hüllkurve
+  (`vdp_audio_volume_envelope_ADSR`) und eine kurzen Notenfolge — 16 Effekte:
+  Schwung, Treffer, Verfehlt, Tod, Zauber, Bogen, Wurf, Aufheben, Tür, Truhe,
+  Zerschmettern, Portal (Arpeggio), Rundenwechsel, Sieg, Niederlage, Schritt.
+- Musik ist optional [X] (Titelmusik in M5d).
+
+#### 11.4.1 Ereignisse und Kampfanimation [C] (M5c)
+
+- Der Core meldet Darstellungsereignisse in einen kleinen Ring
+  (`src/core/events.[ch]`): `EV_SWING, EV_HIT, EV_WOUND, EV_MISS, EV_DEATH,
+  EV_SPELL, EV_SMASH` mit Position und Beteiligten. Beobachtung ohne
+  Nebenwirkungen — RNG, Weltzustand und Savegames bleiben unangetastet.
+- Emit-Punkte: Nahkampf/Freier Schlag (Schwung, Treffer, Verfehlt, Rückschlag),
+  `combat_damage` (jede Schadensquelle: Bolt, Blitz, Wurf, Bogen, Flächen,
+  Bombe), `world_kill_unit` und Blutungstod (Tod), `pay_for_spell`
+  (Zauberwirkung), Terrain-Angriff und Blitz (Zerschmettern).
+- Das Frontend (`src/agon/fx.c`) spielt den Ring ab: Overlay-Kacheln
+  (fx_slash, fx_hit, fx_miss, fx_death_0–3) über dem Kartenfenster,
+  Schadenszahl in Rot, passender Sound; kurze getimete Frames, Tasten
+  während der Show werden verworfen (keine Geister-Eingaben, K5). Nach der
+  Show werden die Felder über `view_mark_dirty` neu gezeichnet.
+- Die KI wird sichtbar: nach jeder KI-Phase (und den unabhängigen Kreaturen)
+  leert ein Callback in `turn_end_phase` den Ring und spielt ihn ab.
 
 ### 11.5 Hilfe, Tutorial und Lexikon [C] (M5)
 

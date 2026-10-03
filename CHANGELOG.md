@@ -4,6 +4,17 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 
 ## [Unreleased] – M5 Präsentationsrunde
 
+### Hinzugefügt (M5c: Ereignisse, Kampfanimation, Sound)
+- **Ereignis-Ring im Core (`src/core/events.[ch]`):** `EV_SWING/HIT/WOUND/MISS/DEATH/SPELL/SMASH` mit Position und Beteiligten. Reine Beobachtung — RNG, Weltzustand, Savegames und View-Logik bleiben unberührt (Selftest prüft Ereignisfolge und identische Würfel). Emitted aus Nahkampf/Freiem Schlag/Rückschlag, `combat_damage` (alle Schadensquellen), `world_kill_unit` und Blutungstod, `pay_for_spell` (jeder Zauber inkl. Beschwörung/Brauen), Terrain-Angriff und Blitz.
+- **Kampf-/Todesanimation (`src/agon/fx.c`):** spielt den Ring ab — Slash-/Treffer-/Verfehlt-Overlays, rote Schadenszahl, Todessequenz in 4 Frames (Aufblitzen → Verblassen → Staub/Kreuz), Zauberblitz und Trümmerwolke. Sieben neue Kacheln (`fx_*`, `tools/art/make_tiles.py`), `view_mark_dirty()` zum sauberen Neuzeichnen einzelner Felder. Kurze getimete Frames; Tasten während der Show werden verworfen (K5). In Skript-Runs (`--dump/--bench`) deaktiviert, damit keine Skripttasten verloren gehen.
+- **KI sichtbar:** neuer Callback `Turns.on_ai` nach jeder KI-Phase und den unabhängigen Kreaturen — das Frontend zeigt Züge, Schläge und Tode der KI als Animation über der aktuellen Karte.
+- **Klang-Überholung (`src/agon/sound.c`):** 16 Effekte mit Wellenform (Square/Triangle/Saw/Sine/Noise/VIC-Noise), ADSR-Hüllkurve und Notenfolgen auf Kanal 0 (1–3 frei für Musik): Schwung, Treffer, Verfehlt, Tod, Zauber, Bogen, Wurf, Tür, Truhe, Zerschmettern, Portal-Arpeggio, Rundenwechsel, Sieg/Niederlage, Schritt, Aufheben. Bisher stumme Pfade (Rückschlag, Bolt, Wurf, KI-Aktionen) spielen jetzt; `SND_MISS` ist verdrahtet.
+- Dev-Screen: `loc --fxdemo` zeigt alle sieben Effektkacheln und spielt die Sounds.
+
+### Geändert (M5c)
+- **Speicherformat v3** (`SAVE_VERSION` 3, Struktur `Turns` + Callback-Feld): alte v2-Spielstände werden abgelehnt („Kein Spielstand“).
+- View-Hash: durch die sieben fx-Kacheln verschieben sich die Tile-IDs — `HOUSE_VIEW_HASH` neu übernommen.
+
 ### Hinzugefügt (M5b: Hilfe, Tutorial, Lexikon)
 - **Hilfeseiten (F1, Hauptmenü „Hilfe“):** sieben Seiten (Steuerung, Aktionen, Spielziel, Runden/AP, Kampf, Magie, Objekte) aus `data/help/keys.txt`, kompiliert nach `/loc/help/keys.hlp` (`tools/gen_help.py`, ADR 0011 — Daten von der SD statt ins Binary). ←/→ blättert, Umlaute über den umdefinierten Font. Fällt die Datei aus, zeigt F1 weiter die alte Tastenliste.
 - **Geführtes Tutorial (Hauptmenü „Tutorial“):** kleine Karte (`data/maps/tutorial.txt`, 16×12) mit Zauberer, Zwerg, Truhenschlüssel, Truhe, Goblin und Portal (öffnet Runde 2). Schritt-Engine im Core (`src/core/tutorial.[ch]`): Bewegen → Einheit wechseln → Schlüssel nehmen → Truhe öffnen → Goblin besiegen → Zaubern → Portal; die Hinweiszeile steht unten (Texte aus `help/tutorial.hlp`), Tab/Zauber werden gemeldet und „merken sich“. Die Runde-1-Sperre [PM 7] ist im Tutorial aufgehoben.
