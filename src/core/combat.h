@@ -45,6 +45,17 @@ bool combat_damage(World *w, uint8_t target, uint8_t damage, uint8_t killer_kind
  * immediately; at most one unit dies per exchange. Removal reorders the
  * unit list - re-find units by id afterwards. */
 bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *out);
+/* Free swing (D26): like melee but without AP cost or return attack -
+ * the swing a defender gets when its enemy moves out of contact.
+ * False when the swing is not possible (not adjacent, same owner,
+ * grounded attacker against a flyer, undead immunity). */
+bool combat_free_swing(World *w, Rng *rng, uint8_t att, uint8_t def,
+                       CombatResult *out);
+/* After `unit` moved out of melee contact (an enemy was adjacent
+ * before AND an enemy is adjacent now): one adjacent living enemy gets
+ * a free swing. Returns the number of swings (0/1), out filled. */
+uint8_t combat_disengage_swings(World *w, Rng *rng, uint8_t unit,
+                                CombatResult *out);
 
 /* Terrain attack (GDD 3.3): damage rolled against the feature's
  * toughness; a lucky hit smashes it. Returns the damage, 0 when there

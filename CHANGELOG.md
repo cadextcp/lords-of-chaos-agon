@@ -4,6 +4,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 
 ## [Unreleased] – M4 Classic komplett
 
+### Geändert
+- **Gebunden-Regel neu (D26, Issue #82):** Aus dem Nahkontakt weg bewegen ist jetzt erlaubt — der angrenzende Gegner bekommt dafür einen **freien Schlag** ohne AP-Kosten (Trefferchance/Schaden wie Nahkampf, Untoten-Immunität und Boden-gegen-Flieger gelten). Diagonaler Ausbruch ohne verbleibenden Kontakt bleibt frei. Behebt den Totstand „ohne Waffe neben dem Gegner: weder Angriff noch Flucht". Freie Schläge gelten symmetrisch für Spieler und KI; `BUMP_ENGAGED` entfällt.
+
 ### Behoben
 - **Gebunden nur für eine Phase (GDD 6):** Eine Bodeneinheit neben einem Gegner konnte sich nie mehr wegbewegen, solange der Gegner stand – auf dem Agon fühlte sich das wie eine unsichtbare Mauer an (auch weil der Grund nicht gemeldet wurde). Jetzt bindet erst Nahkampfkontakt (heranziehen, angreifen, angegriffen werden) beide Seiten, die Bindung endet mit der eigenen Phase („im nächsten Zug ist Bewegung wieder möglich“). Beim Versuch wegzugehen erscheint „Gebunden: Gegner daneben - nur Angriff.“, bei Blob/Vine „Brei oder Ranken versperren den Weg.“
 - **Szenario 1 startet mit dem Zauberer allein:** Zwerg, Fledermaus und Einhorn des Spielers waren Testeinheiten aus M3g/M4e und standen von Anfang an in der Karte (Garten, Haus). Kreaturen kommen aus dem Zauberbuch. Die Testkarte `testland` behält ihre Entwicklungseinheiten.
