@@ -1004,6 +1004,30 @@ def owner_variant(im, owner):
 
 
 # ---------------------------------------------------------------- main
+# Tiles redesigned in the v2 art pass (design-tool export): the PNGs in
+# assets/tiles are the source now - this generator no longer owns them,
+# a full run skips them instead of overwriting the v2 art.
+V2_TILES = frozenset("""
+    area_blob_0 area_blob_1 area_fire_0 area_fire_1 area_flood_0 area_flood_1
+    area_vine_0 area_vine_1 bear centaur crocodile cursor_blue cursor_green
+    cursor_red cursor_white cursor_yellow demon door_h_closed door_h_open
+    door_v_closed door_v_open dwarf elephant floor_forest floor_grass
+    floor_magicwood floor_path floor_rubble floor_shadowwood floor_stone
+    floor_swamp floor_tallgrass floor_water_0 floor_water_1 floor_wood ghost
+    giant giant_bat giant_spider goblin gold_dragon gorilla green_dragon
+    gryphon harpy lion obj_apple obj_axe obj_bow obj_cauldron_empty
+    obj_cauldron_full obj_chest_key obj_clover obj_club obj_crystal
+    obj_diamond obj_door_key obj_dragon_herb obj_emerald obj_fairywing
+    obj_gold obj_knife obj_magic_apple obj_magic_mushroom obj_magic_slayer
+    obj_mistletoe obj_mushroom obj_ninja_star obj_nitro obj_ruby
+    obj_rune_stone obj_scroll obj_shield obj_slayer obj_spear obj_sulph
+    obj_sword obj_vial_bomb obj_vial_empty obj_vial_full obj_wand pegasus
+    pixie portal_0 portal_1 red_dragon rock roof spectre troll unicorn
+    vampire wall_00 wall_01 wall_02 wall_03 wall_04 wall_05 wall_06 wall_07
+    wall_08 wall_09 wall_10 wall_11 wall_12 wall_13 wall_14 wall_15 wizard
+    zombie
+""".split())
+
 def all_tiles() -> dict[str, Image.Image]:
     t = {
         "floor_stone": floor_stone(), "floor_wood": floor_wood(),
@@ -1054,8 +1078,8 @@ def all_tiles() -> dict[str, Image.Image]:
     }
     for m in range(16):
         t[f"wall_{m:02d}"] = wall(m)
-    from creatures import all_creatures   # 25 creatures (D13), separate module
-    t.update(all_creatures())
+    for n in V2_TILES:                    # v2 art: the PNGs are the source
+        t.pop(n, None)
     return t
 
 
