@@ -56,5 +56,22 @@ Gesammeltes Plattformwissen. Teile stammen aus dem ersten Versuch (BBC BASIC, `L
 | # | Thema | Status |
 |---|---|---|
 | H1 | Tastatur **Cherry G84-4100**, deutsches Layout, ohne Ziffernblock: Pfeil-Akkorde, Sondertasten und Auto-Repeat prüft Spike M1 (GDD §5.2). | ❓ (M1) |
-| H3 | Lange Dateinamen (`maps/wizard_house.map`) funktionieren im Emulator (hostfs). Auf der echten FAT-SD-Karte noch prüfen (#7). | ❓ |
-| H2 | MOS- bzw. VDP-Version auf dem echten Agon Light: noch festzustellen und mit dem Emulator-Pin abgleichen. | ❓ |
+| H3 | Lange Dateinamen (`maps/many_coloured_land.map`, `scenarios/ragarils_domain.scn`) funktionieren auch auf der echten FAT-SD-Karte (2026-10-03: Upload und Umbenennen auf die Karte, `loc --bench` lädt die Karte von dort). | ✅ (Hardware) |
+| H2 | MOS- bzw. VDP-Version auf dem echten Agon: laut Lumagon-Repo ein Agon Light 2 mit Platform MOS 3 („Arthur"), der Emulator-Pin läuft mit Console8 MOS 2.3.3. Der Abgleich der Versionen ist offen. | ❓ |
+| H4 | **`loc --selftest` läuft auf dem echten eZ80 durch** (2026-10-03, Stand `037521f`): `=== TEST PASS ===`. Auf der Hardware erscheint nur das Gesamtergebnis (der Selftest läuft nicht ausführlich). `emu_exit` (`out (0), a`) ist auf dem echten Agon harmlos; danach steht der MOS-Prompt wieder da. | ✅ (Hardware) |
+| H5 | **Das Spiel lässt sich über die USB-Konsole nicht beenden.** Dort getippte Zeichen kommen als Tastendrücke ohne VKey an; `VK_ESC` (7D) gibt es nur von der echten Tastatur am Agon. `Esc` im Spiel, dann schreibt `log_close()` auch `loc.log`; bis dahin ist die Datei leer. Zum Auslesen von `loc.log` also am Gerät Esc drücken, danach `TYPE /loc/loc.log` über USB. | ✅ (Hardware) |
+
+**Messwerte `loc --bench` auf dem echten Agon Light 2** (2026-10-03, Stand `037521f`, Szenario 1, 9×9-Fenster):
+
+| Messung | Zeit |
+|---|---|
+| Karte laden (`many_coloured_land`) | 100 ms |
+| Cursor blinken | 0 ms |
+| Fenster komponieren (81 Felder) | 90 ms |
+| Sichtberechnung | 298 ms |
+| 20 Flächen-Ticks, 4 Flächen Stufe 4 | 40 ms gesamt (etwa 2 ms je Tick, Ziel M4d: Rundenende < 500 ms) |
+| KI-Phase | 160 ms |
+| Voller Redraw (81 Felder) | 152 ms je Frame |
+| Nur Kerzenanimation | 6 ms je Frame |
+
+Einordnung: Die Sichtberechnung ist der größte Posten; ein Zug mit Sicht und KI-Phase braucht etwa 0,5 bis 0,6 s. Die Flächen im Bench sind kurzlebig (sie sterben nach wenigen Runden), die 40 ms sind also kein Worst Case. Bei normaler Bewegung wird nur neu gezeichnet, was sich geändert hat (Dirty-Tracking).
