@@ -13,6 +13,7 @@
  *                    not sendable to the emulator, #3)
  */
 #include <agon/keyboard.h>
+#include <agon/vdp.h>
 #include <agon/mos.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -22,6 +23,10 @@
 #include "../core/area.h"
 #include "../core/ride.h"
 #include "../core/save.h"
+#include "sound.h"
+#include "umfont.h"
+
+static void log_push(const char *line);   /* message ring (M4j) */
 #include "../core/brew.h"
 #include "../core/chord.h"
 #include "../core/combat.h"
@@ -60,6 +65,10 @@ static Sight p1_sight;             /* hidden map of the human player */
 static bool cursor_on = true;
 static bool confirm_end = false;   /* Shift+E asks before ending the turn */
 static bool look_mode = false;     /* x: examine any field (GDD 5.1) */
+static bool overlay_open;          /* big map / log / help / context */
+static bool overlay_is_context;    /* the context menu replays keys */
+static bool replay_valid;          /* letter to act after menu close */
+static char replay_ascii;
 static int16_t look_x, look_y;
 static bool spell_list = false;    /* c: pick a spell (GDD 5.1) */
 static bool targeting = false;     /* aiming (Enter casts/throws/fires) */
@@ -344,9 +353,10 @@ static void cast_targeted(bool dump)
         }
         return;
     }
-    if (shot.hit)
+    if (shot.hit) {
         snprintf(msg, sizeof msg, "Zauber trifft: %u Schaden.", shot.damage);
-    else
+        log_push(msg);
+    } else
         snprintf(msg, sizeof msg, "Zauber verpufft.");
     render_message(1, shot.hit ? C_BRIGHT_YELLOW : C_GREY, msg);
     if (shot.terrain_smashed)
@@ -356,6 +366,17 @@ static void cast_targeted(bool dump)
     settle();
     update_sight();
     frame(dump);
+}
+
+#define LOG_RING 10
+static char log_ring[LOG_RING][40];
+static uint8_t log_head;
+
+static void log_push(const char *line)
+{
+    strncpy(log_ring[log_head], line, sizeof log_ring[0]);
+    log_ring[log_head][sizeof log_ring[0] - 1] = 0;
+    log_head = (uint8_t)((log_head + 1) % LOG_RING);
 }
 
 /* Move the active unit in direction mask m (chord.h); messages on failure. */
@@ -381,7 +402,10 @@ static void step(uint8_t m, bool dump)
     } else if (world_move_unit(&world, active(), dx, dy)) {
         char msg[48];
         uint8_t mover = active();
+        sound_play(SND_STEP);
         if (game_try_enter_portal(&game, &world, mover)) {
+            log_push("Gerettet durch das Portal!");
+            sound_play(SND_PORTAL);
             snprintf(msg, sizeof msg, "Gerettet! Zauberer-1: %u VP.",
                      game.vp[OWN_P1]);
             render_message(0, C_BRIGHT_MAGENTA, msg);
@@ -425,6 +449,10 @@ static void step(uint8_t m, bool dump)
                 render_message(1, C_BRIGHT_RED, "Angriff nicht moeglich.");
                 return;
             }
+            if (r.died)
+                sound_play(SND_DEATH);
+            if (r.hit)
+                sound_play(SND_HIT);
             if (r.died)
                 snprintf(msg, sizeof msg, "%s stirbt!", name);
             else if (r.wound)
@@ -689,6 +717,136 @@ static const char *menu_scenario_map(uint8_t pick)
     return MAPS[pick];
 }
 
+/* ---------- overlays (GDD 5.1/11.1, M4j) ---------- */
+
+static void draw_context_menu(void);
+static void draw_big_map(void);
+static void draw_log(void);
+static void draw_help(void);
+
+static void draw_context_menu(void)
+{
+    static const struct {
+        char key;
+        const char *name;
+        uint8_t ap;
+    } ITEMS[] = {
+        { ' ', "Einheit fertig", 0 },
+        { '>', "Landen", 4 },
+        { '<', "Aufsteigen", 4 },
+        { 'b', "Reittier", 6 },
+        { 'c', "Zauber wirken", 10 },
+        { 'f', "Bogen schiessen", 12 },
+        { 'g', "Aufheben", 6 },
+        { 'd', "Fallen lassen", 2 },
+        { 'w', "Objekt wechseln", 4 },
+        { 'e', "Essen", 6 },
+        { 'q', "Trinken", 4 },
+        { 'r', "Lesen", 8 },
+        { 'x', "Untersuchen", 0 },
+        { 'E', "Zug beenden", 0 },
+    };
+    char buf[40];
+    uint8_t i;
+    const Unit *u = &world.units[active()];
+    render_menu_clear();
+    render_menu_text(2, 1, C_BRIGHT_YELLOW, "Aktionen");
+    for (i = 0; i < sizeof ITEMS / sizeof ITEMS[0]; i++) {
+        bool possible = true;
+        switch (ITEMS[i].key) {
+        case '>':
+            possible = (u->flags & UF_FLYING) != 0;
+            break;
+        case '<':
+            possible = !(u->flags & UF_FLYING) && u->ap_fly != 0;
+            break;
+        case 'f':
+            possible = u->in_use != NO_ITEM && u->in_use < u->item_count &&
+                       OBJECTS[u->items[u->in_use]].weapon != WEAPON_NONE &&
+                       WEAPONS[OBJECTS[u->items[u->in_use]].weapon].ranged;
+            break;
+        case 'g':
+        case 'd':
+        case 'e':
+        case 'q':
+        case 'r':
+            possible = u->item_count > 0;
+            break;
+        case 'c':
+            possible = u->kind == CR_WIZARD;
+            break;
+        default:
+            break;
+        }
+        if (!possible)
+            continue;
+        snprintf(buf, sizeof buf, "%c  %-16.16s %2u AP", ITEMS[i].key,
+                 ITEMS[i].name, ITEMS[i].ap);
+        render_menu_text(4, (uint8_t)(4 + i), C_BRIGHT_WHITE, buf);
+    }
+    render_menu_text(3, 21, C_GREY, "Buchstabe wirkt, Esc schliesst.");
+}
+
+static void draw_big_map(void)
+{
+    char head[40];
+    int16_t x, y;
+    render_menu_clear();
+    snprintf(head, sizeof head, "Gesamtkarte  Runde %u", turns.round);
+    render_menu_text(2, 0, C_BRIGHT_YELLOW, head);
+    for (y = 0; y < world.h; y++)
+        for (x = 0; x < world.w; x++) {
+            uint8_t colour;
+            uint8_t u = world_unit_at(&world, x, y, UL_GROUND);
+            uint8_t px = (uint8_t)(2 + x * 5);
+            uint8_t py = (uint8_t)(2 + y * 5);
+            if (u != NO_UNIT)
+                colour = world.units[u].owner == OWN_P1 ? C_BRIGHT_WHITE
+                                                        : C_BRIGHT_RED;
+            else if (x == game.portal_x && y == game.portal_y)
+                colour = C_BRIGHT_MAGENTA;
+            else
+                colour = world_floor(&world, x, y) == FL_WATER ? C_BLUE
+                         : world_floor(&world, x, y) == FL_FOREST ? C_GREEN
+                         : C_GREY;
+            vdp_gcol(0, colour);
+            vdp_filled_rectangle(px, py, (int)(px + 3), (int)(py + 3));
+        }
+    render_menu_text(2, 28, C_GREY, "Weiss: du  Rot: Feind  Magenta: Portal");
+}
+
+static void draw_log(void)
+{
+    uint8_t i, idx;
+    render_menu_clear();
+    render_menu_text(2, 1, C_BRIGHT_YELLOW, "Nachrichten");
+    for (i = 0; i < LOG_RING; i++) {
+        idx = (uint8_t)((log_head + i) % LOG_RING);
+        render_menu_text(2, (uint8_t)(4 + i), C_BRIGHT_WHITE, log_ring[idx]);
+    }
+    render_menu_text(2, 22, C_GREY, "Esc zurueck.");
+}
+
+static void draw_help(void)
+{
+    render_menu_clear();
+    render_menu_text(2, 1, C_BRIGHT_YELLOW, "HILFE (F1)");
+    render_menu_text(4, 4, C_BRIGHT_WHITE, "Pfeile+Akkorde  Bewegen");
+    render_menu_text(4, 5, C_BRIGHT_WHITE, "Pos1/Ende/Bild  Diagonalen");
+    render_menu_text(4, 6, C_BRIGHT_WHITE, "Tab/Shift+Tab   Einheit wechseln");
+    render_menu_text(4, 7, C_BRIGHT_WHITE, "Leertaste       Einheit fertig");
+    render_menu_text(4, 8, C_BRIGHT_WHITE, "Shift+E         Zug beenden");
+    render_menu_text(4, 9, C_BRIGHT_WHITE, "Enter           Aktionsmenue");
+    render_menu_text(4, 10, C_BRIGHT_WHITE, "c cast  f Feuer  t Werfen");
+    render_menu_text(4, 11, C_BRIGHT_WHITE, "g Aufheben  d Fallenlassen");
+    render_menu_text(4, 12, C_BRIGHT_WHITE, "w Waffe  e Essen  q Trinken");
+    render_menu_text(4, 13, C_BRIGHT_WHITE, "v Fuellen  r Lesen  b Reiten");
+    render_menu_text(4, 14, C_BRIGHT_WHITE, "< Fliegen  > Landen");
+    render_menu_text(4, 15, C_BRIGHT_WHITE, "x Untersuchen  m Karte  l Log");
+    render_menu_text(4, 16, C_BRIGHT_WHITE, "Esc Abbrechen/Beenden");
+    render_menu_text(2, 22, C_GREY, "Esc zurueck.");
+}
+
 static void draw_menu(uint8_t cursor)
 {
     uint8_t i;
@@ -791,9 +949,6 @@ static void designer_setup_loop(void)
 static const char *menu_loop(bool *free_round1)
 {
     struct keyboard_event_t e;
-    static const char *const SCENARIOS[] = {
-        "maps/many_coloured_land.map",
-    };
     uint8_t cursor = 0;
     bool running = true;
     bool confirm_reset = false;
@@ -949,6 +1104,7 @@ int main(int argc, char **argv)
         log_close();
         return 1;
     }
+    umfont_install();                    /* ae/oe/ue/ss for the UI (M4j) */
     kbuf_init(16);
     if (!dump && !do_bench) {            /* main menu (GDD 2.3, M4f) */
         const char *chosen = menu_loop(&free_round1);
@@ -1017,6 +1173,15 @@ int main(int argc, char **argv)
     next_anim = getsysvar_time() + ANIM_CS;
     next_blink = getsysvar_time() + BLINK_CS;
     while (running) {
+        /* replayed key from the context menu (M4j): the letter closes
+         * the menu and acts through the normal dispatch below */
+        if (replay_valid) {
+            memset(&e, 0, sizeof e);
+            e.isdown = 1;
+            e.ascii = replay_ascii;
+            replay_valid = false;
+            goto dispatch;
+        }
         /* Drain every queued key event first: drawing a step can take longer
          * than the repeat delay, and a stale "held" state would otherwise
          * repeat keys that were already released (ADR 0007). */
@@ -1024,6 +1189,7 @@ int main(int argc, char **argv)
             now = (uint16_t)getsysvar_time();
             if (game_ended && !(e.isdown && e.vkey == VK_ESC))
                 continue;                        /* game over: Esc only */
+dispatch:
             if (spell_list && e.isdown) {        /* letters pick (a is WASD too) */
                 if (e.vkey == VK_ESC) {
                     spell_list = false;
@@ -1046,6 +1212,7 @@ int main(int argc, char **argv)
                         if (world.units[wiz].kind != CR_WIZARD) {
                             render_message(1, C_BRIGHT_RED, "Nur Zauberer zaubern.");
                         } else if (SPELLS[i].category == SPC_POTION) {
+                            sound_play(SND_SPELL);
                             if (brew_cast(&world, &books[OWN_P1], wiz, (uint8_t)i))
                                 render_message(1, C_BRIGHT_GREEN,
                                                "Der Kessel brodelt.");
@@ -1054,6 +1221,7 @@ int main(int argc, char **argv)
                                                "Brauen braucht Kessel und Zutat.");
                         } else if (SPELLS[i].category == SPC_SUMMON) {
                             uint8_t got = spell_summon(&world, &books[OWN_P1], wiz, (uint8_t)i);
+                            sound_play(SND_SPELL);
                             if (got)
                                 render_message(1, C_BRIGHT_GREEN, "Beschworen!");
                             else
@@ -1115,6 +1283,39 @@ int main(int argc, char **argv)
             if (input_diagonal(e.vkey)) {
                 if (!spell_list)
                     step(input_diagonal(e.vkey), dump);
+            } else if (overlay_open) {
+                if (e.vkey == VK_ESC) {
+                    overlay_open = false;
+                    view_invalidate();
+                    frame(dump);
+                } else if (overlay_is_context && !input_arrow(e.vkey) &&
+                           !input_diagonal(e.vkey) && e.ascii) {
+                    /* a letter: close and act through the normal path */
+                    overlay_open = false;
+                    overlay_is_context = false;
+                    view_invalidate();
+                    replay_valid = true;
+                    replay_ascii = e.ascii;
+                } else if (e.vkey == VK_F1) {
+                    draw_help();
+                } else if (e.ascii == 'm') {
+                    draw_big_map();
+                } else if (e.ascii == 'l') {
+                    draw_log();
+                }
+            } else if (e.vkey == VK_F1) {
+                overlay_open = true;
+                draw_help();
+            } else if (e.ascii == 'm') {
+                overlay_open = true;
+                draw_big_map();
+            } else if (e.ascii == 'l') {
+                overlay_open = true;
+                draw_log();
+            } else if (e.ascii == 13 && !spell_list && !targeting) {
+                overlay_open = true;               /* context menu (GDD 5.1) */
+                overlay_is_context = true;
+                draw_context_menu();
             } else if (look_mode) {                /* x: examine (GDD 5.1) */
                 if (e.vkey == VK_ESC || e.ascii == 'x') {
                     look_mode = false;
@@ -1131,8 +1332,10 @@ int main(int argc, char **argv)
                 }
             } else if (e.ascii == 'g') {            /* pick up */
                 confirm_end = false;
-                if (items_pick_up(&world, active()))
+                if (items_pick_up(&world, active())) {
+                    sound_play(SND_PICKUP);
                     render_message(1, C_BRIGHT_GREEN, "Aufgehoben.");
+                }
                 else
                     render_message(1, C_BRIGHT_RED, "Nichts aufzuheben.");
                 frame(dump);
