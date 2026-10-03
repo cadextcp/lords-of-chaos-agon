@@ -21,6 +21,7 @@
 #include "../core/chord.h"
 #include "../core/combat.h"
 #include "../core/colors.h"
+#include "../core/game.h"
 #include "../core/gen/data.h"
 #include "../core/items.h"
 #include "../core/names.h"
@@ -47,6 +48,7 @@
 
 static World world;
 static Turns turns;
+static Game game;                  /* portal and victory points (M3e) */
 static Sight p1_sight;             /* hidden map of the human player */
 static bool cursor_on = true;
 static bool confirm_end = false;   /* Shift+E asks before ending the turn */
@@ -118,7 +120,7 @@ static void print_line(const char *line)
 static int selftest(void)
 {
     uint16_t fails;
-    selftest_set_verbose(false);
+    selftest_set_verbose(false);         /* emulator console loses long tails */
     fails = core_selftest(print_line);
     printf(fails ? "=== TEST FAIL ===\r\n" : "=== TEST PASS ===\r\n");
     /* The fake VDP drops the first console bytes after the boot banner
@@ -195,11 +197,14 @@ static void throw_or_fire(bool dump)
             render_message(1, C_BRIGHT_RED, "Nichts zu werfen.");
     } else {
         uint8_t dmg = 0;
+        uint8_t before = world.unit_count;
         if (items_fire(&world, &turns.rng, active(), target_x, target_y, &dmg)) {
             if (dmg)
                 render_message(1, C_BRIGHT_YELLOW, "Schuss trifft!");
             else
                 render_message(1, C_GREY, "Schuss daneben.");
+            if (world.unit_count < before)
+                game_kill_credit(&game, OWN_P1, CR_WIZARD, false);
             turn_revalidate(&turns, &world);
         } else {
             render_message(1, C_BRIGHT_RED, "Kein Ziel in Reichweite.");
@@ -236,6 +241,7 @@ static void cast_targeted(bool dump)
     if (shot.terrain_smashed)
         render_message(2, C_BRIGHT_YELLOW, "Blitz schlaegt das Terrain ein!");
     if (world.unit_count < count_before) {
+        game_kill_credit(&game, OWN_P1, CR_WIZARD, false);   /* ranged */
         turn_revalidate(&turns, &world);
         render_message(2, C_BRIGHT_RED, "Mindestens eine Kreatur stirbt.");
     }
@@ -264,7 +270,15 @@ static void step(uint8_t m, bool dump)
     if (!turn_may_move(&turns)) {
         render_message(1, C_BRIGHT_RED, "Runde 1: nur Zaubern (PM 7).");
     } else if (world_move_unit(&world, active(), dx, dy)) {
-        render_message(1, C_GREY, "");
+        char msg[48];
+        uint8_t mover = active();
+        if (game_try_enter_portal(&game, &world, mover)) {
+            snprintf(msg, sizeof msg, "Gerettet! Zauberer-1: %u VP.",
+                     game.vp[OWN_P1]);
+            render_message(0, C_BRIGHT_MAGENTA, msg);
+            turn_on_unit_removed(&turns, &world, mover);
+        } else
+            render_message(1, C_GREY, "");
         update_sight();
         frame(dump);
     } else {
@@ -311,8 +325,10 @@ static void step(uint8_t m, bool dump)
             else
                 snprintf(msg, sizeof msg, "Verfehlt.");
             render_message(1, r.hit || r.died ? C_BRIGHT_YELLOW : C_GREY, msg);
-            if (r.died)
+            if (r.died) {
+                game_kill_credit(&game, OWN_P1, world.units[active()].kind, true);
                 turn_on_unit_removed(&turns, &world, other);
+            }
             if (r.returned) {
                 if (r.attacker_died) {
                     snprintf(msg, sizeof msg, "Rueckschlag toetet %s!", aname);
@@ -460,6 +476,9 @@ int main(int argc, char **argv)
         }
     }
     turn_init(&turns, &world, TURN_SEED, 1u << OWN_P1);
+    game_init(&game, 26, 3, 12, 15, &turns.rng);   /* M3g moves this to the map */
+    game_new_round(&game, turns.round);
+    view_set_portal(game.portal_open ? game.portal_x : -1, game.portal_y);
     if (free_round1)
         turns.round1_lock = false;
     if (do_fly) {                    /* the ISO key is not sendable yet (#3) */
@@ -679,7 +698,19 @@ int main(int argc, char **argv)
                 } else {
                     confirm_end = false;
                     turn_end_phase(&turns, &world);
-                    render_message(1, C_BRIGHT_GREEN, "Neue Runde.");
+                    game_new_round(&game, turns.round);
+                    view_set_portal(game.portal_open ? game.portal_x : -1,
+                                    game.portal_y);
+                    if (game.portal_open && turns.round == game.portal_round)
+                        render_message(0, C_BRIGHT_MAGENTA, "Das Portal oeffnet sich!");
+                    else if (game_over(&game, &world)) {
+                        char msg[48];
+                        snprintf(msg, sizeof msg,
+                                 "Spielende! Zauberer-1: %u VP  Zauberer-2: %u VP",
+                                 game.vp[OWN_P1], game.vp[OWN_P2]);
+                        render_message(0, C_BRIGHT_YELLOW, msg);
+                    } else
+                        render_message(1, C_BRIGHT_GREEN, "Neue Runde.");
                     update_sight();
                     frame(dump);
                 }

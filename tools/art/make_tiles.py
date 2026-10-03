@@ -648,6 +648,23 @@ def gold():
     return outline(im)
 
 
+def portal(phase):
+    """Swirling portal: an arch of stones around a pulsing centre."""
+    im = new()
+    for i, (x, y) in enumerate([(6, 20), (5, 18), (5, 16), (5, 14), (6, 12),
+                                (8, 10), (11, 9), (14, 10), (16, 12), (17, 14),
+                                (17, 16), (17, 18), (16, 20)]):
+        px(im, x, y, C["dgrey"])
+        px(im, x, y - 1, C["grey"])
+    if phase == 0:
+        ellipse(im, (8, 11, 15, 19), fill=C["violet"])
+        ellipse(im, (10, 13, 13, 17), fill=C["lviolet"])
+    else:
+        ellipse(im, (8, 11, 15, 19), fill=C["lviolet"])
+        ellipse(im, (10, 13, 13, 17), fill=C["violet"])
+    return im
+
+
 def emerald():
     im = new()
     poly(im, [(12, 7), (17, 12), (12, 21), (7, 12)], C["lgreen"])
@@ -750,6 +767,7 @@ def all_tiles() -> dict[str, Image.Image]:
         "wizard": wizard(), "goblin": goblin(), "obj_scroll": scroll(),
         "obj_sword": sword(), "obj_bow": bow(), "obj_shield": shield(),
         "obj_gold": gold(), "obj_emerald": emerald(),
+        "portal_0": portal(0), "portal_1": portal(1),
         "overlay_remembered": remembered(), "unexplored": unexplored(),
         "air_shadow": air_shadow(),
         "cursor_white": cursor(C["white"]), "cursor_green": cursor(C["lgreen"]),
