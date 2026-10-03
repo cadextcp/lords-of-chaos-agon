@@ -2496,7 +2496,7 @@ static void test_m4h(void)
 static void test_m4i(void)
 {
     SaveGame a, b;
-    static uint8_t buf[6400];
+    static uint8_t buf[SAVE_BUF_SIZE];
     uint16_t len;
     uint32_t ha, hb;
 
@@ -2506,6 +2506,12 @@ static void test_m4i(void)
     a.world.units[0].x = 7;              /* distinctive state */
     a.loads_left = 3;
     a.game.portal_round = 21;
+    a.explored[3][1] = 0x5A;
+    area_reset();
+    area_cast(&world, AREA_FIRE, 4, OWN_P1, 20, 19);
+    a.area_count = area_export(a.areas, SAVE_AREAS);
+    area_reset();
+    strcpy(a.world.save_map, "maps/slayers_dungeon.map");
 
     len = save_serialize(&a, buf, sizeof buf);
     check(len > 4000, "m4i: the blob holds the whole world");
@@ -2516,6 +2522,21 @@ static void test_m4i(void)
     check(b.world.units[0].x == 7 && b.loads_left == 3 &&
           b.game.portal_round == 21,
           "m4i: the state survives the round trip");
+    check(b.explored[3][1] == 0x5A && b.area_count == 1 &&
+          b.areas[0].kind == AREA_FIRE &&
+          strcmp(b.world.save_map, "maps/slayers_dungeon.map") == 0,
+          "m4i: explored map, areas and map name survive");
+    area_import(b.areas, b.area_count);
+    check(area_kind_at(&world, 20, 19) == AREA_FIRE,
+          "m4i: imported areas burn again");
+    area_reset();
+    a.loads_left = 0;
+    check(!save_may_load(&a), "m4i: no charges, no load");
+    a.loads_left = 1;
+    check(save_may_load(&a), "m4i: one charge loads");
+    a.loads_left = 0xFF;
+    check(save_may_load(&a), "m4i: unlimited loads");
+    a.loads_left = 3;
     check(b.world.unit_count == world.unit_count &&
           b.world.object_count == world.object_count,
           "m4i: units and objects survive");

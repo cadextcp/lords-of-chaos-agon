@@ -53,6 +53,9 @@ uint8_t area_round_end(World *w, Rng *rng);
 /* View helper: kind and per-field strength on (x, y) (for tiles). */
 AreaKind area_kind_at(const World *w, int16_t x, int16_t y);
 uint8_t area_power_at(const World *w, int16_t x, int16_t y);
+/* Savegame (M4i): copy out up to cap active areas / replace the pool. */
+uint8_t area_export(Area *dst, uint8_t cap);
+void area_import(const Area *src, uint8_t n);
 /* Forget all areas (new game / test). */
 void area_reset(void);
 /* Number of active areas (tests, bench). */
