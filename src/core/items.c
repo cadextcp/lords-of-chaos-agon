@@ -4,6 +4,7 @@
 
 #include "combat.h"
 #include "effect.h"
+#include "events.h"
 #include "gen/data.h"
 #include "sight.h"
 
@@ -220,7 +221,8 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
         if (damage)
             *damage = dmg;
         combat_damage(w, target, dmg, u->kind, u->owner, false, NULL);
-    }
+    } else
+        events_push(EV_MISS, tx, ty, u->kind, u->owner, 0, 0);
     return true;
 }
 

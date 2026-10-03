@@ -58,6 +58,7 @@ def main() -> int:
     ap.add_argument("--endscreen-lose", action="store_true", help="show the game over screen (dev)")
     ap.add_argument("--helppage", action="store_true", help="show the help viewer (dev, M5)")
     ap.add_argument("--lexicon", action="store_true", help="show the lexicon, all seen (dev, M5)")
+    ap.add_argument("--fxdemo", action="store_true", help="play every fx once (dev, M5c)")
     ap.add_argument("--tutorial", action="store_true",
                     help="start the guided tutorial map (M5)")
     ap.add_argument("--house", action="store_true", help="wizard house map (dev)")
@@ -109,6 +110,8 @@ def main() -> int:
         mode = ["--helppage"]
     elif args.lexicon:
         mode = ["--lexicon"]
+    elif args.fxdemo:
+        mode = ["--fxdemo"]
     write_autoexec(mode, args.keyboard)
 
     cmd = [str(env.GUI_EMULATOR), "--sdcard", str(env.SDCARD.resolve()),

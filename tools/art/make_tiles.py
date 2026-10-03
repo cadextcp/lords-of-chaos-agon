@@ -963,6 +963,78 @@ def cursor(col):
     return im
 
 
+# ---------------------------------------------------------------- combat fx (M5c)
+# Translucent-looking overlays: dithered so the field below stays visible
+# (the renderer draws them as plain tiles over the map).
+def fx_slash():
+    """Diagonal white/yellow streaks - a swung blade over the target."""
+    im = new()
+    for i in range(24):
+        for (dx, dy) in ((0, 0), (1, 1)):
+            x, y = i + dx, 23 - i + dy
+            if 0 <= x < N and 0 <= y < N:
+                px(im, x, y, C["white"])
+        if i % 3 == 0:
+            x, y = i + 2, 23 - i + 2
+            if 0 <= x < N and 0 <= y < N:
+                px(im, x, y, C["yellow"])
+        if i % 4 == 2:
+            x, y = i - 1, 23 - i - 1
+            if 0 <= x < N and 0 <= y < N:
+                px(im, x, y, C["grey"])
+    return im
+
+
+def fx_hit():
+    """Red starburst dither - damage lands here."""
+    im = new()
+    for y in range(N):
+        for x in range(N):
+            dx, dy = x - 11, y - 11
+            d2 = dx * dx + dy * dy
+            if d2 <= 81 and (x + y) % 2 == 0:
+                px(im, x, y, C["bred"] if d2 <= 25 else C["red"])
+            elif 81 < d2 <= 121 and (x + y) % 3 == 0:
+                px(im, x, y, C["orange"])
+    return im
+
+
+def fx_miss():
+    """Grey streaks passing by - the attack found nothing."""
+    im = new()
+    for y in range(2, N):
+        for x in range(N):
+            if (x + 2 * y) % 5 == 0:
+                px(im, x, y, C["grey"])
+            elif (x + 2 * y) % 7 == 3:
+                px(im, x, y, C["dgrey"])
+    return im
+
+
+def fx_death(phase):
+    """0 white flash, 1-2 fading ghost, 3 dust puff with a small cross."""
+    im = new()
+    if phase == 0:
+        for y in range(N):
+            for x in range(N):
+                if (x + y) % 2 == 0:
+                    px(im, x, y, C["white"])
+    elif phase in (1, 2):
+        step = 2 if phase == 1 else 4
+        for y in range(4, 21):
+            for x in range(6, 18):
+                if (x + y) % step == 0:
+                    px(im, x, y, C["grey"] if phase == 1 else C["dgrey"])
+    else:
+        for y in range(14, 22):
+            for x in range(4, 20):
+                if (x + y) % 3 == 0:
+                    px(im, x, y, C["dgrey"])
+        line(im, [(11, 6), (11, 10)], C["grey"])
+        line(im, [(9, 8), (13, 8)], C["grey"])
+    return im
+
+
 ICON_MAPS = {
     "boot":   ["..kkk...", "..kgk...", "..kgk...", "..kgk...", ".kggkkk.", ".kggggk.", ".kkkkkk.", "........"],
     "bolt":   ["....kyk.", "...kyk..", "..kyyyk.", ".kyyyk..", "...kyk..", "..kyk...", "..kk....", "........"],
@@ -1075,6 +1147,9 @@ def all_tiles() -> dict[str, Image.Image]:
         "cursor_white": cursor(C["white"]), "cursor_green": cursor(C["lgreen"]),
         "cursor_yellow": cursor(C["yellow"]), "cursor_red": cursor(C["bred"]),
         "cursor_blue": cursor(C["blue"]),
+        "fx_slash": fx_slash(), "fx_hit": fx_hit(), "fx_miss": fx_miss(),
+        "fx_death_0": fx_death(0), "fx_death_1": fx_death(1),
+        "fx_death_2": fx_death(2), "fx_death_3": fx_death(3),
     }
     for m in range(16):
         t[f"wall_{m:02d}"] = wall(m)

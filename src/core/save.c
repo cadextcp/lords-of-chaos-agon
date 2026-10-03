@@ -3,7 +3,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC "LOCSG"
-#define SAVE_VERSION 2
+#define SAVE_VERSION 3   /* v3: Turns.on_ai callback (M5c); v2 saves rejected */
 
 /* Length of the blob: header + the member images (no struct padding). */
 static uint16_t blob_size(void)

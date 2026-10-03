@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "events.h"
 #include "gen/data.h"
 #include "items.h"
 
@@ -42,8 +43,11 @@ bool combat_damage(World *w, uint8_t target, uint8_t damage, uint8_t killer_kind
     bool wounded = damage > u->con_max / 4;   /* fatal wound (PM 17) */
     if (wound)
         *wound = wounded;
-    if (wounded)
+    events_push(EV_HIT, u->x, u->y, u->kind, u->owner, damage, 0);
+    if (wounded) {
         u->flags |= UF_WOUNDED;
+        events_push(EV_WOUND, u->x, u->y, u->kind, u->owner, 0, 0);
+    }
     if (damage >= u->con) {
         world_kill_unit(w, target, killer_kind, killer_owner, melee);
         return true;
@@ -71,6 +75,7 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
     world_spend(w, att, ACTIONS[ACT_MELEE].ap);
     world_engage(w, att);                  /* melee contact binds both (GDD 6) */
     world_engage(w, def);
+    events_push(EV_SWING, d->x, d->y, a->kind, a->owner, 0, 0);
     /* normal weapons clank off the undead (GDD 4.2); either way the
      * defender strikes back below, hit or miss (GDD 6) */
     ok_to_hit = items_can_harm_undead(w, att, def) &&
@@ -83,13 +88,15 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
                                   &out->wound);
         if (out->died)
             return true;                   /* the dead do not strike back */
-    }
+    } else
+        events_push(EV_MISS, d->x, d->y, a->kind, a->owner, 0, 0);
 
     d = &w->units[def];                    /* pointer refreshed, not removed */
     if (d->ap >= ACTIONS[ACT_RETURN_ATTACK].ap &&
         d->sta >= ACTIONS[ACT_RETURN_ATTACK].stamina) {
         out->returned = true;
         world_spend(w, def, ACTIONS[ACT_RETURN_ATTACK].ap);
+        events_push(EV_SWING, a->x, a->y, d->kind, d->owner, 0, 0);
         if (items_can_harm_undead(w, def, att) &&
             rng_range(rng, 100) <
             combat_hit_chance(items_combat(w, def), items_defence(w, att))) {
@@ -98,7 +105,8 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
             out->attacker_died = combat_damage(w, att, out->return_damage,
                                                d->kind, d->owner, true,
                                                &out->return_wound);
-        }
+        } else
+            events_push(EV_MISS, a->x, a->y, d->kind, d->owner, 0, 0);
     }
     return true;
 }
@@ -119,11 +127,14 @@ bool combat_free_swing(World *w, Rng *rng, uint8_t att, uint8_t def,
         return false;
     if (!items_can_harm_undead(w, att, def))
         return false;                      /* clanks off harmlessly (GDD 4.2) */
+    events_push(EV_SWING, d->x, d->y, a->kind, a->owner, 0, 0);
 
     ok_to_hit = rng_range(rng, 100) <
                 combat_hit_chance(items_combat(w, att), items_defence(w, def));
-    if (!ok_to_hit)
+    if (!ok_to_hit) {
+        events_push(EV_MISS, d->x, d->y, a->kind, a->owner, 0, 0);
         return true;
+    }
     out->hit = true;
     out->damage = roll_damage(a, rng);
     out->died = combat_damage(w, def, out->damage, a->kind, a->owner, true,
@@ -167,11 +178,13 @@ uint8_t combat_terrain(World *w, Rng *rng, uint8_t att, int16_t x, int16_t y,
     if (u->ap < ACTIONS[ACT_MELEE].ap)
         return 0;
     world_spend(w, att, ACTIONS[ACT_MELEE].ap);
+    events_push(EV_SWING, x, y, u->kind, u->owner, 0, 1);
     dmg = roll_damage(u, rng);
     if ((uint16_t)(dmg + rng_range(rng, 4)) > FEATURE_TOUGH[fe]) {
         w->feature[y][x] = FE_NONE;        /* smashed to pieces */
         world_map_changed(w);
         *destroyed = true;
+        events_push(EV_SMASH, x, y, fe, 0, dmg, 0);
     }
     return dmg;
 }

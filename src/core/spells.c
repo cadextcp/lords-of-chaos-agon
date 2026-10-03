@@ -4,6 +4,7 @@
 #include "brew.h"
 #include "combat.h"
 #include "effect.h"
+#include "events.h"
 #include "items.h"
 #include "sight.h"
 
@@ -101,6 +102,8 @@ uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
     world_spend(w, wiz, ACTIONS[ACT_CAST].ap);
     w->units[wiz].mana = (uint8_t)(u->mana - mana);
     b->level[spell] = (uint8_t)(level - 1);
+    if (want)
+        events_push(EV_SPELL, u->x, u->y, spell, u->owner, 0, 0);
     for (i = 0; i < 8 && placed < want; i++) {
         int16_t x = (int16_t)(u->x + DX[i]), y = (int16_t)(u->y + DY[i]);
         if (world_wrap(w, &x, &y) && !world_blocks(w, x, y) &&
@@ -125,8 +128,10 @@ static bool shoot_field(World *w, Rng *rng, const Unit *caster, int16_t x,
     if (target == NO_UNIT)
         return false;
     if (rng_range(rng, 100) >= combat_hit_chance(caster->com,
-                                                 items_defence(w, target)))
+                                                 items_defence(w, target))) {
+        events_push(EV_MISS, x, y, caster->kind, caster->owner, 0, 0);
         return false;
+    }
     *damage = (uint8_t)((caster->com +
                          rng_range(rng, (uint16_t)(caster->com + 1))) / 4);
     if (*damage == 0)
@@ -148,6 +153,7 @@ static bool pay_for_spell(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
     world_spend(w, wiz, ACTIONS[ACT_CAST].ap);
     w->units[wiz].mana = (uint8_t)(w->units[wiz].mana - mana);
     b->level[spell] = (uint8_t)(level - 1);
+    events_push(EV_SPELL, x, y, spell, w->units[wiz].owner, 0, 0);
     return true;
 }
 
@@ -210,6 +216,7 @@ bool spell_lightning(World *w, Spellbook *b, uint8_t wiz,
         return false;
     /* smash destructible terrain at the target */
     if (world_blocks(w, x, y) && FEATURE_TOUGH[world_feature(w, x, y)] > 0) {
+        events_push(EV_SMASH, x, y, world_feature(w, x, y), 0, 0, 0);
         w->feature[y][x] = FE_NONE;
         world_map_changed(w);
         out->terrain_smashed = true;

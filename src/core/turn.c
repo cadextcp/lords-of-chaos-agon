@@ -187,6 +187,8 @@ void turn_end_phase(Turns *t, World *w)
             if (t->on_round)
                 t->on_round(t, w, t->round_ctx);
             turn_independents(t, w);      /* next round starts (GDD 2.1.1) */
+            if (t->on_ai)                 /* their fights animate too (M5c) */
+                t->on_ai(t, w, t->on_ai_ctx);
             world_release(w, OWN_NEUTRAL);
             o = first_owner(w);
             if (o == OWN_COUNT)
@@ -197,5 +199,7 @@ void turn_end_phase(Turns *t, World *w)
             return;                       /* human players act */
         if (t->ai)
             t->ai(t, w, t->ai_ctx);       /* wizard AI (GDD 10, M3f) */
+        if (t->on_ai)                     /* per AI phase (M5c) */
+            t->on_ai(t, w, t->on_ai_ctx);
     }
 }

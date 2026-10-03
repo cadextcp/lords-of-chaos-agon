@@ -17,6 +17,15 @@ Gesammeltes Plattformwissen. Teile stammen aus dem ersten Versuch (BBC BASIC, `L
 | V10 | **Sprites aus Buffer-Bitmaps:** `vdp_adv_add_sprite_bitmap(bufferId)` (16-Bit-ID) fügt Frames hinzu. Danach `activate_sprites(n)`; jede Änderung braucht `vdp_refresh_sprites()`. Nach dem Zeichnen von Bitmaps unter dem Sprite ebenfalls refreshen. | ✅ (M1 #4) |
 | V6 | Viele kleine VDU-Aufrufe sind langsam. Deshalb sammelt der Renderer Bytes in einen Puffer und gibt sie mit `mos_puts()` aus. Buffered Commands (`VDU 23,0,&A0`) prüft Spike M1. | ❓ (M1) |
 
+## Audio (M5c)
+
+| # | Quirk | Status |
+|---|---|---|
+| A1 | **Vier Kanäle (0–3)**, Noten via `VDU 23,0,&85,channel,0,volume,frequency;duration;` (agondev: `vdp_audio_play_note`). Noten pro Kanal werden gequeued — kurze Folgen spielen ohne Blockieren. | ✅ (API, agondev vdp.h; Klang nur auf Hardware/GUI prüfbar) |
+| A2 | Wellenformen pro Kanal: `vdp_audio_set_waveform` mit 0=Square, 1=Triangle, 2=Sawtooth, 3=Sine, 4=Noise, 5=VIC-Noise (Konstanten in vdp.h). Hüllkurven: `vdp_audio_volume_envelope_ADSR(ch, attack-ms, decay-ms, sustain-%, release-ms)`; danach wieder `disable`, sonst wirkt sie für die nächste Note weiter. | ✅ (API) |
+| A3 | Audio-Befehle enthalten 0x00-Bytes (Frequenz/Dauer u16): nie über `printf` senden, immer die agondev-Wrapper (die MOS-puts mit Längenangabe nutzen). | ✅ (wie alle VDU-23-Befehle) |
+| A4 | Der CLI-Emulator hat kein Audio (wie E1 kein VDP): Klang nur im GUI-Emulator/auf Hardware prüfbar. | ✅ |
+
 ## Emulator
 
 | # | Quirk | Status |

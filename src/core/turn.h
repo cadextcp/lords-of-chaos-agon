@@ -35,6 +35,10 @@ struct Turns {
     void *ai_ctx;
     TurnAiFn on_round;   /* called after each round change (portal etc.) */
     void *round_ctx;
+    /* Called after an AI phase (and the independents' steps) so the
+     * frontend can drain the event ring and animate (M5c). NULL: off. */
+    TurnAiFn on_ai;
+    void *on_ai_ctx;
 };
 
 /* Start round 1: run the independents, then the first owner's phase. */

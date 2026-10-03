@@ -2,6 +2,7 @@
 
 #include "combat.h"
 #include "effect.h"
+#include "events.h"
 #include "gen/data.h"
 #include "gen/tiles.h"
 #include "items.h"
@@ -221,6 +222,7 @@ bool brew_cast(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
     world_spend(w, wiz, ACTIONS[ACT_CAST].ap);
     u->mana = (uint8_t)(u->mana - spell_mana(spell, level));
     b->level[spell] = (uint8_t)(level - 1);
+    events_push(EV_SPELL, u->x, u->y, spell, u->owner, 0, 0);
     for (i = 0; i < sizeof INGREDIENTS / sizeof INGREDIENTS[0]; i++)
         if (INGREDIENTS[i].potion == spell)
             consume_ground(w, u->x, u->y, INGREDIENTS[i].object);
