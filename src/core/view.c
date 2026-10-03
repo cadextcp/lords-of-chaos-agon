@@ -2,6 +2,7 @@
 
 #include "gen/data.h"
 #include "area.h"
+#include "ride.h"
 #include "sight.h"
 
 #include <string.h>
@@ -166,6 +167,8 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
         }
     }
 
+    if (world_has_roof(w, wx, wy))
+        push(out, T_ROOF);               /* F7 hidden-state: see overlay */
     if (w->decor[wy][wx] == DE_RUG)
         push(out, T_DECOR_RUG);
     else if (w->decor[wy][wx] == DE_PENTACLE)
@@ -183,6 +186,27 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
     } else if (fe != FE_NONE) {
         push(out, FEATURE_TILE[fe]);
     }
+}
+
+/* F7 (M4e): strip the roof of the field when an OWN unit stands inside
+ * (the player sees his building from within). Cheap: unit scan per
+ * roofed field, roofs are rare. */
+static void apply_roof_rule(const World *w, int16_t wx, int16_t wy,
+                            FieldLayers *out)
+{
+    uint8_t i;
+    if (!world_has_roof(w, wx, wy))
+        return;
+    for (i = 0; i < w->unit_count; i++)
+        if (w->units[i].x == wx && w->units[i].y == wy &&
+            (!sight_map || w->units[i].owner == sight_map->owner)) {
+            uint8_t j, k = 0;
+            for (j = 0; j < out->n; j++)
+                if (out->id[j] != T_ROOF)
+                    out->id[k++] = out->id[j];
+            out->n = k;
+            return;
+        }
 }
 
 /* Hidden movement (GDD 3.4, AMI 4): enemy units are only drawn when the
@@ -249,6 +273,7 @@ static void compose_dynamic(const World *w, int16_t wx, int16_t wy, FieldLayers 
         push(out, T_AIR_SHADOW);      /* ground shadow below the flyer */
         push_unit(w, &w->units[u], out, true);
     }
+    apply_roof_rule(w, wx, wy, out);
     {   /* area effect overlay (M4d, layer 7) */
         AreaKind k = area_kind_at(w, wx, wy);
         if (k != AREA_NONE) {
@@ -359,6 +384,7 @@ static void compose_fast(const World *w, uint8_t vx, uint8_t vy, FieldLayers *ou
         push(out, T_AIR_SHADOW);
         push_unit(w, &w->units[over_air[vy][vx] - 1], out, true);
     }
+    apply_roof_rule(w, wx, wy, out);
     {   /* area effect overlay (M4d, layer 7) */
         AreaKind k = area_kind_at(w, wx, wy);
         if (k != AREA_NONE) {

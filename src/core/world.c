@@ -48,6 +48,7 @@ static void init_unit(Unit *u, uint8_t x, uint8_t y, uint8_t kind, uint8_t owner
     u->mana = u->mana_max = k->mana;
     u->item_count = 0;
     u->in_use = NO_ITEM;
+    u->rider_kind = 0xFF;
 }
 
 bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
@@ -132,8 +133,27 @@ bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
         w->portal_y = b[pos + 1];
         w->portal_rmin = b[pos + 2];
         w->portal_rmax = b[pos + 3];
+        pos += 4;
+    }
+    memset(w->roof, 0, sizeof w->roof);
+    if (b[4] >= 4) {                     /* v4: one roof bit per field */
+        uint16_t k2;
+        if (len < pos + cells)
+            return false;
+        for (k2 = 0; k2 < cells; k2++)
+            if (b[pos + k2])
+                w->roof[k2 >> 3] |= (uint8_t)(0x80u >> (k2 & 7));
     }
     return true;
+}
+
+bool world_has_roof(const World *w, int16_t x, int16_t y)
+{
+    uint16_t cell;
+    if (!world_wrap(w, &x, &y))
+        return false;
+    cell = (uint16_t)(y * w->w + x);
+    return (w->roof[cell >> 3] & (uint8_t)(0x80u >> (cell & 7))) != 0;
 }
 
 void world_map_changed(World *w)
@@ -172,7 +192,8 @@ bool world_is_wall_line(const World *w, int16_t x, int16_t y)
  * incrementally instead of paying a division per field (AGON-QUIRKS T2). */
 bool world_blocks_sight_at(const World *w, uint8_t x, uint8_t y)
 {
-    return FLOOR_SIGHT[w->floor[y][x]] || FEATURE_SIGHT[w->feature[y][x]];
+    return FLOOR_SIGHT[w->floor[y][x]] || FEATURE_SIGHT[w->feature[y][x]] ||
+           world_has_roof(w, x, y);
 }
 
 bool world_blocks_sight(const World *w, int16_t x, int16_t y)
@@ -392,6 +413,8 @@ bool world_land(World *w, uint8_t unit)
         return false;
     if (world_unit_at(w, u->x, u->y, UL_GROUND) != NO_UNIT)
         return false;                         /* no free ground slot */
+    if (world_has_roof(w, u->x, u->y))
+        return false;                         /* landing under a roof (GDD 3.2) */
     if (FLOOR_DROWN[w->floor[u->y][u->x]])
         return false;                         /* drowning floor (own rule) */
     if (u->ap < ACTIONS[ACT_LAND].ap)
@@ -449,6 +472,9 @@ void world_new_turn(World *w)
 
 bool world_engaged(const World *w, uint8_t unit)
 {
+    extern bool ride_may_attack_from(const World *w, uint8_t attacker);
+    if (ride_may_attack_from(w, unit))
+        return false;                    /* riders attack from anywhere (D21) */
     const Unit *u;
     int8_t dx, dy;
     if (unit >= w->unit_count)

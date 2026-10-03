@@ -46,6 +46,7 @@ FEATURE = {".": "FE_NONE", "#": "FE_WALL", "D": "FE_DOOR_CLOSED", "d": "FE_DOOR_
            "T": "FE_TABLE", "h": "FE_CHAIR", "M": "FE_DRAWERS", "X": "FE_CHEST",
            "t": "FE_TREE", "R": "FE_ROCK"}
 DECOR = {".": "DE_NONE", "r": "DE_RUG", "*": "DE_PENTACLE"}
+ROOF = {".": "0", "R": "1"}                # R = roof tile (blocks sight+landing)
 OWNERS = {"p1": "OWN_P1", "p2": "OWN_P2", "p3": "OWN_P3", "p4": "OWN_P4",
           "neutral": "OWN_NEUTRAL"}
 
@@ -73,9 +74,10 @@ def c_enums(*headers: Path) -> dict[str, int]:
 
 def parse(path: Path) -> dict:
     """Text map -> dict with char grids (also used by tools/mockup.py)."""
-    m = {"wrap": 0, "units": [], "objects": [], "portal": None}
+    m = {"wrap": 0, "units": [], "objects": [], "portal": None, "roof": None}
     section = None
-    grids: dict[str, list[str]] = {"floor": [], "feature": [], "decor": []}
+    grids: dict[str, list[str]] = {"floor": [], "feature": [], "decor": [],
+                                   "roof": []}
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.rstrip()
         if section not in grids and line.startswith("#"):
@@ -92,7 +94,7 @@ def parse(path: Path) -> dict:
         elif word == "portal":
             x, y, rmin, rmax = map(int, line.split()[1:5])
             m["portal"] = (x, y, rmin, rmax)
-        elif word in ("floor", "feature", "decor", "units", "objects") and len(line.split()) == 1:
+        elif word in ("floor", "feature", "decor", "roof", "units", "objects") and len(line.split()) == 1:
             section = word
         elif section in grids:
             grids[section].append(line)
@@ -112,6 +114,14 @@ def parse(path: Path) -> dict:
         if bad:
             raise SystemExit(f"{path.name}: {key} has unknown characters {sorted(bad)}")
         m[key] = "".join(rows)
+    rows = grids["roof"]                   # optional v4 layer: '.' = none
+    if rows:
+        if len(rows) != m["h"] or any(len(r) != m["w"] for r in rows):
+            raise SystemExit(f"{path.name}: roof must be {m['w']}x{m['h']}")
+        bad = set("".join(rows)) - set(ROOF)
+        if bad:
+            raise SystemExit(f"{path.name}: roof has unknown characters {sorted(bad)}")
+        m["roof"] = "".join(rows)
     return m
 
 
@@ -135,6 +145,9 @@ def encode(m: dict, enums: dict[str, int]) -> bytes:
     if m["portal"] is not None:          # v3: scenario portal
         out[4] = 3
         out += bytes(m["portal"])
+    if m["roof"] is not None:            # v4: roof bit per field
+        out[4] = 4
+        out += bytes(1 if c == "R" else 0 for c in m["roof"])
     return bytes(out)
 
 
