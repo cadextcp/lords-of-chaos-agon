@@ -2195,6 +2195,36 @@ static void test_m4e(void)
                   "m4e: an own unit inside hides the roof (F7)");
             view_set_sight(NULL);
         }
+        {   /* the whole building opens, not just the unit's own field */
+            world.unit_count = 0;
+            view_set_sight(NULL);
+            world_spawn_unit(&world, OWN_P1, CR_WIZARD, 6, 6);
+            view_compose(&world, 3, 2, &f);
+            check(!has_layer(&f, T_ROOF),
+                  "m4e: the roof lifts over the whole building");
+            view_compose(&world, 8, 10, &f);
+            check(!has_layer(&f, T_ROOF),
+                  "m4e: even the far corner shows the inside");
+            world.units[0].x = 15;       /* leaves the house */
+            world.units[0].y = 6;
+            view_compose(&world, 3, 2, &f);
+            check(has_layer(&f, T_ROOF),
+                  "m4e: the roof closes again behind the wizard");
+            world.units[0].x = 6;
+            world.units[0].y = 6;
+            world.units[0].owner = OWN_P2;      /* an enemy inside */
+            {
+                Sight roof_sight;
+                sight_init(&roof_sight, OWN_P1);
+                memset(roof_sight.explored, 0xFF, sizeof roof_sight.explored);
+                view_set_sight(&roof_sight);
+                view_compose(&world, 3, 2, &f);
+                check(has_layer(&f, T_ROOF),
+                      "m4e: an enemy inside does not lift the roof");
+                view_set_sight(NULL);
+            }
+            world.unit_count = 0;
+        }
         {   /* flying units cannot land on a roof */
             uint8_t bat = world_spawn_unit(&world, OWN_P1, CR_GIANT_BAT, 5, 5);
             world.units[bat].flags |= UF_FLYING;
