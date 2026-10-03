@@ -146,6 +146,8 @@ def encode(m: dict, enums: dict[str, int]) -> bytes:
         out[4] = 3
         out += bytes(m["portal"])
     if m["roof"] is not None:            # v4: roof bit per field
+        if m["portal"] is None:          # v4 always carries the portal block
+            out += bytes((0xFF, 0xFF, 0, 0))     # x = 0xFF: no portal
         out[4] = 4
         out += bytes(1 if c == "R" else 0 for c in m["roof"])
     return bytes(out)

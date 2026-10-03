@@ -5,6 +5,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ## [Unreleased] – M4 Classic komplett
 
 ### Behoben
+- **Nachbesserung M4e:** Karten mit Dach, aber ohne Portal, wurden vom Loader falsch geparst (v4 schreibt jetzt immer einen Portal-Block, `0xFF` = kein Portal); `world.c` bindet `ride.h` ein statt einer lokalen `extern`-Deklaration.
 - **Review-Fixes M4a–c:**
   - Panel zeigte Kreaturen statt der Balken- und Status-Icons: Seit M4c liegen die Icon-Tile-IDs über 255, `BAR_ICON`/`STATUS_ICON` waren `uint8_t`.
   - Flugtrank: Wer ohne Flügel fliegt, bekam in der Luft 0 AP pro Runde und blieb nach Ablauf des Tranks oben. Jetzt gilt das Boden-Budget, nach Ablauf landet die Einheit (oder schwebt weiter, bis Platz ist).

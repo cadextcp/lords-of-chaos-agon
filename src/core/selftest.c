@@ -2232,6 +2232,20 @@ static void test_m4e(void)
         view_set_sight(NULL);
     }
     (void)enemy;
+
+    {   /* v4 map with roof but no portal: filler block keeps the layout */
+        uint8_t m[24] = {'L', 'O', 'C', 'M', MAPBIN_VERSION, 0, 0, 2, 1, 0};
+        m[5] = (uint8_t)(TILE_COUNT & 0xFF);
+        m[6] = (uint8_t)(TILE_COUNT >> 8);
+        m[16] = 0;                       /* no units */
+        m[17] = 0;                       /* no objects */
+        m[18] = 0xFF; m[19] = 0xFF;      /* portal filler */
+        m[23] = 1;                       /* roof on the second field */
+        check(world_load_bin(&world, m, sizeof m) &&
+              world.portal_x == -1 && !world_has_roof(&world, 0, 0) &&
+              world_has_roof(&world, 1, 0),
+              "m4e: v4 map without portal keeps roof layout");
+    }
 }
 
 uint16_t core_selftest(selftest_log_fn log)

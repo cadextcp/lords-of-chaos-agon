@@ -6,6 +6,7 @@
 #include "effect.h"
 #include "gen/data.h"
 #include "items.h"
+#include "ride.h"
 #include "gen/tiles.h"
 
 /* Movement blocking per feature (GDD 3.3): chairs, candle stands and the
@@ -129,10 +130,12 @@ bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
     w->portal_x = w->portal_y = -1;      /* v2 maps carry no portal */
     w->portal_rmin = w->portal_rmax = 0;
     if (b[4] >= 3 && pos + 4 <= len) {   /* v3: portal x y rmin rmax */
-        w->portal_x = b[pos];
-        w->portal_y = b[pos + 1];
-        w->portal_rmin = b[pos + 2];
-        w->portal_rmax = b[pos + 3];
+        if (b[pos] != 0xFF) {            /* 0xFF = no portal (v4 filler) */
+            w->portal_x = b[pos];
+            w->portal_y = b[pos + 1];
+            w->portal_rmin = b[pos + 2];
+            w->portal_rmax = b[pos + 3];
+        }
         pos += 4;
     }
     memset(w->roof, 0, sizeof w->roof);
@@ -472,11 +475,10 @@ void world_new_turn(World *w)
 
 bool world_engaged(const World *w, uint8_t unit)
 {
-    extern bool ride_may_attack_from(const World *w, uint8_t attacker);
-    if (ride_may_attack_from(w, unit))
-        return false;                    /* riders attack from anywhere (D21) */
     const Unit *u;
     int8_t dx, dy;
+    if (ride_may_attack_from(w, unit))
+        return false;                    /* riders attack from anywhere (D21) */
     if (unit >= w->unit_count)
         return false;
     u = &w->units[unit];
