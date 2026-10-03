@@ -554,6 +554,27 @@ static void bench(void)
         area_reset();
     }
 
+    {   /* one full AI wizard phase (M4h budget: <= 2000 ms) */
+        uint32_t t1;
+        Turns bt;
+        Game bg;
+        Spellbook bbooks[OWN_NEUTRAL];
+        AiCtx bctx;
+        memset(bbooks, 0, sizeof bbooks);
+        bbooks[OWN_P2].level[SP_GOBLIN] = 2;
+        game_init(&bg, -1, -1, 1, 1, &turns.rng);
+        bctx.books = bbooks;
+        bctx.game = &bg;
+        memset(&bt, 0, sizeof bt);
+        bt.phase = OWN_P2;
+        bt.rng = turns.rng;
+        t1 = getsysvar_time();
+        ai_wizard_phase(&bt, &world, &bctx);
+        snprintf(buf, sizeof buf, "BENCH ai phase: %lu ms",
+                 (unsigned long)((getsysvar_time() - t1) * 10));
+        log_line(buf);
+    }
+
     snprintf(buf, sizeof buf, "BENCH full %u fields: %lu ms/frame",
              fields, (unsigned long)(full_cs * 10 / n));
     log_line(buf);
@@ -718,7 +739,7 @@ int main(int argc, char **argv)
     struct keyboard_event_t e;
     bool dump = false, do_bench = false, free_round1 = false, do_fly = false;
     bool running = true;
-    const char *map_path;
+    const char *map_path = MAP_SCENARIO;
     uint32_t next_anim, next_blink;
     uint8_t phase = 0, m, i;
     uint16_t now;

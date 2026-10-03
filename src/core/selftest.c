@@ -2417,6 +2417,82 @@ static void test_m4g(void)
     }
 }
 
+static void test_m4h(void)
+{
+    Rng rng;
+    uint8_t guard;
+
+    world_load_bin(&world, MAPBIN_SLAYERS_DUNGEON, MAPBIN_SLAYERS_DUNGEON_LEN);
+    world.unit_count = 0;
+    {   /* map guards: undead carry their spawn post */
+        uint8_t i, posted = 0;
+        world_load_bin(&world, MAPBIN_SLAYERS_DUNGEON,
+                       MAPBIN_SLAYERS_DUNGEON_LEN);
+        for (i = 0; i < world.unit_count; i++)
+            if (world.units[i].owner == OWN_NEUTRAL &&
+                (world.units[i].flags & UF_UNDEAD) &&
+                world.units[i].post_x != 0xFF)
+                posted++;
+        check(posted >= 4, "m4h: undead guards carry a post");
+    }
+
+    {   /* a guard chases an intruder and returns home */
+        uint8_t w2 = 255;
+        guard = world_spawn_unit(&world, OWN_NEUTRAL, CR_ZOMBIE, 8, 9);
+        world.units[guard].flags |= UF_UNDEAD;
+        ai_set_post(&world, guard);
+        w2 = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 10, 9);
+        rng_seed(&rng, 11);
+        ai_guard(&world, &rng, guard, 3);
+        check(world.units[guard].x > 8 || world.units[guard].ap < 30,
+              "m4h: the guard moves toward the intruder");
+        /* drive him home: intruder gone and out of sight */
+        if (w2 != 255)
+            world_remove_unit(&world, w2);
+        guard = world_find_unit(&world, world.units[0].id);  /* post unit */
+        guard = 0;                       /* only the guard is left */
+        world.units[guard].ap = 30;
+        ai_set_post(&world, guard);
+        world.units[guard].x = 12;      /* dragged away */
+        world.units[guard].y = 9;
+        rng_seed(&rng, 12);
+        ai_guard(&world, &rng, guard, 3);
+        check(world.units[guard].x < 12 || world.units[guard].ap < 30,
+              "m4h: the guard walks home");
+    }
+
+    {   /* the wizard AI grabs a treasure standing on its field */
+        uint8_t wiz;
+        Game g;
+        Spellbook books2[OWN_NEUTRAL];
+        AiCtx ctx;
+        Turns t;
+        world_load_bin(&world, MAPBIN_SLAYERS_DUNGEON, MAPBIN_SLAYERS_DUNGEON_LEN);
+        world.unit_count = 0;
+        area_reset();
+        memset(books2, 0, sizeof books2);
+        game_init(&g, -1, -1, 1, 1, &rng);
+        ctx.books = books2;
+        ctx.game = &g;
+        memset(&t, 0, sizeof t);
+        t.phase = OWN_P2;
+        t.rng = rng;
+        wiz = world_spawn_unit(&world, OWN_P2, CR_WIZARD, 9, 9);
+        {   /* a ruby under the wizard */
+            world.objects[world.object_count].x = 9;
+            world.objects[world.object_count].y = 9;
+            world.objects[world.object_count].tile = T_OBJ_RUBY;
+            world.object_count++;
+        }
+        ai_wizard_phase(&t, &world, &ctx);
+        check(items_kind_at(&world, 9, 9) == NO_ITEM ||
+              world.unit_count == 0,
+              "m4h: the AI picks up the treasure on its field");
+        (void)wiz;
+    }
+    area_reset();
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -2450,6 +2526,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m4e();
     test_m4f();
     test_m4g();
+    test_m4h();
     test_m4_review();
     load_house();   /* leave a clean state */
     return fails;

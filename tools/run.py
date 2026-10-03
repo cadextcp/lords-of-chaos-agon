@@ -85,7 +85,10 @@ def main() -> int:
     if args.testland:
         mode.append("--testland")
     if args.no_menu:
-        mode.append("--dump")
+        # the game skips its menu in dump/bench mode anyway; for a plain
+        # scripted run pass a marker the game accepts everywhere
+        if not mode:
+            mode.append("--dump")
     if args.free_round1:
         mode.append("--free-round1")
     if args.fly:

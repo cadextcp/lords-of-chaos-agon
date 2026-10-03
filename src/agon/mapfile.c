@@ -7,8 +7,9 @@
 
 #include <agon/mos.h>
 
-/* Largest possible map: header + 3 layers of 36x36 + units + objects. */
-#define MAPFILE_MAX (MAPBIN_HEADER + 3 * MAP_MAX_W * MAP_MAX_H + 1 + 4 * MAX_UNITS + 1 + 3 * MAX_OBJECTS)
+/* Largest possible map: header + 3 layers + roof (v4) + portal + units
+ * + objects. */
+#define MAPFILE_MAX (MAPBIN_HEADER + 3 * MAP_MAX_W * MAP_MAX_H                      + MAP_MAX_W * MAP_MAX_H + 4                      + 1 + 4 * MAX_UNITS + 1 + 4 * MAX_OBJECTS)
 /* Largest scenario: 4 books x (2 + SPELL_COUNT x 2) bytes plus header. */
 #define SCNFILE_MAX (6 + 4 * (2 + 2 * SPELL_COUNT))
 

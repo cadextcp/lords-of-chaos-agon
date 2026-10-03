@@ -21,6 +21,13 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
   - Teleport streut symmetrisch und misst Chebyshev; Magic Attack und die Bombe rechnen mit Wrap-around und schreiben Kills dem richtigen Werfer bzw. Zaubernden zu.
 
 ### Hinzugefügt
+- **M4h KI-Ausbau (#50):**
+  - **Wächter-Profil** (GDD §10): Untoten-Wachen der Szenario-Karten stehen auf ihrem Spawn-Posten, greifen Eindringlinge an und kehren zurück (`ai_set_post`/`ai_guard`, Postbereich 3 Felder); normale Unabhängige bleiben Jäger
+  - **Zauberer-KI** nutzt jetzt Magic Bolt auf sichtbare Gegner und **sammelt Schätze** (nächster sichtbarer Schatz per Sichtstrahl, Aufheben auf dem Feld); Beschwörung/Portal-Flucht wie bisher
+  - **Bench:** eine komplette KI-Zauberer-Phase kostet **160 ms** im Emulator (Budget 2 s, im `--bench`-Output sichtbar)
+  - Abnahme: die KI entkommt gegen einen passiven Spieler zuverlässig durchs Portal (20-Runden-Dump)
+  - **Fehler aus der Demo-Jagd gefixt:** `map_path` war im `--dump`/`--bench`-Modus uninitialisiert (Müll-Pfad beim Boot), und der SD-Lese-Puffer fasste v4-Karten (5304 B) nicht mehr — beide Karten laden jetzt wieder
+
 - **M4g Szenarien 2 und 3 (#49):**
   - **Slayer's Dungeon** (eigene Karte, D2): Steinkorridore und Krypten, Untoten-Wache (Zombies, Geist, Vampir, Spectre), Schätze bis zum Slayer, Portal in der fernen Krypta (Runde 20–24)
   - **Ragaril's Domain** (eigene Karte): Zauberwald- und Schattenwald-Gürtel, Sumpfmoor, der Turmquartier im Nordosten; Ragaril (KI) befehligt Untote bis zum Dämon; Portal hinter dem Turm (Runde 44–51)
