@@ -30,7 +30,7 @@ static uint8_t pixels[TILE_PX * TILE_PX];
  * stays clearly visible: the mount tiles get a 60 % copy (14 px) built at
  * load time from the full tile - no extra artwork. Copies live in the
  * buffers after the regular tiles, slot = mount * 5 + owner. */
-#define MOUNT_PX 14
+#define MOUNT_PX 18
 #define MOUNT_KINDS 4
 static const uint8_t MOUNT_KIND[MOUNT_KINDS] = {CR_UNICORN, CR_PEGASUS,
                                                 CR_GRYPHON, CR_ELEPHANT};
