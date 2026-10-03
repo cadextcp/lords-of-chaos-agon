@@ -868,14 +868,20 @@ static void draw_help(void)
     render_menu_text(2, 24, C_GREY, "Esc zurueck.");
 }
 
+/* Cursor mark of one item; moving the cursor repaints two cells instead of
+ * the whole screen (a full clear + redraw flickered on the real Agon). */
+static void draw_menu_mark(uint8_t item, bool on)
+{
+    render_menu_text(4, (uint8_t)(5 + item), C_BRIGHT_WHITE, on ? ">" : " ");
+}
+
 static void draw_menu(uint8_t cursor)
 {
     uint8_t i;
     render_menu_clear();
     render_menu_text(2, 2, C_BRIGHT_YELLOW, "LORDS OF CHAOS");
     for (i = 0; i < MENU_COUNT; i++) {
-        render_menu_text(4, (uint8_t)(5 + i), C_BRIGHT_WHITE,
-                         i == cursor ? ">" : " ");
+        draw_menu_mark(i, i == cursor);
         render_menu_text(6, (uint8_t)(5 + i), C_BRIGHT_WHITE, MENU_ITEMS[i]);
     }
     render_menu_text(2, 22, C_GREY, "Pfeile + Enter");
@@ -978,12 +984,24 @@ static const char *menu_loop(bool *free_round1)
         for (i = 0; i < WIZARD_SLOTS; i++)
             wizard_slot_reset(i);
     }
+    bool full = true;                    /* whole screen needs painting */
+    uint8_t drawn = 0;                   /* where the '>' is on screen */
     while (running) {
-        draw_menu(cursor);
+        if (full) {
+            draw_menu(cursor);
+            full = false;
+            drawn = cursor;
+        } else if (drawn != cursor) {
+            draw_menu_mark(drawn, false);
+            draw_menu_mark(cursor, true);
+            drawn = cursor;
+        }
         while (!kbuf_poll_event(&e))
             ;
         if (!e.isdown)
             continue;
+        render_menu_text(2, 20, C_BRIGHT_WHITE,       /* old message line */
+                         "                                      ");
         if (e.vkey != VK_SPACE && e.ascii != 13)
             confirm_reset = false;       /* any other key cancels the ask */
         if (e.vkey == VK_UP) {
@@ -1016,6 +1034,7 @@ static const char *menu_loop(bool *free_round1)
                 continue;
             case 4:
                 designer_loop(0);
+                full = true;
                 break;
             case 5:
                 if (!confirm_reset) {   /* destructive: ask once */
@@ -1027,9 +1046,11 @@ static const char *menu_loop(bool *free_round1)
                 confirm_reset = false;
                 wizard_slot_reset(0);   /* stock wizard over the slot */
                 wizards_save();
+                full = true;
                 break;
             case 6:                       /* Setup: F9 strength, F8 loads */
                 designer_setup_loop();
+                full = true;
                 break;
             default:
                 return NULL;
@@ -1397,13 +1418,7 @@ dispatch:
                     else
                         render_message(1, C_BRIGHT_RED, "Kein Platz zum Absteigen.");
                 } else {
-                    int16_t mx = world.units[active()].x;
-                    int16_t my = (int16_t)(world.units[active()].y - 1);
-                    if (ride_mount(&world, active(), mx, my) ||
-                        ride_mount(&world, active(),
-                                   (int16_t)(mx - 1), my) ||
-                        ride_mount(&world, active(),
-                                   (int16_t)(mx + 1), (int16_t)(my + 1))) {
+                    if (ride_mount_adjacent(&world, active())) {
                         turn_revalidate(&turns, &world);
                         render_message(1, C_BRIGHT_GREEN, "Aufgesessen!");
                     } else
@@ -1566,7 +1581,7 @@ dispatch:
             step(m, dump);
         if (getsysvar_time() >= next_anim) {   /* candle and water animation */
             next_anim += ANIM_CS;
-            if (!overlay_open) {               /* never paint over an overlay */
+            if (!overlay_open && !spell_list) { /* never paint over an overlay */
                 view_animate(++phase);
                 render_fields();
             }
@@ -1574,7 +1589,7 @@ dispatch:
         if (getsysvar_time() >= next_blink) {  /* blinking cursor sprite */
             next_blink += BLINK_CS;
             cursor_on = !cursor_on;
-            if (!overlay_open)
+            if (!overlay_open && !spell_list)
                 place_cursor();
         }
     }

@@ -2169,6 +2169,34 @@ static void test_m4e(void)
               ride_rider_kind(&world.units[0]) == CR_WIZARD,
               "m4e: the wizard mounts the unicorn");
         mount = 0;                       /* the list re-ordered on removal */
+        {   /* `b` finds a mount on any of the eight neighbour fields */
+            static const int8_t NX[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+            static const int8_t NY[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
+            uint8_t d, found = 0, w2, m2;
+            for (d = 0; d < 8; d++) {
+                world.unit_count = 0;
+                w2 = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 20, 19);
+                m2 = world_spawn_unit(&world, OWN_P1, CR_UNICORN,
+                                      (uint8_t)(20 + NX[d]), (uint8_t)(19 + NY[d]));
+                (void)m2;
+                world.units[w2].ap = 40;
+                if (ride_mount_adjacent(&world, w2) && world.unit_count == 1)
+                    found++;
+            }
+            check(found == 8, "m4e: the wizard mounts a unicorn on every side");
+            world.unit_count = 0;
+            w2 = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 20, 19);
+            m2 = world_spawn_unit(&world, OWN_P1, CR_UNICORN, 22, 19);
+            world.units[w2].ap = 40;
+            check(!ride_mount_adjacent(&world, w2) && world.unit_count == 2,
+                  "m4e: a unicorn two fields away is out of reach");
+            world.unit_count = 0;
+            wizard = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 6, 7);
+            mount = world_spawn_unit(&world, OWN_P1, CR_UNICORN, 6, 6);
+            world.units[wizard].ap = 40;
+            check(ride_mount(&world, wizard, 6, 6), "m4e: mount for the ride test");
+            mount = 0;
+        }
         check(world_move_unit(&world, mount, 0, -1),
               "m4e: the pair rides as one unit");
         check(!world_engaged(&world, mount),
