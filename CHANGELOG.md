@@ -5,6 +5,12 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ## [Unreleased] – M3 Classic spielbar
 
 ### Hinzugefügt
+- **M3f Einfache KI (#32):**
+  - `src/core/ai.[ch]`: Unabhängige jagen das nächste sichtbare Ziel (ein Strahl pro Kandidat — Hidden Movement wird respektiert), greifen an, wenn angrenzend; ohne Beute Umherstreifen
+  - Zauberer-KI pro Phase: eigene Kreaturen jagen zuerst, Nahkampf gegen sichtbare Angrenzende, beschwört solange Begleitung < 3 und Mana reicht (günstigster Zauber), läuft zum Portal (auch vor dem Öffnen) und tritt hindurch, sobald es offen ist
+  - AI-Registrierung über `turns.ai`-Callback (Standard: passen, für Tests); `turn_init` nullt jetzt den ganzen Zustand (fixt uninitialisierte Callback-Felder)
+  - AP-Budgets begrenzen jede Phase natürlich; deterministisch über den Partie-RNG
+
 - **M3e Portal und Siegpunkte (#31):**
   - `src/core/game.[ch]`: Portal erscheint deterministisch in der Rundenspanne (RNG), Betreten = Rettung für Zauberer mit getragenen Schätzen (VP), Kreaturen können nicht durch `[PM 29]`
   - Siegpunkte: Entkommen +10 (D19), Schätze aus objects.csv beim Übertritt, Kills (Kreaturwert, Zauberer doppelt im Nahkampf, AMI 4), Fernkampf einfach

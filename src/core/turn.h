@@ -13,7 +13,12 @@
 #include "rng.h"
 #include "world.h"
 
-typedef struct {
+/* AI phases call this instead of passing (M3f); registered by the
+ * frontend with its books/game context. */
+typedef struct Turns Turns;
+typedef void (*TurnAiFn)(Turns *t, World *w, void *ctx);
+
+struct Turns {
     uint8_t round;       /* 1-based game round */
     uint8_t phase;       /* owner whose units act (OWN_P1..OWN_P4) */
     uint8_t active;      /* active unit index, NO_UNIT only without units */
@@ -21,7 +26,9 @@ typedef struct {
     uint8_t humans;      /* owner bitmask of human players */
     bool round1_lock;    /* no movement in round 1, casting only (PM 7) */
     Rng rng;             /* independent creatures; seeded, so runs replay */
-} Turns;
+    TurnAiFn ai;         /* NULL: AI phases pass (tests) */
+    void *ai_ctx;
+};
 
 /* Start round 1: run the independents, then the first owner's phase. */
 void turn_init(Turns *t, World *w, uint32_t seed, uint8_t humans);

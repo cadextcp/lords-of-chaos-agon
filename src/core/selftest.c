@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "ai.h"
 #include "chord.h"
 #include "combat.h"
 #include "game.h"
@@ -1049,6 +1050,78 @@ static void test_game(void)
     }
 }
 
+static void test_ai(void)
+{
+    Turns t;
+    Game g;
+    Spellbook books[OWN_NEUTRAL];
+    AiCtx ctx;
+    Rng rng;
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 2;                       /* wizard + one goblin */
+    world.units[1].kind = CR_GOBLIN;
+    world.units[1].owner = OWN_NEUTRAL;
+    world.units[1].x = 9;                       /* in sight through the door */
+    world.units[1].y = 5;
+    world.units[1].com = 9;
+    world.units[1].def = 9;
+    world.units[1].con = world.units[1].con_max = 32;
+    world.units[1].ap = 30;
+    world.units[1].sta = 45;
+    world.feature[5][8] = FE_DOOR_OPEN;         /* clear line of sight */
+
+    check(ai_nearest_enemy(&world, 1, 9) == 0, "ai: goblin scents the wizard");
+    world.feature[5][8] = FE_DOOR_CLOSED;
+    world.units[1].x = 12;                      /* behind the east wall */
+    world.units[1].y = 6;
+    check(ai_nearest_enemy(&world, 1, 9) == NO_UNIT,
+          "ai: no prey through walls (hidden movement)");
+    world.units[1].x = 9;
+    world.units[1].y = 5;
+    world.feature[5][8] = FE_DOOR_OPEN;
+
+    {   /* hunter with distance closes in */
+        uint8_t before = 255, after;
+        world.units[1].ap = 30;
+        rng_seed(&rng, 3);
+        before = (uint8_t)((world.units[1].x > world.units[0].x)
+                               ? world.units[1].x - world.units[0].x : 1);
+        ai_hunter(&world, &rng, 1);
+        after = (uint8_t)((world.units[1].x > world.units[0].x)
+                              ? world.units[1].x - world.units[0].x : 0);
+        check(after < before || world.units[1].ap < 30,
+              "ai: hunter closes in or fights");
+    }
+
+    {   /* wizard AI: summons, then walks to the portal over rounds */
+        uint8_t seen_summons = 0, k;
+        uint8_t p2 = world_spawn_unit(&world, OWN_P2, CR_WIZARD, 2, 13);
+        spellbook_default(&books[OWN_P1], OWN_P1);
+        spellbook_default(&books[OWN_P2], OWN_P2);
+        (void)p2;
+        game_init(&g, 26, 3, 1, 1, &rng);       /* portal open from round 1 */
+        game_new_round(&g, 1);
+        ctx.books = books;
+        ctx.game = &g;
+        t = (Turns){0};
+        t.phase = OWN_P2;
+        rng_seed(&t.rng, 99);
+        for (k = 0; k < 40 && !(g.escaped & (1u << OWN_P2)); k++) {
+            uint8_t count = world.unit_count;
+            ai_wizard_phase(&t, &world, &ctx);
+            if (world.unit_count > count)
+                seen_summons = 1;
+            world_new_turn(&world);             /* next round, AP refills */
+            t.round++;
+        }
+        check(seen_summons, "ai: the wizard summons company");
+        check(g.escaped & (1u << OWN_P2),
+              "ai: the wizard escapes through the portal");
+        check(g.vp[OWN_P2] >= VP_ESCAPE, "ai: escape scores");
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -1072,6 +1145,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_bolt();
     test_items();
     test_game();
+    test_ai();
     load_house();   /* leave a clean state */
     return fails;
 }

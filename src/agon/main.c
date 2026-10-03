@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../core/ai.h"
 #include "../core/chord.h"
 #include "../core/combat.h"
 #include "../core/colors.h"
@@ -476,6 +477,13 @@ int main(int argc, char **argv)
         }
     }
     turn_init(&turns, &world, TURN_SEED, 1u << OWN_P1);
+    {
+        static AiCtx ai_ctx;              /* books + game for the wizard AI */
+        ai_ctx.books = books;
+        ai_ctx.game = &game;
+        turns.ai = ai_wizard_phase;
+        turns.ai_ctx = &ai_ctx;
+    }
     game_init(&game, 26, 3, 12, 15, &turns.rng);   /* M3g moves this to the map */
     game_new_round(&game, turns.round);
     view_set_portal(game.portal_open ? game.portal_x : -1, game.portal_y);
