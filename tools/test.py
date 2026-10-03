@@ -79,7 +79,14 @@ def test_emu(verbose: bool, timeout: int) -> bool:
         return False
     # Emulator output contains raw VDU bytes, so decode leniently.
     out = (r.stdout + r.stderr).decode("utf-8", errors="replace")
-    ok = check("emulator selftest", r.returncode, out, verbose)
+    # The port-0 exit code is the verdict (emu_exit writes the fail count);
+    # the console tail (including the PASS line) can get lost on the CI
+    # emulator, so rc==0 without any FAIL line counts as a pass.
+    ok = r.returncode == 0 and "FAIL" not in out
+    if not ok or verbose:
+        print(printable(out).rstrip())
+    log(f"emulator selftest: {'PASS' if ok else f'FAIL (exit {r.returncode})'}")
+    return ok
     log(f"emulator run took {time.monotonic() - start:.1f}s")
     return ok
 
