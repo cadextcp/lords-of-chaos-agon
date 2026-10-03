@@ -19,6 +19,7 @@
 #include <string.h>
 
 #include "../core/ai.h"
+#include "../core/area.h"
 #include "../core/brew.h"
 #include "../core/chord.h"
 #include "../core/combat.h"
@@ -200,6 +201,7 @@ static void settle(void)
  * in rounds the AI plays on its own. */
 static void on_round(Turns *t, World *w, void *ctx)
 {
+    area_round_end(w, &t->rng);          /* area effects tick (M4d) */
     (void)w;
     game_new_round((Game *)ctx, t->round);
 }
@@ -262,9 +264,29 @@ static void cast_targeted(bool dump)
             render_message(1, C_BRIGHT_RED, "Ausser Reichweite oder Sicht.");
             return;
         }
+        if (cr == CAST_BAD_TERRAIN) {
+            render_message(1, C_BRIGHT_RED, "Das Ziel nimmt das nicht an.");
+            return;
+        }
         if (cr == CAST_NO_RES) {
             render_message(1, C_GREY, "Das Ziel widersteht.");
             settle();
+            update_sight();
+            frame(dump);
+            return;
+        }
+        if (target_spell == SP_MAGIC_FIRE || target_spell == SP_GOOEY_BLOB ||
+            target_spell == SP_TANGLE_VINE || target_spell == SP_FLOOD) {
+            AreaKind kind = target_spell == SP_MAGIC_FIRE ? AREA_FIRE
+                          : target_spell == SP_GOOEY_BLOB ? AREA_BLOB
+                          : target_spell == SP_TANGLE_VINE ? AREA_VINE
+                          : AREA_FLOOD;
+            /* range, sight, terrain and payment: spell_apply */
+            render_message(1, C_BRIGHT_MAGENTA,
+                           kind == AREA_FIRE ? "Es brennt!"
+                           : kind == AREA_BLOB ? "Klebriger Brei!"
+                           : kind == AREA_VINE ? "Ranken wachsen!"
+                           : "Die Flut steigt!");
             update_sight();
             frame(dump);
             return;
@@ -512,6 +534,24 @@ static void bench(void)
              (unsigned long)((getsysvar_time() - t0) * 10 / n));
     log_line(buf);
 
+    {   /* four areas over their life cycle (M4d: target < 500 ms) */
+        uint8_t k2;
+        Rng brng;
+        area_reset();
+        area_cast(&world, AREA_FIRE, 4, OWN_P1, 5, 20);
+        area_cast(&world, AREA_BLOB, 4, OWN_P2, 13, 20);
+        area_cast(&world, AREA_VINE, 4, OWN_NEUTRAL, 25, 20);
+        area_cast(&world, AREA_FLOOD, 4, OWN_P2, 30, 20);
+        rng_seed(&brng, 4);
+        t0 = getsysvar_time();
+        for (k2 = 0; k2 < 20; k2++)
+            area_round_end(&world, &brng);
+        snprintf(buf, sizeof buf, "BENCH area tick x20: %lu ms",
+                 (unsigned long)((getsysvar_time() - t0) * 10));
+        log_line(buf);
+        area_reset();
+    }
+
     snprintf(buf, sizeof buf, "BENCH full %u fields: %lu ms/frame",
              fields, (unsigned long)(full_cs * 10 / n));
     log_line(buf);
@@ -689,6 +729,7 @@ int main(int argc, char **argv)
                         target_x == world.units[active()].x &&
                         target_y == world.units[active()].y) {
                         targeting = false;
+                        log_line("SELF cancel");
                         render_message(1, C_GREY, "Abgebrochen.");
                         render_message(2, C_GREY, "");
                         frame(dump);

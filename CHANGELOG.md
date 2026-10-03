@@ -19,6 +19,12 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
   - Teleport streut symmetrisch und misst Chebyshev; Magic Attack und die Bombe rechnen mit Wrap-around und schreiben Kills dem richtigen Werfer bzw. Zaubernden zu.
 
 ### Hinzugefügt
+- **M4d Flächeneffekte (#46):**
+  - `src/core/area.[ch]`: Feld-Ebene mit 4 Flächenarten (Feuer, Gooey Blob, Tangle Vine, Flood), je bis 48 Felder mit eigener Stärke
+  - F4-Ausbreitung am Rundenende (Chance Stärke × 10 % pro Feld, neue Felder Stärke − 1, alte − 1, Erlöschen bei 0), deterministisch über den Partie-RNG; Überschneidungen: gleiche Art frischt auf/ab (GDD-Feuerregel), verschiedene Arten überschreiben
+  - Startwerte (D7, im GDD dokumentiert): Feuer 6 Schaden nur gegen Feinde (auf Gras/Holz/Bäumen), Blob 3 (außer Wasser, blockiert ab Stärke 2), Vine 2 (Gras/Wald, blockiert ab Stärke 2), Flood ertränkt Nicht-Wasserwesen mit 50 %/Runde
+  - 8 animierte Overlay-Kacheln (Layer 7, GDD §11.3); Zauber wirken über den Zielmodus; Bench: 71 ms pro Tick mit 4 Flächen (Abnahme < 500 ms erfüllt)
+
 - **M4c Tränke und Brauen (#45):**
   - `src/core/brew.[ch]`: Kessel (bis 4 pro Karte, leer/voll, Stufen) und Phiolen als Objekte; Brauen braucht leeren Kessel + Zutat auf dem Zaubererfeld, füllt `Stufe+3` Schlucke (GDD §7.2), verbraucht die Zutat und eine Zauberstufe
   - 7 Zutaten (Mistelzweig, Kleeblatt, Kristall, Schwefel, Feeenschwingel, Nitro, Drachenkraut; Apfel heilt mit), 12 neue Kacheln

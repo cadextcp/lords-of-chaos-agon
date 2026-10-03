@@ -817,6 +817,37 @@ def dragon_herb():
     return im
 
 
+def area_tile(kind, phase):
+    """Quarter overlay for area effects (GDD 11.3, layer 7): dithered."""
+    im = new()
+    if kind == "fire":
+        cols = [(255, 170, 0), (255, 85, 0)] if phase == 0 else [(255, 85, 0), (255, 0, 0)]
+        for y in range(N):
+            for x in range(N):
+                if (x + y) % 3 != 0:
+                    im.putpixel((x, y), cols[(x + y + phase) % 2])
+    elif kind == "blob":
+        col = C["lviolet"] if phase == 0 else C["purple"]
+        for y in range(N):
+            for x in range(N):
+                if (x // 2 + y) % 2 == 0:
+                    im.putpixel((x, y), col)
+    elif kind == "vine":
+        base = C["green"] if phase == 0 else C["dgreen"]
+        for i in range(0, N, 4):
+            for y in range(N):
+                if (i + y) % 6 < 3:
+                    im.putpixel((i + (y % 4), y), base)
+                    im.putpixel((min(i + 1, N - 1) + (y % 2), y), C["dgreen"])
+    else:  # flood
+        col = C["blue"] if phase == 0 else C["lblue"]
+        for y in range(N):
+            for x in range(N):
+                if (x + 2 * y) % 4 != 0:
+                    im.putpixel((x, y), col if (x + y + phase) % 5 else C["lblue"])
+    return im
+
+
 def portal(phase):
     """Swirling portal: an arch of stones around a pulsing centre."""
     im = new()
@@ -950,6 +981,10 @@ def all_tiles() -> dict[str, Image.Image]:
         "obj_crystal": crystal(), "obj_sulph": sulph(),
         "obj_fairywing": fairywing(), "obj_nitro": nitro(),
         "obj_dragon_herb": dragon_herb(),
+        "area_fire_0": area_tile("fire", 0), "area_fire_1": area_tile("fire", 1),
+        "area_blob_0": area_tile("blob", 0), "area_blob_1": area_tile("blob", 1),
+        "area_vine_0": area_tile("vine", 0), "area_vine_1": area_tile("vine", 1),
+        "area_flood_0": area_tile("flood", 0), "area_flood_1": area_tile("flood", 1),
         "portal_0": portal(0), "portal_1": portal(1),
         "overlay_remembered": remembered(), "unexplored": unexplored(),
         "air_shadow": air_shadow(),

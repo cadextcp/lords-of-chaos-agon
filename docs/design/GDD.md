@@ -460,7 +460,10 @@ Ein langsamer Zombie (24 AP) schafft 2 Angriffe; ein Löwe (54 AP) läuft 13 Fel
 
 | Zauber | Kurzregel |
 |---|---|
-| Magic Fire | Ziel muss brennbar sein, keine Sichtlinie nötig. Breitet sich pro Runde aus oder erlischt. Zerstört Objekte. Schadet nur **feindlichen** Einheiten (auch Untoten), unabhängig von deren Defence. Neues Feuer schwächt alle eigenen bestehenden Feuer. |
+| Magic Fire | Ziel muss brennbar sein, keine Sichtlinie nötig. Breitet sich pro Runde aus oder erlischt. Zerstört Objekte. Schadet nur **feindlichen** Einheiten (auch Untoten), unabhängig von deren Defence. Neues Feuer schwächt alle eigenen bestehenden Feuer. **Startwerte M4d:** 6 Schaden pro Runde; brennt auf Gras, hohem Gras, Holz, Wäldern und Bäumen. |
+| Gooey Blob | Wie Feuer, aber anderes Terrain. Weniger zerstörerisch, zäher. Schadet Untoten. **Startwerte:** 3 Schaden pro Runde; haftet auf allem Begehbaren außer Wasser; blockiert Bewegung ab Stärke 2. |
+| Tangle Vine | Fläche je nach Stufe, nur auf anfälligem Terrain. Gefangene müssen sich freikämpfen oder werden verwundet. **Startwerte:** 2 Schaden pro Runde; nur auf Gras, hohem Gras und Wald; blockiert Bewegung ab Stärke 2 (Freikämpfen folgt). |
+| Flood | Fläche, anderes Terrain. Löscht Feuer. Wer ins Wasser geht, kann ertrinken, außer Water Type. **Startwerte:** kein Schaden; überall Begehbares außer Wasser; Nicht-Wasserwesen ertrinkt mit 50 % Chance pro Runde (Flieger nicht); löscht Feuer auf dem Feld (Überschreiben). |
 | Gooey Blob | Wie Feuer, aber anderes Terrain. Weniger zerstörerisch, zäher. Schadet Untoten. |
 | Tangle Vine | Fläche je nach Stufe, nur auf anfälligem Terrain. Gefangene müssen sich freikämpfen oder werden verwundet. |
 | Flood | Fläche, anderes Terrain. Löscht Feuer. Wer ins Wasser geht, kann ertrinken, außer Water Type. |

@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "ai.h"
+#include "area.h"
 #include "brew.h"
 #include "effect.h"
 #include "chord.h"
@@ -25,7 +26,7 @@
  * tiles or composition rules change. Changed for M2d: the new unexplored
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
  * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures. */
-#define HOUSE_VIEW_HASH 0x46DA1048UL
+#define HOUSE_VIEW_HASH 0x56D21FC0UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -1865,6 +1866,280 @@ static void test_m4_review(void)
     }
 }
 
+static void test_m4d(void)
+{
+    Rng rng;
+    uint8_t k, rounds;
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 0;
+    area_reset();
+
+    check(area_damage(AREA_FIRE) == 6 && area_damage(AREA_BLOB) == 3,
+          "m4d: damage start values");
+    check(area_terrain_ok(AREA_FIRE, FL_GRASS, FE_NONE) &&
+          !area_terrain_ok(AREA_FIRE, FL_WATER, FE_NONE) &&
+          area_terrain_ok(AREA_FIRE, FL_STONE, FE_TREE),
+          "m4d: fire takes grass and trees, not water or stone");
+    check(area_terrain_ok(AREA_VINE, FL_TALL_GRASS, FE_NONE) &&
+          !area_terrain_ok(AREA_VINE, FL_STONE, FE_NONE),
+          "m4d: vine only on vulnerable terrain");
+
+    {   /* cast on unsuitable terrain is refused (water at 15,0) */
+        check(!area_cast(&world, AREA_FIRE, 3, OWN_P1, 15, 0),
+              "m4d: no fire on water");
+    }
+
+    {   /* spread over open grass: deterministic, capped */
+        rounds = 0;
+        area_reset();
+        rng_seed(&rng, 42);
+        check(area_cast(&world, AREA_FIRE, 5, OWN_P1, 20, 19),
+              "m4d: fire starts on grass");
+        while (area_round_end(&world, &rng) > 0 && rounds < 20)
+            rounds++;
+        check(rounds >= 4 && rounds <= 20,
+              "m4d: the fire spreads and dies out on its own");
+        check(area_kind_at(&world, 20, 19) == AREA_NONE,
+              "m4d: the field is clean again");
+    }
+
+    {   /* F4: a strong blob persists, spreads and stays under the cap */
+        uint8_t max_fields = 0;
+        area_reset();
+        rng_seed(&rng, 7);
+        area_cast(&world, AREA_BLOB, 8, OWN_P1, 20, 19);
+        for (k = 0; k < 12; k++) {
+            Area *ar;
+            area_round_end(&world, &rng);
+            ar = area_at(&world, 20, 19);
+            if (ar && ar->count > max_fields)
+                max_fields = ar->count;
+        }
+        check(max_fields > 1 && max_fields <= AREA_FIELDS_MAX,
+              "m4d: a strong blob spreads within the cap");
+    }
+
+    {   /* spread chance is strength * 10 % per field and round (F4) */
+        int16_t sx = -1, sy = -1, x, y;
+        uint16_t seed, spread = 0;
+        for (y = 1; y < 35 && sx < 0; y++)
+            for (x = 1; x < 35 && sx < 0; x++) {
+                int8_t dx, dy;
+                bool open = true;
+                for (dy = -1; dy <= 1; dy++)
+                    for (dx = -1; dx <= 1; dx++)
+                        if (world.floor[y + dy][x + dx] != FL_GRASS ||
+                            world.feature[y + dy][x + dx] != FE_NONE)
+                            open = false;
+                if (open) {
+                    sx = x;
+                    sy = y;
+                }
+            }
+        check(sx >= 0, "m4d: testland has an open grass patch");
+        for (seed = 0; seed < 300 && sx >= 0; seed++) {
+            Area *ar;
+            area_reset();
+            rng_seed(&rng, 500 + seed);
+            area_cast(&world, AREA_FIRE, 3, OWN_P1, sx, sy);
+            area_round_end(&world, &rng);
+            ar = area_at(&world, sx, sy);
+            if (ar && ar->count > 1)
+                spread++;
+        }
+        check(spread > 45 && spread < 135,
+              "m4d: level 3 spreads in about 30 % of the rounds");
+        /* a new field is born at strength-1 and keeps it this round */
+        {
+            bool found = false;
+            for (seed = 0; seed < 60 && sx >= 0 && !found; seed++) {
+                int8_t dx, dy;
+                area_reset();
+                rng_seed(&rng, 900 + seed);
+                area_cast(&world, AREA_FIRE, 4, OWN_P1, sx, sy);
+                area_round_end(&world, &rng);
+                for (dy = -1; dy <= 1; dy++)
+                    for (dx = -1; dx <= 1; dx++)
+                        if ((dx || dy) &&
+                            area_kind_at(&world, sx + dx, sy + dy) == AREA_FIRE) {
+                            found = true;
+                            check(area_power_at(&world, sx + dx, sy + dy) == 3 &&
+                                  area_power_at(&world, sx, sy) == 3,
+                                  "m4d: new field keeps strength-1, old one loses 1");
+                        }
+            }
+            check(found, "m4d: a level 4 fire spreads within 60 tries");
+        }
+        area_reset();
+    }
+
+    {   /* blob, vine and flood do not creep into walls (feature wall) */
+        check(!area_cast(&world, AREA_BLOB, 4, OWN_P1, 3, 4) &&
+              !area_cast(&world, AREA_FLOOD, 4, OWN_P1, 3, 4),
+              "m4d: no blob or flood on a wall");
+        check(area_cast(&world, AREA_FIRE, 4, OWN_P1, 21, 4),
+              "m4d: fire still takes a tree");
+        area_reset();
+    }
+
+    {   /* flood puts out fire on its field; fire burns scrolls, not gold */
+        area_reset();
+        area_cast(&world, AREA_FIRE, 4, OWN_P1, 20, 19);
+        check(area_cast(&world, AREA_FLOOD, 4, OWN_P2, 20, 19) &&
+              area_kind_at(&world, 20, 19) == AREA_FLOOD &&
+              area_active_count() == 1,
+              "m4d: flood douses the fire on its field");
+        area_reset();
+        world.object_count = 2;
+        world.objects[0].x = 20; world.objects[0].y = 19;
+        world.objects[0].tile = OBJECTS[OBJ_SCROLL].tile;
+        world.objects[1].x = 20; world.objects[1].y = 19;
+        world.objects[1].tile = OBJECTS[OBJ_GOLD].tile;
+        area_cast(&world, AREA_FIRE, 4, OWN_P1, 20, 19);
+        rng_seed(&rng, 11);
+        area_round_end(&world, &rng);
+        check(world.object_count == 1 &&
+              world.objects[0].tile == OBJECTS[OBJ_GOLD].tile,
+              "m4d: fire burns the scroll and leaves the gold");
+        world.object_count = 0;
+        area_reset();
+    }
+
+    {   /* a second cast of the same kind adds its target field */
+        area_reset();
+        check(area_cast(&world, AREA_FIRE, 4, OWN_P1, 20, 19) &&
+              area_cast(&world, AREA_FIRE, 4, OWN_P1, 22, 19),
+              "m4d: two fire casts");
+        check(area_kind_at(&world, 22, 19) == AREA_FIRE &&
+              area_power_at(&world, 22, 19) == 4,
+              "m4d: the second cast starts a field at its target");
+        check(!area_cast(&world, AREA_BLOB, 4, OWN_P1, 22, 19),
+              "m4d: another kind cannot take a held field");
+        area_reset();
+    }
+
+    {   /* the spell path: range, payment, area (spell_apply) */
+        Spellbook sb;
+        SpellShot shot;
+        uint8_t g;
+        area_reset();
+        world.unit_count = 0;
+        g = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 20, 19);
+        world.units[g].mana = 100;
+        world.units[g].ap = 40;
+        memset(&sb, 0, sizeof sb);
+        sb.level[SP_MAGIC_FIRE] = 2;
+        rng_seed(&rng, 3);
+        check(spell_apply(&world, &sb, g, SP_MAGIC_FIRE, 21, 19, &rng,
+                          &shot) == CAST_OK &&
+              area_kind_at(&world, 21, 19) == AREA_FIRE &&
+              sb.level[SP_MAGIC_FIRE] == 1 && world.units[g].mana < 100,
+              "m4d: spell_apply casts fire and pays");
+        check(spell_apply(&world, &sb, g, SP_MAGIC_FIRE, 16, 19, &rng,
+                          &shot) == CAST_BAD_TERRAIN &&   /* water, in reach */
+              sb.level[SP_MAGIC_FIRE] == 1,
+              "m4d: refused terrain is reported and costs nothing");
+        check(spell_apply(&world, &sb, g, SP_MAGIC_FIRE, 15, 0, &rng,
+                          &shot) == CAST_REJECTED &&   /* out of reach */
+              sb.level[SP_MAGIC_FIRE] == 1,
+              "m4d: out of reach costs nothing");
+        sb.level[SP_FLOOD] = 1;
+        check(spell_apply(&world, &sb, g, SP_FLOOD, 21, 19, &rng,
+                          &shot) == CAST_OK &&
+              area_kind_at(&world, 21, 19) == AREA_FLOOD,
+              "m4d: spell_apply floods over the fire");
+        area_reset();
+        world.unit_count = 0;
+    }
+
+    {   /* fire hurts only enemies (GDD 7.2), each exactly once */
+        uint8_t doomed, enemy, own, before_e, before_o;
+        area_reset();
+        world.unit_count = 0;
+        doomed = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 20, 19);
+        enemy = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 20, 20);
+        own = world_spawn_unit(&world, OWN_P1, CR_DWARF, 20, 21);
+        world.units[enemy].x = 20; world.units[enemy].y = 19;
+        world.units[own].x = 20; world.units[own].y = 19;
+        world.units[doomed].con = 1;     /* dies; the last unit swaps in */
+        before_e = world.units[enemy].con;
+        before_o = world.units[own].con;
+        check(area_cast(&world, AREA_FIRE, 5, OWN_P1, 20, 19),
+              "m4d: cast under the enemies");
+        rng_seed(&rng, 5);
+        area_round_end(&world, &rng);
+        check(world.unit_count == 2,
+              "m4d: the weak enemy burns to death");
+        check(world.units[0].owner == OWN_P1 || world.units[1].owner == OWN_P1,
+              "m4d: own dwarf survives its own fire");
+        {
+            uint8_t i;
+            for (i = 0; i < world.unit_count; i++) {
+                if (world.units[i].owner == OWN_P2)
+                    check(world.units[i].con == before_e - area_damage(AREA_FIRE),
+                          "m4d: the enemy takes the fire damage exactly once");
+                else
+                    check(world.units[i].con == before_o,
+                          "m4d: own units stay unharmed by their fire");
+            }
+        }
+        world.unit_count = 0;
+        area_reset();
+    }
+
+    {   /* flood drowns non-water units (start value: 50 % per round) */
+        uint8_t deaths = 0, k2;
+        area_reset();
+        world.unit_count = 0;
+        for (k2 = 0; k2 < 200; k2++) {
+            world.unit_count = 0;        /* one swimmer per round */
+            area_reset();
+            world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 20, 19);
+            world.units[0].con = 1;
+            area_cast(&world, AREA_FLOOD, 4, OWN_P1, 20, 19);
+            rng_seed(&rng, 1000 + k2);
+            area_round_end(&world, &rng);
+            if (world.unit_count == 0)
+                deaths++;
+        }
+        check(deaths > 40 && deaths < 160,
+              "m4d: drowning takes about half");
+    }
+
+    {   /* vine/blob block movement while strong (start value 2+) */
+        uint8_t g;
+        area_reset();
+        world.unit_count = 0;
+        g = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 20, 19);
+        world.units[g].ap = 40;
+        check(area_cast(&world, AREA_VINE, 5, OWN_P1, 21, 19),
+              "m4d: vine east of the wizard");
+        check(!world_move_unit(&world, g, 1, 0),
+              "m4d: strong vine blocks the step");
+        area_reset();
+    }
+
+    {   /* performance: 4 areas on 48 fields stay cheap */
+        uint8_t i;
+        area_reset();
+        rng_seed(&rng, 2);
+        check(area_cast(&world, AREA_FIRE, 4, OWN_P1, 5, 20) &&
+              area_cast(&world, AREA_BLOB, 4, OWN_P2, 13, 20) &&
+              area_cast(&world, AREA_VINE, 4, OWN_NEUTRAL, 25, 20) &&
+              area_cast(&world, AREA_FLOOD, 4, OWN_P2, 30, 20) &&
+              area_active_count() == 4, "m4d: four areas are active");
+        for (i = 0; i < 20; i++) {
+            area_round_end(&world, &rng);
+            if (area_active_count() > 4) {
+                check(false, "m4d: never more than one area per kind");
+                break;
+            }
+        }
+        area_reset();
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -1894,6 +2169,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m4a();
     test_m4b();
     test_m4c();
+    test_m4d();
     test_m4_review();
     load_house();   /* leave a clean state */
     return fails;

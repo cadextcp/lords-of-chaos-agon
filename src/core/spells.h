@@ -59,7 +59,8 @@ bool spell_lightning(World *w, Spellbook *b, uint8_t wiz,
 typedef enum {
     CAST_OK,          /* spell went through */
     CAST_REJECTED,    /* range, line of sight or a rule blocked it */
-    CAST_NO_RES       /* the target resisted (Curse, Subversion) */
+    CAST_NO_RES,      /* the target resisted (Curse, Subversion) */
+    CAST_BAD_TERRAIN  /* area spell: in reach, but the field refuses it */
 } CastResult;
 
 /* The seven other spells (M4b, GDD 7.2, D22/F1-F3). Magic Shield and
