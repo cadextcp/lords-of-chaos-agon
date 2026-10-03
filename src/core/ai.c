@@ -85,8 +85,8 @@ void ai_set_post(World *w, uint8_t unit)
 void ai_guard(World *w, Rng *rng, uint8_t unit, uint8_t home_range)
 {
     uint8_t prey;
-    (void)home_range;                    /* the post itself is the anchor */
     int16_t dx, dy;
+    (void)home_range;                    /* the post itself is the anchor */
     if (unit >= w->unit_count)
         return;
     prey = ai_nearest_enemy(w, unit, SIGHT_GROUND);
@@ -110,22 +110,23 @@ void ai_guard(World *w, Rng *rng, uint8_t unit, uint8_t home_range)
     }
 }
 
-/* Nearest treasure on the ground the unit can see (simple: on its
- * field or within sight ray, M4h). Returns the kind, NO_ITEM if none. */
-static uint8_t nearest_treasure(World *w, uint8_t unit)
+/* Nearest treasure in the unit's line of sight within 9 fields (it only
+ * knows what it sees - no cheating, GDD 10). On success the field is in
+ * (*tx, *ty); standing on it, the unit picks it up. */
+static bool nearest_treasure(World *w, uint8_t unit, int16_t *tx, int16_t *ty)
 {
-    uint8_t i, k, kind, best = NO_ITEM;
-    int16_t bx = 0, by = 0;
-    uint8_t best_d = 9 + 1;
+    uint8_t i, k;
+    uint8_t best_d = 10;
+    bool found = false;
     Unit *u = &w->units[unit];
     for (i = 0; i < w->object_count; i++) {
         int16_t ddx, ddy, d;
-        uint8_t o;
-        kind = NO_ITEM;
+        bool treasure = false;
         for (k = 0; k < OBJ_COUNT; k++)
-            if (OBJECTS[k].tile == w->objects[i].tile)
-                kind = k;
-        if (kind == NO_ITEM || OBJECTS[kind].category != OC_TREASURE)
+            if (OBJECTS[k].tile == w->objects[i].tile &&
+                OBJECTS[k].category == OC_TREASURE)
+                treasure = true;
+        if (!treasure)
             continue;
         ddx = (int16_t)(w->objects[i].x - u->x);
         ddy = (int16_t)(w->objects[i].y - u->y);
@@ -135,22 +136,19 @@ static uint8_t nearest_treasure(World *w, uint8_t unit)
             if (ddy > w->h / 2) ddy = (int16_t)(ddy - w->h);
             if (ddy < -w->h / 2) ddy = (int16_t)(ddy + w->h);
         }
-        d = (int16_t)((ddx < 0 ? -ddx : ddx) > (ddy < 0 ? -ddy : ddy)
-                          ? (ddx < 0 ? -ddx : ddx) : (ddy < 0 ? -ddy : ddy));
-        if (d >= best_d || d > 9)
+        if (ddx < 0) ddx = (int16_t)(-ddx);
+        if (ddy < 0) ddy = (int16_t)(-ddy);
+        d = ddx > ddy ? ddx : ddy;
+        if (d >= best_d)
             continue;
-        o = unit;
         if (!sight_has_los(w, u->x, u->y, w->objects[i].x, w->objects[i].y))
             continue;
-        best = kind;
-        bx = w->objects[i].x;
-        by = w->objects[i].y;
+        *tx = w->objects[i].x;
+        *ty = w->objects[i].y;
         best_d = (uint8_t)d;
-        (void)o;
+        found = true;
     }
-    if (best != NO_ITEM && u->x == bx && u->y == by)
-        items_pick_up(w, unit);         /* stand on it: take it */
-    return best;                        /* 0xFF never used as a kind */
+    return found;
 }
 
 void ai_hunter(World *w, Rng *rng, uint8_t unit)
@@ -255,67 +253,43 @@ static void wizard_actions(Turns *t, World *w, AiCtx *ctx, uint8_t owner)
         }
     }
 
-    {   /* M4h: cast the cheapest attack spell at a visible enemy */
+    {   /* M4h: Magic Bolt at the NEAREST visible enemy (one cast) */
         Spellbook *book = &ctx->books[owner];
-        uint8_t foe = NO_UNIT, k, bolt = 0xFF;
-        int16_t fx = 0, fy = 0;
+        uint8_t foe = NO_UNIT, best_d = 0xFF;
         SpellShot shot;
-        for (i = 0; i < w->unit_count && bolt == 0xFF; i++) {
+        for (i = 0; i < w->unit_count; i++) {
             const Unit *f = &w->units[i];
-            if (f->owner == owner || (f->flags & UF_INVISIBLE))
+            uint8_t d;
+            if (f->owner == owner || (f->flags & UF_INVISIBLE) ||
+                !sight_visible(&sight, w, f->x, f->y))
                 continue;
-            if (sight_visible(&sight, w, f->x, f->y)) {
-                fx = f->x;
-                fy = f->y;
-                /* pick the bolt if known and affordable */
-                if (book->level[SP_MAGIC_BOLT] > 0 &&
-                    w->units[wiz].mana >= spell_mana(SP_MAGIC_BOLT,
-                                                     book->level[SP_MAGIC_BOLT]) &&
-                    w->units[wiz].ap >= ACTIONS[ACT_CAST].ap) {
-                    if (spell_bolt(w, book, wiz, SP_MAGIC_BOLT, fx, fy,
-                                   &t->rng, &shot) && shot.hit) {
-                        wiz = world_find_unit(w, wiz_id);
-                        if (wiz == NO_UNIT)
-                            return;
-                        break;
-                    }
-                    wiz = world_find_unit(w, wiz_id);
-                    if (wiz == NO_UNIT)
-                        return;
-                }
-                (void)foe;
-                (void)k;
-                bolt = 0xFF;              /* one target per round keeps it simple */
+            d = chebyshev(w, &w->units[wiz], f);
+            if (d < best_d) {
+                best_d = d;
+                foe = i;
             }
         }
-    }
-
-    {   /* M4h: grab a treasure the wizard can see */
-        uint8_t kind = nearest_treasure(w, wiz);
-        int16_t tx, ty;
-        uint8_t steps;
-        if (kind != NO_ITEM) {
-            /* walk one step toward the remembered target field */
-            for (i = 0; i < w->object_count; i++) {
-                uint8_t k2;
-                for (k2 = 0; k2 < OBJ_COUNT; k2++)
-                    if (OBJECTS[k2].tile == w->objects[i].tile &&
-                        OBJECTS[k2].category == OC_TREASURE) {
-                        tx = w->objects[i].x;
-                        ty = w->objects[i].y;
-                        for (steps = 0; steps < 2; steps++)
-                            if (w->units[wiz].ap >= 4 &&
-                                ai_step_toward(w, wiz, tx, ty))
-                                break;
-                        if (w->units[wiz].x == tx && w->units[wiz].y == ty)
-                            items_pick_up(w, wiz);
-                        i = w->object_count;   /* first treasure only */
-                        break;
-                    }
-            }
+        if (foe != NO_UNIT && book->level[SP_MAGIC_BOLT] > 0 &&
+            w->units[wiz].mana >= spell_mana(SP_MAGIC_BOLT,
+                                             book->level[SP_MAGIC_BOLT]) &&
+            w->units[wiz].ap >= ACTIONS[ACT_CAST].ap) {
+            spell_bolt(w, book, wiz, SP_MAGIC_BOLT, w->units[foe].x,
+                       w->units[foe].y, &t->rng, &shot);
             wiz = world_find_unit(w, wiz_id);
             if (wiz == NO_UNIT)
                 return;
+        }
+    }
+
+    {   /* M4h: walk to the nearest treasure in sight and take it */
+        int16_t tx, ty;
+        uint8_t steps;
+        if (nearest_treasure(w, wiz, &tx, &ty)) {
+            for (steps = 0; steps < 2; steps++)
+                if (w->units[wiz].ap >= 4 && ai_step_toward(w, wiz, tx, ty))
+                    break;
+            if (w->units[wiz].x == tx && w->units[wiz].y == ty)
+                items_pick_up(w, wiz);
         }
     }
 
