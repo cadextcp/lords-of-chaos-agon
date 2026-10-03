@@ -23,12 +23,13 @@ void view_set_portal(int16_t x, int16_t y);
 
 #define VIEW_W 9
 #define VIEW_H 9
-#define VIEW_MAX_LAYERS 11   /* floor, 4 half floors, decor, feature, object, unit, sight overlay, cursor */
+#define VIEW_MAX_LAYERS 12   /* floor, 4 half floors, decor, feature, object, unit (+ rider), sight overlay, cursor */
 #define NO_CURSOR 0xFF
 
 typedef struct {
     uint8_t n;
     uint16_t air;                   /* bit i: layer i is an airborne unit */
+    uint16_t ride;                  /* bit i: layer i is a rider behind its mount (drawn higher) */
     uint16_t id[VIEW_MAX_LAYERS];   /* TileId, bottom to top */
 } FieldLayers;
 
