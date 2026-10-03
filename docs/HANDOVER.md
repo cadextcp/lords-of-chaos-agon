@@ -1,6 +1,6 @@
 # Übergabe: Stand und nächste Schritte
 
-> Stand: 2026-10-03 · **M0–M3 vollständig**, **M4a–M4c gemergt** (#53, #54, #56) plus Review-Fixes (#57) · CI grün · 320 Selftest-Checks
+> Stand: 2026-10-04 · **M0–M4 vollständig**, **M5 Präsentationsrunde vollständig** (#88 Endbildschirm, #90 Hilfe/Tutorial/Lexikon, #91 Ereignisse/Animation/Sound, #92 Titelbild/Musik) · CI grün · `loc.bin` 292 KB
 > Für die nächste Person bzw. den nächsten Agenten. Zuerst `CLAUDE.md` lesen (Regeln, Befehle), dann dieses Dokument.
 
 ---
@@ -11,12 +11,21 @@
 |---|---|
 | **M0 Fundament** | ✅ Toolchain, Tests, CI, Docs |
 | **M1 Grafik und Eingabe** | ✅ Software-seitig fertig (#1, #4, #5, #6). Offen: #2 (optional), #3 und #7 (brauchen echte Hardware) |
-| **M2 Core-Skelett** | ✅ #13–#18: Terrains, Kreaturen, Rundenablauf, Sicht/Hidden Map, Luft-/Bodenebene, Bump/Look |
-| **M3 Classic spielbar** | ✅ #27–#33 und #41: Kampf, Beschwörungen, Bolt/Lightning, Objekte/Waffen, Portal/VP, KI, Szenario 1; Review-Fixes und Regeln D21 |
-| **M4 Classic komplett (v1.0)** | ✅ 10 von 10 Teilen (#43–#52) — M4j als PR, danach Tag `v1.0.0` |
-| M5+ Chaos | geplant, siehe `docs/ROADMAP.md` |
+| **M2 Core-Skelett** | ✅ #13–#18 |
+| **M3 Classic spielbar** | ✅ #27–#33, #41 |
+| **M4 Classic komplett (v1.0)** | ✅ 10 von 10 Teilen (#43–#52) |
+| **M5 Präsentationsrunde** | ✅ #88–#92: Endbildschirm mit Menü-Rücksprung/Kampagne, Hilfeseiten (SD), geführtes Tutorial, Lexikon (persistent), Ereignis-Ring mit Kampf-/Todesanimation, 16 Sound-Effekte mit Wellenformen/ADSR, KI sichtbar, Titelbild (Streaming) + Titelmusik (3 Kanäle) |
+| M6+ Chaos | geplant, siehe `docs/ROADMAP.md` |
 
 **Was heute läuft (Emulator):**
+- **Start:** `loc` zeigt Titelbild + Titelmusik (Taste → Menü, Musik endet beim ersten Tastendruck), dann Hauptmenü mit Szenarien 1–3, Laden, Designer, Setup, **Hilfe, Lexikon, Tutorial**.
+- **Spielende:** Endbildschirm (Sieg/Niederlage) mit Runden/Kills/Beute/VP, Kampagne verbucht XP/Level; Enter zurück ins Menü, Esc beendet.
+- **Tutorial:** kleine Karte, 7 Schritte (Bewegen → Wechseln → Schlüssel → Truhe → Kampf → Zauber → Portal), Hinweiszeile unten; Runde-1-Sperre aufgehoben.
+- **Lexikon (Taste `i`):** entdeckte Kreaturen/Objekte, Detailseite mit Porträt und Text; persistent in `/loc/lexicon.dat`.
+- **Kampf sichtbar und hörbar:** Ereignis-Ring im Core (Schwung/Treffer/Wunde/Verfehlt/Tod/Zauber/Zerschmettern), Frontend spielt Overlay-Animationen und 16 Sounds (Wellenform + ADSR, Kanal 0); KI-Phasen werden animiert (`Turns.on_ai`).
+- (M4-Bestand unverändert: Runden/AP, Kampf D16/D21/D26, Magie inkl. Tränke/Brauen, Objekte, KI, Hidden Map, Speichern, Kontextmenü/Big Map/Log.)
+
+**Was heute läuft (Emulator) — M4-Bestand:**
 - **Spielstart:** `loc` startet Szenario 1 „The Many Coloured Land“ (36×36, Wrap-around, Kartenformat v3 mit Portal). Die Zauberbücher kommen aus der Szenario-Datei (`data/scenarios/`). Eine ganze Partie gegen einen KI-Zauberer ist durchspielbar.
 - **Rundenablauf:**
   - `Tab`/`Shift+Tab` wählt eine Einheit, `Leertaste` beendet sie, `Shift+E` (zweimal) beendet den Zug.
@@ -115,7 +124,10 @@ src/core/  plattformfrei (Host + eZ80):
   spells.[ch]   Mana, Zauberbücher (aus .scn), Beschwörung, Bolt/Lightning, 7 sonstige Zauber
   effect.[ch]   Wirkungen mit Laufzeit pro Einheit (Tick am Rundenende)
   brew.[ch]     Kessel, Zutaten, Phiolen, Bombe, Drachenkraut
-  game.[ch]     Portal, VP, Kill-Gutschrift, Spielende, Magic Eye
+  game.[ch]     Portal, VP, Kill-Gutschrift, Spielende (outcome), Magic Eye
+  events.[ch]   Darstellungs-Ereignis-Ring (Beobachtung ohne Nebenwirkung, M5c)
+  tutorial.[ch] Schritt-Engine des geführten Tutorials (M5b)
+  lexicon.[ch]  entdeckte Kreaturen/Objekte als Bitmasken (M5b)
   ai.[ch]       Jäger und Zauberer-KI
   sight.[ch]    Sichtlinie (Bresenham) und Hidden Map
   view.[ch]     9x9-Fenster: Ebenen pro Feld, Auto-Tiling, Dirty-Felder, Cache, Animation
@@ -123,8 +135,11 @@ src/core/  plattformfrei (Host + eZ80):
   names.[ch]    alle Anzeigetexte (deutsch, ohne Umlaute)
   selftest.c    läuft auf Host UND eZ80
   gen/          GENERIERT: tiles.h, data.[ch], creatures.h, maps.[ch], scenarios.[ch]
-src/agon/  main.c (Hauptschleife, settle()), render.c (VDP, Panel), input.c,
-           mapfile.c (.map und .scn von SD), keytest.c, log.c, emu.asm
+src/agon/  main.c (Hauptschleife, settle()), render.c (VDP, Panel, Titel-Streaming),
+           screens.c (Endbildschirm, Hilfe-Viewer, Lexikon, Titel, M5),
+           fx.c (Ereignis-Animation), music.c (Titelmusik-Sequencer),
+           sound.c (16 Effekte, Wellenform+ADSR), input.c, umfont.c,
+           mapfile.c (.map, .scn, wizards/lexicon/save von SD), keytest.c, log.c, emu.asm
 host/      PC-Frontend (--selftest, --dump, --layers)
 ```
 
@@ -132,14 +147,17 @@ host/      PC-Frontend (--selftest, --dump, --layers)
 
 | Quelle | Werkzeug | Ergebnis |
 |---|---|---|
-| `assets/tiles/*.png`, `assets/icons/*.png` | `build_tiles.py` | `build/tiles.bin` (268 Kacheln, 149 KB), `gen/tiles.h` |
+| `assets/tiles/*.png`, `assets/icons/*.png` | `build_tiles.py` | `build/tiles.bin` (291 Kacheln, 162 KB), `gen/tiles.h` |
 | `data/*.csv` | `gen_data.py` | `gen/data.[ch]`, `gen/creatures.h` |
-| `data/maps/*.txt` | `gen_maps.py` | `build/maps/*.map` (Format v3 mit Portal) und `gen/maps.[ch]` |
+| `data/maps/*.txt` | `gen_maps.py` | `build/maps/*.map` (Format v4) und `gen/maps.[ch]` |
 | `data/scenarios/*.txt` | `gen_scenarios.py` | `build/scenarios/*.scn` (Zauberbücher, „LOCS“ v1) und `gen/scenarios.[ch]` |
+| `data/help/*.txt` | `gen_help.py` | `build/help/*.hlp` (Seiten, Umlaut-Codes; Lexikon-Seitenzahl = Kreaturen+Objekte) |
+| `data/music/*.txt` | `gen_music.py` | `build/music/*.bin` (Noten, „LOCM“) |
+| `assets/title/title.png` | `build_title.py` (Quelle: `tools/art/make_title.py`) | `build/title.bin` (320×240 RGBA2222, „LOCB“) |
 
-- Reihenfolge: Kacheln → Daten → Karten → Szenarien. `gen_maps` liest Enum-Werte direkt aus den C-Headern.
+- Reihenfolge: Kacheln → Daten → Karten → Szenarien → Hilfe → Musik → Titel. `gen_maps` liest Enum-Werte direkt aus den C-Headern.
 - **View-Hash `HOUSE_VIEW_HASH` (selftest.c):** Er ändert sich mit Kacheln, Karte oder Kompositionsregeln. Host und eZ80 müssen denselben Wert ausgeben; den Wert bewusst übernehmen.
-- **Budget:** `loc.bin` hat jetzt 171 KB (nach M3: 137 KB). Ab etwa 250 KB ein ADR schreiben: Daten vom SD statt einkompiliert, Overlays (GDD §16).
+- **Budget:** `loc.bin` ist 292 KB — über der 250-KB-Marke; seit M5 kommen Texte/Titel/Musik von der SD (ADR 0011).
 
 ---
 
@@ -155,7 +173,7 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 6. **Der CLI-Emulator führt `autoexec.txt` aus.** `test.py` und `run.py` schreiben es jeweils neu.
 7. **Bash-Tool unter Windows:** Heredocs mit Sonderzeichen brechen; Skripte lieber per Datei schreiben (`.cache/*.py`). Python unter Windows schreibt CRLF; Dateien deshalb mit `write_bytes` schreiben. Für `wsl.exe` `MSYS_NO_PATHCONV=1` setzen.
 8. **Der Agon-Systemfont hat keine Umlaute.** UI-Texte ohne ä/ö/ü („Tuer“).
-9. **Tile-IDs sind 16 Bit** (268 Kacheln, Icons über 255). Tile-Tabellen nie als `uint8_t` anlegen; die Panel-Icons sind daran schon einmal gescheitert.
+9. **Tile-IDs sind 16 Bit** (291 Kacheln, Icons über 255). Tile-Tabellen nie als `uint8_t` anlegen; die Panel-Icons sind daran schon einmal gescheitert.
 10. **Kachel-PNGs sind Quelle.** `tools/art/make_tiles.py` überschreibt sie, also nur mit `--only NAME` neu erzeugen.
 11. **Unit-Indizes sind instabil.**
     - `world_remove_unit` tauscht mit der letzten Einheit. Einheiten über Aktionen hinweg per `Unit.id` und `world_find_unit` halten.
@@ -169,57 +187,38 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 
 ## 7. Nächste Schritte
 
-**Plan:** GDD §16, Entscheidung D22. Issues im Milestone „M4 Classic komplett (v1.0)“:
+**M5 Präsentationsrunde ist fertig** (alle vier PRs gemergt, CI grün): #88 Endbildschirm + Menü-Rücksprung + Kampagnenergebnis, #90 Hilfeseiten/Tutorial/Lexikon, #91 Ereignis-Ring/Kampf-/Todesanimation/Sound/KI-sichtbar, #92 Titelbild/Titelmusik. Plan war `docs/PLAN-M5.md` (4 PRs nach Nutzerentscheid).
 
-| Teil | Issue | Inhalt | Stand |
-|---|---|---|---|
-| M4a | #43 | Classic-Lücken, Szenario-Format mit Zauberbüchern | ✅ #53 |
-| M4b | #44 | Wirkungen mit Laufzeit, 7 sonstige Zauber | ✅ #54 |
-| M4c | #45 | Tränke und Brauen, Drachen | ✅ #56 |
-| – | – | Review-Fixes M4a–c | ✅ #57 |
-| **M4d** | **#46** | **Flächeneffekte: Magic Fire, Gooey Blob, Tangle Vine, Flood** | **als Nächstes** |
-| **M4e** | **#47** | **Restliche Waffen, Reiten, Dächer (sichtbar, innen ausgeblendet; F7)** | **als Nächstes**, unabhängig |
-| M4f | #48 | Hauptmenü, Wizard Designer, Kampagne (keine Gegenstände; F5) | ✅ PR |
-| **M4g** | **#49** | **Szenarien 2 und 3** | **als Nächstes** (c, d, e ✅) |
-| **M4h** | **#50** | **KI-Ausbau (Wächter, Zauber, Tränke; ≤ 2 s pro Zug)** | **als Nächstes** |
-| **M4i** | **#51** | **Speichern und Setup** | **als Nächstes** |
-| **M4j** | **#52** | Politur (Kontextmenü, Big Map, Log, Hilfe, Sound, Umlaut-Font) | **als Nächstes** |
+**Als Nächstes: Hardware-Abnahme von M5 durch den Nutzer** (der CLI-Emulator hat weder VDP-Bild fein noch Audio — QUIRKS E1/A4):
+1. **SD-Paket `bin/loc-sd.zip`** (liegt bereit; entpacken nach `/loc` auf der Karte): `loc.bin`, `tiles.bin`, `title.bin`, `maps/`, `scenarios/`, `help/`, `music/`.
+2. Prüfen: Titelbild + Menü, Titelmusik (Klang!), Effekt-Klang (Kampf), Animations-Timing, `loc --selftest`, `loc --bench`, Ladezeit (tiles 162 KB + title 75 KB).
+3. **VDP-RAM messen** (QUIRKS S2): Kacheln + Titel-Bitmap zusammen — im Emulator ok, Hardware offen.
+4. **Titel-Motiv abstimmen:** Das Bild ist ein eigener Vorschlag (Platzhalter). Quelle: `assets/title/title.png`, Generator `tools/art/make_title.py`. Änderungswünsche gerne — anderes Motiv, anderer Schriftzug-Stil.
+5. **Spielstand-Format v3** (M5c): alte v2-Spielstände werden abgelehnt („Kein Spielstand“) — einmal löschen.
 
-**Konkret für M4d (#46):**
-1. **Mit dem Nutzer bestätigen**, bevor gebaut wird:
-   - **F4 Ausbreitung:** Stärke = Zauberstufe. Am Rundenende versucht jedes Feld einmal, ein passendes Nachbarfeld zu belegen (Chance Stärke × 10 %). Neue Felder erhalten Stärke − 1, alte verlieren 1. Höchstens 48 Felder je Fläche.
-   - **Welches Terrain** brennt bzw. ist anfällig für Blob, Vine und Flood?
-   - **Wie viel Schaden** machen Feuer und Blob pro Runde?
-   - **Ertrinken:** Wann ertrinkt man in der Flut?
-2. Danach eine neue Feld-Ebene „Effekt“ (GDD §3.2), Tick am Rundenende über den Partie-RNG, eigene animierte Kacheln.
-3. Abnahme: Ein Feuer breitet sich reproduzierbar aus und erlischt. Das Rundenende mit 4 aktiven Flächen bleibt unter 0,5 s im Emulator. Kills durch Flächen zählen einfach (§9).
+Danach: M6/Chaos laut `docs/ROADMAP.md` (GDD §12), oder Politur aus §8.
 
-**Workflow:** pro Issue ein Branch `m4/<x>-…`, Selftest-Checks, Emulator-Screenshot ansehen, CHANGELOG, PR mit `Closes #n`. Vor dem Merge ein Review (siehe §2).
+**Workflow:** pro Issue ein Branch, Selftest-Checks, Emulator-Screenshot ansehen, CHANGELOG, PR. Vor dem Merge ein Review (siehe §2).
 
 ---
 
-## 8. Offene Punkte außerhalb von M4
+## 8. Offene Punkte
 
 - **Hardware-Test des Nutzers (#3, #7):** Er wird mit jedem Teil wichtiger; KI-Runden und Sicht kosten auf dem Emulator schon spürbar Zeit.
-  - Auf die SD-Karte nach `/loc`: `bin/loc.bin`, `build/tiles.bin`, `build/maps/`, `build/scenarios/`.
+  - Auf die SD-Karte nach `/loc`: Inhalt von `bin/loc-sd.zip` (siehe §7).
   - Dann `SET KEYBOARD 2`, `cd /loc`, `loc --keytest`, `loc --bench`, `loc`.
-  - **Runde 1 ohne Bewegung:** `loc` startet mit der Original-Regel `[PM 7]` - in Runde 1 ist nur Zaubern moeglich (Meldung „Runde 1: nur Zaubern (PM 7)."). `Shift+E` (+ `E` bestaetigen) beendet den Zug, ab Runde 2 wird bewegt. `loc --free-round1` hebt die Sperre auf (so starten auch die Emulator-Skripte).
+  - **Runde 1 ohne Bewegung:** `loc` startet mit der Original-Regel `[PM 7]` — in Runde 1 ist nur Zaubern moeglich. `Shift+E` zweimal beendet den Zug; `loc --free-round1` hebt die Sperre auf. Im Tutorial ist sie ohnehin aufgehoben.
   - **Stand 2026-10-03 (Hardware, Stand `037521f`):** Upload nach `/loc` per USB, `loc --selftest` PASS und `loc --bench` sind gelaufen (Werte in `docs/AGON-QUIRKS.md`, Ablauf in `docs/TESTING.md`); lange Dateinamen auf FAT sind geklärt. Das Spiel selbst, `--keytest` und die Eingabe am Gerät stehen noch aus. Der Lumagon-Autostart ist auf der Karte abgeschaltet (Sicherung `/autoexec.lum`).
-  - Zu klären:
-    - Akkorde ohne Ghosting?
-    - Codes für `<`/`>`?
-    - MOS- bzw. VDP-Version?
-    - Lange Dateinamen auf FAT?
-    - Ladezeit von `tiles.bin` (149 KB)?
-    - Dauer einer KI-Runde?
-- **Tags:** `v0.2.0` bis `v0.4.0` (Ende M1 bis M3) sind noch nicht gesetzt; vorgesehen nach dem Hardware-Test.
+  - Zu klären: Akkorde ohne Ghosting? Codes für `<`/`>`? MOS-/VDP-Version? Ladezeiten (tiles.bin 162 KB, title.bin 75 KB)? Dauer einer KI-Runde? VDP-RAM mit Titel (S2)? Klang?
+- **Titel-Motiv:** Platzhalter-Vorschlag, wartet auf Abstimmung (siehe §7).
+- **Tags:** `v0.2.0` bis `v0.4.0` sind noch nicht gesetzt; vorgesehen nach dem Hardware-Test. `v1.0.0` (M4) und ein M5-Tag sind des Nutzers Sache.
 - **#2 Buffered Commands:** nur nötig, falls die Geschwindigkeit auf Hardware nicht reicht.
 - **Bekannte Vereinfachungen, die später nachzuziehen sind:**
   - Phiolen wirken mit Stufe 2, weil Objekte keine Zusatzdaten tragen.
   - Enchant wirkt pro Einheit statt pro Waffe; Waffen am Boden werden nicht verzaubert.
-  - Subversion verbietet alle Reittiere; die Ausnahme „nur Reittiere mit Zauberer“ kommt mit dem Reiten in M4e.
-  - Höchstens 4 Kessel, 64 Bodenobjekte und 16 noch nicht abgerechnete Kills.
-- **Kunst-Schulden:** Offene Türen sind schwer lesbar, die Kreaturen sind ein erster Entwurf, ein Font mit Umlauten fehlt (M4j).
+  - Subversion verbietet alle Reittiere; die Ausnahme „nur Reittiere mit Zauberer“ kommt mit dem Reiten.
+  - Höchstens 4 Kessel, 64 Bodenobjekte und 16 noch nicht abgerechnete Kills; Ereignis-Ring 16 Einträge (volle Ring verwirft Neues — Darstellung only).
+  - Lexikon: geteilte Phiole-Kacheln markieren den ersten passenden Objekt-Typ.
 - `tools/mockup.py` rendert nur das Zauberer-Haus (9×9).
 
 ---
@@ -232,7 +231,7 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 | Amiga-Beobachtungen | `docs/design/amiga-observations.md` |
 | Roadmap und Arbeitsweise | `docs/ROADMAP.md` |
 | Architektur | `docs/ARCHITECTURE.md` |
-| Architekturentscheidungen | `docs/adr/0001` bis `0009` (Rendering 0006, Eingabe 0007, Daten 0008, Sicht 0009) |
+| Architekturentscheidungen | `docs/adr/0001` bis `0011` (Rendering 0006, Eingabe 0007, Daten 0008, Sicht 0009, SD-Daten 0011) |
 | Plattform-Quirks | `docs/AGON-QUIRKS.md` |
 | Testen und Debuggen | `docs/TESTING.md` |
 | Änderungen | `CHANGELOG.md` |
