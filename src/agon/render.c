@@ -26,6 +26,57 @@
 
 static uint8_t pixels[TILE_PX * TILE_PX];
 
+/* A mount that carries a rider is drawn smaller (M4k) so that the rider
+ * stays clearly visible: the mount tiles get a 60 % copy (14 px) built at
+ * load time from the full tile - no extra artwork. Copies live in the
+ * buffers after the regular tiles, slot = mount * 5 + owner. */
+#define MOUNT_PX 14
+#define MOUNT_KINDS 4
+static const uint8_t MOUNT_KIND[MOUNT_KINDS] = {CR_UNICORN, CR_PEGASUS,
+                                                CR_GRYPHON, CR_ELEPHANT};
+static uint8_t small_px[MOUNT_PX * MOUNT_PX];
+
+static int mount_slot(uint16_t tile)
+{
+    uint8_t m;
+    for (m = 0; m < MOUNT_KINDS; m++) {
+        uint16_t base = CREATURE_TILE[MOUNT_KIND[m]];
+        if (tile >= base && tile - base <= OWN_NEUTRAL)
+            return m * (OWN_NEUTRAL + 1) + (tile - base);
+    }
+    return -1;
+}
+
+/* 24x24 RGBA2222 -> 14x14: every target pixel looks at its source box;
+ * black (the outline) wins so the outline stays closed, otherwise the
+ * first opaque pixel counts if at least half of the box is opaque. */
+static void shrink_mount(const uint8_t *src, uint8_t *dst)
+{
+    uint8_t x, y;
+    for (y = 0; y < MOUNT_PX; y++)
+        for (x = 0; x < MOUNT_PX; x++) {
+            uint8_t sx0 = (uint8_t)(x * TILE_PX / MOUNT_PX);
+            uint8_t sx1 = (uint8_t)(((x + 1) * TILE_PX + MOUNT_PX - 1) / MOUNT_PX);
+            uint8_t sy0 = (uint8_t)(y * TILE_PX / MOUNT_PX);
+            uint8_t sy1 = (uint8_t)(((y + 1) * TILE_PX + MOUNT_PX - 1) / MOUNT_PX);
+            uint8_t sx, sy, total = 0, opaque = 0, first = 0, black = 0;
+            for (sy = sy0; sy < sy1 && sy < TILE_PX; sy++)
+                for (sx = sx0; sx < sx1 && sx < TILE_PX; sx++) {
+                    uint8_t p = src[sy * TILE_PX + sx];
+                    total++;
+                    if (p >> 6) {                /* alpha bits */
+                        opaque++;
+                        if (!first)
+                            first = p;
+                        if (!(p & 0x3F))
+                            black = p;
+                    }
+                }
+            dst[y * MOUNT_PX + x] = (uint8_t)(opaque * 2 >= total
+                                                  ? (black ? black : first) : 0);
+        }
+}
+
 static bool load_tiles(void)
 {
     uint8_t fh, head[7], sizes[2 * TILE_COUNT];
@@ -61,6 +112,15 @@ static bool load_tiles(void)
         vdp_adv_write_block_data(TILE_BUFFER_BASE + i, (int)len, (char *)pixels);
         vdp_adv_select_bitmap(TILE_BUFFER_BASE + i);
         vdp_adv_bitmap_from_buffer(w, h, FORMAT_RGBA2222);
+        if (w == TILE_PX && h == TILE_PX && mount_slot(i) >= 0) {
+            uint16_t small_id = (uint16_t)(TILE_BUFFER_BASE + TILE_COUNT +
+                                           mount_slot(i));
+            shrink_mount(pixels, small_px);
+            vdp_adv_clear_buffer(small_id);
+            vdp_adv_write_block_data(small_id, MOUNT_PX * MOUNT_PX, (char *)small_px);
+            vdp_adv_select_bitmap(small_id);
+            vdp_adv_bitmap_from_buffer(MOUNT_PX, MOUNT_PX, FORMAT_RGBA2222);
+        }
     }
     mos_fclose(fh);
     return true;
@@ -70,6 +130,19 @@ static void draw_tile(uint16_t id, int x, int y)
 {
     vdp_adv_select_bitmap(TILE_BUFFER_BASE + id);
     vdp_draw_bitmap(x, y);
+}
+
+/* The small copy of a mount tile, centred and standing on the field's
+ * baseline (x, y = top-left of the full tile). */
+static void draw_small_mount(uint16_t id, int x, int y)
+{
+    int slot = mount_slot(id);
+    if (slot < 0) {
+        draw_tile(id, x, y);
+        return;
+    }
+    vdp_adv_select_bitmap(TILE_BUFFER_BASE + TILE_COUNT + slot);
+    vdp_draw_bitmap(x + (TILE_PX - MOUNT_PX) / 2, y + (TILE_PX - MOUNT_PX));
 }
 
 bool render_init(void)
@@ -111,17 +184,18 @@ void render_cursor(int16_t vx, int16_t vy, uint8_t colour, bool visible)
     vdp_refresh_sprites();
 }
 
-/* Rider drawn behind its mount (M4k): lifted so that torso and head show
- * over the mount's back while the mount's body hides legs and feet. The
- * offset depends on the mount, read from the mount tile that follows. */
-#define RIDE_LIFT 7
+/* Rider drawn behind its (smaller) mount (M4k): lifted a little so that
+ * torso and head show over the mount's back while the mount's body hides
+ * legs and feet. The offset depends on the mount, read from the mount tile
+ * that follows. */
+#define RIDE_LIFT 3
 static void ride_offset(uint16_t mount_tile, int *dx, int *dy)
 {
     static const struct { uint8_t kind; int8_t dx, dy; } MOUNTS[] = {
-        { CR_UNICORN, -2, RIDE_LIFT },
-        { CR_PEGASUS, -2, RIDE_LIFT },
-        { CR_GRYPHON, -1, RIDE_LIFT },
-        { CR_ELEPHANT, -1, RIDE_LIFT },
+        { CR_UNICORN, 0, RIDE_LIFT },
+        { CR_PEGASUS, 0, RIDE_LIFT },
+        { CR_GRYPHON, 0, RIDE_LIFT },
+        { CR_ELEPHANT, 0, RIDE_LIFT },
     };
     uint8_t i;
     *dx = 0;
@@ -151,15 +225,21 @@ uint8_t render_fields(void)
                 if (f->air & (1u << i))         /* flyer, slightly higher */
                     y -= 3;
                 if ((f->ride & (1u << i)) && i + 1 < f->n) {
-                    int dx, dy;                 /* rider behind the mount */
+                    int dx, dy, my = y;         /* rider behind the mount */
                     ride_offset(f->id[i + 1], &dx, &dy);
                     x += dx;
                     y -= dy;
+                    if (y < 0)
+                        y = 0;
+                    if (x < 0)
+                        x = 0;
+                    draw_tile(f->id[i], x, y);
+                    draw_small_mount(f->id[i + 1], vx * TILE_PX, my);
+                    i++;                        /* the mount layer is done */
+                    continue;
                 }
                 if (y < 0)
                     y = 0;
-                if (x < 0)
-                    x = 0;
                 draw_tile(f->id[i], x, y);
             }
             n++;
@@ -239,9 +319,11 @@ void render_panel(const World *w, uint8_t unit)
         if (rk < CR_COUNT) {
             ride_offset(mount_tile, &dx, &dy);
             draw_tile((uint16_t)(CREATURE_TILE[rk] + u->owner), PANEL_X + 6 + dx,
-                      6 - (dy > 2 ? 2 : dy));
+                      6 - dy);
+            draw_small_mount(mount_tile, PANEL_X + 6, 6);
+        } else {
+            draw_tile(mount_tile, PANEL_X + 6, 6);
         }
-        draw_tile(mount_tile, PANEL_X + 6, 6);
     }
     text_at(32, 1, C_GREY, u->kind == CR_WIZARD ? "Stufe 1" : "       ");
     for (i = 0; i < 5; i++) {

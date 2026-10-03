@@ -2276,6 +2276,23 @@ static void test_m4e(void)
             }
             world.unit_count = 0;
         }
+        {   /* a ridden pair inside the lifted roof keeps its masks in step */
+            FieldLayers rf;
+            uint8_t li, rl = 0xFF, mt;
+            world.unit_count = 0;
+            view_set_sight(NULL);
+            mt = world_spawn_unit(&world, OWN_P1, CR_UNICORN, 5, 5);
+            world.units[mt].flags |= UF_RIDDEN;
+            world.units[mt].rider_kind = CR_WIZARD;
+            view_compose(&world, 5, 5, &rf);
+            for (li = 0; li < rf.n; li++)
+                if (rf.ride & (1u << li))
+                    rl = li;
+            check(!has_layer(&rf, T_ROOF) && rl != 0xFF &&
+                  rf.id[rl] == T_WIZARD_P1 && rf.id[rl + 1] == T_UNICORN_P1,
+                  "m4k: the rider mask survives the lifted roof");
+            world.unit_count = 0;
+        }
         {   /* flying units cannot land on a roof */
             uint8_t bat = world_spawn_unit(&world, OWN_P1, CR_GIANT_BAT, 5, 5);
             world.units[bat].flags |= UF_FLYING;

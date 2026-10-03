@@ -258,9 +258,17 @@ static void apply_roof_rule(const World *w, int16_t wx, int16_t wy,
     roof_refresh(w);
     if (!roof_open[wy][wx])
         return;
-    for (j = 0; j < out->n; j++)
-        if (out->id[j] != T_ROOF)
+    for (j = 0; j < out->n; j++) {
+        if (out->id[j] != T_ROOF) {
             out->id[k++] = out->id[j];
+        } else {                         /* keep the layer masks in step */
+            uint16_t low = (uint16_t)((1u << k) - 1u);
+            out->air = (uint16_t)((out->air & low) |
+                                  ((out->air >> (k + 1)) << k));
+            out->ride = (uint16_t)((out->ride & low) |
+                                   ((out->ride >> (k + 1)) << k));
+        }
+    }
     out->n = k;
 }
 
