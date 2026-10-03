@@ -281,11 +281,25 @@ void world_remove_unit(World *w, uint8_t unit)
     w->unit_count--;
 }
 
+/* The dead drop everything they carried on their field (D21) - flyers
+ * onto the ground below. A full object list swallows the rest. */
+static void drop_carried(World *w, const Unit *u)
+{
+    uint8_t i;
+    for (i = 0; i < u->item_count && w->object_count < MAX_OBJECTS; i++) {
+        Object *o = &w->objects[w->object_count++];
+        o->x = u->x;
+        o->y = u->y;
+        o->tile = OBJECTS[u->items[i]].tile;
+    }
+}
+
 void world_kill_unit(World *w, uint8_t victim, uint8_t killer_kind,
                      uint8_t killer_owner, bool melee)
 {
     if (victim >= w->unit_count)
         return;
+    drop_carried(w, &w->units[victim]);
     if (killer_owner < OWN_NEUTRAL && w->kill_count < MAX_KILLS) {
         Kill *k = &w->kills[w->kill_count++];
         k->victim_kind = w->units[victim].kind;
@@ -391,8 +405,10 @@ void world_new_turn(World *w)
         }
     }
     for (i = w->unit_count; i-- > 0;)      /* bleeders that died */
-        if (w->units[i].con == 0)
+        if (w->units[i].con == 0) {
+            drop_carried(w, &w->units[i]);
             world_remove_unit(w, i);
+        }
 }
 
 bool world_engaged(const World *w, uint8_t unit)

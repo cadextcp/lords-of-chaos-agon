@@ -224,7 +224,7 @@ Fast jede Aktion kostet **AP**. Ein Menüpunkt erscheint nur, wenn die Einheit d
 | Fernkampf | THROW-A/G (Reichweite nach Stärke und Gewicht), FIRE-A/G (Bogen, Flammenatem) | `[PM 15–16]` |
 
 **Weitere Regeln:**
-- **Objekt in Benutzung:** Eine Kreatur kann mehrere Objekte tragen, aber nur eines ist „in use“, und zwar das zuletzt aufgehobene. DROP, THROW und Waffen-Boni beziehen sich darauf. Schilde wirken immer. `[PM 9, 17]`
+- **Objekt in Benutzung:** Eine Kreatur kann mehrere Objekte tragen, aber nur eines ist „in use“, und zwar das zuletzt aufgehobene. DROP, THROW und Waffen-Boni beziehen sich darauf. Schilde wirken immer `[PM 9, 17]`, aber höchstens **ein** getragener Schild zählt (D21).
 - **Bewegung auf befreundete Einheit:** Danach ist nur END MOVE möglich. Die Einheit wird dann auf das letzte freie Feld zurückgesetzt. `[PM 13]`
 
 ### 5.1 Bedienung auf dem Agon: Tastatur, angelehnt an Caves of Qud
@@ -746,6 +746,7 @@ Spalte „WinUAE“: Was sich im Amiga-Original direkt beobachten lässt (●), 
 | D11 | Perspektive | **3/4-Frontansicht wie auf dem Amiga** für Möbel, Wände und Kreaturen; flache Böden; Halb-Böden an Wänden (§11.2). |
 | D12 | Kreaturwerte | **Kreaturtabelle des Originals `[PM 34]` als Startwerte** für alle 25 Kreaturen (`data/creatures.csv`). Balancing später; Abweichungen werden in der CSV kommentiert. |
 | D13 | Kreaturgrafik | **Alle 25 Kreaturen bekommen schon in M2 eigene 24×24-Pixelart** (3/4-Ansicht, Besitzerfarben). |
+| D21 | Regeln aus dem M3-Review | **Rückschlag gegen Flieger:** Greift ein Flieger selbst am Boden an, schlägt der Verteidiger zurück; von unten angreifen geht weiter nicht. **Blitz ohne Freund-Feind-Erkennung:** Der Splash trifft alle 8 Nachbarfelder, auch eigene Einheiten und den Zaubernden (Gollop-Tradition); eigene Opfer bringen keine VP. **Eine Trefferformel für alle Angriffe:** Werfen, Bogen und Bolt nutzen D16 (10–90 %, Defence inklusive Schild). **Schilde stapeln nicht:** Ein getragener Schild zählt immer (D18), weitere nicht. **Beute fällt:** Wer stirbt (Kampf, Zauber, Verbluten), lässt alles Getragene auf sein Feld fallen, Flieger auf den Boden darunter; wer durchs Portal entkommt, nimmt es mit. |
 | D20 | Einfache KI (M3f) | **Jäger für Unabhängige** (nächstes Ziel per Sichtstrahl, Angriff wenn angrenzend, sonst Umherstreifen); **Zauberer-KI**: Kreaturen jagen zuerst, dann Nahkampf/Beschwörung (günstigster Zauber, bis 3 Begleiter)/Weg zum Portal und Eintritt. Kein Schummeln: Ziele nur in eigener Sichtlinie. |
 | D19 | Portal und VP (M3e) | **Erscheinungsrunde** deterministisch aus der Szenario-Spanne (RNG mit Partie-Saat); **Entkommen +10 VP** plus getragene Schätze (objektbezogen aus objects.csv); Kills nach Kreaturtabelle, Zauberer im Nahkampf doppelt (AMI 4), Fernkampf einfach; Spielende ohne Zauberer. |
 | D18 | Objekte und Waffen (M3d) | **Startwerte aus dem Manual als Basis** (objects/weapons.csv, D7): Waffenboni nur für das Objekt in Benutzung, **Schild zählt immer beim Tragen**; Werfen fliegt bis 6 Felder und landet vor dem Hindernis; Bogen 12 AP, Reichweite 6, trifft auch Flieger; Trage-Limit aus der Kreaturtabelle; Aufheben nimmt das oberste Objekt (Liste folgt). |

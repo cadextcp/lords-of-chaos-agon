@@ -4,6 +4,13 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 
 ## [Unreleased] – M3 Classic spielbar
 
+### Geändert
+- **Regeln aus dem M3-Review (GDD D21):**
+  - Werfen, Bogen und Bolt nutzen dieselbe Trefferformel wie der Nahkampf (10–90 %, Defence inklusive Schild).
+  - Schilde stapeln nicht mehr: Ein getragener Schild zählt, weitere nicht.
+  - Wer stirbt (Kampf, Zauber, Verbluten), lässt alles Getragene auf sein Feld fallen, auch Schätze. Wer durchs Portal entkommt, nimmt es mit.
+  - Bestätigt ohne Codeänderung: Ein Bodenverteidiger schlägt einen angreifenden Flieger zurück; der Blitz-Splash trifft auch eigene Einheiten und den Zaubernden.
+
 ### Behoben
 - **Review-Fixes M3:**
   - Das Spiel hing in einer Endlosschleife, wenn der Mensch keine Einheiten mehr hatte (z. B. nach der Flucht durchs Portal). Die KI spielt jetzt zu Ende, bis kein Zauberer mehr da ist, höchstens 40 Runden (`TURN_AUTOPLAY_ROUNDS`). Danach kommt die Abrechnung und nur noch Esc wirkt.
