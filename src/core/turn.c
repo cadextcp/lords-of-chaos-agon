@@ -154,6 +154,19 @@ void turn_on_unit_removed(Turns *t, const World *w, uint8_t unit)
         t->active--;
 }
 
+/* Safety net after untracked removals (lightning splash): reselect the
+ * active unit; the finish marks reset - simpler than tracking shifts. */
+void turn_revalidate(Turns *t, const World *w)
+{
+    if (t->active >= w->unit_count ||
+        (t->active != NO_UNIT && w->units[t->active].owner != t->phase)) {
+        t->done = 0;
+        t->active = find_usable(t, w, 0, false);
+        if (t->active == NO_UNIT)
+            t->active = any_unit_of(w, t->phase);
+    }
+}
+
 void turn_end_phase(Turns *t, World *w)
 {
     for (;;) {

@@ -7,11 +7,15 @@
 #ifndef LOC_SELFTEST_H
 #define LOC_SELFTEST_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef void (*selftest_log_fn)(const char *line);
 
 /* Returns the number of failed checks (0 = pass). */
 uint16_t core_selftest(selftest_log_fn log);
+/* Print passing checks too? Default true (host). The Agon build sets
+ * false: the emulator console loses the tail of long outputs. */
+void selftest_set_verbose(bool verbose);
 
 #endif

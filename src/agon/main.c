@@ -52,6 +52,9 @@ static bool confirm_end = false;   /* Shift+E asks before ending the turn */
 static bool look_mode = false;     /* x: examine any field (GDD 5.1) */
 static int16_t look_x, look_y;
 static bool spell_list = false;    /* c: pick a spell (GDD 5.1) */
+static bool targeting = false;     /* aiming a spell (Enter casts, Esc ends) */
+static uint8_t target_spell;
+static int16_t target_x, target_y;
 static Spellbook books[OWN_NEUTRAL];   /* starting books until M3g */
 
 /* The unit the player acts with; start_phase guarantees one of the phase
@@ -63,8 +66,35 @@ static uint8_t active(void)
     return 0;
 }
 
+/* Targeting cursor colour (GDD 5.1): yellow ground, blue air, red when
+   out of range or without a line of sight. */
+static uint8_t target_cursor_colour(void)
+{
+    const Unit *u = &world.units[active()];
+    int16_t dx = (int16_t)(target_x - u->x), dy = (int16_t)(target_y - u->y);
+    if (world.wrap) {
+        if (dx > world.w / 2) dx = (int16_t)(dx - world.w);
+        if (dx < -world.w / 2) dx = (int16_t)(dx + world.w);
+        if (dy > world.h / 2) dy = (int16_t)(dy - world.h);
+        if (dy < -world.h / 2) dy = (int16_t)(dy + world.h);
+    }
+    if (dx > SPELL_RANGE || dx < -SPELL_RANGE || dy > SPELL_RANGE || dy < -SPELL_RANGE)
+        return CURSOR_RED;
+    if (!sight_has_los(&world, u->x, u->y, target_x, target_y))
+        return CURSOR_RED;
+    if (world_unit_at(&world, target_x, target_y, UL_AIR) != NO_UNIT)
+        return CURSOR_BLUE;
+    return CURSOR_YELLOW;
+}
+
 static void place_cursor(void)
 {
+    if (targeting) {
+        render_cursor((int16_t)(target_x - view_origin_x()),
+                      (int16_t)(target_y - view_origin_y()),
+                      target_cursor_colour(), cursor_on);
+        return;
+    }
     if (look_mode) {
         render_cursor((int16_t)(look_x - view_origin_x()),
                       (int16_t)(look_y - view_origin_y()), CURSOR_WHITE, cursor_on);
@@ -84,7 +114,9 @@ static void print_line(const char *line)
 
 static int selftest(void)
 {
-    uint16_t fails = core_selftest(print_line);
+    uint16_t fails;
+    selftest_set_verbose(false);
+    fails = core_selftest(print_line);
     printf(fails ? "=== TEST FAIL ===\r\n" : "=== TEST PASS ===\r\n");
     emu_exit(fails ? 1 : 0);
     return fails ? 1 : 0;
@@ -101,16 +133,20 @@ static void show_status(void)
 
 static void frame(bool dump)
 {
-    if (look_mode) {
+    if (look_mode || targeting) {       /* free cursor over the map */
+        int16_t cx = targeting ? target_x : look_x;
+        int16_t cy = targeting ? target_y : look_y;
         char buf[24];
-        view_follow(&world, look_x, look_y);
+        view_follow(&world, cx, cy);
         view_update(&world);
         render_fields();
         cursor_on = true;
         place_cursor();
-        render_panel_at(&world, &p1_sight, look_x, look_y);
-        describe_field(&world, &p1_sight, look_x, look_y, buf, sizeof buf);
+        render_panel_at(&world, &p1_sight, cx, cy);
+        describe_field(&world, &p1_sight, cx, cy, buf, sizeof buf);
         render_message(1, C_BRIGHT_CYAN, buf);
+        if (targeting)
+            render_message(2, C_GREY, "Enter wirkt, Esc bricht ab.");
         if (dump)
             log_frame(&world, view_hash());
         return;
@@ -137,18 +173,54 @@ static void update_sight(void)
     sight_compute(&world, &p1_sight);
 }
 
+/* Cast the aimed spell at (target_x, target_y); messages on the outcome. */
+static void cast_targeted(bool dump)
+{
+    SpellShot shot;
+    char msg[48];
+    uint8_t wiz = active();
+    bool ok;
+    uint8_t count_before = world.unit_count;
+
+    if (target_spell == SP_MAGIC_LIGHTNING)
+        ok = spell_lightning(&world, &books[OWN_P1], wiz, target_x, target_y,
+                             &turns.rng, &shot);
+    else
+        ok = spell_bolt(&world, &books[OWN_P1], wiz, target_spell, target_x,
+                        target_y, &turns.rng, &shot);
+    if (!ok) {
+        render_message(1, C_BRIGHT_RED, "Ausser Reichweite oder Sicht.");
+        return;
+    }
+    if (shot.hit)
+        snprintf(msg, sizeof msg, "Zauber trifft: %u Schaden.", shot.damage);
+    else
+        snprintf(msg, sizeof msg, "Zauber verpufft.");
+    render_message(1, shot.hit ? C_BRIGHT_YELLOW : C_GREY, msg);
+    if (shot.terrain_smashed)
+        render_message(2, C_BRIGHT_YELLOW, "Blitz schlaegt das Terrain ein!");
+    if (world.unit_count < count_before) {
+        turn_revalidate(&turns, &world);
+        render_message(2, C_BRIGHT_RED, "Mindestens eine Kreatur stirbt.");
+    }
+    update_sight();
+    frame(dump);
+}
+
 /* Move the active unit in direction mask m (chord.h); messages on failure. */
 static void step(uint8_t m, bool dump)
 {
     int8_t dx, dy;
     if (!chord_to_step(m, &dx, &dy))
         return;
-    if (look_mode) {                   /* free cursor, no costs */
-        look_x = (int16_t)(look_x + dx);
-        look_y = (int16_t)(look_y + dy);
-        if (!world_wrap(&world, &look_x, &look_y)) {
-            look_x = (int16_t)(look_x - dx);
-            look_y = (int16_t)(look_y - dy);
+    if (look_mode || targeting) {       /* free cursor, no costs */
+        int16_t *cx = targeting ? &target_x : &look_x;
+        int16_t *cy = targeting ? &target_y : &look_y;
+        *cx = (int16_t)(*cx + dx);
+        *cy = (int16_t)(*cy + dy);
+        if (!world_wrap(&world, cx, cy)) {
+            *cx = (int16_t)(*cx - dx);
+            *cy = (int16_t)(*cy - dy);
         }
         frame(dump);
         return;
@@ -416,12 +488,40 @@ int main(int argc, char **argv)
                                 render_message(1, C_BRIGHT_GREEN, "Beschworen!");
                             else
                                 render_message(1, C_BRIGHT_RED, "Kein Platz - Mana verloren.");
+                            update_sight();
+                        } else if (i == SP_MAGIC_BOLT || i == SP_MAGIC_LIGHTNING) {
+                            targeting = true;
+                            target_spell = (uint8_t)i;
+                            target_x = world.units[wiz].x;
+                            target_y = world.units[wiz].y;
                         } else {
-                            render_message(1, C_BRIGHT_YELLOW, "Zauber folgt in M3c.");
+                            render_message(1, C_BRIGHT_YELLOW, "Zauber folgt spaeter.");
                         }
-                        update_sight();
                     }
                     frame(dump);
+                }
+                continue;
+            }
+            if (targeting && e.isdown && !input_arrow(e.vkey) &&
+                !input_diagonal(e.vkey)) {        /* aim: Enter casts, Esc ends */
+                if (e.vkey == VK_ESC) {
+                    targeting = false;
+                    render_message(1, C_GREY, "");
+                    render_message(2, C_GREY, "");
+                    frame(dump);
+                } else if (e.ascii == 13 || e.vkey == VK_SPACE ||
+                           e.ascii == 'c') {
+                    /* aiming at the caster cancels without cost (GDD 7.1) */
+                    if (target_x == world.units[active()].x &&
+                        target_y == world.units[active()].y) {
+                        targeting = false;
+                        render_message(1, C_GREY, "Abgebrochen.");
+                        render_message(2, C_GREY, "");
+                        frame(dump);
+                    } else {
+                        targeting = false;
+                        cast_targeted(dump);
+                    }
                 }
                 continue;
             }

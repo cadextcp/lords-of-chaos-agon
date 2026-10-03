@@ -42,5 +42,7 @@ void turn_end_phase(Turns *t, World *w);
 void turn_independents(Turns *t, World *w);
 /* After world_remove_unit(unit): repair active unit and done bits. */
 void turn_on_unit_removed(Turns *t, const World *w, uint8_t unit);
+/* Safety net after untracked removals (area spells): reselect. */
+void turn_revalidate(Turns *t, const World *w);
 
 #endif

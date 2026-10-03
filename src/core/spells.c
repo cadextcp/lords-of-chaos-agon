@@ -1,5 +1,8 @@
 #include "spells.h"
 
+#include "combat.h"
+#include "sight.h"
+
 #include <string.h>
 
 uint8_t spell_mana(uint8_t spell, uint8_t level)
@@ -73,4 +76,121 @@ uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
         }
     }
     return placed;
+}
+
+/* One bolt-like shot at whatever stands on (x, y) (any layer). */
+static bool shoot_field(World *w, Rng *rng, uint8_t wiz, int16_t x, int16_t y,
+                        uint8_t *damage)
+{
+    uint8_t target = world_unit_at(w, x, y, UL_GROUND);
+    if (target == NO_UNIT)
+        target = world_unit_at(w, x, y, UL_AIR);
+    if (target == NO_UNIT) {
+        *damage = 0;
+        return false;
+    }
+    if (rng_range(rng, 100) >= combat_hit_chance(w->units[wiz].com,
+                                                 w->units[target].def))
+        return false;
+    *damage = (uint8_t)((w->units[wiz].com +
+                         rng_range(rng, (uint16_t)(w->units[wiz].com + 1))) / 4);
+    if (*damage == 0)
+        *damage = 1;
+    {
+        Unit *t = &w->units[target];
+        if (*damage > t->con_max / 4)
+            t->flags |= UF_WOUNDED;
+        if (*damage >= t->con)
+            world_remove_unit(w, target);
+        else
+            t->con = (uint8_t)(t->con - *damage);
+    }
+    return true;
+}
+
+static bool pay_for_spell(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
+                          int16_t x, int16_t y)
+{
+    uint8_t level, mana;
+    if (!spell_can_cast(w, b, wiz, spell))
+        return false;
+    if (!world_wrap(w, &x, &y))
+        return false;
+    level = b->level[spell];
+    mana = spell_mana(spell, level);
+    world_spend(w, wiz, ACTIONS[ACT_CAST].ap);
+    w->units[wiz].mana = (uint8_t)(w->units[wiz].mana - mana);
+    b->level[spell] = (uint8_t)(level - 1);
+    return true;
+}
+
+static bool in_range(const World *w, const Unit *u, int16_t x, int16_t y)
+{
+    int16_t dx = (int16_t)(x - u->x), dy = (int16_t)(y - u->y);
+    if (w->wrap) {
+        if (dx > w->w / 2) dx = (int16_t)(dx - w->w);
+        if (dx < -w->w / 2) dx = (int16_t)(dx + w->w);
+        if (dy > w->h / 2) dy = (int16_t)(dy - w->h);
+        if (dy < -w->h / 2) dy = (int16_t)(dy + w->h);
+    }
+    return dx >= -SPELL_RANGE && dx <= SPELL_RANGE &&
+           dy >= -SPELL_RANGE && dy <= SPELL_RANGE;
+}
+
+bool spell_bolt(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
+                int16_t x, int16_t y, Rng *rng, SpellShot *out)
+{
+    const Unit *u;
+    out->allowed = out->hit = out->died = false;
+    out->damage = 0;
+    out->splash_hits = 0;
+    out->terrain_smashed = false;
+    if (spell != SP_MAGIC_BOLT && spell != SP_MAGIC_LIGHTNING)
+        return false;
+    if (wiz >= w->unit_count || !world_wrap(w, &x, &y))
+        return false;
+    u = &w->units[wiz];
+    if (!in_range(w, u, x, y) || !sight_has_los(w, u->x, u->y, x, y))
+        return false;
+    {
+        uint8_t before = w->unit_count;
+        if (!pay_for_spell(w, b, wiz, spell, x, y))
+            return false;
+        out->allowed = true;
+        out->hit = shoot_field(w, rng, wiz, x, y, &out->damage);
+        out->died = w->unit_count < before;
+    }
+    return true;
+}
+
+bool spell_lightning(World *w, Spellbook *b, uint8_t wiz,
+                     int16_t x, int16_t y, Rng *rng, SpellShot *out)
+{
+    static const int8_t DX[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+    static const int8_t DY[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
+    uint8_t i;
+    /* massive target fields are rejected (GDD 7.2) */
+    if (world_wrap(w, &x, &y) && world_blocks(w, x, y) &&
+        FEATURE_TOUGH[world_feature(w, x, y)] == 0)
+        return false;
+    if (!spell_bolt(w, b, wiz, SP_MAGIC_LIGHTNING, x, y, rng, out))
+        return false;
+    /* smash destructible terrain at the target */
+    if (world_blocks(w, x, y) && FEATURE_TOUGH[world_feature(w, x, y)] > 0) {
+        w->feature[y][x] = FE_NONE;
+        world_map_changed(w);
+        out->terrain_smashed = true;
+    }
+    for (i = 0; i < 8; i++) {
+        uint8_t dmg;
+        int16_t nx = (int16_t)(x + DX[i]), ny = (int16_t)(y + DY[i]);
+        uint8_t before = w->unit_count;
+        if (!world_wrap(w, &nx, &ny))
+            continue;
+        if (shoot_field(w, rng, wiz, nx, ny, &dmg))
+            out->splash_hits++;
+        if (w->unit_count < before)
+            out->died = true;
+    }
+    return true;
 }

@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "gen/data.h"
+#include "rng.h"
 #include "world.h"
 
 #define SPELL_MAX_LEVEL 8
@@ -31,5 +32,28 @@ bool spell_can_cast(const World *w, const Spellbook *b, uint8_t wiz, uint8_t spe
  * without enough space the mana is lost and nothing appears. Returns
  * the number of creatures placed. */
 uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell);
+
+/* Spell range in fields (own design until WinUAE says more, GDD 13). */
+#define SPELL_RANGE 6
+
+typedef struct {
+    bool allowed;       /* cast went through (range, LOS, wall) */
+    bool hit;
+    uint8_t damage;
+    bool died;          /* the target died and is removed */
+    uint8_t splash_hits;/* lightning: neighbours hit */
+    bool terrain_smashed;   /* lightning at the target field */
+} SpellShot;
+
+/* Magic Bolt (GDD 7.2): physical damage with line of sight and range,
+ * Defence counts (same model as melee, D16). Hits ground and air
+ * units; nothing else. */
+bool spell_bolt(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
+                int16_t x, int16_t y, Rng *rng, SpellShot *out);
+/* Magic Lightning: bolt plus one roll for every neighbouring field;
+ * smashes destructible terrain at the target; massive target fields
+ * (walls) are rejected. */
+bool spell_lightning(World *w, Spellbook *b, uint8_t wiz,
+                     int16_t x, int16_t y, Rng *rng, SpellShot *out);
 
 #endif
