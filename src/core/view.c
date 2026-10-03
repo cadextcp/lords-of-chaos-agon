@@ -1,6 +1,7 @@
 #include "view.h"
 
 #include "gen/data.h"
+#include "area.h"
 #include "sight.h"
 
 #include <string.h>
@@ -30,8 +31,12 @@ static const uint16_t FEATURE_TILE[FE_COUNT] = {
 };
 
 /* Animated tiles: frame 0 <-> frame 1 (candles, water). */
-static const uint16_t ANIM_A[] = {T_CANDLE_0, T_FLOOR_WATER_0, T_PORTAL_0};
-static const uint16_t ANIM_B[] = {T_CANDLE_1, T_FLOOR_WATER_1, T_PORTAL_1};
+static const uint16_t ANIM_A[] = {T_CANDLE_0, T_FLOOR_WATER_0, T_PORTAL_0,
+                                  T_AREA_FIRE_0, T_AREA_BLOB_0, T_AREA_VINE_0,
+                                  T_AREA_FLOOD_0};
+static const uint16_t ANIM_B[] = {T_CANDLE_1, T_FLOOR_WATER_1, T_PORTAL_1,
+                                  T_AREA_FIRE_1, T_AREA_BLOB_1, T_AREA_VINE_1,
+                                  T_AREA_FLOOD_1};
 #define ANIM_N (sizeof ANIM_A / sizeof ANIM_A[0])
 
 static uint16_t anim_swap(uint16_t id, uint8_t ph)
@@ -244,6 +249,17 @@ static void compose_dynamic(const World *w, int16_t wx, int16_t wy, FieldLayers 
         push(out, T_AIR_SHADOW);      /* ground shadow below the flyer */
         push_unit(w, &w->units[u], out, true);
     }
+    {   /* area effect overlay (M4d, layer 7) */
+        AreaKind k = area_kind_at(w, wx, wy);
+        if (k != AREA_NONE) {
+            uint8_t p2 = area_power_at(w, wx, wy);
+            uint16_t base = k == AREA_FIRE ? T_AREA_FIRE_0
+                          : k == AREA_BLOB ? T_AREA_BLOB_0
+                          : k == AREA_VINE ? T_AREA_VINE_0 : T_AREA_FLOOD_0;
+            (void)p2;
+            push(out, phase ? (uint16_t)(base + 1) : base);
+        }
+    }
 }
 
 /* Reference implementation (slow, used by tests and the panel). */
@@ -342,6 +358,15 @@ static void compose_fast(const World *w, uint8_t vx, uint8_t vy, FieldLayers *ou
     if (over_air[vy][vx]) {
         push(out, T_AIR_SHADOW);
         push_unit(w, &w->units[over_air[vy][vx] - 1], out, true);
+    }
+    {   /* area effect overlay (M4d, layer 7) */
+        AreaKind k = area_kind_at(w, wx, wy);
+        if (k != AREA_NONE) {
+            uint16_t base = k == AREA_FIRE ? T_AREA_FIRE_0
+                          : k == AREA_BLOB ? T_AREA_BLOB_0
+                          : k == AREA_VINE ? T_AREA_VINE_0 : T_AREA_FLOOD_0;
+            push(out, phase ? (uint16_t)(base + 1) : base);
+        }
     }
     apply_sight(w, wx, wy, out);
     compose_cursor(w, wx, wy, out);

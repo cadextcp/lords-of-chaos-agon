@@ -4,5 +4,5 @@
 
 map many_coloured_land
 
-book p1 giant_bat 2, magic_bolt 1, dwarf 1, magic_shield 2, magic_eye 1, teleport 1, curse 1, healing_potion 2, strength_potion 1
+book p1 giant_bat 2, magic_bolt 1, dwarf 1, magic_shield 2, magic_eye 1, teleport 1, curse 1, healing_potion 2, strength_potion 1, magic_fire 2
 book p2 goblin 2, magic_bolt 1

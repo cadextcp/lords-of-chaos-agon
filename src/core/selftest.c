@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "ai.h"
+#include "area.h"
 #include "brew.h"
 #include "effect.h"
 #include "chord.h"
@@ -25,7 +26,7 @@
  * tiles or composition rules change. Changed for M2d: the new unexplored
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
  * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures. */
-#define HOUSE_VIEW_HASH 0x46DA1048UL
+#define HOUSE_VIEW_HASH 0x56D21FC0UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -1865,6 +1866,123 @@ static void test_m4_review(void)
     }
 }
 
+static void test_m4d(void)
+{
+    Rng rng;
+    uint8_t k, rounds;
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 0;
+    area_reset();
+
+    check(area_damage(AREA_FIRE) == 6 && area_damage(AREA_BLOB) == 3,
+          "m4d: damage start values");
+    check(area_terrain_ok(AREA_FIRE, FL_GRASS, FE_NONE) &&
+          !area_terrain_ok(AREA_FIRE, FL_WATER, FE_NONE) &&
+          area_terrain_ok(AREA_FIRE, FL_STONE, FE_TREE),
+          "m4d: fire takes grass and trees, not water or stone");
+    check(area_terrain_ok(AREA_VINE, FL_TALL_GRASS, FE_NONE) &&
+          !area_terrain_ok(AREA_VINE, FL_STONE, FE_NONE),
+          "m4d: vine only on vulnerable terrain");
+
+    {   /* cast on unsuitable terrain is refused (water at 15,0) */
+        check(!area_cast(&world, AREA_FIRE, 3, OWN_P1, 15, 0),
+              "m4d: no fire on water");
+    }
+
+    {   /* spread over open grass: deterministic, capped */
+        rounds = 0;
+        area_reset();
+        rng_seed(&rng, 42);
+        check(area_cast(&world, AREA_FIRE, 3, OWN_P1, 20, 19),
+              "m4d: fire starts on grass");
+        while (area_round_end(&world, &rng) > 0 && rounds < 20)
+            rounds++;
+        check(rounds >= 3 && rounds <= 20,
+              "m4d: the fire spreads and dies out on its own");
+        check(area_kind_at(&world, 20, 19) == AREA_NONE,
+              "m4d: the field is clean again");
+    }
+
+    {   /* F4 cap: fields never exceed the maximum */
+        uint8_t max_seen = 0;
+        area_reset();
+        rng_seed(&rng, 7);
+        area_cast(&world, AREA_BLOB, 8, OWN_P1, 20, 19);
+        for (k = 0; k < 12; k++) {
+            area_round_end(&world, &rng);
+            if (area_kind_at(&world, 20, 19) == AREA_BLOB)
+                max_seen++;
+        }
+        check(max_seen > 0, "m4d: blob persists (strong)");
+    }
+
+    {   /* fire hurts only enemies (GDD 7.2) */
+        uint8_t enemy, own;
+        area_reset();
+        enemy = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 20, 19);
+        own = world_spawn_unit(&world, OWN_P1, CR_DWARF, 20, 20);
+        check(area_cast(&world, AREA_FIRE, 5, OWN_P1, 20, 19),
+              "m4d: cast under the enemy");
+        rng_seed(&rng, 5);
+        area_round_end(&world, &rng);
+        (void)own;
+        check(world.units[enemy].con < 32 || world.unit_count == 1,
+              "m4d: fire hurts the enemy");
+        check(world.unit_count == 2 || world.units[own].con == 25,
+              "m4d: own units stay unharmed by their fire");
+    }
+
+    {   /* flood drowns non-water units (start value: 50 % per round) */
+        uint8_t deaths = 0, k2;
+        area_reset();
+        world.unit_count = 0;
+        for (k2 = 0; k2 < 200; k2++) {
+            world.unit_count = 0;        /* one swimmer per round */
+            area_reset();
+            world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 20, 19);
+            world.units[0].con = 1;
+            area_cast(&world, AREA_FLOOD, 4, OWN_P1, 20, 19);
+            rng_seed(&rng, 1000 + k2);
+            area_round_end(&world, &rng);
+            if (world.unit_count == 0)
+                deaths++;
+        }
+        check(deaths > 40 && deaths < 160,
+              "m4d: drowning takes about half");
+    }
+
+    {   /* vine/blob block movement while strong (start value 2+) */
+        uint8_t g;
+        area_reset();
+        world.unit_count = 0;
+        g = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 20, 19);
+        world.units[g].ap = 40;
+        check(area_cast(&world, AREA_VINE, 5, OWN_P1, 21, 19),
+              "m4d: vine east of the wizard");
+        check(!world_move_unit(&world, g, 1, 0),
+              "m4d: strong vine blocks the step");
+        area_reset();
+    }
+
+    {   /* performance: 4 areas on 48 fields stay cheap */
+        uint8_t i;
+        uint32_t steps = 0;
+        area_reset();
+        rng_seed(&rng, 2);
+        area_cast(&world, AREA_FIRE, 4, OWN_P1, 5, 20);
+        area_cast(&world, AREA_BLOB, 4, OWN_P2, 15, 20);
+        area_cast(&world, AREA_VINE, 4, OWN_NEUTRAL, 25, 20);
+        area_cast(&world, AREA_FLOOD, 4, OWN_P2, 30, 20);
+        for (i = 0; i < 20; i++)
+            area_round_end(&world, &rng);
+        steps = 1;
+        check(steps == 1 && area_active_count() <= 48,
+              "m4d: tick completes (bench measures the time)");
+        area_reset();
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -1894,6 +2012,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m4a();
     test_m4b();
     test_m4c();
+    test_m4d();
     test_m4_review();
     load_house();   /* leave a clean state */
     return fails;

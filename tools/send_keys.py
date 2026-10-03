@@ -51,7 +51,9 @@ def main() -> int:
     except Exception:
         pass
 
-    keys = args.keys.split(",") if args.list else list(args.keys)
+    KEY_ALIASES = {"enter": "return", "esc": "esc", "space": "space"}
+    keys = [KEY_ALIASES.get(k, k)
+            for k in (args.keys.split(",") if args.list else list(args.keys))]
     pydirectinput.PAUSE = 0.02
     for k in keys:
         if k.startswith("hold="):              # hold=right=800 -> hold 800 ms

@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "area.h"
 #include "effect.h"
 #include "gen/data.h"
 #include "items.h"
@@ -348,6 +349,8 @@ bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
         if (world_blocks(w, nx, ny) ||
             world_unit_at(w, nx, ny, UL_GROUND) != NO_UNIT)
             return false;
+        if (area_blocks_kind(w, nx, ny))
+            return false;                  /* stuck in blob or vine (M4d) */
         if (world_engaged(w, unit))
             return false;                  /* bound, only the attack remains */
         cost = world_unit_step_cost(w, unit, nx, ny, dx != 0 && dy != 0);
