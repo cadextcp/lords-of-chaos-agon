@@ -7,6 +7,7 @@
 
 #include "../core/colors.h"
 #include "../core/gen/data.h"
+#include "../core/items.h"
 #include "../core/names.h"
 #include "../core/ride.h"
 #include "../core/sight.h"
@@ -357,6 +358,14 @@ void render_panel(const World *w, uint8_t unit)
 
     snprintf(buf, sizeof buf, "%-13.13s", name_unit(u));
     text_at(TEXT_COL_PANEL, 5, C_BRIGHT_WHITE, buf);
+    {   /* the object in use (GDD 8, M4j polish): weapons act only in hand */
+        if (u->in_use != NO_ITEM && u->in_use < u->item_count)
+            snprintf(buf, sizeof buf, "Hand: %-6.6s",
+                     OBJECTS[u->items[u->in_use]].name);
+        else
+            snprintf(buf, sizeof buf, "Hand: -");
+        text_at(TEXT_COL_PANEL, 4, C_BRIGHT_YELLOW, buf);
+    }
     snprintf(buf, sizeof buf, "AP %2u  ", u->ap);
     text_at(TEXT_COL_PANEL, 6, C_BRIGHT_GREEN, buf);
     if (u->mana_max)
