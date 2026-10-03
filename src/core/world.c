@@ -382,8 +382,6 @@ bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
             return false;
         if (area_blocks_kind(w, nx, ny))
             return false;                  /* stuck in blob or vine (M4d) */
-        if (world_engaged(w, unit))
-            return false;                  /* bound, only the attack remains */
         cost = world_unit_step_cost(w, unit, nx, ny, dx != 0 && dy != 0);
     }
     if (u->ap < cost)
@@ -505,6 +503,25 @@ bool world_engaged(const World *w, uint8_t unit)
     return false;
 }
 
+bool world_enemy_adjacent(const World *w, uint8_t unit)
+{
+    const Unit *u;
+    int8_t dx, dy;
+    if (unit >= w->unit_count)
+        return false;
+    u = &w->units[unit];
+    if (u->flags & UF_FLYING)
+        return false;
+    for (dx = -1; dx <= 1; dx++)
+        for (dy = -1; dy <= 1; dy++) {
+            uint8_t o = world_unit_at(w, (int16_t)(u->x + dx),
+                                      (int16_t)(u->y + dy), UL_GROUND);
+            if (o != NO_UNIT && w->units[o].owner != u->owner)
+                return true;
+        }
+    return false;
+}
+
 void world_engage(World *w, uint8_t unit)
 {
     Unit *u;
@@ -559,8 +576,6 @@ BumpKind world_bump_kind(const World *w, uint8_t unit, int8_t dx, int8_t dy)
             return BUMP_UNIT;
         if (area_blocks_kind(w, nx, ny))
             return BUMP_HELD;
-        if (world_engaged(w, unit))
-            return BUMP_ENGAGED;
         cost = world_unit_step_cost(w, unit, nx, ny, dx != 0 && dy != 0);
     }
     return u->ap >= cost ? BUMP_OK : BUMP_NO_AP;

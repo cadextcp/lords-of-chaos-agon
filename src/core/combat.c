@@ -103,6 +103,53 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
     return true;
 }
 
+bool combat_free_swing(World *w, Rng *rng, uint8_t att, uint8_t def,
+                       CombatResult *out)
+{
+    const Unit *a, *d;
+    bool ok_to_hit;
+    memset(out, 0, sizeof *out);
+    if (att >= w->unit_count || def >= w->unit_count || att == def)
+        return false;
+    a = &w->units[att];
+    d = &w->units[def];
+    if (a->owner == d->owner || !adjacent(w, a, d))
+        return false;
+    if ((d->flags & UF_FLYING) && !(a->flags & UF_FLYING))
+        return false;
+    if (!items_can_harm_undead(w, att, def))
+        return false;                      /* clanks off harmlessly (GDD 4.2) */
+
+    ok_to_hit = rng_range(rng, 100) <
+                combat_hit_chance(items_combat(w, att), items_defence(w, def));
+    if (!ok_to_hit)
+        return true;
+    out->hit = true;
+    out->damage = roll_damage(a, rng);
+    out->died = combat_damage(w, def, out->damage, a->kind, a->owner, true,
+                              &out->wound);
+    return true;
+}
+
+uint8_t combat_disengage_swings(World *w, Rng *rng, uint8_t unit,
+                                CombatResult *out)
+{
+    uint8_t i;
+    if (unit >= w->unit_count)
+        return 0;
+    for (i = 0; i < w->unit_count; i++) {
+        const Unit *e = &w->units[i];
+        if (e->owner == w->units[unit].owner || (e->flags & UF_INVISIBLE))
+            continue;
+        if (!adjacent(w, e, &w->units[unit]))
+            continue;
+        if (!combat_free_swing(w, rng, i, unit, out))
+            continue;
+        return 1;
+    }
+    return 0;
+}
+
 uint8_t combat_terrain(World *w, Rng *rng, uint8_t att, int16_t x, int16_t y,
                        bool *destroyed)
 {

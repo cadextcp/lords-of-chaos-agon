@@ -2,13 +2,16 @@
 
 #include "../core/chord.h"
 
+/* Movement by arrow keys only (GDD 5.2): WASD is NOT mapped - w, a, s
+ * and d are action keys there (wield, plus d = drop; a/s unused), and
+ * the arrow branch of the event loop would shadow them. */
 uint8_t input_arrow(uint8_t vkey)
 {
     switch (vkey) {
-    case VK_UP: case VK_LOWER('w'): return ARROW_UP;
-    case VK_DOWN: case VK_LOWER('s'): return ARROW_DOWN;
-    case VK_LEFT: case VK_LOWER('a'): return ARROW_LEFT;
-    case VK_RIGHT: case VK_LOWER('d'): return ARROW_RIGHT;
+    case VK_UP: return ARROW_UP;
+    case VK_DOWN: return ARROW_DOWN;
+    case VK_LEFT: return ARROW_LEFT;
+    case VK_RIGHT: return ARROW_RIGHT;
     default: return 0;
     }
 }

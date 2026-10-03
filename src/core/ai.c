@@ -1,8 +1,13 @@
 #include "ai.h"
 
+#include <stdio.h>
+
 #include "combat.h"
 #include "items.h"
 #include "sight.h"
+
+static bool ai_clear_feature(World *w, Rng *rng, uint8_t unit,
+                             int16_t x, int16_t y);
 
 static bool unit_is_enemy(const World *w, uint8_t a, uint8_t b)
 {
@@ -53,7 +58,7 @@ uint8_t ai_nearest_enemy(const World *w, uint8_t unit, uint8_t range)
     return best;
 }
 
-bool ai_step_toward(World *w, uint8_t unit, int16_t x, int16_t y)
+bool ai_step_toward(World *w, Rng *rng, uint8_t unit, int16_t x, int16_t y)
 {
     Unit *u;
     int8_t dx, dy;
@@ -64,8 +69,20 @@ bool ai_step_toward(World *w, uint8_t unit, int16_t x, int16_t y)
     dy = y > u->y ? 1 : (y < u->y ? -1 : 0);
     if (dx == 0 && dy == 0)
         return false;
-    if (world_move_unit(w, unit, dx, dy))
-        return true;
+    {
+        bool was_adjacent = world_enemy_adjacent(w, unit);
+        uint8_t my_id = w->units[unit].id;
+        if (world_move_unit(w, unit, dx, dy)) {
+            CombatResult fs;               /* D26: the player swings back */
+            if (was_adjacent &&
+                combat_disengage_swings(w, rng, unit, &fs) && fs.hit) {
+                unit = world_find_unit(w, my_id);
+                if (unit == NO_UNIT)
+                    return true;           /* died on the free swing */
+            }
+            return true;
+        }
+    }
     if (dx != 0 && world_move_unit(w, unit, dx, 0))   /* sidestep */
         return true;
     if (dy != 0 && world_move_unit(w, unit, 0, dy))
@@ -104,8 +121,8 @@ void ai_guard(World *w, Rng *rng, uint8_t unit, uint8_t home_range)
     if (dx > 0 || dy > 0) {             /* not home yet: drift back */
         uint8_t steps;
         for (steps = 0; steps < 2; steps++)
-            if (ai_step_toward(w, unit, w->units[unit].post_x,
-                               w->units[unit].post_y))
+            if (ai_step_toward(w, rng, unit, w->units[unit].post_x,
+                                    w->units[unit].post_y))
                 break;
     }
 }
@@ -151,6 +168,20 @@ static bool nearest_treasure(World *w, uint8_t unit, int16_t *tx, int16_t *ty)
     return found;
 }
 
+/* Try to interact with a blocking feature straight ahead (M4h/i
+ * follow-up, issue 78): closed doors open (CF_USE), chests open with a
+ * carried key or by prying. True when the way is free now. */
+static bool ai_clear_feature(World *w, Rng *rng, uint8_t unit,
+                             int16_t x, int16_t y)
+{
+    uint8_t fe = world_feature(w, x, y);
+    if (fe == FE_DOOR_CLOSED)
+        return world_open_door(w, unit, x, y);
+    if (fe == FE_CHEST)
+        return items_open_chest(w, rng, unit, x, y);
+    return false;
+}
+
 void ai_hunter(World *w, Rng *rng, uint8_t unit)
 {
     uint8_t prey, steps;
@@ -171,6 +202,7 @@ void ai_hunter(World *w, Rng *rng, uint8_t unit)
     for (steps = 0; steps < 3; steps++) {
         uint8_t foe;
         CombatResult r;
+        int16_t px, py;
         if (unit >= w->unit_count)      /* died on a return blow */
             return;
         foe = ai_nearest_enemy(w, unit, 1);
@@ -183,8 +215,17 @@ void ai_hunter(World *w, Rng *rng, uint8_t unit)
         }
         if (w->units[unit].ap < 4)
             return;
-        if (!ai_step_toward(w, unit, w->units[prey].x, w->units[prey].y))
-            return;                     /* stuck */
+        px = w->units[unit].x;
+        py = w->units[unit].y;
+        if (!ai_step_toward(w, rng, unit, w->units[prey].x,
+                            w->units[prey].y)) {
+            /* stuck: try to clear a door/chest in the direction of the prey */
+            int8_t dx = w->units[prey].x > px ? 1 : (w->units[prey].x < px ? -1 : 0);
+            int8_t dy = w->units[prey].y > py ? 1 : (w->units[prey].y < py ? -1 : 0);
+            if (!ai_clear_feature(w, rng, unit,
+                                  (int16_t)(px + dx), (int16_t)(py + dy)))
+                return;                 /* really stuck */
+        }
     }
 }
 
@@ -281,13 +322,37 @@ static void wizard_actions(Turns *t, World *w, AiCtx *ctx, uint8_t owner)
         }
     }
 
+    {   /* M4k: open an adjacent chest - the loot lies on the field and
+         * is picked up by the treasure walk below (or next round) */
+        static const int8_t DX2[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+        static const int8_t DY2[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
+        uint8_t d;
+        for (d = 0; d < 8; d++)
+            if (world_feature(w, (int16_t)(w->units[wiz].x + DX2[d]),
+                              (int16_t)(w->units[wiz].y + DY2[d])) == FE_CHEST) {
+                                ai_clear_feature(w, &t->rng, wiz,
+                                 (int16_t)(w->units[wiz].x + DX2[d]),
+                                 (int16_t)(w->units[wiz].y + DY2[d]));
+                break;
+            }
+    }
+
     {   /* M4h: walk to the nearest treasure in sight and take it */
         int16_t tx, ty;
         uint8_t steps;
         if (nearest_treasure(w, wiz, &tx, &ty)) {
             for (steps = 0; steps < 2; steps++)
-                if (w->units[wiz].ap >= 4 && ai_step_toward(w, wiz, tx, ty))
+                if (w->units[wiz].ap >= 4 &&
+                    ai_step_toward(w, &t->rng, wiz, tx, ty))
                     break;
+            if (w->units[wiz].x != tx || w->units[wiz].y != ty) {
+                /* stuck: open a door/chest between wizard and treasure */
+                int8_t dx = tx > w->units[wiz].x ? 1 : (tx < w->units[wiz].x ? -1 : 0);
+                int8_t dy = ty > w->units[wiz].y ? 1 : (ty < w->units[wiz].y ? -1 : 0);
+                ai_clear_feature(w, &t->rng, wiz,
+                                 (int16_t)(w->units[wiz].x + dx),
+                                 (int16_t)(w->units[wiz].y + dy));
+            }
             if (w->units[wiz].x == tx && w->units[wiz].y == ty)
                 items_pick_up(w, wiz);
         }
@@ -320,7 +385,8 @@ static void wizard_actions(Turns *t, World *w, AiCtx *ctx, uint8_t owner)
                 break;
             if (game_try_enter_portal(ctx->game, w, wiz))
                 return;
-            if (!ai_step_toward(w, wiz, ctx->game->portal_x, ctx->game->portal_y))
+            if (!ai_step_toward(w, &t->rng, wiz, ctx->game->portal_x,
+                                     ctx->game->portal_y))
                 break;
         }
     }

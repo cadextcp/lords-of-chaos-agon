@@ -14,6 +14,7 @@
 #include "sight.h"
 #include "spells.h"
 #include "turn.h"
+#include "rng.h"
 #include "world.h"
 
 /* Nearest enemy of `unit` within `range` fields that stands in its line
@@ -23,7 +24,7 @@ uint8_t ai_nearest_enemy(const World *w, uint8_t unit, uint8_t range);
 
 /* One greedy step of `unit` towards (x, y): diagonal first, sidesteps
  * around blocked fields. True when a step was made. */
-bool ai_step_toward(World *w, uint8_t unit, int16_t x, int16_t y);
+bool ai_step_toward(World *w, Rng *rng, uint8_t unit, int16_t x, int16_t y);
 
 /* Hunter turn of one independent creature (GDD 10): attack an adjacent
  * enemy, otherwise chase the nearest visible one, otherwise wander. */
