@@ -66,10 +66,47 @@ bool wizard_raise(Wizard *w, WizardAttr a)
         return false;
     w->xp = (uint16_t)(w->xp - cost);
     *target = (uint8_t)(cur + 1);
-    if (a == WA_CONSTITUTION)
-        w->base_con = (uint8_t)(w->base_con + 1);
-    if (a == WA_STAMINA)
-        w->base_sta = (uint8_t)(w->base_sta + 1);
+    return true;
+}
+
+bool wizard_lower(Wizard *w, WizardAttr a)
+{
+    uint8_t cur = wizard_attr(w, a);
+    uint8_t base = a == WA_COMBAT ? w->base_com
+                 : a == WA_DEFENCE ? w->base_def
+                 : a == WA_MAGIC_RES ? w->base_mr
+                 : a == WA_CONSTITUTION ? w->base_con : w->base_sta;
+    uint8_t *target = a == WA_COMBAT ? &w->com
+                    : a == WA_DEFENCE ? &w->def
+                    : a == WA_MAGIC_RES ? &w->mr
+                    : a == WA_CONSTITUTION ? &w->con : &w->sta;
+    if (cur <= base)
+        return false;                    /* never below the start value */
+    *target = (uint8_t)(cur - 1);
+    w->xp = (uint16_t)(w->xp + wizard_attr_cost(a, *target));   /* full refund */
+    return true;
+}
+
+bool wizard_valid(const Wizard *w)
+{
+    uint8_t i;
+    bool terminated = false;
+    for (i = 0; i < WIZARD_NAME_MAX; i++)
+        if (w->name[i] == '\0')
+            terminated = true;
+    if (!terminated || w->level < 1 || w->level > 8)
+        return false;
+    for (i = 0; i < WA_COUNT; i++) {
+        uint8_t v = wizard_attr(w, (WizardAttr)i);
+        if (v == 0 || v > wizard_attr_max((WizardAttr)i))
+            return false;
+    }
+    if (w->base_com > w->com || w->base_def > w->def || w->base_mr > w->mr ||
+        w->base_con > w->con || w->base_sta > w->sta)
+        return false;
+    for (i = 0; i < SPELL_COUNT; i++)
+        if (w->book.level[i] > SPELL_MAX_LEVEL)
+            return false;
     return true;
 }
 
@@ -140,7 +177,7 @@ const Spellbook *wizard_book(const Wizard *w)
 void wizard_campaign_result(Wizard *w, uint16_t vp, uint8_t scenario)
 {
     w->xp = (uint16_t)(w->xp + vp);      /* 1:1 (GDD 9) */
-    if (scenario <= 16 && !(w->scenarios_done & (1u << (scenario - 1)))) {
+    if (scenario >= 1 && scenario <= 16 && !(w->scenarios_done & (1u << (scenario - 1)))) {
         w->scenarios_done |= (uint16_t)(1u << (scenario - 1));
         if (w->level < 8)
             w->level++;                  /* first clear: one level up */

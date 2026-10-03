@@ -571,7 +571,7 @@ static void draw_menu(uint8_t cursor)
     static const char *const ITEMS[] = {
         "Szenario 1 starten",
         "Zauberer entwerfen",
-        "Zauberer laden (Start)",
+        "Zauberer zuruecksetzen",
         "Spiel beenden",
     };
     uint8_t i;
@@ -623,8 +623,10 @@ static void designer_loop(uint8_t slot)
             cursor = cursor ? (uint8_t)(cursor - 1) : WA_COUNT - 1;
         } else if (e.vkey == VK_DOWN) {
             cursor = (uint8_t)((cursor + 1) % WA_COUNT);
-        } else if (e.ascii == '+' || e.ascii == '-') {
+        } else if (e.ascii == '+') {
             wizard_raise(w, (WizardAttr)cursor);
+        } else if (e.ascii == '-') {
+            wizard_lower(w, (WizardAttr)cursor);
         }
     }
 }
@@ -639,6 +641,7 @@ static const char *menu_loop(bool *free_round1)
     };
     uint8_t cursor = 0;
     bool running = true;
+    bool confirm_reset = false;
     if (!wizards_load()) {
         uint8_t i;
         for (i = 0; i < WIZARD_SLOTS; i++)
@@ -650,6 +653,8 @@ static const char *menu_loop(bool *free_round1)
             ;
         if (!e.isdown)
             continue;
+        if (e.vkey != VK_SPACE && e.ascii != 13)
+            confirm_reset = false;       /* any other key cancels the ask */
         if (e.vkey == VK_UP) {
             cursor = cursor ? (uint8_t)(cursor - 1) : 3;
         } else if (e.vkey == VK_DOWN) {
@@ -667,6 +672,13 @@ static const char *menu_loop(bool *free_round1)
                 designer_loop(0);
                 break;
             case 2:
+                if (!confirm_reset) {   /* destructive: ask once */
+                    confirm_reset = true;
+                    render_menu_text(2, 20, C_BRIGHT_RED,
+                                     "Nochmal Enter: Zauberer geht verloren.");
+                    continue;
+                }
+                confirm_reset = false;
                 wizard_slot_reset(0);   /* stock wizard over the slot */
                 wizards_save();
                 break;

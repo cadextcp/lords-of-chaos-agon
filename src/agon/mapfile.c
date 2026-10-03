@@ -1,5 +1,7 @@
 #include "mapfile.h"
 
+#include <string.h>
+
 #include "../core/spells.h"
 #include "../core/wizard.h"
 
@@ -39,11 +41,20 @@ bool scnfile_load(Spellbook *books, const char *path)
     return spellbook_load(books, scnbuf, (uint16_t)len);
 }
 
+/* File layout: "LOCW", version, sizeof(Wizard) (u16 LE), then the slots.
+ * Anything else (old layout, corruption) falls back to stock wizards. */
+#define WIZ_FILE_VERSION 1
+#define WIZ_FILE_HEADER 7
+
 bool wizards_save(void)
 {
     uint8_t fh = mos_fopen("wizards.dat", FA_WRITE | FA_CREATE_ALWAYS);
+    uint8_t hdr[WIZ_FILE_HEADER] = {'L', 'O', 'C', 'W', WIZ_FILE_VERSION,
+                                    (uint8_t)(sizeof(Wizard) & 0xFF),
+                                    (uint8_t)(sizeof(Wizard) >> 8)};
     if (!fh)
         return false;
+    mos_fwrite(fh, (char *)hdr, sizeof hdr);
     mos_fwrite(fh, (char *)wizard_slots, sizeof wizard_slots);
     mos_fclose(fh);
     return true;
@@ -51,11 +62,23 @@ bool wizards_save(void)
 
 bool wizards_load(void)
 {
+    static Wizard tmp[WIZARD_SLOTS];
+    uint8_t hdr[WIZ_FILE_HEADER];
     uint8_t fh = mos_fopen("wizards.dat", FA_READ);
-    uint24_t len;
+    uint8_t i;
     if (!fh)
         return false;
-    len = mos_fread(fh, (char *)wizard_slots, sizeof wizard_slots);
+    if (mos_fread(fh, (char *)hdr, sizeof hdr) != sizeof hdr ||
+        memcmp(hdr, "LOCW", 4) != 0 || hdr[4] != WIZ_FILE_VERSION ||
+        (uint16_t)(hdr[5] | (hdr[6] << 8)) != sizeof(Wizard) ||
+        mos_fread(fh, (char *)tmp, sizeof tmp) != sizeof tmp) {
+        mos_fclose(fh);
+        return false;
+    }
     mos_fclose(fh);
-    return len == sizeof wizard_slots;
+    for (i = 0; i < WIZARD_SLOTS; i++)
+        if (!wizard_valid(&tmp[i]))
+            return false;
+    memcpy(wizard_slots, tmp, sizeof tmp);
+    return true;
 }
