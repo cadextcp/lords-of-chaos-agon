@@ -2337,6 +2337,7 @@ static void test_m4f(void)
 static void test_m4g(void)
 {
     uint8_t wizards, undead, treasures;
+    bool slayer = false;
 
     world_load_bin(&world, MAPBIN_SLAYERS_DUNGEON, MAPBIN_SLAYERS_DUNGEON_LEN);
     check(world.w == 36 && world.h == 36 && !world.wrap,
@@ -2359,14 +2360,14 @@ static void test_m4g(void)
                     if (OBJECTS[k].category == OC_TREASURE)
                         treasures++;
                     if (OBJECTS[k].weapon == WEAPON_SLAYER)
-                        undead = undead;   /* the Slayer awaits */
+                        slayer = true;
                 }
         }
     }
     check(wizards == 2, "m4g: dungeon has two wizards");
     check(undead >= 4, "m4g: the dungeon crawls with undead");
     check(treasures >= 4, "m4g: dungeon carries treasures");
-    check(world_has_roof(&world, 3, 3) || 1, "m4g: placeholder ok");
+    check(slayer, "m4g: the Slayer lies in the dungeon");
     check(!world_has_roof(&world, 32, 32), "m4g: the portal lies open");
 
     world_load_bin(&world, MAPBIN_RAGARILS_DOMAIN, MAPBIN_RAGARILS_DOMAIN_LEN);
@@ -2376,6 +2377,7 @@ static void test_m4g(void)
           world.portal_rmin == 44 && world.portal_rmax == 51,
           "m4g: domain portal rounds 44-51");
     wizards = 0;
+    treasures = 0;                       /* count the domain on its own */
     {
         uint8_t i, swamps = 0, woods = 0;
         for (i = 0; i < world.unit_count; i++)
