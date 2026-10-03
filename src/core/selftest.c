@@ -763,25 +763,57 @@ static void test_combat(void)
         check(world.unit_count == 0, "combat: bleeding to death removes the unit");
     }
 
-    {   /* engagement: bound units hold their ground (GDD 6) */
+    {   /* engagement: fleeing is allowed, the enemy gets a free swing (D26) */
+        Rng frng;
+        CombatResult r;
         world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
         world.unit_count = 2;
         world.units[1].x = 7;
         world.units[1].y = 6;
         world.units[1].kind = CR_GOBLIN;
-        check(!world_engaged(&world, 0),
-              "combat: standing next to an enemy alone binds nobody");
         world_engage(&world, 0);                  /* melee contact */
-        check(world_engaged(&world, 0) && world_engaged(&world, 1),
-              "combat: contact binds both sides");
-        check(world_bump_kind(&world, 0, 0, -1) == BUMP_ENGAGED,
-              "combat: a bound unit is told why it cannot step");
-        check(!world_move_unit(&world, 0, 0, -1), "combat: bound units cannot flee");
-        check(!world_move_unit(&world, 0, -1, -1), "combat: not diagonally either");
-        check(!world_move_unit(&world, 0, 1, 0), "combat: the enemy field blocks the move");
+        check(world_enemy_adjacent(&world, 0),
+              "combat: contact puts an enemy next to the unit");
+        check(world_move_unit(&world, 0, 0, -1),
+              "combat: fleeing out of contact is allowed");
+        check(world_enemy_adjacent(&world, 0),
+              "combat: the goblin is still adjacent after the step");
+        rng_seed(&frng, 21);
+        check(combat_disengage_swings(&world, &frng, 0, &r) == 1,
+              "combat: the disengage swing happens");
         world_remove_unit(&world, 1);
-        check(!world_engaged(&world, 0) && world_move_unit(&world, 0, 0, -1),
+        check(!world_enemy_adjacent(&world, 0) && world_move_unit(&world, 0, 0, -1),
               "combat: free again after the enemy dies");
+    }
+
+    {   /* diagonal slip: leaving all enemies behind avoids the swing (D26) */
+        Rng frng;
+        CombatResult r;
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 2;
+        world.units[1].x = 7;
+        world.units[1].y = 6;
+        world.units[1].kind = CR_GOBLIN;
+        world_engage(&world, 0);
+        world.units[0].ap = 40;
+        check(world_move_unit(&world, 0, -1, -1) &&
+              !world_enemy_adjacent(&world, 0),
+              "combat: the diagonal slip leaves the enemy behind");
+        check(combat_disengage_swings(&world, &frng, 0, &r) == 0,
+              "combat: nobody is adjacent, no free swing");
+    }
+
+    {   /* free swing: no AP cost for the swinger, undead immunity holds */
+        Rng frng;
+        CombatResult r;
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 2;
+        world.units[1].kind = CR_ZOMBIE;
+        world.units[1].flags |= UF_UNDEAD;
+        world.units[1].x = 7;
+        world.units[1].y = 6;
+        check(!combat_free_swing(&world, &frng, 0, 1, &r),
+              "combat: normal weapons cannot free-swing undead");
     }
 
     {   /* the binding lasts one phase only (GDD 6: next turn free again) */
@@ -798,10 +830,19 @@ static void test_combat(void)
               "combat: stepping up to an enemy is allowed");
         check(world_engaged(&world, 0) && world_engaged(&world, 1),
               "combat: arriving next to an enemy binds both");
-        check(!world_move_unit(&world, 0, -1, 0),
-              "combat: bound for the rest of the phase");
+        {   /* D26: leaving is allowed, the adjacent goblin swings */
+            Rng frng;
+            CombatResult r;
+            bool swing = world_enemy_adjacent(&world, 0) &&
+                         combat_disengage_swings(&world, &frng, 0, &r) == 1;
+            check(world_move_unit(&world, 0, -1, 0) || world.units[0].x != 7,
+                  "combat: leaving the contact is allowed");
+            check(swing || world.unit_count == 1,
+                  "combat: the goblin got its free swing");
+        }
         world_release(&world, owner);          /* his phase is over */
-        check(!world_engaged(&world, 0) && world_engaged(&world, 1),
+        check(!world_engaged(&world, 0) &&
+              (world.units[1].flags & UF_ENGAGED) != 0,
               "combat: only the finished side is released");
         check(world_move_unit(&world, 0, -1, 0),
               "combat: free to leave in the next phase");

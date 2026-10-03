@@ -400,11 +400,30 @@ static void step(uint8_t m, bool dump)
     }
     if (!turn_may_move(&turns)) {
         render_message(1, C_BRIGHT_RED, "Runde 1: nur Zaubern (PM 7).");
-    } else if (world_move_unit(&world, active(), dx, dy)) {
+    } else {
         char msg[48];
-        uint8_t mover = active();
+        uint8_t mover_id = world.units[active()].id;
+        bool was_adjacent = world_enemy_adjacent(&world, active());
+        bool fled_died = false;
+        CombatResult fs;
+        if (!world_move_unit(&world, active(), dx, dy))
+            goto bump;                     /* not moved: classify the bump */
         sound_play(SND_STEP);
-        if (game_try_enter_portal(&game, &world, mover)) {
+        if (was_adjacent &&
+            combat_disengage_swings(&world, &turns.rng, active(), &fs)) {
+            if (fs.hit) {
+                log_push("Freier Schlag erwischt uns.");
+                sound_play(SND_HIT);
+                render_message(1, C_BRIGHT_RED,
+                               "Freier Schlag beim Wegziehen!");
+            } else
+                render_message(1, C_GREY, "Freier Schlag: daneben.");
+            if (fs.hit && fs.wound)
+                render_message(2, C_BRIGHT_RED, "Toedliche Wunde!");
+            fled_died = fs.hit && world_find_unit(&world, mover_id) == NO_UNIT;
+            turn_revalidate(&turns, &world);
+        }
+        if (!fled_died && game_try_enter_portal(&game, &world, active())) {
             log_push("Gerettet durch das Portal!");
             sound_play(SND_PORTAL);
             snprintf(msg, sizeof msg, "Gerettet! Zauberer-1: %u VP.",
@@ -415,7 +434,10 @@ static void step(uint8_t m, bool dump)
             render_message(1, C_GREY, "");
         update_sight();
         frame(dump);
-    } else {
+        return;
+    }
+bump:
+    {
         int16_t nx = (int16_t)(world.units[active()].x + dx);
         int16_t ny = (int16_t)(world.units[active()].y + dy);
         uint8_t other;
@@ -433,9 +455,6 @@ static void step(uint8_t m, bool dump)
             return;
         case BUMP_NO_AP:
             render_message(1, C_BRIGHT_RED, "Zu wenig AP - Leertaste/Tab weiter.");
-            return;
-        case BUMP_ENGAGED:
-            render_message(1, C_BRIGHT_RED, "Gebunden: Gegner daneben - nur Angriff.");
             return;
         case BUMP_HELD:
             render_message(1, C_BRIGHT_RED, "Brei oder Ranken versperren den Weg.");

@@ -185,6 +185,9 @@ uint8_t world_find_unit(const World *w, uint8_t id);
  * next to a living enemy: bound (GDD 6), only the attack remains. The
  * binding ends with its owner's next phase. */
 bool world_engaged(const World *w, uint8_t unit);
+/* Living ground enemy adjacent to the unit (flag-free: for the free
+ * swing rule D26, regardless of phase flags). */
+bool world_enemy_adjacent(const World *w, uint8_t unit);
 /* Melee contact: the unit and every ground enemy next to it become bound
  * (a move next to an enemy, an attack). */
 void world_engage(World *w, uint8_t unit);
@@ -204,7 +207,6 @@ typedef enum {
     BUMP_DOOR,      /* closed door: try world_open_door */
     BUMP_UNIT,      /* a unit blocks the layer */
     BUMP_TERRAIN,   /* impassable feature (attack on terrain, M3) */
-    BUMP_ENGAGED,   /* bound in melee: only the attack remains (GDD 6) */
     BUMP_HELD,      /* strong blob or vine on the field (M4d) */
     BUMP_OUTSIDE    /* outside a non-wrapping map */
 } BumpKind;

@@ -5,6 +5,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ## [Unreleased] – M4 Classic komplett
 
 ### Geändert
+- **Gebunden-Regel neu (D26, Issue #82):** Aus dem Nahkontakt weg bewegen ist jetzt erlaubt — der angrenzende Gegner bekommt dafür einen **freien Schlag** ohne AP-Kosten (Trefferchance/Schaden wie Nahkampf, Untoten-Immunität und Boden-gegen-Flieger gelten). Diagonaler Ausbruch ohne verbleibenden Kontakt bleibt frei. Behebt den Totstand „ohne Waffe neben dem Gegner: weder Angriff noch Flucht". Freie Schläge gelten symmetrisch für Spieler und KI; `BUMP_ENGAGED` entfällt.
 - **Panel zeigt das Objekt in der Hand:** neue Zeile „Hand: <Name>" über der Boden-Liste (gelb); leere Hände zeigen „Hand: -". Antwortet auf die Frage „Wo sehe ich, was aktiv ist?" — Waffen wirken nur in der Hand, der Schild zählt getragen (D21).
 - **Grafik v2 (Kreaturen-Review):** alle 26 Kreaturen (Greif komplett neu), 35 Objekte, alle Böden, alle 16 Wandstücke und Türen neu gezeichnet — Design-Export als PNG-Quelle in `assets/tiles/`; der Python-Generator überschreibt diese Kacheln nicht mehr (`V2_TILES`-Liste in `make_tiles.py`, Kreaturen-Generator ausser Betrieb). Schlüsselfarben für die Besitzer-Varianten bleiben erhalten (geprüft: Goblin 29/21, Zauberer 70/81 Pixel). Möbel, Kerzen, Dekor, Overlay- und Cursor-Kacheln bleiben v1.
 
