@@ -1,0 +1,10 @@
+# Object kinds on the ground (GDD 8). tile: assets/tiles/<tile>.png.
+# category: weapon (weapons.csv), treasure (vp through the portal, GDD 9),
+# scroll (read), none. weight counts against the carry limit.
+id,name,category,tile,weight,vp
+scroll,Schriftrolle,scroll,obj_scroll,1,0
+sword,Schwert,weapon,obj_sword,4,0
+bow,Bogen,weapon,obj_bow,3,0
+shield,Schild,weapon,obj_shield,4,0
+gold,Gold,treasure,obj_gold,6,40
+emerald,Smaragd,treasure,obj_emerald,2,10

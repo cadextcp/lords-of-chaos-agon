@@ -1,6 +1,7 @@
 #include "combat.h"
 
 #include "gen/data.h"
+#include "items.h"
 
 uint8_t combat_hit_chance(uint8_t com, uint8_t def)
 {
@@ -68,11 +69,12 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
     out->damage = out->return_damage = 0;
 
     world_spend(w, att, ACTIONS[ACT_MELEE].ap);
-    ok_to_hit = rng_range(rng, 100) < combat_hit_chance(a->com, d->def);
+    ok_to_hit = rng_range(rng, 100) <
+                combat_hit_chance(items_combat(w, att), items_defence(w, def));
     if (!ok_to_hit)
         return true;
     out->hit = true;
-    out->damage = roll_damage(a, rng);
+    out->damage = roll_damage(a, rng);   /* base value; weapon bonus in chance */
     apply_hit(w, def, out->damage, &out->wound, &out->died);
     if (out->died)
         return true;                       /* the dead do not strike back */
@@ -82,7 +84,8 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
         d->sta >= ACTIONS[ACT_RETURN_ATTACK].stamina) {
         out->returned = true;
         world_spend(w, def, ACTIONS[ACT_RETURN_ATTACK].ap);
-        if (rng_range(rng, 100) < combat_hit_chance(d->com, a->def)) {
+        if (rng_range(rng, 100) <
+            combat_hit_chance(items_combat(w, def), items_defence(w, att))) {
             out->return_hit = true;
             out->return_damage = roll_damage(d, rng);
             apply_hit(w, att, out->return_damage, &out->return_wound,
