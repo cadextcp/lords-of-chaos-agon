@@ -55,6 +55,9 @@ def main() -> int:
     ap.add_argument("--bench", action="store_true", help="game measures redraw times -> loc.log")
     ap.add_argument("--keytest", action="store_true", help="keyboard spike: log every key event")
     ap.add_argument("--house", action="store_true", help="wizard house map (dev)")
+    ap.add_argument("--testland", action="store_true", help="testland map (dev)")
+    ap.add_argument("--no-menu", action="store_true",
+                    help="skip the main menu (scripted runs)")
     ap.add_argument("--free-round1", action="store_true",
                     help="lift the round 1 movement lock (PM 7) for scripted runs")
     ap.add_argument("--fly", action="store_true",
@@ -79,6 +82,10 @@ def main() -> int:
             else ["--keytest"] if args.keytest else [])
     if args.house:
         mode.append("--house")
+    if args.testland:
+        mode.append("--testland")
+    if args.no_menu:
+        mode.append("--dump")
     if args.free_round1:
         mode.append("--free-round1")
     if args.fly:

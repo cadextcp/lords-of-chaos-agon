@@ -566,21 +566,42 @@ static void bench(void)
 
 /* ---------- main menu (GDD 2.3, M4f) ---------- */
 
+static const char *const MENU_ITEMS[] = {
+    "The Many Coloured Land (St. 1)",
+    "Slayer's Dungeon (St. 2)",
+    "Ragaril's Domain (St. 3)",
+    "Zauberer entwerfen",
+    "Zauberer zuruecksetzen",
+    "Spiel beenden",
+};
+#define MENU_COUNT 6
+#define MENU_SCENARIOS 3
+/* map + book set per scenario (GDD 9.1); the .scn carries the books */
+static const char *menu_scenario_map(uint8_t pick)
+{
+    static const char *const MAPS[MENU_SCENARIOS] = {
+        "maps/many_coloured_land.map",
+        "maps/slayers_dungeon.map",
+        "maps/ragarils_domain.map",
+    };
+    static const char *const SCNS[MENU_SCENARIOS] = {
+        "scenarios/many_coloured_land.scn",
+        "scenarios/slayers_dungeon.scn",
+        "scenarios/ragarils_domain.scn",
+    };
+    scnfile_load(books, SCNS[pick]);
+    return MAPS[pick];
+}
+
 static void draw_menu(uint8_t cursor)
 {
-    static const char *const ITEMS[] = {
-        "Szenario 1 starten",
-        "Zauberer entwerfen",
-        "Zauberer zuruecksetzen",
-        "Spiel beenden",
-    };
     uint8_t i;
     render_menu_clear();
     render_menu_text(2, 2, C_BRIGHT_YELLOW, "LORDS OF CHAOS");
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < MENU_COUNT; i++) {
         render_menu_text(4, (uint8_t)(5 + i), C_BRIGHT_WHITE,
                          i == cursor ? ">" : " ");
-        render_menu_text(6, (uint8_t)(5 + i), C_BRIGHT_WHITE, ITEMS[i]);
+        render_menu_text(6, (uint8_t)(5 + i), C_BRIGHT_WHITE, MENU_ITEMS[i]);
     }
     render_menu_text(2, 22, C_GREY, "Pfeile + Enter");
 }
@@ -656,22 +677,24 @@ static const char *menu_loop(bool *free_round1)
         if (e.vkey != VK_SPACE && e.ascii != 13)
             confirm_reset = false;       /* any other key cancels the ask */
         if (e.vkey == VK_UP) {
-            cursor = cursor ? (uint8_t)(cursor - 1) : 3;
+            cursor = cursor ? (uint8_t)(cursor - 1) : MENU_COUNT - 1;
         } else if (e.vkey == VK_DOWN) {
-            cursor = (uint8_t)((cursor + 1) % 4);
+            cursor = (uint8_t)((cursor + 1) % MENU_COUNT);
         } else if (e.ascii == 13 || e.vkey == VK_SPACE) {
-            switch (cursor) {
-            case 0:
+            if (cursor < MENU_SCENARIOS) {
+                const char *map = menu_scenario_map(cursor);
                 wizard_apply_to_world(&wizard_slots[0], &world, active());
                 memcpy(&books[OWN_P1], wizard_book(&wizard_slots[0]),
                        sizeof(Spellbook));
                 wizards_save();
                 *free_round1 = false;
-                return SCENARIOS[0];
-            case 1:
+                return map;
+            }
+            switch (cursor) {
+            case 3:
                 designer_loop(0);
                 break;
-            case 2:
+            case 4:
                 if (!confirm_reset) {   /* destructive: ask once */
                     confirm_reset = true;
                     render_menu_text(2, 20, C_BRIGHT_RED,
@@ -710,19 +733,20 @@ int main(int argc, char **argv)
         render_shutdown();
         return 0;
     }
-    dump = argc > 1 && strcmp(argv[1], "--dump") == 0;
-    if (argc > 1 && strcmp(argv[1], "--house") == 0)
-        map_path = MAP_HOUSE;
-    else if (argc > 1 && strcmp(argv[1], "--testland") == 0)
-        map_path = MAP_TESTLAND;
-    else
-        map_path = MAP_SCENARIO;
-    do_bench = argc > 1 && strcmp(argv[1], "--bench") == 0;
-    for (i = 1; i < (uint8_t)argc; i++)
-        if (strcmp(argv[i], "--free-round1") == 0)
+    for (i = 1; i < (uint8_t)argc; i++) {
+        if (strcmp(argv[i], "--dump") == 0)
+            dump = true;
+        else if (strcmp(argv[i], "--bench") == 0)
+            do_bench = true;
+        else if (strcmp(argv[i], "--house") == 0)
+            map_path = MAP_HOUSE;
+        else if (strcmp(argv[i], "--testland") == 0)
+            map_path = MAP_TESTLAND;
+        else if (strcmp(argv[i], "--free-round1") == 0)
             free_round1 = true;
         else if (strcmp(argv[i], "--fly") == 0)
             do_fly = true;
+    }
 
     log_open(dump || do_bench);
     log_line("BOOT");

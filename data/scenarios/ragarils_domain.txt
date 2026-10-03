@@ -1,0 +1,7 @@
+# Scenario 3: Ragaril's Domain (GDD 9.1, D22). One player only; the
+# player wizard should carry level 3 (GDD 9). Ragaril commands undead.
+
+map ragarils_domain
+
+book p1 giant_bat 4, magic_bolt 3, dwarf 2, magic_shield 3, magic_fire 2, healing_potion 3
+book p2 vampire 3, spectre 2, demon 1, magic_bolt 3, curse 1

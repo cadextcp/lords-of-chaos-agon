@@ -21,6 +21,12 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
   - Teleport streut symmetrisch und misst Chebyshev; Magic Attack und die Bombe rechnen mit Wrap-around und schreiben Kills dem richtigen Werfer bzw. Zaubernden zu.
 
 ### Hinzugefügt
+- **M4g Szenarien 2 und 3 (#49):**
+  - **Slayer's Dungeon** (eigene Karte, D2): Steinkorridore und Krypten, Untoten-Wache (Zombies, Geist, Vampir, Spectre), Schätze bis zum Slayer, Portal in der fernen Krypta (Runde 20–24)
+  - **Ragaril's Domain** (eigene Karte): Zauberwald- und Schattenwald-Gürtel, Sumpfmoor, der Turmquartier im Nordosten; Ragaril (KI) befehligt Untote bis zum Dämon; Portal hinter dem Turm (Runde 44–51)
+  - Szenario-Dateien für beide (Zauberbücher p1/p2 passend zur Stufe, GDD §9); das Hauptmenü listet alle drei Szenarien mit Stufenhinweis und lädt Karte + Bücher je nach Wahl
+  - `run.py`: `--testland`/`--no-menu` ergänzt; das Spiel wertet jetzt **alle** Argumente aus statt nur argv[1] (Flag-Kombinationen funktionieren wieder)
+
 - **M4f Zauberer und Kampagne (#48):**
   - `src/core/wizard.[ch]`: Designer-Datenmodell (Name, Level, XP, 5 Attribute mit linearen Kosten und Obergrenzen F6, Zauberbuch), 4 Slots
   - Hauptmenü (GDD §2.3): Szenario starten, Designer, Zauberer zurücksetzen, Beenden; Pfeile + Enter
