@@ -725,6 +725,61 @@ static void draw_big_map(void);
 static void draw_log(void);
 static void draw_help(void);
 
+/* Could the active unit do this right now? The real action runs on a
+ * scratch copy of the world, so the menu shows exactly what the key would
+ * do (items on the field, free hands, AP, free landing field, ...). */
+static World trial;
+
+static bool action_possible(char key)
+{
+    uint8_t a = active();
+    const Unit *u = &world.units[a];
+    bool in_hand = u->in_use != NO_ITEM && u->in_use < u->item_count;
+    uint8_t weapon = in_hand ? OBJECTS[u->items[u->in_use]].weapon : WEAPON_NONE;
+    switch (key) {
+    case ' ':
+    case 'x':
+    case 'E':
+        return true;
+    case 'c':
+        return u->kind == CR_WIZARD && !(u->flags & UF_FLYING) &&
+               u->ap >= ACTIONS[ACT_CAST].ap;
+    case 'f':
+        return weapon != WEAPON_NONE && WEAPONS[weapon].ranged != 0 &&
+               u->ap >= ACTIONS[ACT_FIRE].ap;
+    case 't':
+        return in_hand && u->ap >= ACTIONS[ACT_THROW].ap;
+    default:
+        break;
+    }
+    trial = world;
+    switch (key) {
+    case '>':
+        return world_land(&trial, a);
+    case '<':
+        return world_take_off(&trial, a);
+    case 'b':
+        return (u->flags & UF_RIDDEN) ? ride_dismount(&trial, a)
+                                      : ride_mount_adjacent(&trial, a);
+    case 'g':
+        return items_pick_up(&trial, a);
+    case 'd':
+        return items_drop(&trial, a);
+    case 'w':
+        return u->item_count > 0 && items_cycle(&trial, a);
+    case 'e':
+        return items_eat(&trial, a);
+    case 'r':
+        return items_read(&trial, a) != NULL;
+    case 'q':
+        return brew_drink_vial(&trial, a) || brew_drink(&trial, a);
+    case 'v':
+        return brew_fill(&trial, a);
+    default:
+        return false;
+    }
+}
+
 /* The overlay area is the 27 text columns (216 px) left of the stat panel:
  * every line below stays within column 26. */
 static void draw_context_menu(void)
@@ -732,22 +787,24 @@ static void draw_context_menu(void)
     static const struct {
         char key;
         const char *name;
-        uint8_t ap;
+        int8_t act;                      /* ActionId for the AP, -1 = free */
     } ITEMS[] = {
-        { ' ', "Fertig", 0 },               /* shown as "_" (Space) */
-        { '>', "Landen", 4 },
-        { '<', "Aufsteigen", 4 },
-        { 'b', "Reittier", 6 },
-        { 'c', "Zauber wirken", 10 },
-        { 'f', "Bogen feuern", 12 },
-        { 'g', "Aufheben", 6 },
-        { 'd', "Fallen lassen", 2 },
-        { 'w', "Wechseln", 4 },
-        { 'e', "Essen", 6 },
-        { 'q', "Trinken", 4 },
-        { 'r', "Lesen", 8 },
-        { 'x', "Untersuchen", 0 },
-        { 'E', "Zug beenden", 0 },
+        { ' ', "Fertig", -1 },           /* shown as "_" (Space) */
+        { 'g', "Aufheben", ACT_PICK_UP },
+        { 'd', "Fallen lassen", ACT_DROP },
+        { 'w', "Wechseln", ACT_CHANGE },
+        { 'e', "Essen", ACT_EAT },
+        { 'q', "Trinken", ACT_DRINK },
+        { 'v', "Fuellen", ACT_FILL },
+        { 'r', "Lesen", ACT_READ },
+        { 't', "Werfen", ACT_THROW },
+        { 'f', "Bogen feuern", ACT_FIRE },
+        { 'c', "Zauber wirken", ACT_CAST },
+        { 'b', "Reittier", ACT_RIDE },
+        { '<', "Aufsteigen", ACT_TAKE_OFF },
+        { '>', "Landen", ACT_LAND },
+        { 'x', "Untersuchen", -1 },
+        { 'E', "Zug beenden", -1 },
     };
     char buf[40];
     uint8_t i, row = 3;
@@ -755,37 +812,17 @@ static void draw_context_menu(void)
     render_menu_clear();
     render_menu_text(2, 1, C_BRIGHT_YELLOW, "Aktionen");
     for (i = 0; i < sizeof ITEMS / sizeof ITEMS[0]; i++) {
-        bool possible = true;
-        switch (ITEMS[i].key) {
-        case '>':
-            possible = (u->flags & UF_FLYING) != 0;
-            break;
-        case '<':
-            possible = !(u->flags & UF_FLYING) && u->ap_fly != 0;
-            break;
-        case 'f':
-            possible = u->in_use != NO_ITEM && u->in_use < u->item_count &&
-                       OBJECTS[u->items[u->in_use]].weapon != WEAPON_NONE &&
-                       WEAPONS[OBJECTS[u->items[u->in_use]].weapon].ranged;
-            break;
-        case 'g':
-        case 'd':
-        case 'e':
-        case 'q':
-        case 'r':
-            possible = u->item_count > 0;
-            break;
-        case 'c':
-            possible = u->kind == CR_WIZARD;
-            break;
-        default:
-            break;
-        }
-        if (!possible)
+        const char *name = ITEMS[i].name;
+        int8_t act = ITEMS[i].act;
+        if (!action_possible(ITEMS[i].key))
             continue;
+        if (ITEMS[i].key == 'b' && (u->flags & UF_RIDDEN)) {
+            name = "Absteigen";
+            act = ACT_DISMOUNT;
+        }
         snprintf(buf, sizeof buf, "%c %-13.13s %2u AP",
-                 ITEMS[i].key == ' ' ? '_' : ITEMS[i].key,
-                 ITEMS[i].name, ITEMS[i].ap);
+                 ITEMS[i].key == ' ' ? '_' : ITEMS[i].key, name,
+                 act < 0 ? 0 : ACTIONS[act].ap);
         render_menu_text(2, row++, C_BRIGHT_WHITE, buf);
     }
     render_menu_text(2, 24, C_GREY, "Taste wirkt, Esc zu.");
