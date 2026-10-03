@@ -70,6 +70,7 @@ typedef struct {
     uint8_t in_use;           /* index into items, 0xFF = bare hands */
     uint8_t id;               /* stable while the unit lives (indices shift) */
     uint8_t rider_kind;       /* kind carried on this mount, 0xFF = none */
+    uint8_t post_x, post_y;   /* guard post (M4h), 0xFF = none */
     bool done;                /* finished for this phase (space, turn.h) */
     Effect effects[UNIT_EFFECTS];   /* timed, tick at the round end (M4b) */
 } Unit;

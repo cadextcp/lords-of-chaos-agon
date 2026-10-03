@@ -1,6 +1,7 @@
 #include "ai.h"
 
 #include "combat.h"
+#include "items.h"
 #include "sight.h"
 
 static bool unit_is_enemy(const World *w, uint8_t a, uint8_t b)
@@ -73,6 +74,85 @@ bool ai_step_toward(World *w, uint8_t unit, int16_t x, int16_t y)
            world_move_unit(w, unit, dx, (int8_t)-dy);
 }
 
+void ai_set_post(World *w, uint8_t unit)
+{
+    if (unit >= w->unit_count)
+        return;
+    w->units[unit].post_x = w->units[unit].x;
+    w->units[unit].post_y = w->units[unit].y;
+}
+
+void ai_guard(World *w, Rng *rng, uint8_t unit, uint8_t home_range)
+{
+    uint8_t prey;
+    (void)home_range;                    /* the post itself is the anchor */
+    int16_t dx, dy;
+    if (unit >= w->unit_count)
+        return;
+    prey = ai_nearest_enemy(w, unit, SIGHT_GROUND);
+    if (prey != NO_UNIT) {              /* intruder: fight like a hunter */
+        ai_hunter(w, rng, unit);
+        return;
+    }
+    /* drift home when out of the post range */
+    if (w->units[unit].post_x == 0xFF)
+        return;
+    dx = (int16_t)(w->units[unit].x - w->units[unit].post_x);
+    dy = (int16_t)(w->units[unit].y - w->units[unit].post_y);
+    if (dx < 0) dx = (int16_t)(-dx);
+    if (dy < 0) dy = (int16_t)(-dy);
+    if (dx > 0 || dy > 0) {             /* not home yet: drift back */
+        uint8_t steps;
+        for (steps = 0; steps < 2; steps++)
+            if (ai_step_toward(w, unit, w->units[unit].post_x,
+                               w->units[unit].post_y))
+                break;
+    }
+}
+
+/* Nearest treasure on the ground the unit can see (simple: on its
+ * field or within sight ray, M4h). Returns the kind, NO_ITEM if none. */
+static uint8_t nearest_treasure(World *w, uint8_t unit)
+{
+    uint8_t i, k, kind, best = NO_ITEM;
+    int16_t bx = 0, by = 0;
+    uint8_t best_d = 9 + 1;
+    Unit *u = &w->units[unit];
+    for (i = 0; i < w->object_count; i++) {
+        int16_t ddx, ddy, d;
+        uint8_t o;
+        kind = NO_ITEM;
+        for (k = 0; k < OBJ_COUNT; k++)
+            if (OBJECTS[k].tile == w->objects[i].tile)
+                kind = k;
+        if (kind == NO_ITEM || OBJECTS[kind].category != OC_TREASURE)
+            continue;
+        ddx = (int16_t)(w->objects[i].x - u->x);
+        ddy = (int16_t)(w->objects[i].y - u->y);
+        if (w->wrap) {
+            if (ddx > w->w / 2) ddx = (int16_t)(ddx - w->w);
+            if (ddx < -w->w / 2) ddx = (int16_t)(ddx + w->w);
+            if (ddy > w->h / 2) ddy = (int16_t)(ddy - w->h);
+            if (ddy < -w->h / 2) ddy = (int16_t)(ddy + w->h);
+        }
+        d = (int16_t)((ddx < 0 ? -ddx : ddx) > (ddy < 0 ? -ddy : ddy)
+                          ? (ddx < 0 ? -ddx : ddx) : (ddy < 0 ? -ddy : ddy));
+        if (d >= best_d || d > 9)
+            continue;
+        o = unit;
+        if (!sight_has_los(w, u->x, u->y, w->objects[i].x, w->objects[i].y))
+            continue;
+        best = kind;
+        bx = w->objects[i].x;
+        by = w->objects[i].y;
+        best_d = (uint8_t)d;
+        (void)o;
+    }
+    if (best != NO_ITEM && u->x == bx && u->y == by)
+        items_pick_up(w, unit);         /* stand on it: take it */
+    return best;                        /* 0xFF never used as a kind */
+}
+
 void ai_hunter(World *w, Rng *rng, uint8_t unit)
 {
     uint8_t prey, steps;
@@ -118,7 +198,11 @@ void ai_run_hunters(World *w, Rng *rng, uint8_t owner, uint8_t skip_id)
             ids[n++] = w->units[i].id;
     for (i = 0; i < n; i++) {
         uint8_t u = world_find_unit(w, ids[i]);
-        if (u != NO_UNIT)                 /* not killed meanwhile */
+        if (u == NO_UNIT)                 /* killed meanwhile */
+            continue;
+        if (w->units[u].post_x != 0xFF)
+            ai_guard(w, rng, u, 3);       /* map-defined guards hold (M4h) */
+        else
             ai_hunter(w, rng, u);
     }
 }
@@ -168,6 +252,70 @@ static void wizard_actions(Turns *t, World *w, AiCtx *ctx, uint8_t owner)
             wiz = world_find_unit(w, wiz_id);
             if (wiz == NO_UNIT)
                 return;                   /* fell to the return blow */
+        }
+    }
+
+    {   /* M4h: cast the cheapest attack spell at a visible enemy */
+        Spellbook *book = &ctx->books[owner];
+        uint8_t foe = NO_UNIT, k, bolt = 0xFF;
+        int16_t fx = 0, fy = 0;
+        SpellShot shot;
+        for (i = 0; i < w->unit_count && bolt == 0xFF; i++) {
+            const Unit *f = &w->units[i];
+            if (f->owner == owner || (f->flags & UF_INVISIBLE))
+                continue;
+            if (sight_visible(&sight, w, f->x, f->y)) {
+                fx = f->x;
+                fy = f->y;
+                /* pick the bolt if known and affordable */
+                if (book->level[SP_MAGIC_BOLT] > 0 &&
+                    w->units[wiz].mana >= spell_mana(SP_MAGIC_BOLT,
+                                                     book->level[SP_MAGIC_BOLT]) &&
+                    w->units[wiz].ap >= ACTIONS[ACT_CAST].ap) {
+                    if (spell_bolt(w, book, wiz, SP_MAGIC_BOLT, fx, fy,
+                                   &t->rng, &shot) && shot.hit) {
+                        wiz = world_find_unit(w, wiz_id);
+                        if (wiz == NO_UNIT)
+                            return;
+                        break;
+                    }
+                    wiz = world_find_unit(w, wiz_id);
+                    if (wiz == NO_UNIT)
+                        return;
+                }
+                (void)foe;
+                (void)k;
+                bolt = 0xFF;              /* one target per round keeps it simple */
+            }
+        }
+    }
+
+    {   /* M4h: grab a treasure the wizard can see */
+        uint8_t kind = nearest_treasure(w, wiz);
+        int16_t tx, ty;
+        uint8_t steps;
+        if (kind != NO_ITEM) {
+            /* walk one step toward the remembered target field */
+            for (i = 0; i < w->object_count; i++) {
+                uint8_t k2;
+                for (k2 = 0; k2 < OBJ_COUNT; k2++)
+                    if (OBJECTS[k2].tile == w->objects[i].tile &&
+                        OBJECTS[k2].category == OC_TREASURE) {
+                        tx = w->objects[i].x;
+                        ty = w->objects[i].y;
+                        for (steps = 0; steps < 2; steps++)
+                            if (w->units[wiz].ap >= 4 &&
+                                ai_step_toward(w, wiz, tx, ty))
+                                break;
+                        if (w->units[wiz].x == tx && w->units[wiz].y == ty)
+                            items_pick_up(w, wiz);
+                        i = w->object_count;   /* first treasure only */
+                        break;
+                    }
+            }
+            wiz = world_find_unit(w, wiz_id);
+            if (wiz == NO_UNIT)
+                return;
         }
     }
 

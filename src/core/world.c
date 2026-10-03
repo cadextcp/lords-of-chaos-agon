@@ -50,6 +50,7 @@ static void init_unit(Unit *u, uint8_t x, uint8_t y, uint8_t kind, uint8_t owner
     u->item_count = 0;
     u->in_use = NO_ITEM;
     u->rider_kind = 0xFF;
+    u->post_x = u->post_y = 0xFF;
 }
 
 bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
@@ -127,6 +128,12 @@ bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
         w->objects[i].tile = (uint16_t)(b[pos] | (b[pos + 1] << 8));
         pos += 2;
     }
+    /* v4 maps: undead guards stand their ground (M4h Wächter) */
+    for (i = 0; i < w->unit_count; i++)
+        if (w->units[i].owner == OWN_NEUTRAL &&
+            (w->units[i].flags & UF_UNDEAD))
+            w->units[i].post_x = w->units[i].x,
+            w->units[i].post_y = w->units[i].y;
     w->portal_x = w->portal_y = -1;      /* v2 maps carry no portal */
     w->portal_rmin = w->portal_rmax = 0;
     if (b[4] >= 3 && pos + 4 <= len) {   /* v3: portal x y rmin rmax */

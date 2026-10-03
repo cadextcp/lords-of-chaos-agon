@@ -28,6 +28,12 @@ bool ai_step_toward(World *w, uint8_t unit, int16_t x, int16_t y);
 /* Hunter turn of one independent creature (GDD 10): attack an adjacent
  * enemy, otherwise chase the nearest visible one, otherwise wander. */
 void ai_hunter(World *w, Rng *rng, uint8_t unit);
+/* Guard turn (GDD 10, M4h): like the hunter, but never strays further
+ * than `home_range` fields from its spawn - it attacks intruders and
+ * returns home afterwards. */
+void ai_guard(World *w, Rng *rng, uint8_t unit, uint8_t home_range);
+/* Mark the unit's current field as its guard post (spawn time). */
+void ai_set_post(World *w, uint8_t unit);
 
 /* ai_hunter for every unit of `owner` except the one with id skip_id
  * (NO_UNIT: none). Works on an id snapshot, so kills that reorder the
