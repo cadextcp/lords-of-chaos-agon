@@ -1,47 +1,38 @@
 #include "sound.h"
 
 #include <agon/vdp.h>
-#include <stdio.h>
 
-/* VDU 23,0,135,ch,vol,freq(ms),dur(ms) - one channel, fixed volume.
- * Frequencies here are period-style values as the VDP expects them
- * (higher value = deeper tone in the MOS envelope API). */
-static void note(uint8_t vol, uint16_t period, uint16_t duration)
+/* One note on channel 0 (enabled by default), frequency in Hz, duration in
+ * ms: VDU 23,0,&85,channel,0,volume,frequency;duration; sent through the
+ * agondev wrapper (never through printf: the command contains 0x00). */
+static void note(uint8_t vol, uint16_t hz, uint16_t ms)
 {
-    printf("\x17\x00\x87%c%c%c%c%c", 1, vol,
-           (uint8_t)(period & 0xFF), (uint8_t)(period >> 8),
-           (uint8_t)(duration & 0xFF), (uint8_t)(duration >> 8));
+    vdp_audio_play_note(0, vol, hz, ms);
 }
-
-static bool ready;
 
 void sound_play(uint8_t fx)
 {
-    if (!ready) {                        /* channel 1, volume envelope 1 */
-        printf("\x17\x00\x85%c", 1);
-        ready = true;
-    }
     switch (fx) {
     case SND_STEP:
-        note(60, 200, 40);
+        note(40, 220, 30);
         break;
     case SND_HIT:
-        note(120, 90, 90);
+        note(100, 110, 90);
         break;
     case SND_MISS:
-        note(50, 400, 60);
+        note(50, 330, 60);
         break;
     case SND_SPELL:
-        note(90, 140, 120);
+        note(80, 440, 120);
         break;
     case SND_PICKUP:
-        note(80, 250, 70);
+        note(70, 660, 70);
         break;
     case SND_PORTAL:
-        note(110, 180, 200);
+        note(90, 523, 200);
         break;
     case SND_DEATH:
-        note(120, 300, 250);
+        note(100, 98, 250);
         break;
     default:
         break;

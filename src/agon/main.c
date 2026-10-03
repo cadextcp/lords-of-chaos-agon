@@ -69,6 +69,7 @@ static bool overlay_open;          /* big map / log / help / context */
 static bool overlay_is_context;    /* the context menu replays keys */
 static bool replay_valid;          /* letter to act after menu close */
 static char replay_ascii;
+static uint8_t replay_vkey;
 static int16_t look_x, look_y;
 static bool spell_list = false;    /* c: pick a spell (GDD 5.1) */
 static bool targeting = false;     /* aiming (Enter casts/throws/fires) */
@@ -724,6 +725,8 @@ static void draw_big_map(void);
 static void draw_log(void);
 static void draw_help(void);
 
+/* The overlay area is the 27 text columns (216 px) left of the stat panel:
+ * every line below stays within column 26. */
 static void draw_context_menu(void)
 {
     static const struct {
@@ -731,15 +734,15 @@ static void draw_context_menu(void)
         const char *name;
         uint8_t ap;
     } ITEMS[] = {
-        { ' ', "Einheit fertig", 0 },
+        { ' ', "Fertig", 0 },               /* shown as "_" (Space) */
         { '>', "Landen", 4 },
         { '<', "Aufsteigen", 4 },
         { 'b', "Reittier", 6 },
         { 'c', "Zauber wirken", 10 },
-        { 'f', "Bogen schiessen", 12 },
+        { 'f', "Bogen feuern", 12 },
         { 'g', "Aufheben", 6 },
         { 'd', "Fallen lassen", 2 },
-        { 'w', "Objekt wechseln", 4 },
+        { 'w', "Wechseln", 4 },
         { 'e', "Essen", 6 },
         { 'q', "Trinken", 4 },
         { 'r', "Lesen", 8 },
@@ -747,7 +750,7 @@ static void draw_context_menu(void)
         { 'E', "Zug beenden", 0 },
     };
     char buf[40];
-    uint8_t i;
+    uint8_t i, row = 3;
     const Unit *u = &world.units[active()];
     render_menu_clear();
     render_menu_text(2, 1, C_BRIGHT_YELLOW, "Aktionen");
@@ -780,11 +783,12 @@ static void draw_context_menu(void)
         }
         if (!possible)
             continue;
-        snprintf(buf, sizeof buf, "%c  %-16.16s %2u AP", ITEMS[i].key,
+        snprintf(buf, sizeof buf, "%c %-13.13s %2u AP",
+                 ITEMS[i].key == ' ' ? '_' : ITEMS[i].key,
                  ITEMS[i].name, ITEMS[i].ap);
-        render_menu_text(4, (uint8_t)(4 + i), C_BRIGHT_WHITE, buf);
+        render_menu_text(2, row++, C_BRIGHT_WHITE, buf);
     }
-    render_menu_text(3, 21, C_GREY, "Buchstabe wirkt, Esc schliesst.");
+    render_menu_text(2, 24, C_GREY, "Taste wirkt, Esc zu.");
 }
 
 static void draw_big_map(void)
@@ -799,11 +803,20 @@ static void draw_big_map(void)
             uint8_t colour;
             uint8_t u = world_unit_at(&world, x, y, UL_GROUND);
             uint8_t px = (uint8_t)(2 + x * 5);
-            uint8_t py = (uint8_t)(2 + y * 5);
+            uint8_t py = (uint8_t)(16 + y * 5);
+            if (!sight_explored(&p1_sight, &world, x, y))
+                continue;                  /* unexplored stays black (GDD 3.4) */
+            if (u == NO_UNIT)
+                u = world_unit_at(&world, x, y, UL_AIR);
+            /* enemies only where the player sees them right now */
+            if (u != NO_UNIT && world.units[u].owner != OWN_P1 &&
+                !sight_visible(&p1_sight, &world, x, y))
+                u = NO_UNIT;
             if (u != NO_UNIT)
                 colour = world.units[u].owner == OWN_P1 ? C_BRIGHT_WHITE
                                                         : C_BRIGHT_RED;
-            else if (x == game.portal_x && y == game.portal_y)
+            else if (game.portal_open && x == game.portal_x &&
+                     y == game.portal_y)
                 colour = C_BRIGHT_MAGENTA;
             else
                 colour = world_floor(&world, x, y) == FL_WATER ? C_BLUE
@@ -812,39 +825,47 @@ static void draw_big_map(void)
             vdp_gcol(0, colour);
             vdp_filled_rectangle(px, py, (int)(px + 3), (int)(py + 3));
         }
-    render_menu_text(2, 28, C_GREY, "Weiss: du  Rot: Feind  Magenta: Portal");
 }
 
 static void draw_log(void)
 {
     uint8_t i, idx;
+    char buf[40];
     render_menu_clear();
     render_menu_text(2, 1, C_BRIGHT_YELLOW, "Nachrichten");
     for (i = 0; i < LOG_RING; i++) {
         idx = (uint8_t)((log_head + i) % LOG_RING);
-        render_menu_text(2, (uint8_t)(4 + i), C_BRIGHT_WHITE, log_ring[idx]);
+        snprintf(buf, sizeof buf, "%-24.24s", log_ring[idx]);
+        render_menu_text(1, (uint8_t)(3 + i), C_BRIGHT_WHITE, buf);
     }
-    render_menu_text(2, 22, C_GREY, "Esc zurueck.");
+    render_menu_text(2, 24, C_GREY, "Esc zurueck.");
 }
 
 static void draw_help(void)
 {
+    static const char *const LINES[] = {
+        "Pfeile+Akkorde  Bewegen",
+        "Pos1 Ende Bild  Diagonal",
+        "Tab  naechste Einheit",
+        "Leertaste  Einheit fertig",
+        "Shift+E  Zug beenden",
+        "Enter  Aktionsmenue",
+        "c Zauber  f Bogen",
+        "t Werfen  g Aufheben",
+        "d Fallenlassen  w Wechsel",
+        "e Essen  q Trinken",
+        "v Fuellen  r Lesen",
+        "b Reiten  < > Fliegen",
+        "x Untersuchen",
+        "m Karte  l Nachrichten",
+        "Esc Abbrechen/Beenden",
+    };
+    uint8_t i;
     render_menu_clear();
     render_menu_text(2, 1, C_BRIGHT_YELLOW, "HILFE (F1)");
-    render_menu_text(4, 4, C_BRIGHT_WHITE, "Pfeile+Akkorde  Bewegen");
-    render_menu_text(4, 5, C_BRIGHT_WHITE, "Pos1/Ende/Bild  Diagonalen");
-    render_menu_text(4, 6, C_BRIGHT_WHITE, "Tab/Shift+Tab   Einheit wechseln");
-    render_menu_text(4, 7, C_BRIGHT_WHITE, "Leertaste       Einheit fertig");
-    render_menu_text(4, 8, C_BRIGHT_WHITE, "Shift+E         Zug beenden");
-    render_menu_text(4, 9, C_BRIGHT_WHITE, "Enter           Aktionsmenue");
-    render_menu_text(4, 10, C_BRIGHT_WHITE, "c cast  f Feuer  t Werfen");
-    render_menu_text(4, 11, C_BRIGHT_WHITE, "g Aufheben  d Fallenlassen");
-    render_menu_text(4, 12, C_BRIGHT_WHITE, "w Waffe  e Essen  q Trinken");
-    render_menu_text(4, 13, C_BRIGHT_WHITE, "v Fuellen  r Lesen  b Reiten");
-    render_menu_text(4, 14, C_BRIGHT_WHITE, "< Fliegen  > Landen");
-    render_menu_text(4, 15, C_BRIGHT_WHITE, "x Untersuchen  m Karte  l Log");
-    render_menu_text(4, 16, C_BRIGHT_WHITE, "Esc Abbrechen/Beenden");
-    render_menu_text(2, 22, C_GREY, "Esc zurueck.");
+    for (i = 0; i < sizeof LINES / sizeof LINES[0]; i++)
+        render_menu_text(1, (uint8_t)(3 + i), C_BRIGHT_WHITE, LINES[i]);
+    render_menu_text(2, 24, C_GREY, "Esc zurueck.");
 }
 
 static void draw_menu(uint8_t cursor)
@@ -1179,7 +1200,9 @@ int main(int argc, char **argv)
             memset(&e, 0, sizeof e);
             e.isdown = 1;
             e.ascii = replay_ascii;
+            e.vkey = replay_vkey;
             replay_valid = false;
+            now = (uint16_t)getsysvar_time();
             goto dispatch;
         }
         /* Drain every queued key event first: drawing a step can take longer
@@ -1289,13 +1312,15 @@ dispatch:
                     view_invalidate();
                     frame(dump);
                 } else if (overlay_is_context && !input_arrow(e.vkey) &&
-                           !input_diagonal(e.vkey) && e.ascii) {
+                           !input_diagonal(e.vkey) &&
+                           (e.ascii || e.vkey == VK_SPACE)) {
                     /* a letter: close and act through the normal path */
                     overlay_open = false;
                     overlay_is_context = false;
                     view_invalidate();
                     replay_valid = true;
                     replay_ascii = e.ascii;
+                    replay_vkey = e.vkey == VK_SPACE ? VK_SPACE : 0;
                 } else if (e.vkey == VK_F1) {
                     draw_help();
                 } else if (e.ascii == 'm') {
@@ -1541,13 +1566,16 @@ dispatch:
             step(m, dump);
         if (getsysvar_time() >= next_anim) {   /* candle and water animation */
             next_anim += ANIM_CS;
-            view_animate(++phase);
-            render_fields();
+            if (!overlay_open) {               /* never paint over an overlay */
+                view_animate(++phase);
+                render_fields();
+            }
         }
         if (getsysvar_time() >= next_blink) {  /* blinking cursor sprite */
             next_blink += BLINK_CS;
             cursor_on = !cursor_on;
-            place_cursor();
+            if (!overlay_open)
+                place_cursor();
         }
     }
     kbuf_deinit();

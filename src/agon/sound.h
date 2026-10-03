@@ -1,7 +1,7 @@
 /*
- * Sound effects over the Agon audio system (GDD 11.4, M4j): short
- * envelope notes sent as VDU 23,0,135 commands (no MOS wrapper exists).
- * Every call is safe before render_init (the channel is set up lazily).
+ * Sound effects over the Agon audio system (GDD 11.4, M4j): short notes
+ * on channel 0 through the agondev wrapper vdp_audio_play_note
+ * (VDU 23,0,&85,...).
  */
 #ifndef LOC_SOUND_H
 #define LOC_SOUND_H
