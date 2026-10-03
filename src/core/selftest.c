@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "ai.h"
+#include "effect.h"
 #include "chord.h"
 #include "combat.h"
 #include "game.h"
@@ -1469,6 +1470,171 @@ static void test_m4a(void)
     }
 }
 
+static void test_m4b(void)
+{
+    Spellbook book;
+    SpellShot shot;
+    Rng rng;
+    uint8_t k;
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 2;
+    world.units[1].kind = CR_GOBLIN;
+    world.units[1].owner = OWN_P2;
+    world.units[1].x = 9;
+    world.units[1].y = 5;
+    world.units[1].mr = 46;
+    world.units[1].con = world.units[1].con_max = 32;
+    memset(&book, 0, sizeof book);
+
+    {   /* effects: grant, tick, expire */
+        Unit *u = &world.units[0];
+        check(effect_grant(u, EFF_SHIELD, 4, 2) && effect_active(u, EFF_SHIELD) &&
+              effect_power(u, EFF_SHIELD) == 4, "m4b: effect granted");
+        check(items_defence(&world, 0) == 12 + 4, "m4b: shield spell adds defence");
+        world_new_turn(&world);
+        check(effect_active(u, EFF_SHIELD), "m4b: one round off, still there");
+        world_new_turn(&world);
+        check(!effect_active(u, EFF_SHIELD) && items_defence(&world, 0) == 12,
+              "m4b: effect expires and the flag goes");
+    }
+
+    {   /* magic shield spell */
+        Unit *u = &world.units[0];
+        memset(u->effects, 0, sizeof u->effects);
+        book.level[SP_MAGIC_SHIELD] = 3;
+        world.units[0].ap = 40;
+        world.units[0].mana = 80;
+        rng_seed(&rng, 1);
+        check(spell_apply(&world, &book, 0, SP_MAGIC_SHIELD, u->x, u->y, &rng,
+                          &shot) == CAST_OK &&
+              effect_active(u, EFF_SHIELD) && effect_power(u, EFF_SHIELD) == 6,
+              "m4b: magic shield +6 for 6 rounds");
+        check(book.level[SP_MAGIC_SHIELD] == 2, "m4b: one level down");
+    }
+
+    {   /* teleport: jump with scatter, 0 AP, fails on busy */
+        Unit *u = &world.units[0];
+        book.level[SP_TELEPORT] = 1;
+        u->ap = 40;
+        u->mana = 80;
+        rng_seed(&rng, 7);
+        check(spell_apply(&world, &book, 0, SP_TELEPORT, 12, 6, &rng, &shot) ==
+              CAST_OK, "m4b: teleport goes through");
+        check(u->ap == 0 && u->x >= 8 && u->x <= 16, "m4b: scattered, 0 AP");
+        u->x = 6;
+        u->y = 6;
+    }
+
+    {   /* curse: wound on failed resistance */
+        memset(&world.units[1].flags, 0, 1);
+        book.level[SP_CURSE] = 4;
+        world.units[0].ap = 40;
+        world.units[0].mana = 80;
+        {
+            bool wounded = false, resisted = false;
+            for (k = 0; k < 30; k++) {
+                CastResult cr;
+                world.units[0].ap = 40;
+                world.units[0].mana = 80;
+                book.level[SP_CURSE] = 4;
+                world.units[1].flags &= (uint8_t)~UF_WOUNDED;
+                rng_seed(&rng, 400 + k);
+                cr = spell_apply(&world, &book, 0, SP_CURSE, 9, 5, &rng, &shot);
+                if (cr == CAST_OK && (world.units[1].flags & UF_WOUNDED))
+                    wounded = true;
+                if (cr == CAST_NO_RES)
+                    resisted = true;
+            }
+            check(wounded && resisted, "m4b: curse wounds or meets resistance");
+        }
+    }
+
+    {   /* subversion: the goblin changes sides */
+        book.level[SP_SUBVERSION] = 8;
+        {
+            bool switched = false;
+            for (k = 0; k < 40; k++) {
+                CastResult cr;
+                world.units[0].ap = 40;
+                world.units[0].mana = 200;
+                book.level[SP_SUBVERSION] = 8;
+                world.units[1].owner = OWN_P2;
+                rng_seed(&rng, 600 + k);
+                cr = spell_apply(&world, &book, 0, SP_SUBVERSION, 9, 5, &rng, &shot);
+                if (cr == CAST_OK && world.units[1].owner == OWN_P1)
+                    switched = true;
+            }
+            check(switched, "m4b: subversion wins the goblin over");
+            world.units[1].owner = OWN_P2;
+        }
+    }
+
+    {   /* magic attack: hits the whole kind around the target */
+        uint8_t hits = 0, k2;
+        world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, 10, 5);   /* same kind */
+        for (k2 = 0; k2 < 30; k2++) {
+            hits = hits;                 /* keep count below */
+            world.units[0].ap = 40;
+            world.units[0].mana = 200;
+            book.level[SP_MAGIC_ATTACK] = 8;
+            while (world.unit_count < 4) /* two goblins: 1 and 3 */
+                world_spawn_unit(&world, OWN_P2, CR_GOBLIN,
+                                 9, 5);
+            rng_seed(&rng, 700 + k2);
+            if (spell_apply(&world, &book, 0, SP_MAGIC_ATTACK, 9, 5, &rng,
+                            &shot) == CAST_OK)
+                hits = (uint8_t)(hits + shot.splash_hits);
+        }
+        check(hits > 0, "m4b: magic attack strikes the kind in the area");
+        check(world.units[2].kind == CR_DWARF || world.unit_count <= 4,
+              "m4b: other kinds stay untouched");
+    }
+
+    {   /* enchant: weapons of every unit on the field become magic */
+        Unit *g = &world.units[1];
+        g->items[0] = OBJ_SWORD;
+        g->item_count = 1;
+        g->in_use = 0;
+        book.level[SP_ENCHANT] = 2;
+        world.units[0].ap = 40;
+        world.units[0].mana = 80;
+        rng_seed(&rng, 9);
+        check(spell_apply(&world, &book, 0, SP_ENCHANT, g->x, g->y, &rng, &shot) ==
+              CAST_OK && (g->flags & UF_MAGIC_WEAPON) != 0,
+              "m4b: enchant flags the carried weapons");
+        check(effect_active(g, EFF_MAGIC_WEAPON), "m4b: enchant as effect");
+        {
+            uint8_t z = world_spawn_unit(&world, OWN_NEUTRAL, CR_ZOMBIE, 8, 5);
+            check(items_can_harm_undead(&world, 1, z),
+                  "m4b: the enchanted sword wounds undead");
+        }
+    }
+
+    {   /* magic eye reveals through walls */
+        Sight s;
+        world.unit_count = 1;
+        world.units[0].x = 6;
+        world.units[0].y = 6;
+        sight_init(&s, OWN_P1);
+        sight_compute(&world, &s);
+        check(!sight_visible(&s, &world, 6, 1), "m4b: wall blocks the view");
+        sight_add_eye(&s, &world, 6, 2);
+        check(sight_visible(&s, &world, 6, 1) && sight_visible(&s, &world, 6, 6),
+              "m4b: the eye sees through walls");
+    }
+
+    {   /* speed: double AP, triple recovery */
+        Unit *u = &world.units[0];
+        memset(u->effects, 0, sizeof u->effects);
+        effect_grant(u, EFF_SPEED, 1, 2);
+        u->sta = 15;                     /* not exhausted, recovery visible */
+        world_new_turn(&world);
+        check(u->ap == 80, "m4b: speed doubles AP");
+        check(u->sta == 60, "m4b: triple stamina recovery (15+45 capped)");
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -1496,6 +1662,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_review_fixes();
     test_scenario();
     test_m4a();
+    test_m4b();
     load_house();   /* leave a clean state */
     return fails;
 }

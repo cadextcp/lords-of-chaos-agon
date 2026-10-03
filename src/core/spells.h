@@ -56,4 +56,16 @@ bool spell_bolt(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
 bool spell_lightning(World *w, Spellbook *b, uint8_t wiz,
                      int16_t x, int16_t y, Rng *rng, SpellShot *out);
 
+typedef enum {
+    CAST_OK,          /* spell went through */
+    CAST_REJECTED,    /* range, line of sight or a rule blocked it */
+    CAST_NO_RES       /* the target resisted (Curse, Subversion) */
+} CastResult;
+
+/* The seven other spells (M4b, GDD 7.2, D22/F1-F3). Magic Shield and
+ * Enchant may target the caster himself; the others need a target
+ * field. out receives hits/damage where it applies. */
+CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
+                       int16_t x, int16_t y, Rng *rng, SpellShot *out);
+
 #endif

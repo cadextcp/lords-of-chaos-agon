@@ -14,12 +14,17 @@ void game_init(Game *g, int16_t x, int16_t y, uint8_t rmin, uint8_t rmax,
                           (uint16_t)(rmax - rmin + 1))) : rmin;
     g->portal_open = false;
     g->escaped = 0;
+    g->eye_x = g->eye_y = -1;
+    g->eye_rounds = 0;
     for (i = 0; i < OWN_NEUTRAL; i++)
         g->vp[i] = 0;
 }
 
 void game_new_round(Game *g, uint8_t round)
 {
+    if (g->eye_rounds > 0 && --g->eye_rounds == 0) {
+        g->eye_x = g->eye_y = -1;       /* the eye closes (GDD 7.2) */
+    }
     if (!g->portal_open && g->portal_x >= 0 && round >= g->portal_round)
         g->portal_open = true;
 }

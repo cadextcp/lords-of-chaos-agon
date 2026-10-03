@@ -206,6 +206,28 @@ void render_panel(const World *w, uint8_t unit)
         if (u->flags & (1u << i))
             draw_tile(STATUS_ICON[i], x, 16);
     }
+    {   /* timed effects (M4b): shield, strength, speed */
+        uint8_t k, slot = 5;
+        for (k = 0; k < UNIT_EFFECTS; k++) {
+            int x;
+            if (u->effects[k].rounds == 0)
+                continue;
+            x = 256 + slot * 9;
+            if (slot >= 8)
+                break;
+            if (u->effects[k].kind == EFF_SHIELD || u->effects[k].kind == EFF_PROTECT)
+                draw_tile(T_ICON_SHIELD, x, 16);
+            else if (u->effects[k].kind == EFF_STRENGTH)
+                draw_tile(T_ICON_SWORD, x, 16);
+            else if (u->effects[k].kind == EFF_SPEED)
+                draw_tile(T_ICON_STAR, x, 16);
+            else if (u->effects[k].kind == EFF_MAGIC_WEAPON)
+                draw_tile(T_ICON_BOLT, x, 16);
+            else
+                draw_tile(T_ICON_ST_INVISIBLE, x, 16);
+            slot++;
+        }
+    }
 
     snprintf(buf, sizeof buf, "%-13.13s", name_unit(u));
     text_at(TEXT_COL_PANEL, 5, C_BRIGHT_WHITE, buf);

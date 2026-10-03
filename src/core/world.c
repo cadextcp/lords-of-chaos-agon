@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "effect.h"
 #include "gen/data.h"
 #include "items.h"
 #include "gen/tiles.h"
@@ -353,8 +354,8 @@ bool world_take_off(World *w, uint8_t unit)
     u = &w->units[unit];
     if (u->flags & UF_FLYING)
         return false;
-    if (u->ap_fly == 0)                       /* creature cannot fly */
-        return false;
+    if (u->ap_fly == 0 && !effect_active(u, EFF_FLYING))
+        return false;                         /* no wings, no flying potion */
     if (world_unit_at(w, u->x, u->y, UL_AIR) != NO_UNIT)
         return false;                         /* air slot taken */
     if (u->ap < ACTIONS[ACT_TAKE_OFF].ap)
@@ -396,11 +397,18 @@ void world_new_turn(World *w)
         uint8_t full = (u->flags & UF_FLYING) ? u->ap_fly : u->ap_max;
         if (u->flags & UF_WOUNDED)         /* bleeds until death (PM 17) */
             u->con = u->con > 0 ? (uint8_t)(u->con - 1) : 0;
-        uint16_t sta = (uint16_t)(u->sta + u->sta_max / 4);
+        uint16_t sta;
+        if (effect_active(u, EFF_SPEED))
+            sta = (uint16_t)(u->sta + 3 * (u->sta_max / 4));
+        else
+            sta = (uint16_t)(u->sta + u->sta_max / 4);
         u->ap = u->sta < u->sta_max / 4 ? (uint8_t)(full / 2) : full;
         if (u->con < u->con_max / 2)      /* badly hurt (GDD 4.1) */
             u->ap = (uint8_t)(u->ap / 2);
+        if (effect_active(u, EFF_SPEED))  /* Speed (potion): AP x2 */
+            u->ap = (uint8_t)(u->ap * 2);
         u->sta = (uint8_t)(sta > u->sta_max ? u->sta_max : sta);
+        effect_tick(u);                   /* durations run down (GDD 2.1) */
         if (u->mana_max) {
             uint8_t mana = (uint8_t)(u->mana + u->mana_max / 25);
             u->mana = mana > u->mana_max || mana < u->mana ? u->mana_max : mana;

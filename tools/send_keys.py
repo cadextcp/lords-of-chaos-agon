@@ -40,7 +40,16 @@ def main() -> int:
         print("emulator window not found", file=sys.stderr)
         return 2
     wins[0].activate()
+    wins[0].restore()
     time.sleep(args.settle)
+    try:                                # Windows may deny activation: click
+        cx = wins[0].left + wins[0].width // 2
+        cy = wins[0].top + wins[0].height // 2
+        pydirectinput.moveTo(cx, cy)
+        pydirectinput.click()
+        time.sleep(0.2)
+    except Exception:
+        pass
 
     keys = args.keys.split(",") if args.list else list(args.keys)
     pydirectinput.PAUSE = 0.02

@@ -3,6 +3,7 @@
 #include <stddef.h>
 
 #include "combat.h"
+#include "effect.h"
 #include "gen/data.h"
 #include "sight.h"
 
@@ -254,6 +255,8 @@ uint8_t items_combat(const World *w, uint8_t unit)
     weapon = in_use_weapon(u);
     if (weapon != WEAPON_NONE)
         com = (uint8_t)(com + WEAPONS[weapon].combat);
+    if (effect_active(u, EFF_STRENGTH))
+        com = (uint8_t)(com + effect_power(u, EFF_STRENGTH));
     malus = con_malus(u);               /* below 50 % Con (GDD 4.1) */
     return com > malus ? (uint8_t)(com - malus) : 0;
 }
@@ -266,9 +269,16 @@ uint8_t items_defence(const World *w, uint8_t unit)
         return 0;
     u = &w->units[unit];
     def = u->def;
-    for (i = 0; i < u->item_count; i++)     /* one carried shield counts (D21) */
-        if (OBJECTS[u->items[i]].weapon == WEAPON_SHIELD)
-            return (uint8_t)(def + WEAPONS[WEAPON_SHIELD].defence);
+    for (i = 0; i < u->item_count; i++) {   /* ONE carried shield counts (D21) */
+        if (OBJECTS[u->items[i]].weapon == WEAPON_SHIELD) {
+            def = (uint8_t)(def + WEAPONS[WEAPON_SHIELD].defence);
+            break;
+        }
+    }
+    if (effect_active(u, EFF_SHIELD))
+        def = (uint8_t)(def + effect_power(u, EFF_SHIELD));
+    if (effect_active(u, EFF_PROTECT))
+        def = (uint8_t)(def + effect_power(u, EFF_PROTECT));
     malus = con_malus(u);
     return def > malus ? (uint8_t)(def - malus) : 0;
 }

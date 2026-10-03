@@ -32,6 +32,18 @@ typedef enum {
 enum { UF_UNDEAD = 1, UF_FLYING = 2, UF_MOUNT = 4, UF_WOUNDED = 8,
        UF_INVISIBLE = 16, UF_MAGIC_WEAPON = 32 /* enchanted (M4b Enchant) */ };
 
+/* Timed effect on a unit (M4b, D22/F1): kind, strength, rounds left. */
+typedef enum {
+    EFF_SHIELD, EFF_PROTECT, EFF_STRENGTH, EFF_INVISIBLE, EFF_SPEED,
+    EFF_FLYING, EFF_MAGIC_WEAPON
+} EffectKind;
+#define UNIT_EFFECTS 4
+typedef struct {
+    uint8_t kind;    /* EffectKind */
+    uint8_t power;
+    uint8_t rounds;
+} Effect;
+
 typedef struct {
     uint8_t x, y;
     uint8_t kind;   /* CreatureKind */
@@ -49,6 +61,7 @@ typedef struct {
     uint8_t in_use;           /* index into items, 0xFF = bare hands */
     uint8_t id;               /* stable while the unit lives (indices shift) */
     bool done;                /* finished for this phase (space, turn.h) */
+    Effect effects[UNIT_EFFECTS];   /* timed, tick at the round end (M4b) */
 } Unit;
 
 /* One death with its killer, for the VP account (game_credit_kills). */

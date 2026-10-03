@@ -173,3 +173,16 @@ bool sight_visible(const Sight *s, const World *w, int16_t x, int16_t y)
 {
     return get_bit(s->visible, w->w, w->h, x, y);
 }
+
+void sight_add_eye(Sight *s, const World *w, int16_t x, int16_t y)
+{
+    int16_t dx, dy;
+    for (dy = -SIGHT_GROUND; dy <= SIGHT_GROUND; dy++)
+        for (dx = -SIGHT_GROUND; dx <= SIGHT_GROUND; dx++) {
+            int16_t wx = (int16_t)(x + dx), wy = (int16_t)(y + dy);
+            if (!world_wrap(w, &wx, &wy))
+                continue;
+            set_bit(s->visible, w->w, w->h, wx, wy);
+            set_bit(s->explored, w->w, w->h, wx, wy);
+        }
+}

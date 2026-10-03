@@ -5,6 +5,13 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ## [Unreleased] – M4 Classic komplett
 
 ### Hinzugefügt
+- **M4b Wirkungen und sonstige Zauber (#44):**
+  - `src/core/effect.[ch]`: zeitlich begrenzte Wirkungen pro Einheit (Art, Stärke, Rundenzahl, 4 Plätze), Tick am Rundenende; `UF_INVISIBLE`/`UF_MAGIC_WEAPON` folgen ihrer Wirkung
+  - Wirkungen in den Werten: Schild/Schutz +Verteidigung, Stärke +Kampf, Schnell doppelt AP und dreifache Ausdauer-Regeneration, Flugg-Trank erlaubt Start ohne `ap_fly`; Status-Icons im Panel (Schild/Schwert/Stern/Blitz)
+  - 7 Zauber (D22/F1–F3): Magic Shield (+2×Stufe Verteidigung für 2×Stufe Runden, wirkt auf den Zauberer), Magic Eye (Sicht von einem Punkt, eine Runde, durch Wände), Teleport (Reichweite 6, F3-Streuung, danach 0 AP), Curse (tödliche Wunde, Widerstand nach F2 +20), Subversion (Kreatur wechselt die Seite, nicht auf Zauberer/Reittiere), Magic Attack (trifft die ganze Kreaturart im Umkreis 2, auch eigene, Widerstand −10), Enchant (Waffen aller Einheiten auf dem Feld werden magisch, 2×Stufe Runden — Untote verwundbar)
+  - Zauberliste führt alle Zauber in den Zielmodus; Selbstziel-Abbruch gilt nicht für Schild/Enchant (GDD-Ausnahme)
+  - Nebenher: send_keys fokussiert das Emulatorfenster jetzt per Klick (Windows-Vordergrundsperre machte Tasten unzuverlässig)
+
 - **M4a Classic-Lücken und Szenario-Format (#43):**
   - Untote nur durch Untote, magische Waffen (Magic Slayer, Enchant-Flag) und Zauber verletzbar `[PM 18]` — Bogen/Wurf/Nahkampf prüfen, Zauber umgehen die Regel
   - Unter 50 % Constitution: −2 Combat und − Defence (Startwert, GDD §4.1)

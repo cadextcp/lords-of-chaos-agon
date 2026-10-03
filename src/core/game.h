@@ -22,6 +22,8 @@ typedef struct {
     bool portal_open;
     uint8_t escaped;              /* owner bitmask of wizards through */
     uint16_t vp[OWN_NEUTRAL];
+    int16_t eye_x, eye_y;         /* Magic Eye: sight from here (M4b) */
+    uint8_t eye_rounds;           /* ticks down each round */
 } Game;
 
 /* Portal at (x, y); opens between round rmin and rmax (deterministic
