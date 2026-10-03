@@ -104,12 +104,12 @@ bool items_cycle(World *w, uint8_t unit)
     if (unit >= w->unit_count)
         return false;
     u = &w->units[unit];
+    if (u->item_count == 0)
+        return false;                    /* nothing to cycle through */
     if (u->ap < ACTIONS[ACT_CHANGE].ap)
         return false;
     world_spend(w, unit, ACTIONS[ACT_CHANGE].ap);
-    if (u->item_count == 0) {
-        u->in_use = NO_ITEM;
-    } else if (u->in_use == NO_ITEM || u->in_use + 1 >= u->item_count) {
+    if (u->in_use == NO_ITEM || u->in_use + 1 >= u->item_count) {
         u->in_use = 0;
     } else {
         u->in_use = (uint8_t)(u->in_use + 1);
