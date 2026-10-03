@@ -50,6 +50,7 @@ static void log_push(const char *line);   /* message ring (M4j) */
 #include "keytest.h"
 #include "log.h"
 #include "mapfile.h"
+#include "music.h"
 #include "render.h"
 
 #define MAP_SCENARIO "maps/many_coloured_land.map"   /* scenario 1 (GDD 9.1) */
@@ -1105,10 +1106,14 @@ static const char *menu_loop(bool *free_round1)
             draw_menu_mark(cursor, true);
             drawn = cursor;
         }
-        while (!kbuf_poll_event(&e))
-            ;
+        for (;;) {                        /* idle: keep the music fed (M5d) */
+            music_poll();
+            if (kbuf_poll_event(&e))
+                break;
+        }
         if (!e.isdown)
             continue;
+        music_stop();                     /* any key ends the song */
         render_menu_text(2, 20, C_BRIGHT_WHITE,       /* old message line */
                          "                                      ");
         if (e.vkey != VK_SPACE && e.ascii != 13)
@@ -1453,6 +1458,10 @@ int main(int argc, char **argv)
     kbuf_init(16);
     if (!lexicon_load(&lex))             /* discoveries from the last run */
         lexicon_init(&lex);
+    if (!dump && !do_bench) {
+        screen_title();                  /* picture + music (M5d) */
+        music_start("music/title.bin");  /* keeps playing under the menu */
+    }
 menu_start:
     if (!dump && !do_bench) {            /* main menu (GDD 2.3, M4f) */
         const char *chosen = menu_loop(&free_round1);

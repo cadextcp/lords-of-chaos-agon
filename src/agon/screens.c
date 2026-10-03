@@ -9,6 +9,7 @@
 #include "../core/gen/data.h"
 #include "../core/tutorial.h"
 #include "input.h"
+#include "music.h"
 #include "render.h"
 
 /* Strings use the umlaut font codes (umfont.c): \204 ae, \224 oe,
@@ -208,6 +209,31 @@ bool screen_help(const char *file)
         else
             continue;
         help_draw(page);
+    }
+}
+
+/* ---------- title screen (M5d) ---------- */
+
+bool screen_title(void)
+{
+    struct keyboard_event_t e;
+
+    music_start("music/title.bin");
+    render_screen_clear();
+    if (!render_show_title()) {           /* SD missing: plain text */
+        centred(4, C_BRIGHT_YELLOW, "LORDS OF CHAOS");
+        centred(6, C_BRIGHT_CYAN, "Ein Remake f\201r den Agon Light");
+    }
+    centred(28, C_GREY, "- Taste dr\201cken -");
+    for (;;) {
+        music_poll();
+        while (kbuf_poll_event(&e)) {
+            if (e.isdown) {
+                music_stop();
+                render_screen_clear();
+                return true;
+            }
+        }
     }
 }
 

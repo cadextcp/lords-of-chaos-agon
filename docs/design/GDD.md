@@ -713,6 +713,26 @@ Wie beim Amiga werden pro Feld **mehrere Ebenen übereinander** gezeichnet (B1.2
   Kurztext aus `help/lexicon.hlp`. Markiert wird beim Sehen (Sichtregel)
   und Aufheben.
 
+### 11.6 Titelbild und Titelmusik [C] (M5d)
+
+- **Titelbild** 320×240 (MODE 8, volle Bildfläche), eigene Pixelart in der
+  Agon-64-Palette (D10/D7): Nachthimmel mit Mond und Sternen, Turm auf
+  Hügeln, Zauberer mit Stab vor glühendem Portal, Schriftzug „LORDS OF
+  CHAOS". Quelle ist `assets/title/title.png` (`tools/art/make_title.py`
+  erzeugt/überschreibt sie), `tools/build_title.py` kompiliert nach
+  `build/title.bin` (RGBA2222, 76 800 Byte) auf die SD (ADR 0011). Motiv
+  ist ein Platzhalter-Vorschlag; der Nutzer stimmt es ab (siehe Handover).
+- **Streaming-Loader:** `render_show_title()` lädt die Datei häppchenweise
+  über den 576-Byte-Staging-Puffer in einen eigenen VDP-Puffer (ID 0x4000,
+  weit oberhalb des Kachel-Bereichs); wiederholte `write_block_data`-Aufrufe
+  hängen an (QUIRKS S1). Fehlt die Datei, zeigt der Titel nur Text.
+- **Titelmusik:** eigener dreistimmiger Satz (A-Moll, Lead/Bass/Arpeggio —
+  nichts kopiert, D7) als Notentabelle in `data/music/title.txt`, von
+  `tools/gen_music.py` nach `build/music/title.bin` kompiliert. Der
+  Sequencer (`src/agon/music.[ch]`) spielt auf den VDP-Kanälen 1–3
+  (Kanal 0 bleibt den Effekten), nicht blockierend: Titel- und Menüschleife
+  pollen `music_poll()`, **jeder Tastendruck beendet die Musik**.
+
 ---
 
 ## 12. Chaos-Erweiterungen [X] (nach v1.0)

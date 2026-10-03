@@ -98,4 +98,12 @@ def stage_game() -> Path:
         (dest / "help").mkdir(exist_ok=True)
         for f in helpdir.glob("*.hlp"):
             shutil.copy2(f, dest / "help" / f.name)
+    title = BUILD / "title.bin"
+    if title.exists():
+        shutil.copy2(title, dest / title.name)
+    music = BUILD / "music"
+    if music.exists():
+        (dest / "music").mkdir(exist_ok=True)
+        for f in music.glob("*.bin"):
+            shutil.copy2(f, dest / "music" / f.name)
     return dest
