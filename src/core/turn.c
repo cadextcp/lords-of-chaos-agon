@@ -1,13 +1,8 @@
 #include "turn.h"
 
-/* Placeholder wandering until the behaviour profiles (GDD 10): every
- * independent creature tries up to two random steps, three directions per
- * step; blocked or too expensive directions simply fail. */
-#define WANDER_STEPS 2
-#define WANDER_TRIES 3
+#include <string.h>
 
-static const int8_t DX[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };
-static const int8_t DY[8] = { -1, -1, 0, 1, 1, 1, 0, -1 };
+#include "ai.h"
 
 static bool owner_present(const World *w, uint8_t owner)
 {
@@ -85,24 +80,20 @@ bool turn_may_move(const Turns *t)
 
 void turn_independents(Turns *t, World *w)
 {
-    uint8_t i, s, k;
+    uint8_t i;
     if (!turn_may_move(t))
         return;
-    for (i = 0; i < w->unit_count; i++) {
-        if (w->units[i].owner != OWN_NEUTRAL)
-            continue;
-        for (s = 0; s < WANDER_STEPS; s++)
-            for (k = 0; k < WANDER_TRIES; k++)
-                if (world_move_unit(w, i, DX[rng_range(&t->rng, 8)],
-                                    DY[rng_range(&t->rng, 8)]))
-                    break;
-    }
+    /* hunters chase the nearest enemy they see (GDD 10); without prey
+     * they keep the old wandering as fallback */
+    for (i = w->unit_count; i-- > 0;)
+        if (w->units[i].owner == OWN_NEUTRAL)
+            ai_hunter(w, &t->rng, i);
 }
 
 void turn_init(Turns *t, World *w, uint32_t seed, uint8_t humans)
 {
+    memset(t, 0, sizeof *t);           /* clears the ai callback too */
     t->round = 1;
-    t->done = 0;
     t->humans = humans;
     t->round1_lock = true;
     rng_seed(&t->rng, seed);
@@ -182,6 +173,7 @@ void turn_end_phase(Turns *t, World *w)
         start_phase(t, w, o);
         if ((t->humans & (1u << o)) != 0)
             return;                       /* human players act */
-        /* AI placeholder until M3: the phase passes. */
+        if (t->ai)
+            t->ai(t, w, t->ai_ctx);       /* wizard AI (GDD 10, M3f) */
     }
 }
