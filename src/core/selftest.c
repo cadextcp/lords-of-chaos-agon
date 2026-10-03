@@ -1408,6 +1408,10 @@ static void test_m4a(void)
         world.units[0].con = 14;              /* under 50 % */
         check(items_combat(&world, 0) == 8 && items_defence(&world, 0) == 10,
               "m4a: below half Constitution -2/-2");
+        world.units[0].sta = 60;
+        world_new_turn(&world);
+        check(world.units[0].ap == 20,
+              "m4a: badly hurt units refill half AP");
     }
 
     {   /* eat and read */
