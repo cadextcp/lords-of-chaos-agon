@@ -34,10 +34,13 @@ void game_new_round(Game *g, uint8_t round);
  * treasures (VP_ESCAPE plus every carried OC_TREASURE), creatures
  * cannot pass. The escaped wizard is removed from the world. */
 bool game_try_enter_portal(Game *g, World *w, uint8_t unit);
-/* VP for a kill: the creature table's value, doubled when the killer is
- * a wizard striking in melee (no ranged weapon, AMI 4). */
-void game_kill_credit(Game *g, uint8_t killer_owner, uint8_t killer_kind,
-                      bool melee);
+/* VP for one kill: the victim's value from the creature table, doubled
+ * when the killer is a wizard striking in melee (no ranged weapon,
+ * AMI 4). Own units score nothing, independents never score. */
+void game_kill_credit(Game *g, const Kill *k);
+/* Credit every logged kill (world_kill_unit) and clear the log. Call
+ * after every action that may kill. */
+void game_credit_kills(Game *g, World *w);
 /* Over when no wizard remains on the map (escaped or dead). */
 bool game_over(const Game *g, const World *w);
 

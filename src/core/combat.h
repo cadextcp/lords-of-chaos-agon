@@ -32,11 +32,18 @@ typedef struct {
  * Combat over Defence, clamped to 10..90. */
 uint8_t combat_hit_chance(uint8_t com, uint8_t def);
 
-/* One melee exchange. False (nothing happens) when the attack is not
- * allowed: not adjacent, same owner, a grounded attacker against a
- * flyer, or the attacker lacks AP. A dying unit is removed immediately;
- * at most one unit dies per exchange, so unit indices shift at most
- * once (see world_remove_unit). */
+/* Apply `damage` to a unit (all damage sources share it): a single blow
+ * above a quarter of the Constitution opens a fatal wound (PM 17), a
+ * lethal one kills through world_kill_unit with the given killer.
+ * *wound (optional) tells about the wound; returns true on death. */
+bool combat_damage(World *w, uint8_t target, uint8_t damage, uint8_t killer_kind,
+                   uint8_t killer_owner, bool melee, bool *wound);
+
+/* One melee exchange. False (nothing happens, *out zeroed) when the
+ * attack is not allowed: not adjacent, same owner, a grounded attacker
+ * against a flyer, or the attacker lacks AP. A dying unit is removed
+ * immediately; at most one unit dies per exchange. Removal reorders the
+ * unit list - re-find units by id afterwards. */
 bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *out);
 
 /* Terrain attack (GDD 3.3): damage rolled against the feature's

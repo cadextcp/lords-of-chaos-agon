@@ -1,5 +1,7 @@
 #include "combat.h"
 
+#include <string.h>
+
 #include "gen/data.h"
 #include "items.h"
 
@@ -33,25 +35,28 @@ static bool adjacent(const World *w, const Unit *a, const Unit *b)
     return dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1;
 }
 
-static void apply_hit(World *w, uint8_t target, uint8_t damage,
-                      bool *wound, bool *died)
+bool combat_damage(World *w, uint8_t target, uint8_t damage, uint8_t killer_kind,
+                   uint8_t killer_owner, bool melee, bool *wound)
 {
     Unit *u = &w->units[target];
-    *wound = damage > u->con_max / 4;      /* fatal wound (PM 17) */
-    if (*wound)
+    bool wounded = damage > u->con_max / 4;   /* fatal wound (PM 17) */
+    if (wound)
+        *wound = wounded;
+    if (wounded)
         u->flags |= UF_WOUNDED;
     if (damage >= u->con) {
-        *died = true;
-        world_remove_unit(w, target);
-    } else {
-        u->con = (uint8_t)(u->con - damage);
+        world_kill_unit(w, target, killer_kind, killer_owner, melee);
+        return true;
     }
+    u->con = (uint8_t)(u->con - damage);
+    return false;
 }
 
 bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *out)
 {
     const Unit *a, *d;
     bool ok_to_hit;
+    memset(out, 0, sizeof *out);
     if (att >= w->unit_count || def >= w->unit_count || att == def)
         return false;
     a = &w->units[att];
@@ -63,11 +68,6 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
     if (a->ap < ACTIONS[ACT_MELEE].ap)
         return false;
 
-    out->hit = out->wound = out->died = false;
-    out->returned = out->return_hit = false;
-    out->return_wound = out->attacker_died = false;
-    out->damage = out->return_damage = 0;
-
     world_spend(w, att, ACTIONS[ACT_MELEE].ap);
     ok_to_hit = rng_range(rng, 100) <
                 combat_hit_chance(items_combat(w, att), items_defence(w, def));
@@ -75,7 +75,8 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
         return true;
     out->hit = true;
     out->damage = roll_damage(a, rng);   /* base value; weapon bonus in chance */
-    apply_hit(w, def, out->damage, &out->wound, &out->died);
+    out->died = combat_damage(w, def, out->damage, a->kind, a->owner, true,
+                              &out->wound);
     if (out->died)
         return true;                       /* the dead do not strike back */
 
@@ -88,8 +89,9 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
             combat_hit_chance(items_combat(w, def), items_defence(w, att))) {
             out->return_hit = true;
             out->return_damage = roll_damage(d, rng);
-            apply_hit(w, att, out->return_damage, &out->return_wound,
-                      &out->attacker_died);
+            out->attacker_died = combat_damage(w, att, out->return_damage,
+                                               d->kind, d->owner, true,
+                                               &out->return_wound);
         }
     }
     return true;

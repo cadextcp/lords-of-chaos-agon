@@ -119,6 +119,7 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 8. **Der Agon-Systemfont hat keine Umlaute.** UI-Texte ohne ä/ö/ü („Tuer“).
 9. **Tile-IDs sind 16 Bit** (236 Kacheln). Für Kreaturen `CREATURE_TILE[kind] + owner` verwenden.
 10. **Kachel-PNGs sind jetzt Quelle.** `tools/art/make_tiles.py` überschreibt sie, also nur mit `--only NAME` neu erzeugen.
+11. **Unit-Indizes sind instabil.** `world_remove_unit` tauscht mit der letzten Einheit. Über Aktionen hinweg Einheiten deshalb per `Unit.id` und `world_find_unit` halten. Tode immer über `world_kill_unit` bzw. `combat_damage` laufen lassen, damit die VP stimmen. Im Frontend nach jeder Aktion `settle()` aufrufen (Kills abrechnen, aktive Einheit neu finden).
 
 ---
 

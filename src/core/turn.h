@@ -18,16 +18,23 @@
 typedef struct Turns Turns;
 typedef void (*TurnAiFn)(Turns *t, World *w, void *ctx);
 
+/* Rounds the AI keeps playing on its own once no human has a unit left
+ * (escaped or dead): enough to reach the portal, and a bound so the
+ * phase loop always ends. */
+#define TURN_AUTOPLAY_ROUNDS 40
+
 struct Turns {
     uint8_t round;       /* 1-based game round */
     uint8_t phase;       /* owner whose units act (OWN_P1..OWN_P4) */
     uint8_t active;      /* active unit index, NO_UNIT only without units */
-    uint32_t done;       /* units finished this phase (bit i = unit i) */
+    uint8_t active_id;   /* its Unit.id: survives reordering removals */
     uint8_t humans;      /* owner bitmask of human players */
     bool round1_lock;    /* no movement in round 1, casting only (PM 7) */
     Rng rng;             /* independent creatures; seeded, so runs replay */
     TurnAiFn ai;         /* NULL: AI phases pass (tests) */
     void *ai_ctx;
+    TurnAiFn on_round;   /* called after each round change (portal etc.) */
+    void *round_ctx;
 };
 
 /* Start round 1: run the independents, then the first owner's phase. */
@@ -37,19 +44,21 @@ bool turn_may_move(const Turns *t);
 /* Next (Tab) or previous (Shift+Tab) own unit with AP left; wraps around. */
 void turn_next_unit(Turns *t, const World *w, bool backwards);
 /* Active unit is done (space): it is skipped until the next phase. */
-void turn_finish_unit(Turns *t, const World *w);
+void turn_finish_unit(Turns *t, World *w);
 /* Any own unit with AP left that is not done? */
 bool turn_units_left(const Turns *t, const World *w);
 /* End the phase (Shift+E): AI phases pass automatically until a human
  * phase is active again; the round end regenerates and lets the
- * independents take their steps. */
+ * independents take their steps. Without human units the AI plays on
+ * until no wizard is left, at most TURN_AUTOPLAY_ROUNDS rounds. */
 void turn_end_phase(Turns *t, World *w);
+/* Does any human player still have a unit on the map? */
+bool turn_humans_present(const Turns *t, const World *w);
 /* Independent creatures' phase: placeholder wandering, deterministic
  * through the seeded RNG. Respects the round 1 lock (PM 7). */
 void turn_independents(Turns *t, World *w);
-/* After world_remove_unit(unit): repair active unit and done bits. */
-void turn_on_unit_removed(Turns *t, const World *w, uint8_t unit);
-/* Safety net after untracked removals (area spells): reselect. */
+/* After anything that may remove units: find the active unit again by
+ * its id; if it is gone, select the next usable own unit. */
 void turn_revalidate(Turns *t, const World *w);
 
 #endif

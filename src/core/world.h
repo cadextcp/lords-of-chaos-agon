@@ -15,6 +15,7 @@
 #define MAX_UNITS 32
 #define MAX_OBJECTS 64
 #define NO_UNIT 0xFF
+#define MAX_KILLS 16
 
 typedef enum {
     FL_STONE, FL_WOOD, FL_GRASS, FL_PATH, FL_TALL_GRASS, FL_FOREST, FL_MAGIC_WOOD,
@@ -45,7 +46,16 @@ typedef struct {
     uint8_t items[6];         /* carried object kinds (OBJ_*) */
     uint8_t item_count;
     uint8_t in_use;           /* index into items, 0xFF = bare hands */
+    uint8_t id;               /* stable while the unit lives (indices shift) */
+    bool done;                /* finished for this phase (space, turn.h) */
 } Unit;
+
+/* One death with its killer, for the VP account (game_credit_kills). */
+typedef struct {
+    uint8_t victim_kind, victim_owner;
+    uint8_t killer_kind, killer_owner;
+    bool melee;
+} Kill;
 
 typedef struct {
     uint8_t x, y;
@@ -64,6 +74,9 @@ typedef struct {
     uint8_t object_count;
     int16_t portal_x, portal_y;   /* v3 maps: -1 = none */
     uint8_t portal_rmin, portal_rmax;
+    uint8_t next_id;              /* unit ids, see world_spawn_unit */
+    Kill kills[MAX_KILLS];        /* deaths not yet credited */
+    uint8_t kill_count;
 } World;
 
 /* Load a binary map (.map, ADR 0008). Validates everything first; on
@@ -120,11 +133,20 @@ bool world_take_off(World *w, uint8_t unit);
 bool world_land(World *w, uint8_t unit);
 /* Spend AP and half of it as stamina (GDD 5.3). */
 void world_spend(World *w, uint8_t unit, uint8_t ap);
-/* Remove a unit (swap with the last). Callers holding unit indices use
- * turn_on_unit_removed for the turn state. */
+/* Remove a unit (swap with the last): indices of other units may change,
+ * so callers re-find units by id (world_find_unit, turn_revalidate). */
 void world_remove_unit(World *w, uint8_t unit);
-/* Add a freshly initialised unit (summons); returns its index. */
+/* A unit dies by someone's hand: the kill is logged for the VP account
+ * (game_credit_kills) unless the killer is independent, then the unit is
+ * removed. Killer kind and owner are passed by value - the killer itself
+ * may already be gone (lightning splash). */
+void world_kill_unit(World *w, uint8_t victim, uint8_t killer_kind,
+                     uint8_t killer_owner, bool melee);
+/* Add a freshly initialised unit (summons) with a fresh id; returns its
+ * index. */
 uint8_t world_spawn_unit(World *w, uint8_t owner, uint8_t kind, uint8_t x, uint8_t y);
+/* Index of the unit with this id, NO_UNIT when it is gone. */
+uint8_t world_find_unit(const World *w, uint8_t id);
 /* Ground unit standing next to a living enemy: bound (GDD 6), only the
  * attack itself remains. */
 bool world_engaged(const World *w, uint8_t unit);

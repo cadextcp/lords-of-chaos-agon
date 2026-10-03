@@ -37,7 +37,7 @@ static uint8_t next_owner(const World *w, uint8_t after)
 static bool unit_usable(const Turns *t, const World *w, uint8_t i)
 {
     return w->units[i].owner == t->phase && w->units[i].ap > 0 &&
-           (t->done & (1u << i)) == 0;
+           !w->units[i].done;
 }
 
 /* Search for a usable unit, starting at `from` (inclusive), wrapping over
@@ -64,13 +64,28 @@ static uint8_t any_unit_of(const World *w, uint8_t owner)
     return NO_UNIT;
 }
 
-static void start_phase(Turns *t, const World *w, uint8_t owner)
+static void set_active(Turns *t, const World *w, uint8_t i)
 {
+    t->active = i;
+    t->active_id = i < w->unit_count ? w->units[i].id : NO_UNIT;
+}
+
+/* First usable own unit, else any own unit (shown even without AP). */
+static void select_first(Turns *t, const World *w)
+{
+    uint8_t i = find_usable(t, w, 0, false);
+    if (i == NO_UNIT)
+        i = any_unit_of(w, t->phase);
+    set_active(t, w, i);
+}
+
+static void start_phase(Turns *t, World *w, uint8_t owner)
+{
+    uint8_t i;
     t->phase = owner;
-    t->done = 0;
-    t->active = find_usable(t, w, 0, false);
-    if (t->active == NO_UNIT)             /* all AP spent: show one anyway */
-        t->active = any_unit_of(w, owner);
+    for (i = 0; i < w->unit_count; i++)
+        w->units[i].done = false;
+    select_first(t, w);
 }
 
 bool turn_may_move(const Turns *t)
@@ -80,14 +95,11 @@ bool turn_may_move(const Turns *t)
 
 void turn_independents(Turns *t, World *w)
 {
-    uint8_t i;
     if (!turn_may_move(t))
         return;
     /* hunters chase the nearest enemy they see (GDD 10); without prey
      * they keep the old wandering as fallback */
-    for (i = w->unit_count; i-- > 0;)
-        if (w->units[i].owner == OWN_NEUTRAL)
-            ai_hunter(w, &t->rng, i);
+    ai_run_hunters(w, &t->rng, OWN_NEUTRAL, NO_UNIT);
 }
 
 void turn_init(Turns *t, World *w, uint32_t seed, uint8_t humans)
@@ -109,13 +121,13 @@ void turn_next_unit(Turns *t, const World *w, bool backwards)
         from = w->unit_count;             /* wraps to the last unit */
     i = find_usable(t, w, (uint8_t)(backwards ? from - 1 : from + 1), backwards);
     if (i != NO_UNIT)
-        t->active = i;
+        set_active(t, w, i);
 }
 
-void turn_finish_unit(Turns *t, const World *w)
+void turn_finish_unit(Turns *t, World *w)
 {
     if (t->active < w->unit_count)
-        t->done |= 1u << t->active;
+        w->units[t->active].done = true;
     turn_next_unit(t, w, false);
 }
 
@@ -128,43 +140,50 @@ bool turn_units_left(const Turns *t, const World *w)
     return false;
 }
 
-/* Fix the turn state after world_remove_unit(unit): the done bits above
- * the gap shift down, the active unit is re-selected when it was the
- * removed one. */
-void turn_on_unit_removed(Turns *t, const World *w, uint8_t unit)
-{
-    uint32_t below, above;
-    if (unit >= MAX_UNITS)
-        return;
-    below = unit == 0 ? 0 : t->done & ((1u << unit) - 1);
-    above = unit >= 31 ? 0 : (t->done >> (unit + 1)) << unit;
-    t->done = below | above;
-    if (t->active == unit)
-        t->active = find_usable(t, w, 0, false);
-    else if (t->active != NO_UNIT && t->active > unit)
-        t->active--;
-}
-
-/* Safety net after untracked removals (lightning splash): reselect the
- * active unit; the finish marks reset - simpler than tracking shifts. */
 void turn_revalidate(Turns *t, const World *w)
 {
-    if (t->active >= w->unit_count ||
-        (t->active != NO_UNIT && w->units[t->active].owner != t->phase)) {
-        t->done = 0;
-        t->active = find_usable(t, w, 0, false);
-        if (t->active == NO_UNIT)
-            t->active = any_unit_of(w, t->phase);
-    }
+    uint8_t i = world_find_unit(w, t->active_id);
+    if (i != NO_UNIT && w->units[i].owner == t->phase)
+        t->active = i;                    /* same unit, maybe a new index */
+    else
+        select_first(t, w);               /* it died or escaped */
+}
+
+bool turn_humans_present(const Turns *t, const World *w)
+{
+    uint8_t i;
+    for (i = 0; i < w->unit_count; i++)
+        if (w->units[i].owner < OWN_NEUTRAL &&
+            (t->humans & (1u << w->units[i].owner)) != 0)
+            return true;
+    return false;
+}
+
+static bool wizards_present(const World *w)
+{
+    uint8_t i;
+    for (i = 0; i < w->unit_count; i++)
+        if (w->units[i].kind == CR_WIZARD)
+            return true;
+    return false;
 }
 
 void turn_end_phase(Turns *t, World *w)
 {
+    uint8_t autoplay = 0;
     for (;;) {
         uint8_t o = next_owner(w, t->phase);
         if (o == OWN_COUNT) {             /* last owner done: round end */
-            t->round++;
+            /* nobody left to hand the turn back to: let the AI finish
+             * the game, but never loop forever */
+            if (!turn_humans_present(t, w) &&
+                (!wizards_present(w) || autoplay++ >= TURN_AUTOPLAY_ROUNDS))
+                return;
+            if (t->round < 255)
+                t->round++;
             world_new_turn(w);            /* regeneration (GDD 2.1.4) */
+            if (t->on_round)
+                t->on_round(t, w, t->round_ctx);
             turn_independents(t, w);      /* next round starts (GDD 2.1.1) */
             o = first_owner(w);
             if (o == OWN_COUNT)
