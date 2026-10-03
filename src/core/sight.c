@@ -7,6 +7,8 @@
  * of two indexed table reads with a row multiply (AGON-QUIRKS T2). */
 static uint8_t blk[MAP_MAX_H][SIGHT_COLS];
 
+static void build_blk(const World *w);
+
 static bool blocked(int16_t x, int16_t y)
 {
     return (blk[y][(uint8_t)(x >> 3)] & (uint8_t)(0x80u >> (x & 7))) != 0;
@@ -80,14 +82,11 @@ static bool path_clear(const World *w, uint8_t sx, uint8_t sy, int8_t dx, int8_t
 
 void sight_compute(const World *w, Sight *s)
 {
-    uint8_t i, y8, b, range, bytes;
+    uint8_t i, range;
     int16_t x, y, ux, uy;
 
     memset(s->visible, 0, sizeof s->visible);
-    bytes = (uint8_t)((w->w + 7) >> 3);
-    for (y8 = 0; y8 < w->h; y8++)
-        for (b = 0; b < bytes; b++)
-            blk[y8][b] = world_sight_byte(w, y8, (uint8_t)(b << 3));
+    build_blk(w);
 
     for (i = 0; i < w->unit_count; i++) {
         const Unit *u = &w->units[i];
@@ -134,6 +133,35 @@ void sight_compute(const World *w, Sight *s)
             }
         }
     }
+}
+
+/* Rebuild the blocking bitmap (used by sight_compute and by the
+ * on-demand LOS test below). */
+static void build_blk(const World *w)
+{
+    uint8_t y8, b, bytes;
+    memset(blk, 0, sizeof blk);
+    bytes = (uint8_t)((w->w + 7) >> 3);
+    for (y8 = 0; y8 < w->h; y8++)
+        for (b = 0; b < bytes; b++)
+            blk[y8][b] = world_sight_byte(w, y8, (uint8_t)(b << 3));
+}
+
+bool sight_has_los(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1)
+{
+    int16_t dx, dy;
+    if (!world_wrap(w, &x0, &y0) || !world_wrap(w, &x1, &y1))
+        return false;
+    build_blk(w);                       /* independent of sight_compute */
+    dx = (int16_t)(x1 - x0);
+    dy = (int16_t)(y1 - y0);
+    if (w->wrap) {
+        if (dx > w->w / 2) dx = (int16_t)(dx - w->w);
+        if (dx < -w->w / 2) dx = (int16_t)(dx + w->w);
+        if (dy > w->h / 2) dy = (int16_t)(dy - w->h);
+        if (dy < -w->h / 2) dy = (int16_t)(dy + w->h);
+    }
+    return path_clear(w, (uint8_t)x0, (uint8_t)y0, (int8_t)dx, (int8_t)dy);
 }
 
 bool sight_explored(const Sight *s, const World *w, int16_t x, int16_t y)

@@ -30,11 +30,17 @@ static void load_house(void)
     world_load_bin(&world, MAPBIN_WIZARD_HOUSE, MAPBIN_WIZARD_HOUSE_LEN);
 }
 
+/* The Agon console loses the output tail at emulator exit; the eZ80 run
+ * therefore only prints failures (plus the final verdict from main). */
+static bool verbose_checks = true;
+
 static void check(int ok, const char *what)
 {
     char buf[80];
     if (!ok)
         fails++;
+    if (!verbose_checks && ok)
+        return;
     snprintf(buf, sizeof buf, "%s %s", ok ? "ok  " : "FAIL", what);
     out(buf);
 }
@@ -148,8 +154,10 @@ static void test_dirty_and_move(void)
     view_invalidate();
     check(view_update(&world) == VIEW_W * VIEW_H, "view: first frame all dirty");
     h = view_hash();
-    snprintf(buf, sizeof buf, "view: hash=0x%08lX", (unsigned long)h);
-    out(buf);
+    if (verbose_checks) {
+        snprintf(buf, sizeof buf, "view: hash=0x%08lX", (unsigned long)h);
+        out(buf);
+    }
     check(h == HOUSE_VIEW_HASH, "view: deterministic house hash");
     check(fast_equals_reference(), "view: cached fast path equals reference");
     view_clean();
@@ -839,6 +847,80 @@ static void test_spells(void)
     }
 }
 
+static void test_bolt(void)
+{
+    Spellbook book;
+    SpellShot shot;
+    Rng rng;
+    uint8_t hits = 0, k;
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 1;
+    world.feature[5][8] = FE_DOOR_OPEN; /* open the house door for lines */
+    spellbook_default(&book, OWN_P1);
+    book.level[SP_MAGIC_BOLT] = 8;      /* enough casts for the tests */
+    world.units[1].kind = CR_GOBLIN;    /* target on the path */
+    world.units[1].owner = OWN_NEUTRAL;
+    world.units[1].x = 9;
+    world.units[1].y = 5;
+    world.units[1].con = world.units[1].con_max = 32;
+    world.unit_count = 2;
+
+    check(!spell_bolt(&world, &book, 0, SP_MAGIC_BOLT, 20, 20, &rng, &shot),
+          "bolt: out of range is rejected");
+    check(!spell_bolt(&world, &book, 0, SP_MAGIC_BOLT, 6, 1, &rng, &shot),
+          "bolt: no line of sight through the wall");
+    {   /* wizard flies: no casting from the air (CAST-G only) */
+        world.units[0].flags |= UF_FLYING;
+        check(!spell_bolt(&world, &book, 0, SP_MAGIC_BOLT, 9, 5, &rng, &shot),
+              "bolt: not from the air");
+        world.units[0].flags &= (uint8_t)~UF_FLYING;
+    }
+
+    {   /* seeded volleys at the goblin; failures counted, printed once */
+        bool all_cast = true;
+        for (k = 0; k < 50; k++) {
+            world.units[0].ap = 40;
+            world.units[0].mana = 80;
+            world.units[1].con = 32;
+            book.level[SP_MAGIC_BOLT] = 8;
+            rng_seed(&rng, 4000 + k);
+            if (!spell_bolt(&world, &book, 0, SP_MAGIC_BOLT, 9, 5, &rng, &shot))
+                all_cast = false;
+            if (shot.hit)
+                hits++;
+            if (world.unit_count == 1)  /* goblin died: respawn */
+                world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, 9, 5);
+        }
+        check(all_cast, "bolt: 50 casts all go through");
+    }
+    check(hits > 10 && hits < 40, "bolt: hits around the 55 % mark");
+    check(book.level[SP_MAGIC_BOLT] == 7, "bolt: every cast burns one level");
+
+    {   /* lightning: splash + terrain + wall rejection */
+        spellbook_default(&book, OWN_P1);
+        book.level[SP_MAGIC_LIGHTNING] = 1;
+        world.unit_count = 1;
+        world.units[0].ap = 40;
+        world.units[0].mana = 80;
+        world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, 9, 5);
+        check(!spell_lightning(&world, &book, 0, 3, 2, &rng, &shot),
+              "bolt: lightning rejects massive targets");
+        world.feature[5][9] = FE_ROCK;  /* destructible terrain at the target */
+        rng_seed(&rng, 77);
+        check(spell_lightning(&world, &book, 0, 9, 5, &rng, &shot),
+              "bolt: lightning strikes");
+        check(shot.terrain_smashed && world.feature[5][9] == FE_NONE,
+              "bolt: lightning smashes terrain at the target");
+        check(book.level[SP_MAGIC_LIGHTNING] == 0, "bolt: level used up");
+    }
+}
+
+void selftest_set_verbose(bool verbose)
+{
+    verbose_checks = verbose;
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -859,6 +941,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_bump_and_look();
     test_combat();
     test_spells();
+    test_bolt();
     load_house();   /* leave a clean state */
     return fails;
 }
