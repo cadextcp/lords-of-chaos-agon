@@ -138,3 +138,8 @@ units
 
 objects
 5 9 obj_scroll
+6 8 obj_sword
+5 8 obj_shield
+10 3 obj_bow
+10 4 obj_gold
+11 4 obj_emerald

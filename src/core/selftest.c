@@ -5,6 +5,7 @@
 
 #include "chord.h"
 #include "combat.h"
+#include "items.h"
 #include "gen/maps.h"
 #include "names.h"
 #include "rng.h"
@@ -18,8 +19,8 @@
  * Must be identical on host and Agon; update deliberately when the map,
  * tiles or composition rules change. Changed for M2d: the new unexplored
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
- * cursor_blue, shifting again. */
-#define HOUSE_VIEW_HASH 0x1F416453UL
+ * cursor_blue, M3d five object tiles, shifting again. */
+#define HOUSE_VIEW_HASH 0x7D5C073DUL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -921,6 +922,75 @@ void selftest_set_verbose(bool verbose)
     verbose_checks = verbose;
 }
 
+static void test_items(void)
+{
+    Rng rng;
+
+    check(OBJECTS[OBJ_SWORD].weapon == WEAPON_SWORD &&
+          OBJECTS[OBJ_GOLD].vp == 40 && OBJECTS[OBJ_SCROLL].category == OC_SCROLL,
+          "items: table values from objects.csv");
+    check(WEAPONS[WEAPON_SWORD].combat == 4 && WEAPONS[WEAPON_SHIELD].defence == 4 &&
+          WEAPONS[WEAPON_BOW].ranged == 4, "items: weapon values");
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 1;                    /* wizard at 6,6 */
+    world.units[0].x = 6;
+    world.units[0].y = 8;                    /* the sword lies at 6,8 */
+    check(items_kind_at(&world, 6, 8) == OBJ_SWORD, "items: sword on the ground");
+
+    check(items_pick_up(&world, 0) && world.units[0].item_count == 1 &&
+          world.units[0].items[0] == OBJ_SWORD && world.units[0].ap == 34,
+          "items: picking up costs 6 AP");
+    check(items_kind_at(&world, 6, 8) == NO_ITEM, "items: gone from the ground");
+    check(items_combat(&world, 0) == 10 && items_defence(&world, 0) == 12,
+          "items: bare-handed values");      /* not wielded yet */
+
+    check(items_cycle(&world, 0) && world.units[0].in_use == 0 &&
+          world.units[0].ap == 30, "items: wielding costs 4 AP");
+    check(items_combat(&world, 0) == 14, "items: sword +4 combat");
+
+    {   /* shield carried: defence always (GDD 6.1) */
+        world.units[0].items[1] = OBJ_SHIELD;
+        world.units[0].item_count = 2;
+        check(items_defence(&world, 0) == 16, "items: carried shield +4 defence");
+    }
+
+    check(items_drop(&world, 0) && world.units[0].item_count == 1 &&
+          items_kind_at(&world, 6, 8) == OBJ_SWORD && world.units[0].ap == 28,
+          "items: dropping costs 2 AP");
+
+    {   /* throw the scroll eastwards across the open grass */
+        world.units[0].x = 10;
+        world.units[0].y = 8;
+        world.units[0].in_use = 0;
+        world.units[0].items[0] = OBJ_SCROLL;
+        world.units[0].item_count = 1;
+        world.units[0].ap = 40;
+        rng_seed(&rng, 5);
+        check(items_throw(&world, &rng, 0, 1, 0) && world.units[0].item_count == 0,
+              "items: throw leaves the hand");
+        check(items_kind_at(&world, 16, 8) == OBJ_SCROLL,
+              "items: scroll flies six fields east");
+    }
+
+    {   /* bow: pick up, wield, fire at the goblin (9,6) from outside */
+        uint8_t dmg = 1;
+        world.units[0].x = 8;
+        world.units[0].y = 5;
+        world.units[0].ap = 40;
+        world.units[0].items[0] = OBJ_BOW;
+        world.units[0].item_count = 1;
+        world.units[0].in_use = 0;
+        world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, 11, 5);
+        rng_seed(&rng, 11);
+        check(items_fire(&world, &rng, 0, 11, 5, &dmg),
+              "items: bow fires in range");
+        check(world.units[0].ap == 28, "items: firing costs 12 AP");
+        check(!items_fire(&world, &rng, 0, 20, 5, &dmg),
+              "items: out of range rejected");
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -942,6 +1012,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_combat();
     test_spells();
     test_bolt();
+    test_items();
     load_house();   /* leave a clean state */
     return fails;
 }

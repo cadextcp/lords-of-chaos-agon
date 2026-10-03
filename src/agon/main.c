@@ -22,6 +22,7 @@
 #include "../core/combat.h"
 #include "../core/colors.h"
 #include "../core/gen/data.h"
+#include "../core/items.h"
 #include "../core/names.h"
 #include "../core/selftest.h"
 #include "../core/sight.h"
@@ -52,7 +53,9 @@ static bool confirm_end = false;   /* Shift+E asks before ending the turn */
 static bool look_mode = false;     /* x: examine any field (GDD 5.1) */
 static int16_t look_x, look_y;
 static bool spell_list = false;    /* c: pick a spell (GDD 5.1) */
-static bool targeting = false;     /* aiming a spell (Enter casts, Esc ends) */
+static bool targeting = false;     /* aiming (Enter casts/throws/fires) */
+typedef enum { TA_SPELL, TA_THROW, TA_FIRE } TargetKind;
+static TargetKind target_kind;
 static uint8_t target_spell;
 static int16_t target_x, target_y;
 static Spellbook books[OWN_NEUTRAL];   /* starting books until M3g */
@@ -175,6 +178,35 @@ static void frame(bool dump)
 static void update_sight(void)
 {
     sight_compute(&world, &p1_sight);
+}
+
+/* Throw or fire at the aimed field (direction = first step towards it). */
+static void throw_or_fire(bool dump)
+{
+    const Unit *u = &world.units[active()];
+    int16_t dx = (int16_t)(target_x - u->x), dy = (int16_t)(target_y - u->y);
+    int8_t sx, sy;
+    if (dx > 0) sx = 1; else if (dx < 0) sx = -1; else sx = 0;
+    if (dy > 0) sy = 1; else if (dy < 0) sy = -1; else sy = 0;
+    if (target_kind == TA_THROW) {
+        if (items_throw(&world, &turns.rng, active(), sx, sy))
+            render_message(1, C_BRIGHT_YELLOW, "Geworfen!");
+        else
+            render_message(1, C_BRIGHT_RED, "Nichts zu werfen.");
+    } else {
+        uint8_t dmg = 0;
+        if (items_fire(&world, &turns.rng, active(), target_x, target_y, &dmg)) {
+            if (dmg)
+                render_message(1, C_BRIGHT_YELLOW, "Schuss trifft!");
+            else
+                render_message(1, C_GREY, "Schuss daneben.");
+            turn_revalidate(&turns, &world);
+        } else {
+            render_message(1, C_BRIGHT_RED, "Kein Ziel in Reichweite.");
+        }
+    }
+    update_sight();
+    frame(dump);
 }
 
 /* Cast the aimed spell at (target_x, target_y); messages on the outcome. */
@@ -495,6 +527,7 @@ int main(int argc, char **argv)
                             update_sight();
                         } else if (i == SP_MAGIC_BOLT || i == SP_MAGIC_LIGHTNING) {
                             targeting = true;
+                            target_kind = TA_SPELL;
                             target_spell = (uint8_t)i;
                             target_x = world.units[wiz].x;
                             target_y = world.units[wiz].y;
@@ -513,8 +546,7 @@ int main(int argc, char **argv)
                     render_message(1, C_GREY, "");
                     render_message(2, C_GREY, "");
                     frame(dump);
-                } else if (e.ascii == 13 || e.vkey == VK_SPACE ||
-                           e.ascii == 'c') {
+                } else if (e.ascii == 13 || e.vkey == VK_SPACE) {
                     /* aiming at the caster cancels without cost (GDD 7.1) */
                     if (target_x == world.units[active()].x &&
                         target_y == world.units[active()].y) {
@@ -524,7 +556,10 @@ int main(int argc, char **argv)
                         frame(dump);
                     } else {
                         targeting = false;
-                        cast_targeted(dump);
+                        if (target_kind == TA_SPELL)
+                            cast_targeted(dump);
+                        else
+                            throw_or_fire(dump);
                     }
                 }
                 continue;
@@ -556,6 +591,63 @@ int main(int argc, char **argv)
                 } else {
                     render_message(1, C_BRIGHT_RED, "Nur Zauberer zaubern.");
                 }
+            } else if (e.ascii == 'g') {            /* pick up */
+                confirm_end = false;
+                if (items_pick_up(&world, active()))
+                    render_message(1, C_BRIGHT_GREEN, "Aufgehoben.");
+                else
+                    render_message(1, C_BRIGHT_RED, "Nichts aufzuheben.");
+                frame(dump);
+            } else if (e.ascii == 'd') {            /* drop in use */
+                confirm_end = false;
+                if (items_drop(&world, active()))
+                    render_message(1, C_BRIGHT_GREEN, "Fallen gelassen.");
+                else
+                    render_message(1, C_BRIGHT_RED, "Kein Objekt in der Hand.");
+                update_sight();
+                frame(dump);
+            } else if (e.ascii == 'w') {            /* wield next */
+                confirm_end = false;
+                if (items_cycle(&world, active())) {
+                    const Unit *u = &world.units[active()];
+                    if (u->in_use != NO_ITEM)
+                        render_message(1, C_BRIGHT_GREEN,
+                                       OBJECTS[u->items[u->in_use]].name);
+                    else
+                        render_message(1, C_GREY, "Leere Haende.");
+                } else
+                    render_message(1, C_BRIGHT_RED, "Zu wenig AP.");
+                frame(dump);
+            } else if (e.ascii == 't') {            /* throw in use */
+                confirm_end = false;
+                if (world.units[active()].in_use == NO_ITEM)
+                    render_message(1, C_BRIGHT_RED, "Kein Objekt in der Hand.");
+                else {
+                    targeting = true;
+                    target_kind = TA_THROW;
+                    target_spell = 0;
+                    target_x = world.units[active()].x;
+                    target_y = world.units[active()].y;
+                }
+                frame(dump);
+            } else if (e.ascii == 'f') {            /* fire bow in use */
+                confirm_end = false;
+                {
+                    const Unit *u = &world.units[active()];
+                    uint8_t weapon = u->in_use != NO_ITEM &&
+                                     u->in_use < u->item_count
+                                         ? OBJECTS[u->items[u->in_use]].weapon
+                                         : WEAPON_NONE;
+                    if (weapon == WEAPON_NONE || WEAPONS[weapon].ranged == 0)
+                        render_message(1, C_BRIGHT_RED, "Kein Bogen in der Hand.");
+                    else {
+                        targeting = true;
+                        target_kind = TA_FIRE;
+                        target_x = world.units[active()].x;
+                        target_y = world.units[active()].y;
+                    }
+                }
+                frame(dump);
             } else if (e.ascii == 'x') {
                 confirm_end = false;
                 look_mode = true;

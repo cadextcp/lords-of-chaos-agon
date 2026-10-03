@@ -609,6 +609,52 @@ def scroll():
     return outline(im)
 
 
+def sword():
+    """Diagonal blade with a crossguard (objects sit bottom-centre)."""
+    im = new()
+    for i in range(9):
+        px(im, 8 + i, 19 - i, C["white"])
+        px(im, 9 + i, 19 - i, C["dgrey"])
+    line(im, [(6, 18), (8, 20)], C["tan"])
+    line(im, [(7, 17), (9, 19)], C["tan"])
+    px(im, 5, 21, C["tan"])
+    px(im, 4, 22, C["tan"])
+    return im
+
+
+def bow():
+    im = new()
+    for i in range(11):
+        px(im, 13, 8 + i, C["lwood"])
+    line(im, [(13, 8), (16, 13), (13, 18)], C["cream"])   # string
+    line(im, [(10, 10), (16, 16)], C["tan"])              # arrow
+    px(im, 16, 16, C["white"])
+    return im
+
+
+def shield():
+    im = new()
+    ellipse(im, (7, 9, 16, 20), fill=C["tan"], outline=C["dbrown"])
+    line(im, [(11, 10), (12, 19)], C["dbrown"])
+    line(im, [(8, 14), (15, 14)], C["dbrown"])
+    return outline(im)
+
+
+def gold():
+    im = new()
+    ellipse(im, (6, 12, 17, 21), fill=C["yellow"], outline=C["dbrown"])
+    ellipse(im, (9, 8, 14, 14), fill=C["yellow"], outline=C["dbrown"])
+    line(im, [(11, 9), (11, 13)], C["cream"])
+    return outline(im)
+
+
+def emerald():
+    im = new()
+    poly(im, [(12, 7), (17, 12), (12, 21), (7, 12)], C["lgreen"])
+    poly(im, [(12, 9), (15, 12), (12, 19), (9, 12)], C["green"])
+    return outline(im)
+
+
 def unexplored():
     im = new()
     rect(im, 0, 0, N - 1, N - 1, C["black"])
@@ -702,6 +748,8 @@ def all_tiles() -> dict[str, Image.Image]:
         "drawers": drawers(), "chest": chest(), "cauldron": cauldron(),
         "candle_0": candle(0), "candle_1": candle(1), "tree": tree(),
         "wizard": wizard(), "goblin": goblin(), "obj_scroll": scroll(),
+        "obj_sword": sword(), "obj_bow": bow(), "obj_shield": shield(),
+        "obj_gold": gold(), "obj_emerald": emerald(),
         "overlay_remembered": remembered(), "unexplored": unexplored(),
         "air_shadow": air_shadow(),
         "cursor_white": cursor(C["white"]), "cursor_green": cursor(C["lgreen"]),

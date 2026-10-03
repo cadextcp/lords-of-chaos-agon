@@ -42,6 +42,9 @@ typedef struct {
     uint8_t com, def;         /* combat, defence */
     uint8_t mr;               /* magic resistance */
     uint8_t mana, mana_max;   /* wizards only */
+    uint8_t items[6];         /* carried object kinds (OBJ_*) */
+    uint8_t item_count;
+    uint8_t in_use;           /* index into items, 0xFF = bare hands */
 } Unit;
 
 typedef struct {

@@ -1,0 +1,15 @@
+# Weapons (GDD 6.1, PM 35 as starting values, D7). combat/defence: bonuses
+# while in use (shield counts always, when carried); thrown: damage roll
+# base when thrown; ranged: bow attack base, 0 = no ranged attack.
+# weight counts against the carry limit (creatures.csv).
+id,name,combat,defence,thrown,ranged,weight
+sword,Schwert,4,0,4,0,4
+knife,Messer,1,0,2,0,1
+shield,Schild,0,4,0,0,4
+bow,Bogen,0,0,0,4,3
+spear,Speer,3,0,3,0,5
+club,Keule,2,0,2,0,5
+axe,Axt,3,0,3,0,6
+ninja_star,Wurfstern,0,0,4,0,1
+slayer,Slayer,6,0,6,0,6
+magic_slayer,Magie-Slayer,8,0,8,0,6

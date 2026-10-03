@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "gen/data.h"
+#include "items.h"
 #include "gen/tiles.h"
 
 /* Movement blocking per feature (GDD 3.3): chairs, candle stands and the
@@ -43,6 +44,8 @@ static void init_unit(Unit *u, uint8_t x, uint8_t y, uint8_t kind, uint8_t owner
     u->def = k->defence;
     u->mr = k->magic_res;
     u->mana = u->mana_max = k->mana;
+    u->item_count = 0;
+    u->in_use = NO_ITEM;
 }
 
 bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
