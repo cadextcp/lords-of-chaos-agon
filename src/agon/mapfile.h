@@ -17,6 +17,7 @@ bool mapfile_load(World *w, const char *path);
  * wizards. False when missing or invalid. */
 bool scnfile_load(Spellbook *books, const char *path);
 /* Wizard slots: all 4 in one file "/wizards.dat" (M4f). load returns
- * false when the file is missing or has the wrong size. */
+ * false when the file is missing, has another layout or holds invalid
+ * values (the caller then falls back to the stock wizards). */
 bool wizards_save(void);
 bool wizards_load(void);

@@ -47,6 +47,10 @@ uint8_t wizard_attr_cost(WizardAttr a, uint8_t current);
 uint8_t wizard_attr_max(WizardAttr a);
 /* Spend XP on one point; false when not enough XP or at the cap. */
 bool wizard_raise(Wizard *w, WizardAttr a);
+/* Take one point back (full XP refund); never below the start value. */
+bool wizard_lower(Wizard *w, WizardAttr a);
+/* Sanity check for data read from the SD card (ranges, name, book). */
+bool wizard_valid(const Wizard *w);
 
 /* The four slots (RAM mirror; the frontend persists them). */
 extern Wizard wizard_slots[WIZARD_SLOTS];

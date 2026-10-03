@@ -2255,6 +2255,29 @@ static void test_m4f(void)
     Rng rng;
 
     wizard_slot_reset(0);
+    {   /* review fixes: lowering, validation, scenario guard */
+        Wizard t;
+        wizard_slot_reset(3);
+        t = wizard_slots[3];
+        t.xp = 100;
+        check(!wizard_lower(&t, WA_COMBAT) && t.com == 10,
+              "m4f: no lowering below the start value");
+        check(wizard_raise(&t, WA_COMBAT) && wizard_lower(&t, WA_COMBAT) &&
+              t.com == 10 && t.xp == 100, "m4f: lowering refunds the XP");
+        check(wizard_valid(&t), "m4f: a stock wizard is valid");
+        t.com = 0;
+        check(!wizard_valid(&t), "m4f: zero attribute is rejected");
+        t = wizard_slots[3];
+        t.book.level[0] = SPELL_MAX_LEVEL + 1;
+        check(!wizard_valid(&t), "m4f: book level above the cap is rejected");
+        t = wizard_slots[3];
+        memset(t.name, 'x', sizeof t.name);
+        check(!wizard_valid(&t), "m4f: unterminated name is rejected");
+        t = wizard_slots[3];
+        wizard_campaign_result(&t, 5, 0);
+        check(t.level == 1 && t.scenarios_done == 0 && t.xp == 5,
+              "m4f: scenario 0 changes no level");
+    }
     check(w->level == 1 && w->xp == 0 && w->com == 10 && w->sta == 60 &&
           w->book.level[SP_GIANT_BAT] == 2,
           "m4f: stock designer wizard");
