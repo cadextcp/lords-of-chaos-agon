@@ -83,3 +83,31 @@ bool wizards_load(void)
     memcpy(wizard_slots, tmp, sizeof tmp);
     return true;
 }
+
+bool savegame_write(const uint8_t *data, uint16_t len)
+{
+    /* write beside the old save and swap, so a failed write keeps it */
+    uint8_t fh = mos_fopen("save.new", FA_WRITE | FA_CREATE_ALWAYS);
+    uint24_t written;
+    if (!fh)
+        return false;
+    written = mos_fwrite(fh, (char *)data, len);
+    mos_fclose(fh);
+    if (written != len) {
+        mos_del("save.new");
+        return false;
+    }
+    mos_del("save.dat");
+    return mos_ren("save.new", "save.dat") == 0;
+}
+
+uint16_t savegame_read(uint8_t *buf, uint16_t cap)
+{
+    uint8_t fh = mos_fopen("save.dat", FA_READ);
+    uint24_t len;
+    if (!fh)
+        return 0;
+    len = mos_fread(fh, (char *)buf, cap);
+    mos_fclose(fh);
+    return (uint16_t)len;
+}

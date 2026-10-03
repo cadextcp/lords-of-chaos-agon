@@ -183,7 +183,7 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 | **M4g** | **#49** | **Szenarien 2 und 3** | **als Nächstes** (c, d, e ✅) |
 | **M4h** | **#50** | **KI-Ausbau (Wächter, Zauber, Tränke; ≤ 2 s pro Zug)** | **als Nächstes** |
 | **M4i** | **#51** | **Speichern und Setup** | **als Nächstes** |
-| M4j | #52 | Politur (Kontextmenü, Big Map, Log, Hilfe, Sound, Umlaut-Font) | zum Schluss |
+| **M4j** | **#52** | Politur (Kontextmenü, Big Map, Log, Hilfe, Sound, Umlaut-Font) | **als Nächstes** |
 
 **Konkret für M4d (#46):**
 1. **Mit dem Nutzer bestätigen**, bevor gebaut wird:

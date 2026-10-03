@@ -7,6 +7,7 @@
 #include "area.h"
 #include "brew.h"
 #include "ride.h"
+#include "save.h"
 #include "wizard.h"
 #include "effect.h"
 #include "chord.h"
@@ -2492,6 +2493,65 @@ static void test_m4h(void)
     area_reset();
 }
 
+static void test_m4i(void)
+{
+    SaveGame a, b;
+    static uint8_t buf[SAVE_BUF_SIZE];
+    uint16_t len;
+    uint32_t ha, hb;
+
+    world_load_bin(&world, MAPBIN_SLAYERS_DUNGEON, MAPBIN_SLAYERS_DUNGEON_LEN);
+    memset(&a, 0, sizeof a);
+    a.world = world;
+    a.world.units[0].x = 7;              /* distinctive state */
+    a.loads_left = 3;
+    a.game.portal_round = 21;
+    a.explored[3][1] = 0x5A;
+    area_reset();
+    area_cast(&world, AREA_FIRE, 4, OWN_P1, 20, 19);
+    a.area_count = area_export(a.areas, SAVE_AREAS);
+    area_reset();
+    strcpy(a.world.save_map, "maps/slayers_dungeon.map");
+
+    len = save_serialize(&a, buf, sizeof buf);
+    check(len > 4000, "m4i: the blob holds the whole world");
+    check(save_deserialize(&b, buf, len), "m4i: the blob parses back");
+    ha = save_hash(&a);
+    hb = save_hash(&b);
+    check(ha == hb && ha != 0, "m4i: save -> load -> same hash");
+    check(b.world.units[0].x == 7 && b.loads_left == 3 &&
+          b.game.portal_round == 21,
+          "m4i: the state survives the round trip");
+    check(b.explored[3][1] == 0x5A && b.area_count == 1 &&
+          b.areas[0].kind == AREA_FIRE &&
+          strcmp(b.world.save_map, "maps/slayers_dungeon.map") == 0,
+          "m4i: explored map, areas and map name survive");
+    area_import(b.areas, b.area_count);
+    check(area_kind_at(&world, 20, 19) == AREA_FIRE,
+          "m4i: imported areas burn again");
+    area_reset();
+    a.loads_left = 0;
+    check(!save_may_load(&a), "m4i: no charges, no load");
+    a.loads_left = 1;
+    check(save_may_load(&a), "m4i: one charge loads");
+    a.loads_left = 0xFF;
+    check(save_may_load(&a), "m4i: unlimited loads");
+    a.loads_left = 3;
+    check(b.world.unit_count == world.unit_count &&
+          b.world.object_count == world.object_count,
+          "m4i: units and objects survive");
+
+    {   /* magic and version gates */
+        memcpy(buf, "XXXX", 4);
+        check(!save_deserialize(&b, buf, len), "m4i: wrong magic refused");
+        len = save_serialize(&a, buf, sizeof buf);
+        buf[5] = 9;
+        check(!save_deserialize(&b, buf, len), "m4i: wrong version refused");
+        check(!save_deserialize(&b, buf, (uint16_t)(len - 1)),
+              "m4i: wrong length refused");
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -2526,6 +2586,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m4f();
     test_m4g();
     test_m4h();
+    test_m4i();
     test_m4_review();
     load_house();   /* leave a clean state */
     return fails;

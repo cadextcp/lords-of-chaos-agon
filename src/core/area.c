@@ -300,6 +300,24 @@ uint8_t area_round_end(World *w, Rng *rng)
     return area_count;
 }
 
+uint8_t area_export(Area *dst, uint8_t cap)
+{
+    uint8_t i, n = area_count < cap ? area_count : cap;
+    for (i = 0; i < n; i++)
+        dst[i] = areas[i];
+    return n;
+}
+
+void area_import(const Area *src, uint8_t n)
+{
+    uint8_t i;
+    if (n > AREAS_MAX)
+        n = AREAS_MAX;
+    for (i = 0; i < n; i++)
+        areas[i] = src[i];
+    area_count = n;
+}
+
 void area_reset(void)
 {
     area_count = 0;

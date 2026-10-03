@@ -21,6 +21,7 @@
 #include "../core/ai.h"
 #include "../core/area.h"
 #include "../core/ride.h"
+#include "../core/save.h"
 #include "../core/brew.h"
 #include "../core/chord.h"
 #include "../core/combat.h"
@@ -585,17 +586,91 @@ static void bench(void)
     render_message(1, C_BRIGHT_YELLOW, buf);
 }
 
+/* ---------- save game (GDD 2.3, M4i) ---------- */
+
+#define LOADS_LIMIT 5   /* GDD 2.3; F8 lets the setup switch it off */
+static uint8_t loads_left = LOADS_LIMIT;
+static bool loads_unlimited = false;   /* F8: setup toggle */
+static uint8_t random_strength = 2;    /* F9 setup value */
+static char saved_map[32];             /* map of the stored savegame */
+static SaveGame save_state;
+static bool save_loaded;              /* the menu restored the savegame */
+
+static uint8_t save_buf[SAVE_BUF_SIZE];
+
+/* Bounded copy that also tolerates src == dst. */
+static void copy_name(char *dst, size_t cap, const char *src)
+{
+    size_t n = strlen(src);
+    if (n >= cap)
+        n = cap - 1;
+    memmove(dst, src, n);
+    dst[n] = 0;
+}
+
+static void save_fill(SaveGame *sg)
+{
+    memset(sg, 0, sizeof *sg);
+    sg->world = world;
+    sg->turns = turns;
+    sg->game = game;
+    memcpy(sg->books, books, sizeof books);
+    sg->loads_left = loads_unlimited ? 0xFF : loads_left;
+    copy_name(sg->world.save_map, sizeof sg->world.save_map, saved_map);
+    memcpy(sg->explored, p1_sight.explored, sizeof sg->explored);
+    sg->area_count = area_export(sg->areas, SAVE_AREAS);
+}
+
+static void save_apply(const SaveGame *sg)
+{
+    world = sg->world;
+    turns = sg->turns;
+    game = sg->game;
+    memcpy(books, sg->books, sizeof books);
+    loads_unlimited = sg->loads_left == 0xFF;     /* the savegame decides */
+    loads_left = loads_unlimited ? LOADS_LIMIT : sg->loads_left;
+    copy_name(saved_map, sizeof saved_map, sg->world.save_map);
+    area_import(sg->areas, sg->area_count);
+    sight_init(&p1_sight, OWN_P1);
+    memcpy(p1_sight.explored, sg->explored, sizeof sg->explored);
+    view_set_portal(game.portal_open ? game.portal_x : -1, game.portal_y);
+    view_invalidate();
+}
+
+static bool save_to_sd(void)
+{
+    uint16_t len;
+    save_fill(&save_state);
+    len = save_serialize(&save_state, save_buf, sizeof save_buf);
+    return len && savegame_write(save_buf, len);
+}
+
+static bool load_from_sd(void)
+{
+    uint16_t len = savegame_read(save_buf, sizeof save_buf);
+    if (!len || !save_deserialize(&save_state, save_buf, len))
+        return false;
+    if (!save_may_load(&save_state))
+        return false;                    /* no charges left (GDD 2.3) */
+    save_apply(&save_state);             /* 0xFF = unlimited stays */
+    if (!loads_unlimited)
+        loads_left--;                    /* this load uses a charge */
+    return true;
+}
+
 /* ---------- main menu (GDD 2.3, M4f) ---------- */
 
 static const char *const MENU_ITEMS[] = {
     "The Many Coloured Land (St. 1)",
     "Slayer's Dungeon (St. 2)",
     "Ragaril's Domain (St. 3)",
+    "Spielstand laden",
     "Zauberer entwerfen",
     "Zauberer zuruecksetzen",
+    "Setup (Zufall-Staerke)",
     "Spiel beenden",
 };
-#define MENU_COUNT 6
+#define MENU_COUNT 8
 #define MENU_SCENARIOS 3
 /* map + book set per scenario (GDD 9.1); the .scn carries the books */
 static const char *menu_scenario_map(uint8_t pick)
@@ -675,6 +750,44 @@ static void designer_loop(uint8_t slot)
 
 /* The menu: returns the chosen map path or NULL to quit. Slot 0 is the
  * player wizard (loaded from SD, else stock). */
+/* Setup panel (GDD 2.2, F8/F9): random wizard strength and the load
+ * limit toggle. */
+static void designer_setup_loop(void)
+{
+    struct keyboard_event_t e;
+    char buf[40];
+    bool running = true;
+    while (running) {
+        render_menu_clear();
+        render_menu_text(2, 2, C_BRIGHT_YELLOW, "SETUP");
+        snprintf(buf, sizeof buf, "Zufalls-Zauberer-Staerke: %u  (+/-)",
+                 random_strength);
+        render_menu_text(4, 6, C_BRIGHT_WHITE, buf);
+        snprintf(buf, sizeof buf, "5-Ladungen-Regel: %s  (L)",
+                 loads_unlimited ? "aus" : "an");
+        render_menu_text(4, 8, C_BRIGHT_WHITE, buf);
+        render_menu_text(3, 13, C_GREY, "Esc zurueck ins Menue.");
+        while (!kbuf_poll_event(&e))
+            ;
+        if (!e.isdown)
+            continue;
+        if (e.vkey == VK_ESC) {
+            running = false;
+        } else if (e.ascii == '+' || e.ascii == '-') {
+            int8_t d = e.ascii == '+' ? 1 : -1;
+            int16_t v = (int16_t)random_strength + d;
+            if (v >= 1 && v <= 8 && v != random_strength) {
+                Rng setup_rng;           /* not the game RNG (F9) */
+                random_strength = (uint8_t)v;
+                rng_seed(&setup_rng, getsysvar_time());
+                wizard_slot_random(3, random_strength, &setup_rng);
+            }
+        } else if (e.ascii == 'l' || e.ascii == 'L') {
+            loads_unlimited = !loads_unlimited;
+        }
+    }
+}
+
 static const char *menu_loop(bool *free_round1)
 {
     struct keyboard_event_t e;
@@ -709,13 +822,26 @@ static const char *menu_loop(bool *free_round1)
                        sizeof(Spellbook));
                 wizards_save();
                 *free_round1 = false;
+                copy_name(saved_map, sizeof saved_map, map);
+                loads_left = loads_unlimited ? loads_left : LOADS_LIMIT;
                 return map;
             }
             switch (cursor) {
-            case 3:
+            case 3:                       /* Spielstand laden (M4i) */
+                if (load_from_sd()) {
+                    *free_round1 = false;     /* the saved lock stays */
+                    save_loaded = true;   /* world is already restored */
+                    wizards_save();
+                    return saved_map[0] ? saved_map
+                                        : "maps/many_coloured_land.map";
+                }
+                render_menu_text(2, 20, C_BRIGHT_RED,
+                                 "Kein Spielstand oder keine Ladungen mehr.");
+                continue;
+            case 4:
                 designer_loop(0);
                 break;
-            case 4:
+            case 5:
                 if (!confirm_reset) {   /* destructive: ask once */
                     confirm_reset = true;
                     render_menu_text(2, 20, C_BRIGHT_RED,
@@ -725,6 +851,9 @@ static const char *menu_loop(bool *free_round1)
                 confirm_reset = false;
                 wizard_slot_reset(0);   /* stock wizard over the slot */
                 wizards_save();
+                break;
+            case 6:                       /* Setup: F9 strength, F8 loads */
+                designer_setup_loop();
                 break;
             default:
                 return NULL;
@@ -829,7 +958,7 @@ int main(int argc, char **argv)
             log_close();
             return 0;
         }
-        if (chosen != map_path) {        /* reload for the chosen scenario */
+        if (!save_loaded && chosen != map_path) {   /* reload for the scenario */
             if (!mapfile_load(&world, chosen)) {
                 kbuf_deinit();
                 render_shutdown();
@@ -859,9 +988,24 @@ int main(int argc, char **argv)
             update_sight();
             view_set_sight(&p1_sight);
         }
-        /* the designer wizard becomes unit 0 (F5: no items, own book) */
-        wizard_apply_to_world(&wizard_slots[0], &world, active());
-        memcpy(&books[OWN_P1], wizard_book(&wizard_slots[0]), sizeof(Spellbook));
+        if (!save_loaded) {
+            /* the designer wizard becomes unit 0 (F5: no items, own book) */
+            wizard_apply_to_world(&wizard_slots[0], &world, active());
+            memcpy(&books[OWN_P1], wizard_book(&wizard_slots[0]),
+                   sizeof(Spellbook));
+        } else {
+            /* the savegame is the state: only bind what it cannot hold */
+            static AiCtx ai_ctx3;
+            map_path = saved_map;
+            ai_ctx3.books = books;
+            ai_ctx3.game = &game;
+            turns.ai = ai_wizard_phase;
+            turns.ai_ctx = &ai_ctx3;
+            turns.on_round = on_round;
+            turns.round_ctx = &game;
+            update_sight();
+            view_set_sight(&p1_sight);
+        }
     }
     frame(dump);
     render_message(1, C_BRIGHT_YELLOW, "Willkommen in Testland.");
@@ -1147,6 +1291,11 @@ int main(int argc, char **argv)
                         render_message(0, C_BRIGHT_MAGENTA, "Das Portal oeffnet sich!");
                     else
                         render_message(1, C_BRIGHT_GREEN, "Neue Runde.");
+                    if (!game_ended) {     /* autosave each round (GDD 2.3) */
+                        copy_name(saved_map, sizeof saved_map, map_path);
+                        if (save_to_sd())
+                            render_message(2, C_GREY, "Gespeichert.");
+                    }
                     update_sight();
                     frame(dump);
                 }

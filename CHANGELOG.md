@@ -22,6 +22,14 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
   - Teleport streut symmetrisch und misst Chebyshev; Magic Attack und die Bombe rechnen mit Wrap-around und schreiben Kills dem richtigen Werfer bzw. Zaubernden zu.
 
 ### Hinzugefügt
+- **M4i Speichern und Setup (#51):**
+  - `src/core/save.[ch]`: binärer Spielstand (Welt, Zug-State, Portal/VP, Zauberbücher, Ladungen) mit Magic/Version/Größen-Gates; FNV-Hash für die Abnahme
+  - **Autosave am Rundenende** in `save.dat` (GDD §2.3), Meldung „Gespeichert."
+  - **5-Ladungen-Regel**: jeder Ladevorgang verbraucht eine Ladung, aufgebraucht = kein Laden mehr; **F8:** im Setup abschaltbar
+  - **Setup-Panel** (Menü): Zufalls-Zauberer-Stärke 1–8 (+/−, erzeugt einen Slot-3-Zufalls-Zauberer, F9) und die Ladungen-Regel (L)
+  - Hauptmenü: „Spielstand laden" stellt den exakten Zustand wieder her (Karte, Zug-State, Bücher)
+  - Der Spielstand enthält auch Flächeneffekte und die erkundete Karte; Laden überspringt das Neuladen der Karte, die Ladungen-Regel prüft den Zähler der Datei, Schreiben geht über `save.new` und lässt die alte Datei bei Fehlern stehen
+
 - **M4h KI-Ausbau (#50):**
   - **Wächter-Profil** (GDD §10): Untoten-Wachen der Szenario-Karten stehen auf ihrem Spawn-Posten, greifen Eindringlinge an und kehren zurück (`ai_set_post`/`ai_guard`, Postbereich 3 Felder); normale Unabhängige bleiben Jäger
   - **Zauberer-KI** nutzt jetzt Magic Bolt auf sichtbare Gegner und **sammelt Schätze** (nächster sichtbarer Schatz per Sichtstrahl, Aufheben auf dem Feld); Beschwörung/Portal-Flucht wie bisher
