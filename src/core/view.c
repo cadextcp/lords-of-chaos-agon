@@ -188,25 +188,79 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
     }
 }
 
-/* F7 (M4e): strip the roof of the field when an OWN unit stands inside
- * (the player sees his building from within). Cheap: unit scan per
- * roofed field, roofs are rare. */
+/* F7 (M4e): a building loses its whole roof while an OWN ground unit
+ * stands under it (the player sees his building from within). The
+ * building is the 4-connected region of roofed fields; it is flooded
+ * once per change of the own units under roofs, not once per field. */
+static uint8_t roof_open[MAP_MAX_H][MAP_MAX_W];   /* 1: roof lifted */
+static uint16_t roof_queue[MAP_MAX_W * MAP_MAX_H];
+
+static bool roof_viewer(const World *w, const Unit *u, int16_t *x, int16_t *y)
+{
+    *x = u->x;
+    *y = u->y;
+    return !(u->flags & UF_FLYING) &&
+           (!sight_map || u->owner == sight_map->owner) &&
+           world_wrap(w, x, y) && world_has_roof(w, *x, *y);
+}
+
+static void roof_refresh(const World *w)
+{
+    static const int8_t DX4[4] = {0, 0, -1, 1}, DY4[4] = {-1, 1, 0, 0};
+    static const World *cached_world;
+    static uint8_t cached_gen;
+    static uint32_t cached_sig;
+    static bool have;
+    uint32_t sig = sight_map ? (uint32_t)sight_map->owner + 2u : 1u;
+    uint8_t i;
+    int16_t x, y;
+    for (i = 0; i < w->unit_count; i++)
+        if (roof_viewer(w, &w->units[i], &x, &y))
+            sig = sig * 31u + (uint32_t)(y * MAP_MAX_W + x) + 1u;
+    if (have && cached_world == w && cached_gen == w->generation &&
+        cached_sig == sig)
+        return;
+    memset(roof_open, 0, sizeof roof_open);
+    for (i = 0; i < w->unit_count; i++) {
+        uint16_t head = 0, tail = 0;
+        if (!roof_viewer(w, &w->units[i], &x, &y) || roof_open[y][x])
+            continue;
+        roof_open[y][x] = 1;
+        roof_queue[tail++] = (uint16_t)(y * w->w + x);
+        while (head < tail) {
+            uint8_t d;
+            int16_t cx = (int16_t)(roof_queue[head] % w->w);
+            int16_t cy = (int16_t)(roof_queue[head] / w->w);
+            head++;
+            for (d = 0; d < 4; d++) {
+                int16_t nx = (int16_t)(cx + DX4[d]), ny = (int16_t)(cy + DY4[d]);
+                if (!world_wrap(w, &nx, &ny) || !world_has_roof(w, nx, ny) ||
+                    roof_open[ny][nx])
+                    continue;
+                roof_open[ny][nx] = 1;
+                roof_queue[tail++] = (uint16_t)(ny * w->w + nx);
+            }
+        }
+    }
+    cached_world = w;
+    cached_gen = w->generation;
+    cached_sig = sig;
+    have = true;
+}
+
 static void apply_roof_rule(const World *w, int16_t wx, int16_t wy,
                             FieldLayers *out)
 {
-    uint8_t i;
-    if (!world_has_roof(w, wx, wy))
+    uint8_t j, k = 0;
+    if (!world_wrap(w, &wx, &wy) || !world_has_roof(w, wx, wy))
         return;
-    for (i = 0; i < w->unit_count; i++)
-        if (w->units[i].x == wx && w->units[i].y == wy &&
-            (!sight_map || w->units[i].owner == sight_map->owner)) {
-            uint8_t j, k = 0;
-            for (j = 0; j < out->n; j++)
-                if (out->id[j] != T_ROOF)
-                    out->id[k++] = out->id[j];
-            out->n = k;
-            return;
-        }
+    roof_refresh(w);
+    if (!roof_open[wy][wx])
+        return;
+    for (j = 0; j < out->n; j++)
+        if (out->id[j] != T_ROOF)
+            out->id[k++] = out->id[j];
+    out->n = k;
 }
 
 /* Hidden movement (GDD 3.4, AMI 4): enemy units are only drawn when the
