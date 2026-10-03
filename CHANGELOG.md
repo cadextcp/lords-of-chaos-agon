@@ -121,6 +121,7 @@ Stashed changes
   - Die vier Kopien der Schadensanwendung sind zu `combat_damage` zusammengeführt.
 
 ### Hinzugefügt
+- **Design Mega Drive als zweite Plattform (GDD D23):** Gamepad-Bedienung (§5.4), Darstellung (§11.5), ADR 0010 mit Core-Spike und Abbruchkriterien, Roadmap-Spur „MD“.
 - **M3g Szenario 1 „The Many Coloured Land“ (#33):**
   - Kartenformat v3 mit `portal x y rmin rmax`-Sektion (v2-Karten laden weiter); Welt trägt Portal-Position und Rundenspanne
   - 4 neue Schatz-Kacheln (Runenstein 6, Zauberstab 8, Rubin 20, Diamant 30 VP) neben Gold/Smaragd — die komplette Schatztabelle aus GDD §9.1
