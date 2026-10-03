@@ -44,6 +44,20 @@ bool ride_mount(World *w, uint8_t rider, int16_t x, int16_t y)
     return true;
 }
 
+bool ride_mount_adjacent(World *w, uint8_t rider)
+{
+    static const int8_t DX[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+    static const int8_t DY[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
+    uint8_t i;
+    if (rider >= w->unit_count)
+        return false;
+    for (i = 0; i < 8; i++)
+        if (ride_mount(w, rider, (int16_t)(w->units[rider].x + DX[i]),
+                       (int16_t)(w->units[rider].y + DY[i])))
+            return true;                 /* the rider index is gone now */
+    return false;
+}
+
 bool ride_dismount(World *w, uint8_t mounted)
 {
     static const int8_t DX[8] = {0, 1, 1, 1, 0, -1, -1, -1};

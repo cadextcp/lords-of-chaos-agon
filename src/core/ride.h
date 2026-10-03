@@ -21,6 +21,9 @@ enum { UF_RIDDEN = 64 };   /* this mount carries its owner-unit inside */
  * rider (ACT_RIDE), the rider unit vanishes from the list. False when
  * no mount, wrong owner, no permission or no AP. */
 bool ride_mount(World *w, uint8_t rider, int16_t x, int16_t y);
+/* Mount the first friendly mount on any of the eight neighbour fields
+ * (the `b` key). False when none is there or ride_mount refuses. */
+bool ride_mount_adjacent(World *w, uint8_t rider);
 /* Dismount: the rider reappears on a free field next to the mount
  * (ACT_DISMOUNT). */
 bool ride_dismount(World *w, uint8_t mounted);

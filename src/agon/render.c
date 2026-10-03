@@ -304,12 +304,13 @@ void render_spell_list(const Spellbook *book)
     uint8_t row = 0, letter = 'a';
     uint16_t i;
     black(0, 0, MAP_PX - 1, MAP_PX - 1);
-    text_at(0, 0, C_BRIGHT_YELLOW, "Zauber            Stufe Mana");
+    /* 27 columns fit left of the stat panel: letter, 15 name, level, mana */
+    text_at(0, 0, C_BRIGHT_YELLOW, "  Zauber          St Mana");
     for (i = 0; i < SPELL_COUNT && letter <= 'z'; i++) {
         char line[28];
         if (book->level[i] == 0)
             continue;
-        snprintf(line, sizeof line, "%c %-17.17s %2u    %3u", letter,
+        snprintf(line, sizeof line, "%c %-15.15s %2u %4u", letter,
                  SPELLS[i].name, book->level[i], spell_mana((uint8_t)i, book->level[i]));
         text_at(0, (uint8_t)(2 + row), C_BRIGHT_WHITE, line);
         row++;
