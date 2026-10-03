@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "../core/lexicon.h"
 #include "../core/spells.h"
 #include "../core/wizard.h"
 
@@ -110,4 +111,36 @@ uint16_t savegame_read(uint8_t *buf, uint16_t cap)
     len = mos_fread(fh, (char *)buf, cap);
     mos_fclose(fh);
     return (uint16_t)len;
+}
+
+/* Lexicon of discoveries "/lexicon.dat" (M5): a 17-byte blob, the same
+ * careful pattern as wizards.dat (anything odd leaves the caller's data
+ * alone). */
+bool lexicon_save(const Lexicon *lex)
+{
+    uint8_t buf[17];
+    uint16_t len = lexicon_export(lex, buf, sizeof buf);
+    uint8_t fh;
+    if (!len)
+        return false;
+    fh = mos_fopen("lexicon.dat", FA_WRITE | FA_CREATE_ALWAYS);
+    if (!fh)
+        return false;
+    mos_fwrite(fh, (char *)buf, len);
+    mos_fclose(fh);
+    return true;
+}
+
+bool lexicon_load(Lexicon *lex)
+{
+    uint8_t buf[17];
+    uint8_t fh = mos_fopen("lexicon.dat", FA_READ);
+    uint24_t got;
+    if (!fh)
+        return false;
+    got = mos_fread(fh, (char *)buf, sizeof buf);
+    mos_fclose(fh);
+    if (got != sizeof buf)
+        return false;
+    return lexicon_import(lex, buf, sizeof buf);
 }

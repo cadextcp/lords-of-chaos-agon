@@ -1,0 +1,317 @@
+# Lexicon texts (compiled into build/help/lexicon.hlp).
+# EXACTLY one page per creature (data/creatures.csv order), then one page
+# per object (data/objects.csv order) - tools/gen_help.py enforces the
+# count. The screen shows name and values from the game tables; the page
+# body is the flavour/description text shown on the detail page.
+
+= Zauberer
+Ein Zauberer wie du: kaempft schwach,
+zaubert dafuer. Nur er kann durchs
+Portal entkommen und Punkte retten.
+Verlier ihn, und das Spiel ist vorbei.
+
+= Golddrache
+Der staerkste der drei Drachen:
+gewaltige Kampfkraft, fliegt und
+haelt fast alles aus. Nur mit dem
+Magie-Slayer oder Zauberern zu
+bezwingen.
+
+= Gruener Drache
+Ein Flieger mit giftigem Atem.
+Schwächer als der Golddrache, aber
+immer noch ein Schrecken - und
+heimisch im Wasser.
+
+= Roter Drache
+Der zaeheste Drache. Gilt als
+Felsenbewohner und verteidigt sich
+verbissen gegen alles, was ihm zu
+nah kommt.
+
+= Pixie
+Ein Winzling mit Fluegeln. Kaempft
+fast gar nicht, ist aber flink,
+magiebegabt und darf alles benutzen.
+
+= Zwerg
+Klein, zaeh, mit Axt. Der Zwerg ist
+ein solider Kaempfer, traegt viel
+und kennt sich in Felsen aus.
+
+= Goblin
+Der einfache Gegner von Anfang an:
+mutig genug, anzurempeln, und in
+Rudeln gefaehrlich. Reitet gern.
+
+= Troll
+Gross, dumb, staerker als jeder
+Anfaenger. Trolle regenerieren und
+schlagen kraftvoll zu.
+
+= Riese
+Ein einzelner Riese wirbelt ganze
+Gruppen durcheinander. Weit
+tragend und schwer zu stoppen.
+
+= Zentaur
+Half Mensch, half Pferd: sehr viele
+AP, gebraucht Waffen und ist ein
+guter Kundschafter und Schuetze.
+
+= Einhorn
+Ein Reittier mit heilenden Kraeften
+und hoher Magieresistenz. Sticht
+im Kampf mit dem Horn zu.
+
+= Pegasus
+Der gefluegelte Schimmel: das
+schnellste Reittier am Himmel.
+Am Boden ist er wehrlos.
+
+= Greif
+Half Loewe, half Adler: fliegt,
+kaempft gut und traegt einen
+Reiter. Ein stolzes Reittier.
+
+= Elefant
+Das Lasttier schlechthin: langsam,
+aber enorm zaehe und stark. Gut,
+um Schaetze wegzuschleppen.
+
+= Gorilla
+Ein starker Menschenaffe aus dem
+Wald. Benutzt keine Waffen, boxt
+dafuer kräftig.
+
+= Loewe
+Der Koenig der Steppe: schnell und
+mit einem gewaltigen Biss. Kein
+Reittier, aber ein guter Jaeger.
+
+= Baer
+Zaehe Beute, gefaehrliche Tatzen.
+Ein Baer, der sich aufrichtet,
+verteidigt sich mit allen vieren.
+
+= Krokodil
+Der Lauerer im Wasser: fast
+unverwundbar in seinem Element,
+langsam an Land.
+
+= Riesenfledermaus
+Ein schwacher Flieger, aber als
+Beschwoerung billig und schnell:
+gut, um Gegner zu binden.
+
+= Harpyie
+Halb Vogel, Halb Weib: fliegt und
+kraht mit Waffen in den Klauen.
+Huetet sich vor Pfeilen.
+
+= Riesenspinne
+Spinnt ihre Beute fest: staerker
+als sie aussieht und ein Schrecken
+der Hoehlen.
+
+= Zombie
+Ein Untoter: langsam, dumm, nur
+durch Magie oder untote Kaempfer
+zu verwunden. Faellt nie von
+alleen.
+
+= Geist
+Schwebt durch Wälder und Waende
+der Vergangenheit. Wer ihn
+schlagen will, braucht Magie -
+er schlaegt dafuer zurueck.
+
+= Vampir
+Der Adelige unter den Untoten:
+kaempft, fliegt und trinkt. Seine
+Opfer sinken dahin, eh sie wehren.
+
+= Gespenst
+Ein zorniger Untoter mit hoher
+Verteidigung. Nur magische Waffen
+treffen ihn.
+
+= Daemon
+Der Schrecken der Beschwoerer:
+kaempft wie ein Drache und ist
+nur mit Magie zu fällen. Gehoert
+nur dem, der ihn rief.
+
+= Schriftrolle
+Einmal lesen (r), dann ist sie
+verbraucht. Was darauf steht,
+ueberrascht immer wieder.
+
+= Schwert
+Die ausgewogene Waffe: ordentlicher
+Kampfbonus, kein Sonderwurf. Gehoert
+in jede Hand.
+
+= Messer
+Leicht und billig: kaum Kampfbonus,
+aber gut zum Werfen (t).
+
+= Speer
+Starker Stoss, gutes Wurfgewicht.
+Der Speer ist die Waffe des
+Zentauren.
+
+= Keule
+Der Troll-Favorit: schwer und
+kraefig, wenn auch plump.
+
+= Axt
+Die Waffe der Zwerge: schlaegt
+haerter als das Schwert und wiegt
+dafuer mehr.
+
+= Wurfstern
+Fuer Ninja: extrem leicht, fliegt
+weit und trift auch aus der Distanz.
+
+= Slayer
+Eine Klinge gegen Untote: verwundet
+Geister und Vampire wie Lebewesen.
+
+= Magie-Slayer
+Die beste Waffe des Spiels: magisch,
+schneidet durch jede Ruestung und
+jedem Untoten ins Fleisch.
+
+= Bogen
+Schiessen (f) bis sechs Felder weit:
+ohne Kampfbonus des Ziels die
+sicherste Art, anzugreifen.
+
+= Schild
+Wird getragen (nicht benutzt):
+erhoeht die Verteidigung. Mehr als
+eins zaehlt nicht.
+
+= Gold
+Der Klassiker unter den Schaetzen:
+40 Punkte durchs Portal.
+
+= Smaragd
+Gruener Stein, 10 Punkte. Leicht
+genug fuer mehrere im Gepaeck.
+
+= Runenstein
+Alte Schrift auf Stein: 6 Punkte,
+und irgendwo lehrt er etwas.
+
+= Zauberstab
+Magie zum Anfassen: 8 Punkte und
+ein hübscher Stab.
+
+= Rubin
+Rot und schwer genug: 20 Punkte
+fuer die Rueckreise.
+
+= Diamant
+Der Edelstein: 30 Punkte, wiegt
+fast nichts. Immer aufheben.
+
+= Apfel
+Gesundes aus dem Garten: stellt
+4 Konstitution wieder her.
+
+= Pilz
+Waldkost: 6 Konstitution. Nicht
+immer vertrauenswuerdig.
+
+= Magischer Apfel
+Ein Apfel mit Zauber: 4 Mana
+statt Konstitution.
+
+= Magischer Pilz
+Der Pilz des Zauberers: 6 Mana
+frisch geerntet.
+
+= Tuerschluessel
+Oeffnet eine verschlossene Tuer -
+verbraucht sich dabei. Ohne
+Schluessel kostet Aufbrechen
+die dreifachen AP.
+
+= Truhenschluessel
+Oeffnet eine Truhe ohne
+AP-Kosten; verbraucht sich.
+
+= Kessel (leer)
+Zum Brauen (v fuellen): leer
+wiegt er viel und wartet auf
+eine Zutat.
+
+= Kessel (voll)
+Ein Kessel mit fertigem Trank:
+q trinkt daraus, v fuellt die
+Phiole ab.
+
+= Phiole (leer)
+BrautJaeger-Bedarf: leer in den
+Beutel, am Kessel fuellen.
+
+= Phiole Staerke
+Staerke-Trank: +Kampf fuer einige
+Runden. Gut vor grossen Duellen.
+
+= Phiole Schutz
+Schutz-Trank: haelt Treffer ab,
+solange er wirkt.
+
+= Phiole Unsichtbar
+Unsichtbarkeits-Trank: Feinde
+sehen die Einheit nicht mehr -
+bis sie zuschlaegt.
+
+= Phiole Schnell
+Geschwindigkeitstrank: verdoppelt
+die AP einer Runde.
+
+= Phiole Fliegen
+Flug-Trank: schwebt fuer einige
+Runden - ohne AP-Verlust durch
+Gelaende.
+
+= Phiole Heilkraut
+Heil-Trank: schliesst Wunden und
+stellt Konstitution her.
+
+= Bombenphiole
+Geworfene Phiole (t): explodiert
+und verwundet alles im Feld.
+
+= Mistelzweig
+Zutat fuer Schutz- und Heil-Traenke.
+Waechst ueberall, wo Magie ist.
+
+= Kleeblatt
+Gluecksbringer und Zutat: zaehlt
+in manchen Traenken als Glueck.
+
+= Kristall
+Zutat fuer Unsichtbarkeit: fein
+geschliffen, streng geheim.
+
+= Schwefel
+Zutat fuer Feuer und Bomben:
+riecht nach dem, was er kann.
+
+= Feeenschwingel
+Fluegelpuder einer Fee: Zutat
+fuer den Flug-Trank.
+
+= Nitro
+Hochexplosive Zutat: die Bombe
+im Braukessel.
+
+= Drachenkraut
+Die einzige Kost fuer Drachen:
+nur mit ihr im Kessel lassen
+sich Drachen beschwoeren.

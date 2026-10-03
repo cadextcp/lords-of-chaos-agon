@@ -2,6 +2,14 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – M5 Präsentationsrunde
+
+### Hinzugefügt (M5b: Hilfe, Tutorial, Lexikon)
+- **Hilfeseiten (F1, Hauptmenü „Hilfe“):** sieben Seiten (Steuerung, Aktionen, Spielziel, Runden/AP, Kampf, Magie, Objekte) aus `data/help/keys.txt`, kompiliert nach `/loc/help/keys.hlp` (`tools/gen_help.py`, ADR 0011 — Daten von der SD statt ins Binary). ←/→ blättert, Umlaute über den umdefinierten Font. Fällt die Datei aus, zeigt F1 weiter die alte Tastenliste.
+- **Geführtes Tutorial (Hauptmenü „Tutorial“):** kleine Karte (`data/maps/tutorial.txt`, 16×12) mit Zauberer, Zwerg, Truhenschlüssel, Truhe, Goblin und Portal (öffnet Runde 2). Schritt-Engine im Core (`src/core/tutorial.[ch]`): Bewegen → Einheit wechseln → Schlüssel nehmen → Truhe öffnen → Goblin besiegen → Zaubern → Portal; die Hinweiszeile steht unten (Texte aus `help/tutorial.hlp`), Tab/Zauber werden gemeldet und „merken sich“. Die Runde-1-Sperre [PM 7] ist im Tutorial aufgehoben.
+- **Lexikon (Taste `i`, Hauptmenü „Lexikon“):** entdeckte Kreaturen (26) und Objekte (40) als Bitmasken (`src/core/lexicon.[ch]`), persistent in `/loc/lexicon.dat`; Markierung beim Sehen (Sichtregel, `lexicon_watch`) und Aufheben. Liste mit „???“ für Unentdecktes, Detailseite mit Porträt, Werten aus den Tabellen und Kurztext aus `help/lexicon.hlp` (66 Seiten, Reihenfolge = CSV).
+- Dev-Screens zum Ansehen: `loc --helppage`, `loc --lexicon`, `loc --tutorial` (auch `tools/run.py`).
+
 ## [Unreleased] – M4 Classic komplett
 
 ### Geändert

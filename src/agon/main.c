@@ -34,10 +34,12 @@ static void log_push(const char *line);   /* message ring (M4j) */
 #include "../core/game.h"
 #include "../core/gen/data.h"
 #include "../core/items.h"
+#include "../core/lexicon.h"
 #include "../core/names.h"
 #include "../core/selftest.h"
 #include "../core/sight.h"
 #include "../core/turn.h"
+#include "../core/tutorial.h"
 #include "../core/wizard.h"
 #include "screens.h"
 #include "../core/view.h"
@@ -52,6 +54,8 @@ static void log_push(const char *line);   /* message ring (M4j) */
 #define MAP_SCENARIO "maps/many_coloured_land.map"   /* scenario 1 (GDD 9.1) */
 #define MAP_TESTLAND "maps/testland.map"      /* dev map (ADR 0008) */
 #define MAP_HOUSE "maps/wizard_house.map"
+#define MAP_TUTORIAL "maps/tutorial.map"      /* guided tutorial (M5) */
+#define SCN_TUTORIAL "scenarios/tutorial.scn"
 #define TURN_SEED 42    /* fixed: emulator runs replay like the selftest */
 #define ANIM_CS 40     /* candle flicker period in centiseconds */
 #define BLINK_CS 30    /* cursor blink period (Amiga: flashing cursor) */
@@ -81,6 +85,10 @@ static TargetKind target_kind;
 static uint8_t target_spell;
 static int16_t target_x, target_y;
 static Spellbook books[OWN_NEUTRAL];   /* starting books until M3g */
+static Lexicon lex;                    /* discoveries, kept in lexicon.dat */
+static Tutorial tut;                   /* guided tutorial engine (M5) */
+static bool tutorial_on;               /* the tutorial scenario is running */
+static bool tutorial_wanted;           /* chosen in the menu */
 
 /* The unit the player acts with; start_phase guarantees one of the phase
  * owner's units is active. */
@@ -162,6 +170,10 @@ static void show_status(void)
 
 static void frame(bool dump)
 {
+    if (tutorial_on) {                    /* step conditions, then hint (M5) */
+        if (tutorial_update(&tut, &world, &game) >= TUT_DONE)
+            tutorial_on = false;          /* everything shown */
+    }
     if (look_mode || targeting) {       /* free cursor over the map */
         int16_t cx = targeting ? target_x : look_x;
         int16_t cy = targeting ? target_y : look_y;
@@ -176,6 +188,8 @@ static void frame(bool dump)
         render_message(1, C_BRIGHT_CYAN, buf);
         if (targeting)
             render_message(2, C_GREY, "Enter wirkt, Esc bricht ab.");
+        if (tutorial_on)
+            render_message(2, C_BRIGHT_CYAN, tutorial_hint_line(tut.step));
         if (dump)
             log_frame(&world, view_hash());
         return;
@@ -189,6 +203,8 @@ static void frame(bool dump)
         place_cursor();
         render_panel(&world, active());
         show_status();
+        if (tutorial_on)
+            render_message(2, C_BRIGHT_CYAN, tutorial_hint_line(tut.step));
         if (dump)
             log_frame(&world, view_hash());
     }
@@ -202,6 +218,7 @@ static void update_sight(void)
     sight_compute(&world, &p1_sight);
     if (game.eye_rounds > 0)
         sight_add_eye(&p1_sight, &world, game.eye_x, game.eye_y);
+    lexicon_watch(&lex, &world, &p1_sight);   /* discoveries (M5) */
 }
 
 /* After any action that may kill: credit the logged kills (M3e) and
@@ -274,6 +291,8 @@ static void cast_targeted(bool dump)
             render_message(1, C_BRIGHT_RED, "Ausser Reichweite oder Sicht.");
             return;
         }
+        if (tutorial_on)
+            tutorial_notify(&tut, TUT_SPELL);   /* bolt / lightning cast */
     } else {
         CastResult cr = spell_apply(&world, &books[OWN_P1], wiz, target_spell,
                                     target_x, target_y, &turns.rng, &shot);
@@ -285,6 +304,8 @@ static void cast_targeted(bool dump)
             render_message(1, C_BRIGHT_RED, "Das Ziel nimmt das nicht an.");
             return;
         }
+        if (tutorial_on)
+            tutorial_notify(&tut, TUT_SPELL);   /* the spell took hold */
         if (cr == CAST_NO_RES) {
             render_message(1, C_GREY, "Das Ziel widersteht.");
             settle();
@@ -732,9 +753,12 @@ static const char *const MENU_ITEMS[] = {
     "Zauberer entwerfen",
     "Zauberer zuruecksetzen",
     "Setup (Zufall-Staerke)",
+    "Hilfe",
+    "Lexikon",
+    "Tutorial",
     "Spiel beenden",
 };
-#define MENU_COUNT 8
+#define MENU_COUNT 11
 #define MENU_SCENARIOS 3
 /* map + book set per scenario (GDD 9.1); the .scn carries the books */
 static const char *menu_scenario_map(uint8_t pick)
@@ -1124,6 +1148,29 @@ static const char *menu_loop(bool *free_round1)
                 designer_setup_loop();
                 full = true;
                 break;
+            case 7:                       /* Hilfe: pages from the SD (M5) */
+                if (!screen_help("help/keys.hlp"))
+                    render_menu_text(2, 20, C_BRIGHT_RED,
+                                     "help/keys.hlp fehlt auf der SD.");
+                full = true;
+                break;
+            case 8:                       /* Lexikon (M5) */
+                screen_lexicon(&lex);
+                full = true;
+                break;
+            case 9: {                     /* guided tutorial (M5) */
+                const char *map = MAP_TUTORIAL;
+                scnfile_load(books, SCN_TUTORIAL);
+                wizard_apply_to_world(&wizard_slots[0], &world, active());
+                memcpy(&books[OWN_P1], wizard_book(&wizard_slots[0]),
+                       sizeof(Spellbook));
+                wizards_save();
+                tutorial_wanted = true;
+                *free_round1 = false;
+                copy_name(saved_map, sizeof saved_map, map);
+                loads_left = loads_unlimited ? loads_left : LOADS_LIMIT;
+                return map;
+            }
             default:
                 return NULL;
             }
@@ -1166,6 +1213,7 @@ static void reset_play_state(void)
     replay_valid = false;
     cursor_on = true;
     save_loaded = false;
+    tutorial_on = false;
     area_reset();
     view_invalidate();                   /* the end screen blanked the map */
 }
@@ -1198,7 +1246,19 @@ static bool end_flow(const char *map)
     }
     render_cursor(0, 0, CURSOR_GREEN, false);    /* sprite stays above the screen */
     sound_play(info.outcome == OUT_WIN ? SND_PORTAL : SND_DEATH);
+    lexicon_save(&lex);                     /* discoveries survive the game (M5) */
     return screen_end(&info);
+}
+
+/* Bind the tutorial engine to a freshly loaded tutorial map (M5). */
+static void start_tutorial(void)
+{
+    tutorial_wanted = false;
+    tutorial_on = true;
+    if (!tutorial_hints_load("help/tutorial.hlp"))
+        log_line("TUT hints missing");
+    tutorial_init(&tut, &world);
+    turns.round1_lock = false;   /* the tutorial teaches movement at once */
 }
 
 int main(int argc, char **argv)
@@ -1238,6 +1298,27 @@ int main(int argc, char **argv)
         render_shutdown();
         return 0;
     }
+    if (argc > 1 && (strcmp(argv[1], "--helppage") == 0 ||
+                     strcmp(argv[1], "--lexicon") == 0)) {
+        render_init();                    /* dev: look at the M5 screens */
+        umfont_install();
+        kbuf_init(16);
+        if (strcmp(argv[1], "--helppage") == 0) {
+            screen_help("help/keys.hlp");
+        } else {
+            Lexicon demo;                 /* everything seen: detail pages */
+            uint16_t k;
+            lexicon_init(&demo);
+            for (k = 0; k < CR_COUNT; k++)
+                lexicon_see_creature(&demo, (uint8_t)k);
+            for (k = 0; k < OBJ_COUNT; k++)
+                lexicon_see_object(&demo, (uint8_t)k);
+            screen_lexicon(&demo);
+        }
+        kbuf_deinit();
+        render_shutdown();
+        return 0;
+    }
     if (argc > 1 && strcmp(argv[1], "--keytest") == 0) {
         log_open(true);
         keytest_run();
@@ -1254,7 +1335,10 @@ int main(int argc, char **argv)
             map_path = MAP_HOUSE;
         else if (strcmp(argv[i], "--testland") == 0)
             map_path = MAP_TESTLAND;
-        else if (strcmp(argv[i], "--free-round1") == 0)
+        else if (strcmp(argv[i], "--tutorial") == 0) {
+            map_path = MAP_TUTORIAL;      /* guided tutorial (M5) */
+            tutorial_wanted = true;
+        } else if (strcmp(argv[i], "--free-round1") == 0)
             free_round1 = true;
         else if (strcmp(argv[i], "--fly") == 0)
             do_fly = true;
@@ -1277,7 +1361,9 @@ int main(int argc, char **argv)
     }
     {   /* spellbooks from the scenario file (M4a); test maps fall back
          * to an empty book */
-        bool ok = scnfile_load(books, "scenarios/many_coloured_land.scn");
+        bool ok = scnfile_load(books, tutorial_wanted
+                                      ? SCN_TUTORIAL
+                                      : "scenarios/many_coloured_land.scn");
         log_line(ok ? "SCN loaded" : "SCN missing - empty books");
     }
     brew_register_map_cauldrons(&world);
@@ -1313,10 +1399,13 @@ int main(int argc, char **argv)
     }
     umfont_install();                    /* ae/oe/ue/ss for the UI (M4j) */
     kbuf_init(16);
+    if (!lexicon_load(&lex))             /* discoveries from the last run */
+        lexicon_init(&lex);
 menu_start:
     if (!dump && !do_bench) {            /* main menu (GDD 2.3, M4f) */
         const char *chosen = menu_loop(&free_round1);
         if (!chosen) {
+            lexicon_save(&lex);
             kbuf_deinit();
             render_shutdown();
             log_close();
@@ -1371,8 +1460,12 @@ menu_start:
             view_set_sight(&p1_sight);
         }
     }
+    if (tutorial_wanted)
+        start_tutorial();
     frame(dump);
-    render_message(1, C_BRIGHT_YELLOW, "Willkommen in Testland.");
+    render_message(1, C_BRIGHT_YELLOW, tutorial_on
+                   ? "Tutorial: Folge der Hinweiszeile."
+                   : "Willkommen in Testland.");
     render_message(2, C_BRIGHT_BLUE, "Tab Einheit  Leertaste fertig  E Zugende");
     if (do_bench)
         bench();
@@ -1423,18 +1516,22 @@ dispatch:
                             render_message(1, C_BRIGHT_RED, "Nur Zauberer zaubern.");
                         } else if (SPELLS[i].category == SPC_POTION) {
                             sound_play(SND_SPELL);
-                            if (brew_cast(&world, &books[OWN_P1], wiz, (uint8_t)i))
+                            if (brew_cast(&world, &books[OWN_P1], wiz, (uint8_t)i)) {
+                                if (tutorial_on)
+                                    tutorial_notify(&tut, TUT_SPELL);
                                 render_message(1, C_BRIGHT_GREEN,
                                                "Der Kessel brodelt.");
-                            else
+                            } else
                                 render_message(1, C_BRIGHT_RED,
                                                "Brauen braucht Kessel und Zutat.");
                         } else if (SPELLS[i].category == SPC_SUMMON) {
                             uint8_t got = spell_summon(&world, &books[OWN_P1], wiz, (uint8_t)i);
                             sound_play(SND_SPELL);
-                            if (got)
+                            if (got) {
+                                if (tutorial_on)
+                                    tutorial_notify(&tut, TUT_SPELL);
                                 render_message(1, C_BRIGHT_GREEN, "Beschworen!");
-                            else
+                            } else
                                 render_message(1, C_BRIGHT_RED, "Kein Platz - Mana verloren.");
                             update_sight();
                         } else {
@@ -1509,21 +1606,34 @@ dispatch:
                     replay_ascii = e.ascii;
                     replay_vkey = e.vkey == VK_SPACE ? VK_SPACE : 0;
                 } else if (e.vkey == VK_F1) {
-                    draw_help();
+                    if (screen_help("help/keys.hlp")) {   /* pages (M5) */
+                        view_invalidate();
+                        frame(dump);
+                    } else
+                        draw_help();
                 } else if (e.ascii == 'm') {
                     draw_big_map();
                 } else if (e.ascii == 'l') {
                     draw_log();
                 }
             } else if (e.vkey == VK_F1) {
-                overlay_open = true;
-                draw_help();
+                if (screen_help("help/keys.hlp")) {       /* pages (M5) */
+                    view_invalidate();
+                    frame(dump);
+                } else {
+                    overlay_open = true;
+                    draw_help();
+                }
             } else if (e.ascii == 'm') {
                 overlay_open = true;
                 draw_big_map();
             } else if (e.ascii == 'l') {
                 overlay_open = true;
                 draw_log();
+            } else if (e.ascii == 'i') {           /* lexicon (M5) */
+                screen_lexicon(&lex);
+                view_invalidate();
+                frame(dump);
             } else if (e.ascii == 13 && !spell_list && !targeting) {
                 overlay_open = true;               /* context menu (GDD 5.1) */
                 overlay_is_context = true;
@@ -1544,12 +1654,18 @@ dispatch:
                 }
             } else if (e.ascii == 'g') {            /* pick up */
                 confirm_end = false;
-                if (items_pick_up(&world, active())) {
-                    sound_play(SND_PICKUP);
-                    render_message(1, C_BRIGHT_GREEN, "Aufgehoben.");
+                {
+                    uint8_t kind = items_kind_at(&world, world.units[active()].x,
+                                                 world.units[active()].y);
+                    if (items_pick_up(&world, active())) {
+                        sound_play(SND_PICKUP);
+                        if (kind != NO_ITEM)
+                            lexicon_see_object(&lex, kind);   /* discovery */
+                        render_message(1, C_BRIGHT_GREEN, "Aufgehoben.");
+                    }
+                    else
+                        render_message(1, C_BRIGHT_RED, "Nichts aufzuheben.");
                 }
-                else
-                    render_message(1, C_BRIGHT_RED, "Nichts aufzuheben.");
                 frame(dump);
             } else if (e.ascii == 'd') {            /* drop in use */
                 confirm_end = false;
@@ -1660,6 +1776,8 @@ dispatch:
             } else if (e.vkey == VK_TAB) {       /* next/previous own unit */
                 confirm_end = false;
                 turn_next_unit(&turns, &world, (e.kmod & KMOD_SHIFT) != 0);
+                if (tutorial_on)
+                    tutorial_notify(&tut, TUT_SWITCH);
                 render_message(1, C_GREY, "");
                 if (!turn_units_left(&turns, &world))
                     render_message(1, C_BRIGHT_YELLOW,
@@ -1774,6 +1892,7 @@ dispatch:
     }
     kbuf_deinit();
 
+    lexicon_save(&lex);                     /* discoveries survive (M5) */
     render_shutdown();
     log_line("EXIT");
     log_close();

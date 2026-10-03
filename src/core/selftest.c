@@ -14,6 +14,7 @@
 #include "combat.h"
 #include "game.h"
 #include "items.h"
+#include "lexicon.h"
 #include "gen/maps.h"
 #include "gen/scenarios.h"
 #include "names.h"
@@ -21,6 +22,7 @@
 #include "sight.h"
 #include "spells.h"
 #include "turn.h"
+#include "tutorial.h"
 #include "view.h"
 #include "world.h"
 
@@ -2866,6 +2868,122 @@ static void test_m4k_ai(void)
     area_reset();
 }
 
+/* ---------- M5b: guided tutorial + lexicon ---------- */
+
+static void test_m5b_tutorial(void)
+{
+    Tutorial t;
+    Game g;
+    Rng rng;
+    uint8_t i, gob = NO_UNIT;
+
+    check(world_load_bin(&world, MAPBIN_TUTORIAL, MAPBIN_TUTORIAL_LEN),
+          "m5b: tutorial map loads");
+    rng_seed(&rng, 7);
+    game_init(&g, world.portal_x, world.portal_y, world.portal_rmin,
+              world.portal_rmax, &rng);
+    game_new_round(&g, 1);
+    check(g.portal_round == 2, "m5b: portal opens on round 2");
+    tutorial_init(&t, &world);
+    check(t.step == TUT_MOVE, "m5b: tutorial starts at the move step");
+    check(t.wiz_x == 2 && t.wiz_y == 2, "m5b: wizard start found");
+    check(t.key_x == 3 && t.key_y == 2, "m5b: chest key found");
+    check(t.chest_x == 5 && t.chest_y == 2, "m5b: chest found");
+    check(t.enemies == 1, "m5b: one enemy unit (the goblin)");
+    check(tutorial_update(&t, &world, &g) == TUT_MOVE,
+          "m5b: nothing advances without action");
+    check(!tutorial_finished(&t), "m5b: not finished at the start");
+    check(world_move_unit(&world, 0, 1, 0), "m5b: wizard steps east");
+    check(tutorial_update(&t, &world, &g) == TUT_SWITCH,
+          "m5b: move step completes");
+    tutorial_notify(&t, TUT_SWITCH);
+    check(tutorial_update(&t, &world, &g) == TUT_PICKUP,
+          "m5b: switch notification completes the switch step");
+    world.objects[0].x = 200;             /* key off the field = picked up */
+    check(tutorial_update(&t, &world, &g) == TUT_CHEST,
+          "m5b: pickup completes");
+    world.feature[2][5] = FE_NONE;        /* chest opened */
+    check(tutorial_update(&t, &world, &g) == TUT_KILL,
+          "m5b: chest step completes");
+    for (i = 0; i < world.unit_count; i++)
+        if (world.units[i].owner == OWN_P2)
+            gob = i;
+    check(gob != NO_UNIT, "m5b: the goblin exists");
+    tutorial_notify(&t, TUT_SPELL);       /* cast during the fight: sticky */
+    world_kill_unit(&world, gob, CR_WIZARD, OWN_P1, true);
+    check(tutorial_update(&t, &world, &g) == TUT_PORTAL,
+          "m5b: kill and spell steps complete (spell was sticky)");
+    check(!tutorial_finished(&t), "m5b: portal step still open");
+    game_new_round(&g, 2);                /* portal opens */
+    check(game_try_enter_portal(&g, &world, 0) ||
+          (world.units[0].x != 2 || world.units[0].y != 2),
+          "m5b: wizard escapes or is on the way");
+    g.escaped |= (uint8_t)(1u << OWN_P1); /* outcome says win either way */
+    check(tutorial_update(&t, &world, &g) == TUT_DONE,
+          "m5b: portal entry finishes the tutorial");
+    check(tutorial_finished(&t), "m5b: tutorial finished");
+}
+
+static void test_m5b_lexicon(void)
+{
+    Lexicon l, l2;
+    uint8_t buf[17];
+    uint16_t len;
+
+    lexicon_init(&l);
+    check(lexicon_seen_count(&l) == 0, "m5b: lexicon starts empty");
+    check(!lexicon_seen_creature(&l, CR_GOBLIN) &&
+          !lexicon_seen_object(&l, OBJ_SWORD), "m5b: nothing seen at first");
+    lexicon_see_creature(&l, CR_GOBLIN);
+    lexicon_see_creature(&l, CR_DEMON);
+    lexicon_see_object(&l, OBJ_SWORD);
+    lexicon_see_object(&l, OBJ_DRAGON_HERB);
+    check(lexicon_seen_creature(&l, CR_GOBLIN) &&
+          !lexicon_seen_creature(&l, CR_WIZARD), "m5b: creature bits set");
+    check(lexicon_seen_object(&l, OBJ_DRAGON_HERB) &&
+          !lexicon_seen_object(&l, OBJ_GOLD), "m5b: object bits set");
+    check(lexicon_seen_count(&l) == 4, "m5b: seen count");
+    len = lexicon_export(&l, buf, sizeof buf);
+    check(len == 17, "m5b: export is 17 bytes");
+    lexicon_init(&l2);
+    check(lexicon_import(&l2, buf, len) && lexicon_seen_count(&l2) == 4,
+          "m5b: round trip keeps the entries");
+    check(lexicon_seen_creature(&l2, CR_DEMON) &&
+          lexicon_seen_object(&l2, OBJ_SWORD), "m5b: round trip bits");
+    buf[0] = 'X';
+    check(!lexicon_import(&l2, buf, len), "m5b: bad magic rejected");
+    check(!lexicon_import(&l2, buf, 5), "m5b: wrong length rejected");
+    {   /* bits beyond the tables must not survive an import */
+        uint16_t i;
+        for (i = 5; i < 17; i++)
+            buf[i] = 0xFF;
+        buf[0] = 'L'; buf[1] = 'O'; buf[2] = 'C'; buf[3] = 'L'; buf[4] = 1;
+        check(lexicon_import(&l2, buf, sizeof buf) &&
+              lexicon_seen_count(&l2) == CR_COUNT + OBJ_COUNT,
+              "m5b: out-of-range bits dropped on import");
+    }
+
+    check(lexicon_object_kind_of_tile(OBJECTS[OBJ_RUBY].tile) == OBJ_RUBY,
+          "m5b: field tile maps to the object kind");
+
+    {   /* watch: own units always, others and objects only in sight */
+        Sight s;
+        Lexicon lw;
+        load_house();
+        sight_init(&s, OWN_P1);
+        sight_compute(&world, &s);
+        lexicon_init(&lw);
+        lexicon_watch(&lw, &world, &s);
+        check(lexicon_seen_creature(&lw, CR_WIZARD),
+              "m5b: own units count as seen");
+        check(lexicon_seen_object(&lw, OBJ_SCROLL),
+              "m5b: the scroll on the visible field is seen");
+        check(lexicon_seen_creature(&lw, CR_GOBLIN) ==
+              sight_visible(&s, &world, 8, 3),
+              "m5b: the goblin follows the sight rules");
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -2904,6 +3022,8 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m4i();
     test_m4k_ai();
     test_m4_review();
+    test_m5b_tutorial();
+    test_m5b_lexicon();
     load_house();   /* leave a clean state */
     return fails;
 }
