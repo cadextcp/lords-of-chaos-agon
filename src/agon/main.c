@@ -118,6 +118,7 @@ static int selftest(void)
     selftest_set_verbose(false);
     fails = core_selftest(print_line);
     printf(fails ? "=== TEST FAIL ===\r\n" : "=== TEST PASS ===\r\n");
+    fflush(stdout);                      /* reach the UART before the exit */
     emu_exit(fails ? 1 : 0);
     return fails ? 1 : 0;
 }
