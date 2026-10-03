@@ -1,0 +1,7 @@
+# Scenario 2: Slayer's Dungeon (GDD 9.1, D22).
+# Undead guards; the player wizard should carry level 2 (GDD 9).
+
+map slayers_dungeon
+
+book p1 giant_bat 3, magic_bolt 2, dwarf 2, magic_shield 2, healing_potion 2
+book p2 zombie 3, ghost 2, magic_bolt 2

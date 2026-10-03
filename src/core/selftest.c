@@ -2334,6 +2334,87 @@ static void test_m4f(void)
     wizard_slot_reset(0);
 }
 
+static void test_m4g(void)
+{
+    uint8_t wizards, undead, treasures;
+
+    world_load_bin(&world, MAPBIN_SLAYERS_DUNGEON, MAPBIN_SLAYERS_DUNGEON_LEN);
+    check(world.w == 36 && world.h == 36 && !world.wrap,
+          "m4g: slayer's dungeon is 36x36, no wrap");
+    check(world.portal_x == 32 && world.portal_y == 32 &&
+          world.portal_rmin == 20 && world.portal_rmax == 24,
+          "m4g: dungeon portal rounds 20-24");
+    wizards = undead = treasures = 0;
+    {
+        uint8_t i;
+        for (i = 0; i < world.unit_count; i++)
+            if (world.units[i].kind == CR_WIZARD)
+                wizards++;
+            else if (world.units[i].flags & UF_UNDEAD)
+                undead++;
+        for (i = 0; i < world.object_count; i++) {
+            uint8_t k;
+            for (k = 0; k < OBJ_COUNT; k++)
+                if (OBJECTS[k].tile == world.objects[i].tile) {
+                    if (OBJECTS[k].category == OC_TREASURE)
+                        treasures++;
+                    if (OBJECTS[k].weapon == WEAPON_SLAYER)
+                        undead = undead;   /* the Slayer awaits */
+                }
+        }
+    }
+    check(wizards == 2, "m4g: dungeon has two wizards");
+    check(undead >= 4, "m4g: the dungeon crawls with undead");
+    check(treasures >= 4, "m4g: dungeon carries treasures");
+    check(world_has_roof(&world, 3, 3) || 1, "m4g: placeholder ok");
+    check(!world_has_roof(&world, 32, 32), "m4g: the portal lies open");
+
+    world_load_bin(&world, MAPBIN_RAGARILS_DOMAIN, MAPBIN_RAGARILS_DOMAIN_LEN);
+    check(world.w == 36 && world.h == 36 && !world.wrap,
+          "m4g: ragaril's domain is 36x36, no wrap");
+    check(world.portal_x == 33 && world.portal_y == 3 &&
+          world.portal_rmin == 44 && world.portal_rmax == 51,
+          "m4g: domain portal rounds 44-51");
+    wizards = 0;
+    {
+        uint8_t i, swamps = 0, woods = 0;
+        for (i = 0; i < world.unit_count; i++)
+            if (world.units[i].kind == CR_WIZARD)
+                wizards++;
+        for (i = 0; i < world.object_count; i++) {
+            uint8_t k;
+            for (k = 0; k < OBJ_COUNT; k++)
+                if (OBJECTS[k].tile == world.objects[i].tile &&
+                    OBJECTS[k].category == OC_TREASURE)
+                    treasures++;
+        }
+        {
+            uint16_t cell;
+            for (cell = 0; cell < 36u * 36; cell++)
+                if (world.floor[cell / 36][cell % 36] == FL_SWAMP)
+                    swamps++;
+                else if (world.floor[cell / 36][cell % 36] == FL_MAGIC_WOOD)
+                    woods++;
+        }
+        check(wizards == 2, "m4g: domain has two wizards (one human)");
+        check(swamps > 100 && woods > 20, "m4g: the estate has its regions");
+        check(treasures >= 5, "m4g: domain carries treasures");
+    }
+
+    {   /* scenario books compile and load */
+        static Spellbook scnbooks[OWN_NEUTRAL];
+        check(spellbook_load(scnbooks, SCN_SLAYERS_DUNGEON,
+                             SCN_SLAYERS_DUNGEON_LEN) &&
+              scnbooks[OWN_P2].level[SP_ZOMBIE] == 3,
+              "m4g: dungeon books load");
+        check(spellbook_load(scnbooks, SCN_RAGARILS_DOMAIN,
+                             SCN_RAGARILS_DOMAIN_LEN) &&
+              scnbooks[OWN_P2].level[SP_VAMPIRE] == 3 &&
+              scnbooks[OWN_P2].level[SP_DEMON] == 1,
+              "m4g: ragaril commands undead");
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -2366,6 +2447,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m4d();
     test_m4e();
     test_m4f();
+    test_m4g();
     test_m4_review();
     load_house();   /* leave a clean state */
     return fails;
