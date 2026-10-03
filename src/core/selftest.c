@@ -769,13 +769,59 @@ static void test_combat(void)
         world.units[1].x = 7;
         world.units[1].y = 6;
         world.units[1].kind = CR_GOBLIN;
-        check(world_engaged(&world, 0), "combat: neighbour = engaged");
+        check(!world_engaged(&world, 0),
+              "combat: standing next to an enemy alone binds nobody");
+        world_engage(&world, 0);                  /* melee contact */
+        check(world_engaged(&world, 0) && world_engaged(&world, 1),
+              "combat: contact binds both sides");
+        check(world_bump_kind(&world, 0, 0, -1) == BUMP_ENGAGED,
+              "combat: a bound unit is told why it cannot step");
         check(!world_move_unit(&world, 0, 0, -1), "combat: bound units cannot flee");
         check(!world_move_unit(&world, 0, -1, -1), "combat: not diagonally either");
         check(!world_move_unit(&world, 0, 1, 0), "combat: the enemy field blocks the move");
         world_remove_unit(&world, 1);
         check(!world_engaged(&world, 0) && world_move_unit(&world, 0, 0, -1),
               "combat: free again after the enemy dies");
+    }
+
+    {   /* the binding lasts one phase only (GDD 6: next turn free again) */
+        uint8_t owner;
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 2;
+        world.units[0].ap = 40;
+        world.units[1].x = 8;
+        world.units[1].y = 6;
+        world.units[1].kind = CR_GOBLIN;
+        owner = world.units[0].owner;
+        check(world_move_unit(&world, 0, 1, 0) &&
+              world.units[0].x == 7,            /* now next to the enemy */
+              "combat: stepping up to an enemy is allowed");
+        check(world_engaged(&world, 0) && world_engaged(&world, 1),
+              "combat: arriving next to an enemy binds both");
+        check(!world_move_unit(&world, 0, -1, 0),
+              "combat: bound for the rest of the phase");
+        world_release(&world, owner);          /* his phase is over */
+        check(!world_engaged(&world, 0) && world_engaged(&world, 1),
+              "combat: only the finished side is released");
+        check(world_move_unit(&world, 0, -1, 0),
+              "combat: free to leave in the next phase");
+    }
+
+    {   /* through the turn flow: bound in contact, free one phase later */
+        Turns tt;
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 2;
+        world.units[0].ap = 40;
+        world.units[1].x = 8;
+        world.units[1].y = 6;
+        world.units[1].kind = CR_GOBLIN;
+        turn_init(&tt, &world, 3, 1u << OWN_P1);
+        tt.round1_lock = false;
+        check(world_move_unit(&world, 0, 1, 0), "combat: step up to the enemy");
+        turn_end_phase(&tt, &world);           /* P1 done, P2 passes, round 2 */
+        check(tt.round == 2 && !world_engaged(&world, 0) &&
+              !world_engaged(&world, 1),
+              "combat: both sides are free again in the next round");
     }
 
     {   /* terrain attacks (features.csv) */

@@ -69,6 +69,8 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
         return false;
 
     world_spend(w, att, ACTIONS[ACT_MELEE].ap);
+    world_engage(w, att);                  /* melee contact binds both (GDD 6) */
+    world_engage(w, def);
     /* normal weapons clank off the undead (GDD 4.2); either way the
      * defender strikes back below, hit or miss (GDD 6) */
     ok_to_hit = items_can_harm_undead(w, att, def) &&

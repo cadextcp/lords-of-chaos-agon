@@ -172,7 +172,9 @@ void turn_end_phase(Turns *t, World *w)
 {
     uint8_t autoplay = 0;
     for (;;) {
-        uint8_t o = next_owner(w, t->phase);
+        uint8_t o;
+        world_release(w, t->phase);       /* bound for that phase only (GDD 6) */
+        o = next_owner(w, t->phase);
         if (o == OWN_COUNT) {             /* last owner done: round end */
             /* nobody left to hand the turn back to: let the AI finish
              * the game, but never loop forever */
@@ -185,6 +187,7 @@ void turn_end_phase(Turns *t, World *w)
             if (t->on_round)
                 t->on_round(t, w, t->round_ctx);
             turn_independents(t, w);      /* next round starts (GDD 2.1.1) */
+            world_release(w, OWN_NEUTRAL);
             o = first_owner(w);
             if (o == OWN_COUNT)
                 return;                   /* world without wizards */

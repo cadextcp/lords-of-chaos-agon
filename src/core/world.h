@@ -30,7 +30,8 @@ typedef enum {
 
 /* Status flags shown as panel icons (PM 11). */
 enum { UF_UNDEAD = 1, UF_FLYING = 2, UF_MOUNT = 4, UF_WOUNDED = 8,
-       UF_INVISIBLE = 16, UF_MAGIC_WEAPON = 32 /* enchanted (M4b Enchant) */ };
+       UF_INVISIBLE = 16, UF_MAGIC_WEAPON = 32 /* enchanted (M4b Enchant) */,
+       UF_ENGAGED = 128 /* bound in melee until its owner's phase ends (GDD 6) */ };
 
 /* Brewing cauldron on a field (M4c, GDD 7.2). */
 #define CAULDRONS_MAX 4
@@ -180,9 +181,15 @@ uint8_t world_spawn_unit(World *w, uint8_t owner, uint8_t kind, uint8_t x, uint8
 uint8_t world_distance(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1);
 /* Index of the unit with this id, NO_UNIT when it is gone. */
 uint8_t world_find_unit(const World *w, uint8_t id);
-/* Ground unit standing next to a living enemy: bound (GDD 6), only the
- * attack itself remains. */
+/* Ground unit that was engaged this turn (UF_ENGAGED) and still stands
+ * next to a living enemy: bound (GDD 6), only the attack remains. The
+ * binding ends with its owner's next phase. */
 bool world_engaged(const World *w, uint8_t unit);
+/* Melee contact: the unit and every ground enemy next to it become bound
+ * (a move next to an enemy, an attack). */
+void world_engage(World *w, uint8_t unit);
+/* The owner's phase is over: his units are free to move again. */
+void world_release(World *w, uint8_t owner);
 /* Round end: fatal wounds bleed (PM 17), the bled-out drop their
  * objects; refill AP - the layer budget
  * while flying (ap_fly), halved when exhausted (PM 12) - recover 25 %
@@ -197,6 +204,8 @@ typedef enum {
     BUMP_DOOR,      /* closed door: try world_open_door */
     BUMP_UNIT,      /* a unit blocks the layer */
     BUMP_TERRAIN,   /* impassable feature (attack on terrain, M3) */
+    BUMP_ENGAGED,   /* bound in melee: only the attack remains (GDD 6) */
+    BUMP_HELD,      /* strong blob or vine on the field (M4d) */
     BUMP_OUTSIDE    /* outside a non-wrapping map */
 } BumpKind;
 BumpKind world_bump_kind(const World *w, uint8_t unit, int8_t dx, int8_t dy);

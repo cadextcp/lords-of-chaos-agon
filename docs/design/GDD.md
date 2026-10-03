@@ -395,6 +395,7 @@ Ein langsamer Zombie (24 AP) schafft 2 Angriffe; ein Löwe (54 AP) läuft 13 Fel
 
 - **Nahkampf:** Man bewegt sich ins Feld des Gegners. Combat des Angreifers wird gegen Defence des Verteidigers gerechnet, mit Zufallsanteil.
 - **Gebunden (engaged):** Wer neben einem Gegner steht, kann sich in diesem Zug nicht mehr wegbewegen, außer alle angrenzenden Gegner sind tot. Im nächsten Zug ist Bewegung wieder möglich.
+  - **Umsetzung (Fix nach Hardware-Test):** Nahkampfkontakt bindet beide Seiten: an einen Gegner heranziehen, angreifen oder angegriffen werden. Die Bindung (`UF_ENGAGED`) endet mit der eigenen Phase des Gebundenen; ein Bodenkämpfer, der nur neben einem Gegner steht, ist nicht gebunden. Wer gebunden ist, bekommt beim Versuch wegzugehen die Meldung „Gebunden: Gegner daneben - nur Angriff.“ Flieger und Reiter sind nie gebunden.
 - **Rückschlag:** Ein angegriffenes Ziel schlägt automatisch zurück, wenn es noch AP **und** Stamina hat.
 - **Tödliche Wunde:** Ein einzelner Treffer über 25 % der Constitution verursacht sie.
   - Danach verliert die Kreatur jede Runde Constitution, bis sie stirbt oder einen Heiltrank trinkt.

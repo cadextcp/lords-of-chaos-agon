@@ -434,6 +434,12 @@ static void step(uint8_t m, bool dump)
         case BUMP_NO_AP:
             render_message(1, C_BRIGHT_RED, "Zu wenig AP - Leertaste/Tab weiter.");
             return;
+        case BUMP_ENGAGED:
+            render_message(1, C_BRIGHT_RED, "Gebunden: Gegner daneben - nur Angriff.");
+            return;
+        case BUMP_HELD:
+            render_message(1, C_BRIGHT_RED, "Brei oder Ranken versperren den Weg.");
+            return;
         case BUMP_UNIT: {
             CombatResult r;
             char msg[48], name[16], aname[16];
