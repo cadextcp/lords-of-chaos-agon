@@ -15,7 +15,7 @@
 #define SCREEN_MODE 8
 #define FORMAT_RGBA2222 1
 #define TILE_BUFFER_BASE 0x2000
-#define MAP_PX (VIEW_W * TILE_PX)   /* 216 */
+/* MAP_PX comes from render.h */
 #define PANEL_X MAP_PX
 #define TEXT_COL_PANEL 27           /* 216 / 8 */
 #define TEXT_ROW_MSG 27             /* 216 / 8 */
@@ -316,6 +316,17 @@ void render_spell_list(const Spellbook *book)
         letter++;
     }
     text_at(0, 22, C_GREY, "Esc bricht ab.");
+}
+
+void render_menu_clear(void)
+{
+    black(0, 0, MAP_PX - 1, MAP_PX - 1);
+}
+
+void render_menu_text(uint8_t col, uint8_t row, uint8_t colour,
+                      const char *text)
+{
+    text_at(col, row, colour, text);
 }
 
 void render_message(uint8_t line, uint8_t colour, const char *text)

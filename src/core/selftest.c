@@ -7,6 +7,7 @@
 #include "area.h"
 #include "brew.h"
 #include "ride.h"
+#include "wizard.h"
 #include "effect.h"
 #include "chord.h"
 #include "combat.h"
@@ -2248,6 +2249,68 @@ static void test_m4e(void)
     }
 }
 
+static void test_m4f(void)
+{
+    Wizard *w = &wizard_slots[0];
+    Rng rng;
+
+    wizard_slot_reset(0);
+    check(w->level == 1 && w->xp == 0 && w->com == 10 && w->sta == 60 &&
+          w->book.level[SP_GIANT_BAT] == 2,
+          "m4f: stock designer wizard");
+    check(wizard_attr_cost(WA_COMBAT, 10) == 7 &&
+          wizard_attr_cost(WA_COMBAT, 20) == 10,
+          "m4f: costs rise with the value");
+
+    w->xp = 50;
+    check(wizard_raise(w, WA_COMBAT) && w->com == 11 && w->xp == 43,
+          "m4f: raising costs XP");
+    w->xp = 1;
+    check(!wizard_raise(w, WA_COMBAT), "m4f: no raising without XP");
+
+    {   /* caps */
+        w->xp = 60000;
+        w->mr = wizard_attr_max(WA_MAGIC_RES);
+        check(!wizard_raise(w, WA_MAGIC_RES), "m4f: caps stop raising");
+        w->mr = 80;
+    }
+
+    {   /* campaign: VP -> XP 1:1, level up once per scenario (GDD 9) */
+        wizard_slot_reset(1);
+        wizard_campaign_result(&wizard_slots[1], 75, 1);
+        check(wizard_slots[1].xp == 75 && wizard_slots[1].level == 2,
+              "m4f: first clear gives XP and a level");
+        wizard_campaign_result(&wizard_slots[1], 20, 1);
+        check(wizard_slots[1].xp == 95 && wizard_slots[1].level == 2,
+              "m4f: repeating scores XP without a level");
+        wizard_campaign_result(&wizard_slots[1], 10, 2);
+        check(wizard_slots[1].level == 3, "m4f: scenario 2 lifts again");
+    }
+
+    {   /* random wizard: book stays meaningful, XP arrives */
+        rng_seed(&rng, 9);
+        wizard_slot_random(2, 2, &rng);
+        check(wizard_slots[2].xp == 80 &&
+              wizard_slots[2].book.level[SP_GIANT_BAT] >= 2,
+              "m4f: random wizard keeps the starter book");
+    }
+
+    {   /* apply to the world: F5 - values yes, items no */
+        uint8_t u;
+        wizard_slots[0].com = 14;
+        wizard_slots[0].con = 33;
+        wizard_slots[0].sta = 66;
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 1;
+        u = 0;
+        wizard_apply_to_world(w, &world, u);
+        check(world.units[u].com == 14 && world.units[u].con == 33 &&
+              world.units[u].sta == 66 && world.units[u].item_count == 0,
+              "m4f: the designer wizard enters without items (F5)");
+    }
+    wizard_slot_reset(0);
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -2279,6 +2342,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m4c();
     test_m4d();
     test_m4e();
+    test_m4f();
     test_m4_review();
     load_house();   /* leave a clean state */
     return fails;

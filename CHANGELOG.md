@@ -20,6 +20,14 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
   - Teleport streut symmetrisch und misst Chebyshev; Magic Attack und die Bombe rechnen mit Wrap-around und schreiben Kills dem richtigen Werfer bzw. Zaubernden zu.
 
 ### Hinzugefügt
+- **M4f Zauberer und Kampagne (#48):**
+  - `src/core/wizard.[ch]`: Designer-Datenmodell (Name, Level, XP, 5 Attribute mit linearen Kosten und Obergrenzen F6, Zauberbuch), 4 Slots
+  - Hauptmenü (GDD §2.3): Szenario starten, Designer, Zauberer zurücksetzen, Beenden; Pfeile + Enter
+  - Designer-Bildschirm: Attribute mit +/− erhöhen (XP-Konto im Kopf), Esc zurück
+  - 4 Zauberer-Plätze in `wizards.dat` auf der SD (Laden beim Boot, Zurücksetzen auf den Stock-Zauberer)
+  - Kampagne: **VP → XP 1:1**, erstes Abschließen eines Szenarios hebt die Stufe (Wiederholen bringt nur XP, GDD §9); **F5:** der Übertrag trägt nur Attribute, Zauberbuch und XP — der Zauberer startet unbewaffnet
+  - Zufalls-Zauberer nach Stärke (Setup-Startwert, F9): XP-Budget und zufällige Buchstufen über den Partie-RNG
+
 - **M4e Kampf komplett (#47):**
   - 7 neue Waffen als Objekte (Messer, Speer, Keule, Axt, Wurfstern, Slayer, Magie-Slayer) mit eigener Pixelart und den Werten aus `weapons.csv` (D7)
   - **Reiten** (`src/core/ride.[ch]`, Taste `b`): freundliche Reittiere (CF_MOUNT) nehmen Reiter (CF_RIDE: Zauberer, Pixie, Zwerg, Goblin, Troll) auf — das Paar ist eine Einheit (Flag `UF_RIDDEN`, Reiterart an Bord, Gepäck wandert mit), bewegt sich mit den AP des Reittiers, erscheint einmal in der Tab-Reihenfolge; Absteigen braucht ein freies Nachbarfeld (4 AP). **Reiter greifen von befreundetem Feld an** (D21-Ausnahme: `world_engaged` gilt nicht für sie)

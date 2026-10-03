@@ -16,3 +16,7 @@ bool mapfile_load(World *w, const char *path);
 /* Load a compiled scenario (.scn, M4a) with the spellbooks of all
  * wizards. False when missing or invalid. */
 bool scnfile_load(Spellbook *books, const char *path);
+/* Wizard slots: all 4 in one file "/wizards.dat" (M4f). load returns
+ * false when the file is missing or has the wrong size. */
+bool wizards_save(void);
+bool wizards_load(void);

@@ -6,6 +6,8 @@
 #ifndef LOC_RENDER_H
 #define LOC_RENDER_H
 
+#define MAP_PX 216   /* 9 fields x 24 px (matches render.c) */
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -37,6 +39,10 @@ void render_cursor(int16_t vx, int16_t vy, uint8_t colour, bool visible);
 void render_spell_list(const Spellbook *book);
 /* One of the three message lines (0..2) below the map. */
 void render_message(uint8_t line, uint8_t colour, const char *text);
+/* Menu helpers (M4f): black out the map window, write one text cell. */
+void render_menu_clear(void);
+void render_menu_text(uint8_t col, uint8_t row, uint8_t colour,
+                      const char *text);
 void render_shutdown(void);
 
 #endif
