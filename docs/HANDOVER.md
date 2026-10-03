@@ -1,6 +1,6 @@
 # Übergabe: Stand und nächste Schritte
 
-> Stand: 2026-10-03 · **M2 und M3 vollständig** (#13–#33) · CI grün
+> Stand: 2026-10-03 · **M2 und M3 vollständig** (#13–#33, Fixes #41) · M4 geplant (#43–#52) · CI grün
 > Für die nächste Person bzw. den nächsten Agenten. Zuerst `CLAUDE.md` lesen (Regeln, Befehle), dann dieses Dokument.
 
 ---
@@ -123,24 +123,26 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 
 ---
 
-## 7. Nächste Schritte: M4 „Classic komplett“ (v0.4.0 laut ROADMAP)
+## 7. Nächste Schritte: M4 „Classic komplett“ (Ziel `v1.0.0`)
 
-**M3 ist vollständig (#27–#33): eine Partie gegen die KI ist durchspielbar** (Beschwören, Kämpfen, Schätze sammeln, Portal, VP-Abrechnung). Wie bei M3 zuerst eine M4-Aufteilung im GDD vorschlagen und mit dem Nutzer abstimmen, dann Issues anlegen.
+**M3 ist vollständig (#27–#33), dazu die Review-Fixes und Regeln D21 (#41).** Die M4-Aufteilung ist mit dem Nutzer abgestimmt: **GDD §16, Entscheidung D22**. Issues im Milestone „M4 Classic komplett (v1.0)“:
 
-**Workflow:** pro Issue ein Branch `m4/<x>-…`, Selftest-Checks, Emulator-Screenshot, CHANGELOG, PR mit `Closes #n` und Auto-Merge.
+| Teil | Issue | Inhalt |
+|---|---|---|
+| M4a | #43 | Classic-Lücken (Untote, Con-Malus, Nahrung, Schlüssel, Truhen, Rollen) und Szenario-Format mit Zauberbüchern |
+| M4b | #44 | Wirkungen mit Laufzeit und 7 sonstige Zauber |
+| M4c | #45 | Tränke und Brauen, Drachen |
+| M4d | #46 | Flächeneffekte |
+| M4e | #47 | Restliche Waffen, Reiten, Dächer |
+| M4f | #48 | Hauptmenü, Wizard Designer, Kampagne |
+| M4g | #49 | Szenarien 2 und 3 |
+| M4h | #50 | KI-Ausbau |
+| M4i | #51 | Speichern und Setup |
+| M4j | #52 | Politur |
 
-**M4-Bausteine laut ROADMAP/GDD (Vorschlagsgrundlage):**
-- **Tränke und Brauen** (GDD §7.2): Kessel + Zutat + Trankzauber, DRINK/FILL, Wirkdauern
-- **Flächeneffekte:** Magic Fire, Gooey Blob, Tangle Vine, Flood (Ausbreitung pro Runde)
-- **Weitere Zauber:** Enchant, Subversion, Curse, Magic Attack, Teleport, Magic Eye, Magic Shield
-- **Waffen fertig:** Munition/pfeile?, Wurf-Bugs, Slayer-Regeln, magische Waffen vs Untote
-- **Reiten** (GDD §4.2), Angriffe aus der Luft, Dächer (Datenfeld)
-- **Wizard Designer + Kampagne** (XP/VP-Übertrag, Szenarien 2–3)
-- **Politur:** Kontextmenü Enter, Big Map m, Log l, Hilfe F1, Sound
+**Als Nächstes: M4a (#43).** Die Designfragen F1–F9 (GDD §16.1) sind Startwerte; vor jedem Teil kurz mit dem Nutzer bestätigen. Der Nutzer liefert Regelantworten oft als Recherche aus den Quellen; Originalwerte daraus sind nur Anker (D7).
 
-**Danach M5 Chaos.**
-
----
+**Workflow:** pro Issue ein Branch `m4/<x>-…`, Selftest-Checks, Emulator-Screenshot, CHANGELOG, PR mit `Closes #n`. Merge nach grünem CI macht der Nutzer.
 
 ## 8. Offene Punkte außerhalb von M2
 
