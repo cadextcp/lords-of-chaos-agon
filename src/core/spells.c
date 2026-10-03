@@ -410,7 +410,7 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
             return CAST_REJECTED;
         level = b->level[spell];
         if (!area_cast(w, kind, level, u->owner, x, y))
-            return CAST_REJECTED;        /* terrain refuses: nothing paid */
+            return CAST_BAD_TERRAIN;     /* field refuses: nothing paid */
         pay_for_spell(w, b, wiz, spell, x, y);
         out->allowed = true;
         return CAST_OK;

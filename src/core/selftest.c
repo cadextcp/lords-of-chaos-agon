@@ -2036,10 +2036,14 @@ static void test_m4d(void)
               area_kind_at(&world, 21, 19) == AREA_FIRE &&
               sb.level[SP_MAGIC_FIRE] == 1 && world.units[g].mana < 100,
               "m4d: spell_apply casts fire and pays");
-        check(spell_apply(&world, &sb, g, SP_MAGIC_FIRE, 15, 0, &rng,
-                          &shot) == CAST_REJECTED &&
+        check(spell_apply(&world, &sb, g, SP_MAGIC_FIRE, 16, 19, &rng,
+                          &shot) == CAST_BAD_TERRAIN &&   /* water, in reach */
               sb.level[SP_MAGIC_FIRE] == 1,
-              "m4d: refused terrain costs nothing");
+              "m4d: refused terrain is reported and costs nothing");
+        check(spell_apply(&world, &sb, g, SP_MAGIC_FIRE, 15, 0, &rng,
+                          &shot) == CAST_REJECTED &&   /* out of reach */
+              sb.level[SP_MAGIC_FIRE] == 1,
+              "m4d: out of reach costs nothing");
         sb.level[SP_FLOOD] = 1;
         check(spell_apply(&world, &sb, g, SP_FLOOD, 21, 19, &rng,
                           &shot) == CAST_OK &&

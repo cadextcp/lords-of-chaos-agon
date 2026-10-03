@@ -264,6 +264,10 @@ static void cast_targeted(bool dump)
             render_message(1, C_BRIGHT_RED, "Ausser Reichweite oder Sicht.");
             return;
         }
+        if (cr == CAST_BAD_TERRAIN) {
+            render_message(1, C_BRIGHT_RED, "Das Ziel nimmt das nicht an.");
+            return;
+        }
         if (cr == CAST_NO_RES) {
             render_message(1, C_GREY, "Das Ziel widersteht.");
             settle();
