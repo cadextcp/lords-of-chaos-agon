@@ -34,8 +34,9 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy);
  * ground and air targets, Defence counts. */
 bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
                 uint8_t *damage);
-/* Effective values with weapon bonuses (D16/D18): in-use weapon Combat,
- * plus Defence of weapon in use AND of any carried shield. */
+/* Effective values with weapon bonuses (D16/D18/D21): in-use weapon
+ * Combat; Defence plus one carried shield (in use or not, never more
+ * than one). Every attack - melee, throw, bow, bolt - uses these. */
 uint8_t items_combat(const World *w, uint8_t unit);
 uint8_t items_defence(const World *w, uint8_t unit);
 

@@ -1,6 +1,7 @@
 #include "spells.h"
 
 #include "combat.h"
+#include "items.h"
 #include "sight.h"
 
 #include <string.h>
@@ -91,7 +92,7 @@ static bool shoot_field(World *w, Rng *rng, const Unit *caster, int16_t x,
     if (target == NO_UNIT)
         return false;
     if (rng_range(rng, 100) >= combat_hit_chance(caster->com,
-                                                 w->units[target].def))
+                                                 items_defence(w, target)))
         return false;
     *damage = (uint8_t)((caster->com +
                          rng_range(rng, (uint16_t)(caster->com + 1))) / 4);

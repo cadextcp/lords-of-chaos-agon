@@ -956,6 +956,10 @@ static void test_items(void)
         world.units[0].items[1] = OBJ_SHIELD;
         world.units[0].item_count = 2;
         check(items_defence(&world, 0) == 16, "items: carried shield +4 defence");
+        world.units[0].items[2] = OBJ_SHIELD;
+        world.units[0].item_count = 3;
+        check(items_defence(&world, 0) == 16, "items: shields do not stack (D21)");
+        world.units[0].item_count = 2;
     }
 
     check(items_drop(&world, 0) && world.units[0].item_count == 1 &&
@@ -1019,6 +1023,8 @@ static void test_game(void)
           "game: the wizard escapes and leaves the world");
     check(g.vp[OWN_P1] == VP_ESCAPE + 40 && (g.escaped & 1) != 0,
           "game: escape bonus plus carried treasures");
+    check(items_kind_at(&world, 26, 3) == NO_ITEM,
+          "game: the escaped take their objects along");
 
     {   /* creatures cannot pass */
         world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
@@ -1196,6 +1202,49 @@ static void test_review_fixes(void)
         memset(&r, 0xAA, sizeof r);
         check(!combat_melee(&world, &rng, 0, 0, &r) && !r.died && !r.attacker_died,
               "fix: refused melee zeroes the result");
+    }
+
+    {   /* D21: the dead drop what they carried, also when bleeding out */
+        uint8_t v, objs = world.object_count;
+        v = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 20, 21);
+        world.units[v].items[0] = OBJ_GOLD;
+        world.units[v].items[1] = OBJ_SWORD;
+        world.units[v].item_count = 2;
+        world_kill_unit(&world, v, CR_WIZARD, OWN_P1, true);
+        check(world.object_count == objs + 2 && items_kind_at(&world, 20, 21) != NO_ITEM,
+              "fix: the dead drop their objects");
+        game_credit_kills(&g, &world);
+        v = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 21, 21);
+        world.units[v].items[0] = OBJ_GOLD;
+        world.units[v].item_count = 1;
+        world.units[v].con = 1;
+        world.units[v].flags |= UF_WOUNDED;
+        v = world.units[v].id;
+        world_new_turn(&world);
+        check(world_find_unit(&world, v) == NO_UNIT && world.object_count == objs + 3,
+              "fix: bled-out units drop too");
+        check(items_kind_at(&world, 21, 21) == OBJ_GOLD,
+              "fix: the treasure lies where he fell");
+    }
+
+    {   /* D21: ranged attacks share the 10..90 % clamp of D16 */
+        uint8_t s, tg, hits = 0, n;
+        world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+        world.unit_count = 0;
+        s = world_spawn_unit(&world, OWN_P1, CR_DWARF, 2, 0);
+        tg = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 5, 0);
+        world.units[s].items[0] = OBJ_BOW;
+        world.units[s].item_count = 1;
+        world.units[s].in_use = 0;
+        world.units[tg].def = 200;               /* old formula: never */
+        world.units[tg].con = world.units[tg].con_max = 255;
+        for (n = 0; n < 100; n++) {
+            uint8_t dmg = 0;
+            world.units[s].ap = 40;
+            if (items_fire(&world, &rng, s, 5, 0, &dmg) && dmg)
+                hits++;
+        }
+        check(hits > 0 && hits < 30, "fix: bow hits at least 10 % (D16 clamp)");
     }
 
     /* more than 24 units: the eZ80 int is 24 bit (no bit masks) */

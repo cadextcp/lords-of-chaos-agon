@@ -136,9 +136,9 @@ void world_spend(World *w, uint8_t unit, uint8_t ap);
 /* Remove a unit (swap with the last): indices of other units may change,
  * so callers re-find units by id (world_find_unit, turn_revalidate). */
 void world_remove_unit(World *w, uint8_t unit);
-/* A unit dies by someone's hand: the kill is logged for the VP account
- * (game_credit_kills) unless the killer is independent, then the unit is
- * removed. Killer kind and owner are passed by value - the killer itself
+/* A unit dies by someone's hand: its carried objects drop onto its
+ * field (D21), the kill is logged for the VP account (game_credit_kills)
+ * unless the killer is independent, then the unit is removed. Killer kind and owner are passed by value - the killer itself
  * may already be gone (lightning splash). */
 void world_kill_unit(World *w, uint8_t victim, uint8_t killer_kind,
                      uint8_t killer_owner, bool melee);
@@ -150,7 +150,8 @@ uint8_t world_find_unit(const World *w, uint8_t id);
 /* Ground unit standing next to a living enemy: bound (GDD 6), only the
  * attack itself remains. */
 bool world_engaged(const World *w, uint8_t unit);
-/* Round end: fatal wounds bleed (PM 17); refill AP - the layer budget
+/* Round end: fatal wounds bleed (PM 17), the bled-out drop their
+ * objects; refill AP - the layer budget
  * while flying (ap_fly), halved when exhausted (PM 12) - recover 25 %
  * stamina (GDD 5.3), regenerate 4 % mana; bleeders that reach 0 are
  * removed. */

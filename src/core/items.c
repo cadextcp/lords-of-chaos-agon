@@ -152,8 +152,8 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
         if (target == NO_UNIT)
             target = world_unit_at(w, nx, ny, UL_AIR);
         if (target != NO_UNIT) {        /* thrown weapons hit flyers too */
-            if (rng_range(rng, 100) < 50 + 5 * (int16_t)(items_combat(w, unit) -
-                                                        w->units[target].def))
+            if (rng_range(rng, 100) < combat_hit_chance(items_combat(w, unit),
+                                                       items_defence(w, target)))
                 combat_damage(w, target,
                               roll(weapon != WEAPON_NONE ? WEAPONS[weapon].thrown : 1, rng),
                               u->kind, u->owner, false, NULL);
@@ -209,8 +209,8 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
     if (target == NO_UNIT)
         return false;
     world_spend(w, unit, ACTIONS[ACT_FIRE].ap);
-    if (rng_range(rng, 100) < 50 + 5 * ((int16_t)items_combat(w, unit) -
-                                        (int16_t)w->units[target].def)) {
+    if (rng_range(rng, 100) < combat_hit_chance(items_combat(w, unit),
+                                                items_defence(w, target))) {
         uint8_t dmg = roll(WEAPONS[weapon].ranged, rng);
         if (damage)
             *damage = dmg;
@@ -241,10 +241,8 @@ uint8_t items_defence(const World *w, uint8_t unit)
         return 0;
     u = &w->units[unit];
     def = u->def;
-    for (i = 0; i < u->item_count; i++) {   /* shields always count */
-        uint8_t weapon = OBJECTS[u->items[i]].weapon;
-        if (weapon != WEAPON_NONE && weapon == WEAPON_SHIELD)
-            def = (uint8_t)(def + WEAPONS[WEAPON_SHIELD].defence);
-    }
+    for (i = 0; i < u->item_count; i++)     /* one carried shield counts (D21) */
+        if (OBJECTS[u->items[i]].weapon == WEAPON_SHIELD)
+            return (uint8_t)(def + WEAPONS[WEAPON_SHIELD].defence);
     return def;
 }
