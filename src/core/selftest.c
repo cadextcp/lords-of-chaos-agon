@@ -5,6 +5,7 @@
 
 #include "chord.h"
 #include "combat.h"
+#include "game.h"
 #include "items.h"
 #include "gen/maps.h"
 #include "names.h"
@@ -19,8 +20,8 @@
  * Must be identical on host and Agon; update deliberately when the map,
  * tiles or composition rules change. Changed for M2d: the new unexplored
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
- * cursor_blue, M3d five object tiles, shifting again. */
-#define HOUSE_VIEW_HASH 0x7D5C073DUL
+ * cursor_blue, M3d five object tiles, M3e the portal pair. */
+#define HOUSE_VIEW_HASH 0x1D08BB5FUL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -885,7 +886,7 @@ static void test_bolt(void)
             world.units[0].mana = 80;
             world.units[1].con = 32;
             book.level[SP_MAGIC_BOLT] = 8;
-            rng_seed(&rng, 4000 + k);
+            rng_seed(&rng, 7000 + k);
             if (!spell_bolt(&world, &book, 0, SP_MAGIC_BOLT, 9, 5, &rng, &shot))
                 all_cast = false;
             if (shot.hit)
@@ -991,6 +992,63 @@ static void test_items(void)
     }
 }
 
+static void test_game(void)
+{
+    Game g;
+    Rng rng;
+
+    rng_seed(&rng, 42);
+    game_init(&g, 26, 3, 12, 15, &rng);
+    check(g.portal_round >= 12 && g.portal_round <= 15 && !g.portal_open,
+          "game: portal round within the span");
+    game_new_round(&g, 11);
+    check(!g.portal_open, "game: still closed before its round");
+    game_new_round(&g, g.portal_round);
+    check(g.portal_open, "game: opens at its round");
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 1;
+    world.units[0].x = 26;
+    world.units[0].y = 3;
+    world.units[0].items[0] = OBJ_GOLD;         /* 40 VP */
+    world.units[0].items[1] = OBJ_SWORD;        /* worth nothing */
+    world.units[0].item_count = 2;
+    check(game_try_enter_portal(&g, &world, 0) && world.unit_count == 0,
+          "game: the wizard escapes and leaves the world");
+    check(g.vp[OWN_P1] == VP_ESCAPE + 40 && (g.escaped & 1) != 0,
+          "game: escape bonus plus carried treasures");
+
+    {   /* creatures cannot pass */
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 1;
+        world.units[0].kind = CR_GOBLIN;
+        world.units[0].x = 26;
+        world.units[0].y = 3;
+        check(!game_try_enter_portal(&g, &world, 0) && world.unit_count == 1,
+              "game: creatures cannot pass");
+        check(game_over(&g, &world), "game: over without wizards");
+    }
+
+    {   /* the open portal is drawn as an animated layer */
+        FieldLayers f;
+        view_set_sight(NULL);
+        view_set_portal(26, 3);
+        view_compose(&world, 26, 3, &f);
+        check(has_layer(&f, T_PORTAL_0), "game: portal drawn on its field");
+        view_set_portal(-1, -1);
+        view_set_sight(NULL);
+    }
+
+    {   /* kill credit: wizard melee doubled, ranged single (AMI 4) */
+        game_init(&g, -1, -1, 1, 1, &rng);
+        game_kill_credit(&g, OWN_P1, CR_WIZARD, true);    /* melee: 20*2 */
+        game_kill_credit(&g, OWN_P1, CR_WIZARD, false);   /* ranged: 20 */
+        game_kill_credit(&g, OWN_P2, CR_GIANT_BAT, true); /* creature vp */
+        check(g.vp[OWN_P1] == 60 && g.vp[OWN_P2] == CREATURES[CR_GIANT_BAT].vp,
+              "game: kills score, wizard melee doubled");
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -1013,6 +1071,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_spells();
     test_bolt();
     test_items();
+    test_game();
     load_house();   /* leave a clean state */
     return fails;
 }

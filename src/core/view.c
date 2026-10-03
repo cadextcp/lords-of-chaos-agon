@@ -30,8 +30,8 @@ static const uint16_t FEATURE_TILE[FE_COUNT] = {
 };
 
 /* Animated tiles: frame 0 <-> frame 1 (candles, water). */
-static const uint16_t ANIM_A[] = {T_CANDLE_0, T_FLOOR_WATER_0};
-static const uint16_t ANIM_B[] = {T_CANDLE_1, T_FLOOR_WATER_1};
+static const uint16_t ANIM_A[] = {T_CANDLE_0, T_FLOOR_WATER_0, T_PORTAL_0};
+static const uint16_t ANIM_B[] = {T_CANDLE_1, T_FLOOR_WATER_1, T_PORTAL_1};
 #define ANIM_N (sizeof ANIM_A / sizeof ANIM_A[0])
 
 static uint16_t anim_swap(uint16_t id, uint8_t ph)
@@ -58,6 +58,7 @@ static int16_t cursor_x, cursor_y;
 static uint16_t cursor_tile = NO_CURSOR;
 static uint8_t phase;
 static const Sight *sight_map;   /* NULL: omniscient (tests, mockups) */
+static int16_t portal_x = -1, portal_y = -1;   /* open portal, if any */
 
 void view_invalidate(void) { valid = false; }
 
@@ -103,6 +104,12 @@ void view_set_cursor(int16_t x, int16_t y, uint16_t tile)
 void view_set_sight(const Sight *s)
 {
     sight_map = s;
+}
+
+void view_set_portal(int16_t x, int16_t y)
+{
+    portal_x = x;
+    portal_y = y;
 }
 
 void view_set_phase(uint8_t p) { phase = p & 1; }
@@ -226,6 +233,9 @@ static void compose_dynamic(const World *w, int16_t wx, int16_t wy, FieldLayers 
         }
     }
 
+    if (portal_x == wx && portal_y == wy)
+        push(out, phase ? T_PORTAL_1 : T_PORTAL_0);
+
     u = world_unit_at(w, wx, wy, UL_GROUND);
     if (u != NO_UNIT)
         push_unit(w, &w->units[u], out, false);
@@ -325,6 +335,8 @@ static void compose_fast(const World *w, uint8_t vx, uint8_t vy, FieldLayers *ou
             out->id[i] = anim_swap(out->id[i], phase);
     if (over_obj[vy][vx] != NO_TILE)
         push(out, over_obj[vy][vx]);
+    if (portal_x == wx && portal_y == wy)
+        push(out, phase ? T_PORTAL_1 : T_PORTAL_0);
     if (over_unit[vy][vx])
         push_unit(w, &w->units[over_unit[vy][vx] - 1], out, false);
     if (over_air[vy][vx]) {

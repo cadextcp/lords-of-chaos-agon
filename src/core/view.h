@@ -17,6 +17,9 @@
 /* Hidden map for composition: unexplored = black, remembered = raster
  * overlay, enemy units only in sight. NULL (default) shows everything. */
 void view_set_sight(const Sight *s);
+/* Open portal at a world position (-1 = none); drawn as an animated
+ * layer above the static terrain (GDD 9). */
+void view_set_portal(int16_t x, int16_t y);
 
 #define VIEW_W 9
 #define VIEW_H 9
