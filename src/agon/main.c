@@ -38,7 +38,8 @@
 #include "mapfile.h"
 #include "render.h"
 
-#define MAP_TESTLAND "maps/testland.map"   /* relative to /loc (ADR 0008) */
+#define MAP_SCENARIO "maps/many_coloured_land.map"   /* scenario 1 (GDD 9.1) */
+#define MAP_TESTLAND "maps/testland.map"      /* dev map (ADR 0008) */
 #define MAP_HOUSE "maps/wizard_house.map"
 #define TURN_SEED 42    /* fixed: emulator runs replay like the selftest */
 #define ANIM_CS 40     /* candle flicker period in centiseconds */
@@ -453,7 +454,12 @@ int main(int argc, char **argv)
         return 0;
     }
     dump = argc > 1 && strcmp(argv[1], "--dump") == 0;
-    map_path = (argc > 1 && strcmp(argv[1], "--house") == 0) ? MAP_HOUSE : MAP_TESTLAND;
+    if (argc > 1 && strcmp(argv[1], "--house") == 0)
+        map_path = MAP_HOUSE;
+    else if (argc > 1 && strcmp(argv[1], "--testland") == 0)
+        map_path = MAP_TESTLAND;
+    else
+        map_path = MAP_SCENARIO;
     do_bench = argc > 1 && strcmp(argv[1], "--bench") == 0;
     for (i = 1; i < (uint8_t)argc; i++)
         if (strcmp(argv[i], "--free-round1") == 0)
@@ -484,7 +490,8 @@ int main(int argc, char **argv)
         turns.ai = ai_wizard_phase;
         turns.ai_ctx = &ai_ctx;
     }
-    game_init(&game, 26, 3, 12, 15, &turns.rng);   /* M3g moves this to the map */
+    game_init(&game, world.portal_x, world.portal_y, world.portal_rmin,
+              world.portal_rmax, &turns.rng);   /* portal from the map (v3) */
     game_new_round(&game, turns.round);
     view_set_portal(game.portal_open ? game.portal_x : -1, game.portal_y);
     if (free_round1)

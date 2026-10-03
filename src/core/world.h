@@ -62,6 +62,8 @@ typedef struct {
     uint8_t unit_count;
     Object objects[MAX_OBJECTS];
     uint8_t object_count;
+    int16_t portal_x, portal_y;   /* v3 maps: -1 = none */
+    uint8_t portal_rmin, portal_rmax;
 } World;
 
 /* Load a binary map (.map, ADR 0008). Validates everything first; on

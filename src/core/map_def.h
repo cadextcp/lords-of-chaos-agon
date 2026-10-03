@@ -16,7 +16,7 @@
 
 typedef enum { OWN_P1, OWN_P2, OWN_P3, OWN_P4, OWN_NEUTRAL, OWN_COUNT } Owner;
 
-#define MAPBIN_VERSION 2
+#define MAPBIN_VERSION 3   /* v2 maps (no portal) still load */
 #define MAPBIN_HEADER 10
 
 /* The compiled-in copies (MAPBIN_<NAME>, MAPBIN_<NAME>_LEN) are declared in

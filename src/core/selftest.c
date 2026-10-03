@@ -21,8 +21,8 @@
  * Must be identical on host and Agon; update deliberately when the map,
  * tiles or composition rules change. Changed for M2d: the new unexplored
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
- * cursor_blue, M3d five object tiles, M3e the portal pair. */
-#define HOUSE_VIEW_HASH 0x1D08BB5FUL
+ * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures. */
+#define HOUSE_VIEW_HASH 0xEAE7E434UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -1122,6 +1122,39 @@ static void test_ai(void)
     }
 }
 
+static void test_scenario(void)
+{
+    world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+    check(world.w == 36 && world.h == 36 && world.wrap,
+          "scn: 36x36, wraps");
+    check(world.portal_x == 26 && world.portal_y == 3 &&
+          world.portal_rmin == 12 && world.portal_rmax == 15,
+          "scn: portal from the map (v3)");
+    {
+        uint8_t i, wizards = 0, treasures = 0;
+        int16_t vp_fields = 0;
+        for (i = 0; i < world.unit_count; i++)
+            if (world.units[i].kind == CR_WIZARD)
+                wizards++;
+        for (i = 0; i < world.object_count; i++) {
+            uint8_t k, kind = NO_ITEM;
+            for (k = 0; k < OBJ_COUNT; k++)
+                if (OBJECTS[k].tile == world.objects[i].tile)
+                    kind = k;
+            if (kind != NO_ITEM && OBJECTS[kind].category == OC_TREASURE) {
+                treasures++;
+                vp_fields = (int16_t)(vp_fields + OBJECTS[kind].vp);
+            }
+        }
+        check(wizards == 2, "scn: two wizards (human + AI)");
+        check(treasures >= 6 && vp_fields >= 114,
+              "scn: six treasures worth the GDD table");
+    }
+    check(world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN) &&
+          world.portal_x == -1,
+          "scn: v2 testland stays portal-free");
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -1146,6 +1179,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_items();
     test_game();
     test_ai();
+    test_scenario();
     load_house();   /* leave a clean state */
     return fails;
 }

@@ -648,6 +648,41 @@ def gold():
     return outline(im)
 
 
+def rune_stone():
+    im = new()
+    poly(im, [(12, 6), (17, 9), (17, 20), (12, 23), (7, 20), (7, 9)], C["dgrey"])
+    poly(im, [(12, 8), (15, 10), (15, 19), (12, 21), (9, 19), (9, 10)], C["grey"])
+    line(im, [(10, 12), (14, 12)], C["cyan"])
+    line(im, [(12, 10), (12, 17)], C["cyan"])
+    return outline(im)
+
+
+def wand():
+    im = new()
+    for i in range(11):
+        px(im, 7 + i, 21 - i, C["wood"])
+        px(im, 7 + i, 20 - i, C["lwood"])
+    px(im, 17, 10, C["lviolet"])
+    px(im, 18, 9, C["violet"])
+    px(im, 16, 9, C["violet"])
+    px(im, 17, 8, C["white"])
+    return im
+
+
+def ruby():
+    im = new()
+    poly(im, [(12, 7), (17, 12), (12, 21), (7, 12)], C["red"])
+    poly(im, [(12, 9), (15, 12), (12, 19), (9, 12)], C["bred"])
+    return outline(im)
+
+
+def diamond():
+    im = new()
+    poly(im, [(12, 7), (17, 11), (12, 21), (7, 11)], C["cyan"])
+    poly(im, [(12, 9), (15, 11), (12, 18), (9, 11)], C["white"])
+    return outline(im)
+
+
 def portal(phase):
     """Swirling portal: an arch of stones around a pulsing centre."""
     im = new()
@@ -767,6 +802,8 @@ def all_tiles() -> dict[str, Image.Image]:
         "wizard": wizard(), "goblin": goblin(), "obj_scroll": scroll(),
         "obj_sword": sword(), "obj_bow": bow(), "obj_shield": shield(),
         "obj_gold": gold(), "obj_emerald": emerald(),
+        "obj_rune_stone": rune_stone(), "obj_wand": wand(),
+        "obj_ruby": ruby(), "obj_diamond": diamond(),
         "portal_0": portal(0), "portal_1": portal(1),
         "overlay_remembered": remembered(), "unexplored": unexplored(),
         "air_shadow": air_shadow(),

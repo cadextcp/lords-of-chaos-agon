@@ -53,7 +53,8 @@ bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
     uint8_t mw, mh, x, y, i, n;
     uint16_t cells, pos, k;
 
-    if (len < MAPBIN_HEADER || memcmp(b, "LOCM", 4) != 0 || b[4] != MAPBIN_VERSION)
+    if (len < MAPBIN_HEADER || memcmp(b, "LOCM", 4) != 0 ||
+        (b[4] != 2 && b[4] != MAPBIN_VERSION))
         return false;
     if ((uint16_t)(b[5] | (b[6] << 8)) != TILE_COUNT)   /* stale map vs tile bank */
         return false;
@@ -119,6 +120,14 @@ bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
         w->objects[i].y = b[pos++];
         w->objects[i].tile = (uint16_t)(b[pos] | (b[pos + 1] << 8));
         pos += 2;
+    }
+    w->portal_x = w->portal_y = -1;      /* v2 maps carry no portal */
+    w->portal_rmin = w->portal_rmax = 0;
+    if (b[4] >= 3 && pos + 4 <= len) {   /* v3: portal x y rmin rmax */
+        w->portal_x = b[pos];
+        w->portal_y = b[pos + 1];
+        w->portal_rmin = b[pos + 2];
+        w->portal_rmax = b[pos + 3];
     }
     return true;
 }

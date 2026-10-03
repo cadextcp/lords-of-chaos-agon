@@ -1,6 +1,6 @@
 # Übergabe: Stand und nächste Schritte
 
-> Stand: 2026-10-03 · **M2 vollständig** (#13–#18) · CI grün
+> Stand: 2026-10-03 · **M2 und M3 vollständig** (#13–#33) · CI grün
 > Für die nächste Person bzw. den nächsten Agenten. Zuerst `CLAUDE.md` lesen (Regeln, Befehle), dann dieses Dokument.
 
 ---
@@ -11,7 +11,8 @@
 |---|---|
 | **M0 Fundament** | ✅ Toolchain, Tests, CI, Docs |
 | **M1 Grafik und Eingabe** | ✅ Software-seitig fertig: #1 Renderer, #4 Sprite und Animation, #5 Datenladen, #6 Panel. Offen: #2 (optional), #3 und #7 (brauchen echte Hardware) |
-| **M2 Core-Skelett** | ✅ #13 Terrains/Testland, #14 Kreaturen, #15 Rundenablauf, #16 Sicht/Hidden Map, #17 Luft-/Bodenebene, #18 Bump/Look-Modus |
+| **M2 Core-Skelett** | ✅ #13–#18 (Terrains, Kreaturen, Rundenablauf, Sicht/Hidden Map, Luft-/Bodenebene, Bump/Look) |
+| **M3 Classic spielbar** | ✅ #27–#33 (Kampf D16, Beschwörungen, Bolt/Lightning D17, Objekte/Waffen D18, Portal/VP D19, KI D20, Szenario 1) |
 | M3–M5 | geplant, siehe `docs/ROADMAP.md` |
 
 **Was heute läuft:**
@@ -121,20 +122,22 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 
 ---
 
-## 7. Nächste Schritte: M3-Aufteilung mit dem Nutzer
+## 7. Nächste Schritte: M4 „Classic komplett“ (v0.4.0 laut ROADMAP)
 
-**M2 ist vollständig (#13–#18).** M3 „Classic spielbar“ (ROADMAP, Ziel `v0.4.0`) hat noch **keine Issues**. Wie bei M2 (Commit „GDD: … M2 breakdown“) zuerst eine Aufteilung im GDD vorschlagen und mit dem Nutzer abstimmen (2–4 Optionen mit Empfehlung), dann Issues anlegen und wie gewohnt abarbeiten.
+**M3 ist vollständig (#27–#33): eine Partie gegen die KI ist durchspielbar** (Beschwören, Kämpfen, Schätze sammeln, Portal, VP-Abrechnung). Wie bei M3 zuerst eine M4-Aufteilung im GDD vorschlagen und mit dem Nutzer abstimmen, dann Issues anlegen.
 
-**Workflow:** pro Issue ein Branch `m3/<x>-…`, Selftest-Checks ergänzen, Emulator-Screenshot, CHANGELOG, dann PR mit `Closes #n` und Auto-Merge.
+**Workflow:** pro Issue ein Branch `m4/<x>-…`, Selftest-Checks, Emulator-Screenshot, CHANGELOG, PR mit `Closes #n` und Auto-Merge.
 
-**M3-Bausteine laut ROADMAP (Vorschlagsgrundlage):**
-- **Kampf:** eigene Formel (D7; Host-Simulation zum Balancing), Nahkampf/Bump-Angriff, Return Attack `[PM 18]`, Fernkampf (Bögen), Terrain-Angriff (Zähigkeit). Bolt/Lightning als erste Zauber mit Reichweite.
-- **Beschwörungen:** Zauberliste `c`, Zielmodus (Cursor gelb/blau/rot), `spell_mana()` existiert; Kreatur erscheint neben dem Zauberer, gehört dem Beschwörer.
-- **Objekte:** Aufheben `g` / Fallenlassen `d` / Werfen `t`, „in Benutzung“, Tränke und Brauen später (M4).
-- **Portal und Siegpunkte `[PM 29]`:** Erscheinen in der Rundenspanne, Betreten = Rettung, Punkte aus der Tabelle (Szenario-Daten).
-- **Einfache KI:** Verhaltensprofile (GDD §10), rechnet nur mit eigener Sicht (Hidden Movement).
-- **Szenario 1 „The Many Coloured Land“:** eigene Karte nach GDD §9.1 mit Platzierungen, Schätzen, Portal.
-- Ziel-Meilenstein: eine komplette Partie gegen einen KI-Zauberer im Emulator durchspielbar.
+**M4-Bausteine laut ROADMAP/GDD (Vorschlagsgrundlage):**
+- **Tränke und Brauen** (GDD §7.2): Kessel + Zutat + Trankzauber, DRINK/FILL, Wirkdauern
+- **Flächeneffekte:** Magic Fire, Gooey Blob, Tangle Vine, Flood (Ausbreitung pro Runde)
+- **Weitere Zauber:** Enchant, Subversion, Curse, Magic Attack, Teleport, Magic Eye, Magic Shield
+- **Waffen fertig:** Munition/pfeile?, Wurf-Bugs, Slayer-Regeln, magische Waffen vs Untote
+- **Reiten** (GDD §4.2), Angriffe aus der Luft, Dächer (Datenfeld)
+- **Wizard Designer + Kampagne** (XP/VP-Übertrag, Szenarien 2–3)
+- **Politur:** Kontextmenü Enter, Big Map m, Log l, Hilfe F1, Sound
+
+**Danach M5 Chaos.**
 
 ---
 
