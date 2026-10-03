@@ -21,3 +21,7 @@ bool scnfile_load(Spellbook *books, const char *path);
  * values (the caller then falls back to the stock wizards). */
 bool wizards_save(void);
 bool wizards_load(void);
+/* Save game blob "/save.dat" (M4i). write stores len bytes; read
+ * returns the length (0 when missing or larger than cap). */
+bool savegame_write(const uint8_t *data, uint16_t len);
+uint16_t savegame_read(uint8_t *buf, uint16_t cap);

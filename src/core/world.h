@@ -104,6 +104,7 @@ typedef struct {
     uint8_t kill_count;
     Cauldron cauldrons[CAULDRONS_MAX];
     uint8_t cauldron_count;
+    char save_map[32];            /* map of the running scenario (save) */
     uint8_t roof[MAP_MAX_W * MAP_MAX_H / 8 + 1];   /* v4: bit per field */
 } World;
 

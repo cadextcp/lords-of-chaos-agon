@@ -7,6 +7,7 @@
 #include "area.h"
 #include "brew.h"
 #include "ride.h"
+#include "save.h"
 #include "wizard.h"
 #include "effect.h"
 #include "chord.h"
@@ -2492,6 +2493,44 @@ static void test_m4h(void)
     area_reset();
 }
 
+static void test_m4i(void)
+{
+    SaveGame a, b;
+    static uint8_t buf[6400];
+    uint16_t len;
+    uint32_t ha, hb;
+
+    world_load_bin(&world, MAPBIN_SLAYERS_DUNGEON, MAPBIN_SLAYERS_DUNGEON_LEN);
+    memset(&a, 0, sizeof a);
+    a.world = world;
+    a.world.units[0].x = 7;              /* distinctive state */
+    a.loads_left = 3;
+    a.game.portal_round = 21;
+
+    len = save_serialize(&a, buf, sizeof buf);
+    check(len > 4000, "m4i: the blob holds the whole world");
+    check(save_deserialize(&b, buf, len), "m4i: the blob parses back");
+    ha = save_hash(&a);
+    hb = save_hash(&b);
+    check(ha == hb && ha != 0, "m4i: save -> load -> same hash");
+    check(b.world.units[0].x == 7 && b.loads_left == 3 &&
+          b.game.portal_round == 21,
+          "m4i: the state survives the round trip");
+    check(b.world.unit_count == world.unit_count &&
+          b.world.object_count == world.object_count,
+          "m4i: units and objects survive");
+
+    {   /* magic and version gates */
+        memcpy(buf, "XXXX", 4);
+        check(!save_deserialize(&b, buf, len), "m4i: wrong magic refused");
+        len = save_serialize(&a, buf, sizeof buf);
+        buf[5] = 9;
+        check(!save_deserialize(&b, buf, len), "m4i: wrong version refused");
+        check(!save_deserialize(&b, buf, (uint16_t)(len - 1)),
+              "m4i: wrong length refused");
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -2526,6 +2565,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m4f();
     test_m4g();
     test_m4h();
+    test_m4i();
     test_m4_review();
     load_house();   /* leave a clean state */
     return fails;
