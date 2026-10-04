@@ -2510,11 +2510,24 @@ static void test_m4f(void)
         check(t.level == 1 && t.scenarios_done == 0 && t.xp == 600 + 5,
               "m4f: scenario 0 changes no level");
     }
-    check(w->level == 1 && w->xp == 600 && w->com == 5 && w->sta == 34 &&
-          w->mana_max == 90 && w->ap == 34 &&
-          w->book.level[SP_MAGIC_BOLT] == 6 && w->book.level[SP_TELEPORT] == 10 &&
-          w->book.level[SP_MAGIC_EYE] == 4 && w->book.level[SP_GIANT_BAT] == 0,
-          "m4f: stock wizard: minimums, 600 XP, starting book (F6)");
+    {   /* stock wizard: minimums, 600 XP, EMPTY books (user rule) */
+        uint16_t s, sum = 0;
+        check(w->level == 1 && w->xp == 600 && w->com == 5 && w->sta == 34 &&
+              w->mana_max == 90 && w->ap == 34,
+              "m4f: stock wizard: minimums and 600 XP (F6)");
+        for (s = 0; s < SPELL_COUNT; s++)
+            sum += w->book.level[s];
+        check(sum == 0, "m4f: fresh wizards start with empty books");
+        wizard_apply_standard_set(w);
+        check(w->book.level[SP_MAGIC_BOLT] == 6 &&
+              w->book.level[SP_TELEPORT] == 10 &&
+              w->book.level[SP_MAGIC_EYE] == 4 && w->book.level[SP_GIANT_BAT] == 0,
+              "m4f: the standard set fills the book on request");
+        wizard_apply_standard_set(w);   /* idempotent: bolt already there */
+        check(w->book.level[SP_MAGIC_BOLT] == 6,
+              "m4f: the standard set never overwrites designed books");
+        wizard_slot_reset(0);           /* back to empty for the next tests */
+    }
     check(wizard_attr_cost(WA_COMBAT, 5) == 2 &&
           wizard_attr_cost(WA_DEFENCE, 5) == 2 &&
           wizard_attr_cost(WA_MAGIC_RES, 70) == 4 &&
@@ -2548,15 +2561,15 @@ static void test_m4f(void)
         check(wizard_slots[1].level == 3, "m4f: scenario 2 lifts again");
     }
 
-    {   /* random wizard: valid book on top of the anchor starter, XP */
+    {   /* random wizard: some bought levels, XP, valid */
         uint16_t s, sum = 0;
         rng_seed(&rng, 9);
         wizard_slot_random(2, 2, &rng);
         for (s = 0; s < SPELL_COUNT; s++)
             sum += wizard_slots[2].book.level[s];
         check(wizard_slots[2].xp == 80 && wizard_valid(&wizard_slots[2]) &&
-              sum > 6 + 6 + 6 + 6 + 6 + 8 + 8 + 8 + 8 + 8 + 9 + 10 * 6 + 4,
-              "m4f: random wizard adds levels to the starter book");
+              sum > 0,
+              "m4f: random wizard rolls a non-empty book");
     }
 
     {   /* apply to the world: F5 - values yes, items no */
@@ -3317,7 +3330,7 @@ static void test_m5e_balance(void)
               wizard_spell_lower(&t, SP_HARPY) && t.xp == 18,
               "m5f: lowering refunds base/half exactly");
         check(!wizard_spell_lower(&t, SP_TELEPORT),
-              "m5f: starting-book levels never refund (no XP well)");
+              "m5f: nothing bought - lowering is refused");
         check(wizard_mana_cost() == 9 && t.mana_max == 90 && t.ap == 34,
               "m5f: mana starts at 90, AP at 34 (F6)");
         t.xp = 9;

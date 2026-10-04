@@ -79,6 +79,9 @@ static char replay_ascii;
 static uint8_t replay_vkey;
 static int16_t look_x, look_y;
 static bool spell_list = false;    /* c: pick a spell (GDD 5.1) */
+static bool cast_menu = false;     /* c, step 1: choose spells or summons */
+static bool summon_list = false;   /* spell_list filtered on summons */
+static uint8_t cast_letters;       /* a.. letters consumed by the list */
 static bool targeting = false;     /* aiming (Enter casts/throws/fires) */
 static bool game_ended = false;    /* final score shown, only Esc left */
 static bool end_pending = false;   /* outcome decided: show the end screen */
@@ -1103,20 +1106,14 @@ static void designer_shop(Wizard *w, uint8_t page)
         snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u   %s", w->name, w->level,
                  w->xp, page == PG_CREATURES ? "KREATUREN" : "ZAUBER");
         render_menu_text(1, 1, C_BRIGHT_YELLOW, buf);
-        snprintf(buf, sizeof buf, "%-16.16s St Naechste",
-                 page == PG_CREATURES ? "Beschwoerung" : "Spruch");
+        snprintf(buf, sizeof buf, "%-16.16s Anz. Preis", "Name");
         render_menu_text(2, 3, C_BRIGHT_YELLOW, buf);
         for (row = 0; row < SHOP_ROWS && stop + row < shop_n; row++) {
             uint8_t s = shop[stop + row];
             uint16_t cost = wizard_spell_next_cost(w, s);
-            if (cost)
-                snprintf(buf, sizeof buf, "%c %-15.15s %2u %5u",
-                         stop + row == scursor ? '>' : ' ', SPELLS[s].name,
-                         w->book.level[s], cost);
-            else
-                snprintf(buf, sizeof buf, "%c %-15.15s %2u   Buch",
-                         stop + row == scursor ? '>' : ' ', SPELLS[s].name,
-                         w->book.level[s]);
+            snprintf(buf, sizeof buf, "%c %-15.15s %2u %5u",
+                     stop + row == scursor ? '>' : ' ', SPELLS[s].name,
+                     w->book.level[s], cost);
             render_menu_text(2, (uint8_t)(4 + row),
                              cost && w->xp >= cost ? C_BRIGHT_WHITE : C_GREY,
                              buf);
@@ -1680,6 +1677,41 @@ menu_start:
     }
     if (tutorial_wanted)
         start_tutorial();
+    else if (!dump && !do_bench) {       /* empty book? offer the set (M5) */
+        uint16_t k, sum = 0;
+        for (k = 0; k < SPELL_COUNT; k++)
+            sum += wizard_slots[0].book.level[k];
+        if (sum == 0) {
+            struct keyboard_event_t e;
+            render_menu_clear();
+            render_menu_text(2, 6, C_BRIGHT_YELLOW,
+                             "Dein Zauberer hat keine Zauber.");
+            render_menu_text(2, 9, C_BRIGHT_WHITE,
+                             "Mit Standardset starten?");
+            render_menu_text(4, 12, C_BRIGHT_WHITE, "J = Ja, sinnvolles Set");
+            render_menu_text(4, 13, C_BRIGHT_WHITE, "N = Nein, ganz ohne");
+            for (;;) {
+                while (!kbuf_poll_event(&e))
+                    ;
+                if (!e.isdown)
+                    continue;
+                if (e.ascii == 'j' || e.ascii == 'J' || e.ascii == 13) {
+                    wizard_apply_standard_set(&wizard_slots[0]);
+                    memcpy(&books[OWN_P1], wizard_book(&wizard_slots[0]),
+                           sizeof(Spellbook));
+                    wizard_apply_to_world(&wizard_slots[0], &world, active());
+                    render_message(1, C_BRIGHT_GREEN,
+                                   "Standardset angewandt.");
+                    break;
+                }
+                if (e.ascii == 'n' || e.ascii == 'N' || e.vkey == VK_ESC) {
+                    render_message(1, C_BRIGHT_RED,
+                                   "Ohne Zauber - viel Glueck!");
+                    break;
+                }
+            }
+        }
+    }
     frame(dump);
     render_message(1, C_BRIGHT_YELLOW, tutorial_on
                    ? "Tutorial: Folge der Hinweiszeile."
@@ -1711,19 +1743,60 @@ menu_start:
             if (game_ended && !(e.isdown && e.vkey == VK_ESC))
                 continue;                        /* game over: Esc only */
 dispatch:
+            if (cast_menu && e.isdown) {         /* c, step 1: what to cast */
+                uint16_t k;
+                uint8_t have_spells = 0, have_summons = 0, n_spells = 0,
+                        n_summons = 0;
+                for (k = 0; k < SPELL_COUNT; k++) {
+                    if (books[OWN_P1].level[k] == 0)
+                        continue;
+                    if (SPELLS[k].category == SPC_SUMMON) {
+                        have_summons = 1;
+                        n_summons++;
+                    } else {
+                        have_spells = 1;
+                        n_spells++;
+                    }
+                }
+                if (e.vkey == VK_ESC) {
+                    cast_menu = false;
+                    view_invalidate();
+                    frame(dump);
+                } else if ((e.ascii == 'z' || e.ascii == 'y') && have_spells) {
+                    cast_menu = false;
+                    summon_list = false;
+                    spell_list = true;
+                    cast_letters = (uint8_t)('a' + n_spells - 1);
+                    render_list_summons = 0;
+                    render_spell_list(&books[OWN_P1]);
+                } else if ((e.ascii == 'b' || e.ascii == 'B') && have_summons) {
+                    cast_menu = false;
+                    summon_list = true;
+                    spell_list = true;
+                    cast_letters = (uint8_t)('a' + n_summons - 1);
+                    render_list_summons = 1;
+                    render_spell_list(&books[OWN_P1]);
+                }
+                continue;
+            }
             if (spell_list && e.isdown) {        /* letters pick (a is WASD too) */
                 if (e.vkey == VK_ESC) {
                     spell_list = false;
+                    summon_list = false;
                     view_invalidate();
                     frame(dump);
-                } else if (e.ascii >= 'a' && e.ascii <= 'z') {
+                } else if (e.ascii >= 'a' && e.ascii <= cast_letters) {
                     uint16_t pick = e.ascii - 'a';
                     uint16_t i, n = 0;
                     spell_list = false;
+                    summon_list = false;
                     view_invalidate();
                     for (i = 0; i < SPELL_COUNT; i++) {
                         if (books[OWN_P1].level[i] == 0)
                             continue;
+                        if (summon_list !=
+                            (SPELLS[i].category == SPC_SUMMON))
+                            continue;          /* wrong list for this pick */
                         if (n == pick)
                             break;
                         n++;
@@ -1862,11 +1935,37 @@ dispatch:
                     render_message(1, C_GREY, "");
                     frame(dump);
                 }
-            } else if (e.ascii == 'c') {         /* spell list (GDD 5.1) */
+            } else if (e.ascii == 'c') {         /* cast menu (GDD 5.1, M5) */
                 confirm_end = false;
                 if (world.units[active()].kind == CR_WIZARD) {
-                    spell_list = true;
-                    render_spell_list(&books[OWN_P1]);
+                    uint16_t k;
+                    uint8_t have_spells = 0, have_summons = 0, n_spells = 0,
+                            n_summons = 0;
+                    for (k = 0; k < SPELL_COUNT; k++) {
+                        if (books[OWN_P1].level[k] == 0)
+                            continue;
+                        if (SPELLS[k].category == SPC_SUMMON) {
+                            have_summons = 1;
+                            n_summons++;
+                        } else {
+                            have_spells = 1;
+                            n_spells++;
+                        }
+                    }
+                    if (!have_spells && !have_summons) {
+                        render_message(1, C_BRIGHT_RED,
+                                       "Keine Zauber im Buch (Designer).");
+                    } else if (have_spells && have_summons) {
+                        cast_menu = true;    /* choose first (M5) */
+                        render_cast_menu(1, 1, n_spells, n_summons);
+                    } else {
+                        summon_list = have_summons != 0;
+                        spell_list = true;
+                        cast_letters = (uint8_t)('a' +
+                            (have_summons ? n_summons : n_spells) - 1);
+                        render_list_summons = have_summons != 0 ? 1 : 0;
+                        render_spell_list(&books[OWN_P1]);
+                    }
                 } else {
                     render_message(1, C_BRIGHT_RED, "Nur Zauberer zaubern.");
                 }

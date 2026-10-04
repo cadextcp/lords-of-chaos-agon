@@ -36,7 +36,12 @@ void render_cursor(int16_t vx, int16_t vy, uint8_t colour, bool visible);
 /* Spell list overlay (GDD 5.1: lists over the map window). Only spells
  * with a level left; letters a.. pick, Esc closes. Redraw via
  * view_invalidate + render_fields afterwards. */
+extern uint8_t render_list_summons;   /* group filter for the list */
 void render_spell_list(const Spellbook *book);
+/* First step of the c-menu: ask what to cast - spells (Z) or summons
+ * (B). Missing groups are not offered. */
+void render_cast_menu(uint8_t have_spells, uint8_t have_summons,
+                      uint8_t n_spells, uint8_t n_summons);
 /* One of the three message lines (0..2) below the map. */
 void render_message(uint8_t line, uint8_t colour, const char *text);
 /* Menu helpers (M4f): black out the map window, write one text cell. */

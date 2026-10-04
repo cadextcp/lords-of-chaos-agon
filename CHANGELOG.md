@@ -14,6 +14,11 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ### Geändert
 - **„Zauberer entwerfen" öffnet zuerst eine Übersicht** mit drei Einträgen: **Attribute verteilen / Zauber erlernen / Kreaturen beschwören** — Hoch/Runter + Enter wählt, Esc führt zurück zur Übersicht (und aus ihr heraus). Der versteckte z-Toggle entfällt (das `z` kam wegen QWERTZ-Mapping im Emulator nicht an). „Zauber erlernen" zeigt das Grimoire (alle 46 Sprüche mit Zauber-Panel), „Kreaturen beschwören" nur die kaufbaren Beschwörungen mit Kreatur-Panel.
 
+## [Unreleased] – c-Menü mit Zauber/Beschwörung-Auswahl (2026-10-04)
+
+### Geändert
+- **`c` fragt zuerst:** Im Spiel öffnet die Zauber-Taste jetzt eine Auswahl — **Z = Zauber** (Anzahl verfügbarer Sprünge) oder **B = Beschwoeren** (Anzahl Beschwoerungen); nur vorhandene Gruppen werden angeboten, bei nur einer Gruppe direkt zur Liste. Die Listen sind gefiltert (Zauber-Liste ohne Kreaturen und umgekehrt), Spalte „St“ heißt „Anz.“ (Anwendungen), Buchstabe wirkt wie gehabt.
+
 ## [Unreleased] – Zauber-Detail und Gesamt-Grimoire im Laden (2026-10-04)
 
 ### Hinzugefügt
