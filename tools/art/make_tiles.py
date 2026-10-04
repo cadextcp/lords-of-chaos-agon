@@ -808,6 +808,53 @@ def vial(filled):
     return im
 
 
+# Filled vials (polish round): one flask shape, the liquid colour and a
+# small mark tell the potions apart - they used to share obj_vial_full.
+POTIONS = {
+    "strength": ("bred", "red", "sword"),
+    "protection": ("lblue", "blue", "shield"),
+    "invisibility": ("sky", "lblue", "dots"),
+    "speed": ("yellow", "orange", "bolt"),
+    "flying": ("white", "grey", "wing"),
+    "healing": ("lgreen", "green", "cross"),
+}
+
+
+def potion(kind):
+    light, dark, mark = POTIONS[kind]
+    im = new()
+    rect(im, 10, 4, 13, 6, C["wood"])          # cork
+    rect(im, 10, 7, 13, 9, C["grey"])          # neck
+    px(im, 10, 7, C["white"])
+    ellipse(im, (6, 9, 17, 21), fill=C[dark], outline=C["grey"])
+    ellipse(im, (7, 12, 16, 20), fill=C[light])
+    rect(im, 7, 11, 16, 11, C[dark])           # liquid surface
+    px(im, 8, 13, C["white"])                  # glint
+    px(im, 8, 14, C["white"])
+    px(im, 9, 12, C["white"])
+    col = C["black"] if light in ("yellow", "white", "sky", "lgreen") else C["white"]
+    if mark == "sword":                         # diagonal blade, hilt
+        line(im, [(10, 18), (14, 13)], col)
+        line(im, [(10, 15), (12, 17)], col)
+        px(im, 9, 19, C["cream"])
+    elif mark == "shield":
+        rect(im, 10, 14, 14, 16, col)
+        line(im, [(11, 17), (13, 17)], col)
+        px(im, 12, 18, col)
+    elif mark == "dots":
+        for (x, y) in [(10, 14), (13, 15), (11, 17), (14, 18), (12, 13)]:
+            px(im, x, y, C["white"])
+    elif mark == "bolt":
+        line(im, [(13, 13), (11, 16), (13, 16), (11, 19)], col)
+    elif mark == "wing":
+        line(im, [(10, 17), (12, 14), (14, 14)], col)
+        line(im, [(11, 17), (13, 15), (15, 15)], col)
+    elif mark == "cross":
+        line(im, [(12, 13), (12, 18)], C["white"])
+        line(im, [(10, 15), (14, 15)], C["white"])
+    return im
+
+
 def mistletoe():
     im = new()
     for i in range(8):
@@ -1093,7 +1140,7 @@ V2_TILES = frozenset("""
     obj_gold obj_knife obj_magic_apple obj_magic_mushroom obj_magic_slayer
     obj_mistletoe obj_mushroom obj_ninja_star obj_nitro obj_ruby
     obj_rune_stone obj_scroll obj_shield obj_slayer obj_spear obj_sulph
-    obj_sword obj_vial_bomb obj_vial_empty obj_vial_full obj_wand pegasus
+    obj_sword obj_vial_bomb obj_vial_empty obj_wand pegasus
     pixie portal_0 portal_1 red_dragon rock roof spectre troll unicorn
     vampire wall_00 wall_01 wall_02 wall_03 wall_04 wall_05 wall_06 wall_07
     wall_08 wall_09 wall_10 wall_11 wall_12 wall_13 wall_14 wall_15 wizard
@@ -1125,7 +1172,12 @@ def all_tiles() -> dict[str, Image.Image]:
         "obj_cauldron_empty": cauldron_obj(False),
         "obj_cauldron_full": cauldron_obj(True),
         "obj_vial_empty": vial(0),
-        "obj_vial_full": vial(1),
+        "obj_vial_strength": potion("strength"),
+        "obj_vial_protection": potion("protection"),
+        "obj_vial_invisibility": potion("invisibility"),
+        "obj_vial_speed": potion("speed"),
+        "obj_vial_flying": potion("flying"),
+        "obj_vial_healing": potion("healing"),
         "obj_vial_bomb": vial(2),
         "obj_mistletoe": mistletoe(), "obj_clover": clover(),
         "obj_crystal": crystal(), "obj_sulph": sulph(),

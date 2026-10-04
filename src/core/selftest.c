@@ -33,7 +33,7 @@
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
  * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures;
  * M5c added the seven fx tiles after "floor_*" (IDs shifted again). */
-#define HOUSE_VIEW_HASH 0x95BBF96AUL
+#define HOUSE_VIEW_HASH 0xC1C0D595UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -2280,7 +2280,8 @@ static void test_m4e(void)
           "m4e: the new weapons exist as objects");
     check(strcmp(name_object(T_OBJ_SWORD), "Schwert") == 0 &&
           strcmp(name_object(T_OBJ_RUBY), "Rubin") == 0 &&
-          strcmp(name_object(T_OBJ_VIAL_FULL), "Phiole (voll)") == 0 &&
+          strcmp(name_object(T_OBJ_VIAL_HEALING), "Phiole Heilkraut") == 0 &&
+          T_OBJ_VIAL_HEALING != T_OBJ_VIAL_SPEED &&   /* own tile per potion */
           strcmp(name_object(T_OBJ_SCROLL), "Schriftrolle") == 0,
           "objects show their own names on the ground and in look mode");
 
