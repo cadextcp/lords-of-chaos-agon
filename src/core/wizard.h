@@ -39,6 +39,8 @@ typedef struct {
     uint8_t mana_max;      /* raisable with XP: 9 XP per point (F6) */
     uint8_t ap;            /* action points, 8 XP per point (F6) */
     Spellbook book;
+    Spellbook base_book;    /* starting levels: lowering stops here (no
+                             * refund for pre-given levels) */
     uint16_t scenarios_done;   /* bitmask of scenario numbers (1..16) */
 } Wizard;
 
