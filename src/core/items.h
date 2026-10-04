@@ -40,6 +40,10 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
  * Below 50 % Constitution both suffer -2 (GDD 4.1). */
 uint8_t items_combat(const World *w, uint8_t unit);
 uint8_t items_defence(const World *w, uint8_t unit);
+/* Defence WITHOUT the carried shield: what spell attacks roll against
+ * (D32) - a magic bolt cuts through armour; melee, bow and thrown
+ * weapons still meet the full defence. */
+uint8_t items_defence_noshield(const World *w, uint8_t unit);
 /* Weapon of the object in use, WEAPON_NONE without one. */
 uint8_t items_in_use_weapon(const Unit *u);
 /* One damage roll of the unit: weapon dice plus com/5, bare hands 1d4

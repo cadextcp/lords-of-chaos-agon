@@ -2,6 +2,11 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Zauber ignorieren Schilde (D32, Zauberer-Duell-Befund 2026-10-04)
+
+### Geändert
+- **Bolt und Blitz treffen gegen die Verteidigung ohne Schildbonus (D32):** Magie umgeht Rüstung (D&D-Vorbild: RK vs. Rettungswurf). Grund: Im Zauberer-Duell waren geschildete Zauberer für Bolts praktisch unhittbar (10-%-Boden der Trefferformel), Blaster/Evoker gewannen nur 6–7 % gegen den Nekromanten (34 %). Nahkampf, Bogen und Wurf treffen weiterhin auf die volle Verteidigung; Zauberschild und Protection-Trank zählen auch gegen Magie.
+
 ## [Unreleased] – Ausrüstung prägt den Kampf (D31, Arena-Befund 2026-10-04)
 
 ### Geändert

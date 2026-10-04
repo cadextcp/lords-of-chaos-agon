@@ -99,7 +99,8 @@ langsam.
 
 Beschwoerungen rufen Kaempfer ins
 Spiel. Bolt und Blitz schlagen zu
-(staerker bei hoher Buchstufe),
+(staerker bei hoher Buchstufe)
+und umgehen Schilde (D32),
 Feuer, Brei, Ranken und Flut
 beherrschen das Gelaende. Shield
 schuetzt, Teleport und Auge erkunden,

@@ -3281,6 +3281,43 @@ static void test_m5e_balance(void)
               "m5e: the free swing works again next round");
     }
 
+    {   /* D32: spell attacks ignore the carried shield */
+        load_house();
+        world.units[1].owner = OWN_P2;
+        world.units[1].x = 4;
+        world.units[1].y = 3;
+        world.units[1].items[0] = OBJ_SHIELD;
+        world.units[1].item_count = 1;
+        check(items_defence(&world, 1) ==
+              CREATURES[CR_GOBLIN].defence + WEAPONS[WEAPON_SHIELD].defence &&
+              items_defence_noshield(&world, 1) == CREATURES[CR_GOBLIN].defence,
+              "m5e: shield counts in melee defence, not against magic (D32)");
+        {   /* the bolt rolls against the shield-less value */
+            uint16_t k;
+            uint8_t hits = 0;
+            for (k = 0; k < 200; k++) {
+                Spellbook b;
+                SpellShot shot;
+                load_house();
+                world.units[1].owner = OWN_P2;
+                world.units[1].x = 4;
+                world.units[1].y = 3;
+                world.units[1].items[0] = OBJ_SHIELD;
+                world.units[1].item_count = 1;
+                memset(&b, 0, sizeof b);
+                b.level[SP_MAGIC_BOLT] = 1;
+                rng_seed(&rng, 4000 + k);
+                spell_bolt(&world, &b, 0, SP_MAGIC_BOLT, 4, 3, &rng, &shot);
+                if (shot.hit)
+                    hits++;
+            }
+            /* wizard com 10 vs goblin def 9 (no shield): 55 % expected;
+             * with the shield counted it would be pinned at 10 % */
+            check(hits >= 80 && hits <= 130,
+                  "m5e: the bolt hits a shielded goblin like an unshielded one");
+        }
+    }
+
     {   /* D30: critical hits - rare, dice doubled (bonus not) */
         uint16_t k, crits = 0, hits = 0;
         uint32_t normal = 0, critical = 0;
