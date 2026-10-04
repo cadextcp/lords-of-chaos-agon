@@ -129,10 +129,26 @@ void wizard_slot_reset(uint8_t slot)
     w->con = w->base_con = START_CON;
     w->sta = w->base_sta = START_STA;
     w->xp = START_XP;      /* creation budget for the designer */
-    /* stock book (same set the test scenario granted p1) */
-    w->book.level[SP_GIANT_BAT] = 2;
-    w->book.level[SP_MAGIC_BOLT] = 1;
-    w->book.level[SP_DWARF] = 1;
+    /* stock book: the original's starting levels (user anchor,
+     * 2026-10-04) - no summons, they come from the scenario books */
+    w->book.level[SP_MAGIC_EYE] = 4;
+    w->book.level[SP_SPEED_POTION] = 6;
+    w->book.level[SP_STRENGTH_POTION] = 6;
+    w->book.level[SP_PROTECTION_POTION] = 6;
+    w->book.level[SP_FLYING_POTION] = 6;
+    w->book.level[SP_MAGIC_BOLT] = 6;
+    w->book.level[SP_BOMB_POTION] = 8;
+    w->book.level[SP_INVISIBILITY_POTION] = 8;
+    w->book.level[SP_CURSE] = 8;
+    w->book.level[SP_MAGIC_SHIELD] = 8;
+    w->book.level[SP_MAGIC_LIGHTNING] = 8;
+    w->book.level[SP_HEALING_POTION] = 9;
+    w->book.level[SP_FLOOD] = 10;
+    w->book.level[SP_TANGLE_VINE] = 10;
+    w->book.level[SP_GOOEY_BLOB] = 10;
+    w->book.level[SP_ENCHANT] = 10;
+    w->book.level[SP_SUBVERSION] = 10;
+    w->book.level[SP_TELEPORT] = 10;
 }
 
 void wizard_slot_random(uint8_t slot, uint8_t strength, Rng *rng)

@@ -2511,8 +2511,9 @@ static void test_m4f(void)
               "m4f: scenario 0 changes no level");
     }
     check(w->level == 1 && w->xp == 20 && w->com == 10 && w->sta == 60 &&
-          w->book.level[SP_GIANT_BAT] == 2,
-          "m4f: stock designer wizard (20 XP creation budget)");
+          w->book.level[SP_MAGIC_BOLT] == 6 && w->book.level[SP_TELEPORT] == 10 &&
+          w->book.level[SP_MAGIC_EYE] == 4 && w->book.level[SP_GIANT_BAT] == 0,
+          "m4f: stock wizard: original starting book (anchor 2026-10-04)");
     check(wizard_attr_cost(WA_COMBAT, 10) == 7 &&
           wizard_attr_cost(WA_COMBAT, 20) == 10,
           "m4f: costs rise with the value");
@@ -2542,12 +2543,15 @@ static void test_m4f(void)
         check(wizard_slots[1].level == 3, "m4f: scenario 2 lifts again");
     }
 
-    {   /* random wizard: book stays meaningful, XP arrives */
+    {   /* random wizard: valid book on top of the anchor starter, XP */
+        uint16_t s, sum = 0;
         rng_seed(&rng, 9);
         wizard_slot_random(2, 2, &rng);
-        check(wizard_slots[2].xp == 80 &&
-              wizard_slots[2].book.level[SP_GIANT_BAT] >= 2,
-              "m4f: random wizard keeps the starter book");
+        for (s = 0; s < SPELL_COUNT; s++)
+            sum += wizard_slots[2].book.level[s];
+        check(wizard_slots[2].xp == 80 && wizard_valid(&wizard_slots[2]) &&
+              sum > 6 + 6 + 6 + 6 + 6 + 8 + 8 + 8 + 8 + 8 + 9 + 10 * 6 + 4,
+              "m4f: random wizard adds levels to the starter book");
     }
 
     {   /* apply to the world: F5 - values yes, items no */

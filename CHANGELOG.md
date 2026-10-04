@@ -2,6 +2,12 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Original-Startzauberbuch (Nutzer-Anker 2026-10-04)
+
+### Geändert
+- **Startbuch des Stock-Zauberers = Original-Anker:** Magisches Auge 4; Schnelligkeit, Stärke, Schutz, Flug und Magischer Bolzen 6; Bombentrank, Unsichtbarkeit, Fluch, Magisches Schild und Magischer Blitz 8; Heilungstrank 9; Flut, Ranken, Gooey Blob, Enchant, Subversion und Teleport 10. Keine Beschwörungen im Startbuch (kommen aus den Szenario-Büchern). Vorher: Fledermaus 2 / Bolzen 1 / Zwerg 1 (eigener Platzhalter).
+- **Buchstufen-Deckel 8 → 10** (Stufe = Ladungen und Kraft; das Original startet mit Stufen bis 10). Szenario-Dateien dürfen jetzt ebenfalls bis 10 vergeben.
+
 ## [Unreleased] – Wizard-Designer bedienbar (2026-10-04)
 
 ### Behoben
