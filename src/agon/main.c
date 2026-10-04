@@ -1035,16 +1035,21 @@ static void designer_loop(uint8_t slot)
         if (!spells) {
             uint8_t i;
             for (i = 0; i < WA_COUNT; i++) {
-                snprintf(buf, sizeof buf, "%c %-14.14s %3u (max %u)",
+                snprintf(buf, sizeof buf, "%c %-14.14s %3u  %u XP",
                          i == cursor ? '>' : ' ', ATTRS[i],
                          wizard_attr(w, (WizardAttr)i),
-                         wizard_attr_max((WizardAttr)i));
-                render_menu_text(3, (uint8_t)(4 + i), C_BRIGHT_WHITE, buf);
+                         wizard_attr_cost((WizardAttr)i, 0));
+                render_menu_text(3, (uint8_t)(3 + i), C_BRIGHT_WHITE, buf);
             }
-            snprintf(buf, sizeof buf, "%c %-14.14s %3u (max 250)",
-                     cursor == WA_COUNT ? '>' : ' ', "Mana", w->mana_max);
+            snprintf(buf, sizeof buf, "%c %-14.14s %3u  %u XP",
+                     cursor == WA_COUNT ? '>' : ' ', "Mana", w->mana_max,
+                     wizard_mana_cost());
+            render_menu_text(3, (uint8_t)(3 + WA_COUNT), C_BRIGHT_WHITE, buf);
+            snprintf(buf, sizeof buf, "%c %-14.14s %3u  %u XP",
+                     cursor == WA_COUNT + 1 ? '>' : ' ', "Aktionspunkte", w->ap,
+                     wizard_ap_cost());
             render_menu_text(3, (uint8_t)(4 + WA_COUNT), C_BRIGHT_WHITE, buf);
-            render_menu_text(3, 13, C_GREY, "Hoch/Runter, Links/Rechts +/-, z Zauber");
+            render_menu_text(1, 13, C_GREY, "Hoch/Runter, Links/Rechts -/+, z Zauber");
         } else {
             uint8_t row, k;
             if (scursor < stop)
@@ -1076,18 +1081,20 @@ static void designer_loop(uint8_t slot)
             spells = !spells;
         } else if (e.vkey == VK_UP) {
             if (!spells)
-                cursor = cursor ? (uint8_t)(cursor - 1) : (uint8_t)WA_COUNT;
+                cursor = cursor ? (uint8_t)(cursor - 1) : (uint8_t)(WA_COUNT + 1);
             else
                 scursor = scursor ? (uint8_t)(scursor - 1) : (uint8_t)(shop_n - 1);
         } else if (e.vkey == VK_DOWN) {
             if (!spells)
-                cursor = (uint8_t)((cursor + 1) % (WA_COUNT + 1));
+                cursor = (uint8_t)((cursor + 1) % (WA_COUNT + 2));
             else
                 scursor = (uint8_t)((scursor + 1) % shop_n);
         } else if (e.vkey == VK_RIGHT || e.ascii == '+') {
             if (!spells) {
                 if (cursor == WA_COUNT)
                     wizard_mana_raise(w);
+                else if (cursor == WA_COUNT + 1)
+                    wizard_ap_raise(w);
                 else
                     wizard_raise(w, (WizardAttr)cursor);
             } else
@@ -1096,6 +1103,8 @@ static void designer_loop(uint8_t slot)
             if (!spells) {
                 if (cursor == WA_COUNT)
                     wizard_mana_lower(w);
+                else if (cursor == WA_COUNT + 1)
+                    wizard_ap_lower(w);
                 else
                     wizard_lower(w, (WizardAttr)cursor);
             } else

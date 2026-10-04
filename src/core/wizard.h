@@ -37,6 +37,7 @@ typedef struct {
     uint8_t base_com, base_def, base_mr, base_con, base_sta;   /* startvals */
     uint8_t com, def, mr, con, sta;      /* current (raised with XP) */
     uint8_t mana_max;      /* raisable with XP: 9 XP per point (F6) */
+    uint8_t ap;            /* action points, 8 XP per point (F6) */
     Spellbook book;
     uint16_t scenarios_done;   /* bitmask of scenario numbers (1..16) */
 } Wizard;
@@ -58,10 +59,14 @@ uint16_t wizard_spell_next_cost(const Wizard *w, uint8_t spell);
 bool wizard_spell_raise(Wizard *w, uint8_t spell);   /* spend XP */
 bool wizard_spell_lower(Wizard *w, uint8_t spell);   /* full refund */
 /* Mana: 9 XP per point up to 250 (F6 anchor); the start value is the
- * creature table's 80 and it flows into the unit via apply_to_world. */
+ * minimum 90 and it flows into the unit via apply_to_world. */
 uint8_t wizard_mana_cost(void);
 bool wizard_mana_raise(Wizard *w);
 bool wizard_mana_lower(Wizard *w);
+/* Action points: 8 XP per point, minimum 34, cap 120 (F6 anchor). */
+uint8_t wizard_ap_cost(void);
+bool wizard_ap_raise(Wizard *w);
+bool wizard_ap_lower(Wizard *w);
 /* Sanity check for data read from the SD card (ranges, name, book). */
 bool wizard_valid(const Wizard *w);
 

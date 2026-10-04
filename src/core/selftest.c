@@ -2492,10 +2492,10 @@ static void test_m4f(void)
         wizard_slot_reset(3);
         t = wizard_slots[3];
         t.xp = 100;
-        check(!wizard_lower(&t, WA_COMBAT) && t.com == 10,
-              "m4f: no lowering below the start value");
+        check(!wizard_lower(&t, WA_COMBAT) && t.com == 5,
+              "m4f: no lowering below the minimum");
         check(wizard_raise(&t, WA_COMBAT) && wizard_lower(&t, WA_COMBAT) &&
-              t.com == 10 && t.xp == 100, "m4f: lowering refunds the XP");
+              t.com == 5 && t.xp == 100, "m4f: lowering refunds the XP");
         check(wizard_valid(&t), "m4f: a stock wizard is valid");
         t.com = 0;
         check(!wizard_valid(&t), "m4f: zero attribute is rejected");
@@ -2507,22 +2507,24 @@ static void test_m4f(void)
         check(!wizard_valid(&t), "m4f: unterminated name is rejected");
         t = wizard_slots[3];
         wizard_campaign_result(&t, 5, 0);
-        check(t.level == 1 && t.scenarios_done == 0 && t.xp == 20 + 5,
+        check(t.level == 1 && t.scenarios_done == 0 && t.xp == 600 + 5,
               "m4f: scenario 0 changes no level");
     }
-    check(w->level == 1 && w->xp == 20 && w->com == 10 && w->sta == 60 &&
+    check(w->level == 1 && w->xp == 600 && w->com == 5 && w->sta == 34 &&
+          w->mana_max == 90 && w->ap == 34 &&
           w->book.level[SP_MAGIC_BOLT] == 6 && w->book.level[SP_TELEPORT] == 10 &&
           w->book.level[SP_MAGIC_EYE] == 4 && w->book.level[SP_GIANT_BAT] == 0,
-          "m4f: stock wizard: original starting book (anchor 2026-10-04)");
-    check(wizard_attr_cost(WA_COMBAT, 10) == 6 &&
-          wizard_attr_cost(WA_DEFENCE, 20) == 6 &&
-          wizard_attr_cost(WA_MAGIC_RES, 80) == 9 &&
-          wizard_attr_cost(WA_CONSTITUTION, 30) == 9 &&
-          wizard_attr_cost(WA_STAMINA, 60) == 3,
-          "m4f: flat anchor costs per attribute (F6, 2026-10-04)");
+          "m4f: stock wizard: minimums, 600 XP, starting book (F6)");
+    check(wizard_attr_cost(WA_COMBAT, 5) == 2 &&
+          wizard_attr_cost(WA_DEFENCE, 5) == 2 &&
+          wizard_attr_cost(WA_MAGIC_RES, 70) == 4 &&
+          wizard_attr_cost(WA_CONSTITUTION, 25) == 2 &&
+          wizard_attr_cost(WA_STAMINA, 34) == 4 &&
+          wizard_mana_cost() == 9 && wizard_ap_cost() == 8,
+          "m4f: anchor point costs 2/2/4/2/4, mana 9, AP 8 (F6)");
 
     w->xp = 50;
-    check(wizard_raise(w, WA_COMBAT) && w->com == 11 && w->xp == 44,
+    check(wizard_raise(w, WA_COMBAT) && w->com == 6 && w->xp == 48,
           "m4f: raising costs XP");
     w->xp = 1;
     check(!wizard_raise(w, WA_COMBAT), "m4f: no raising without XP");
@@ -2537,10 +2539,10 @@ static void test_m4f(void)
     {   /* campaign: VP -> XP 1:1, level up once per scenario (GDD 9) */
         wizard_slot_reset(1);
         wizard_campaign_result(&wizard_slots[1], 75, 1);
-        check(wizard_slots[1].xp == 20 + 75 && wizard_slots[1].level == 2,
+        check(wizard_slots[1].xp == 600 + 75 && wizard_slots[1].level == 2,
               "m4f: first clear gives XP and a level");
         wizard_campaign_result(&wizard_slots[1], 20, 1);
-        check(wizard_slots[1].xp == 20 + 95 && wizard_slots[1].level == 2,
+        check(wizard_slots[1].xp == 600 + 95 && wizard_slots[1].level == 2,
               "m4f: repeating scores XP without a level");
         wizard_campaign_result(&wizard_slots[1], 10, 2);
         check(wizard_slots[1].level == 3, "m4f: scenario 2 lifts again");
@@ -3310,14 +3312,20 @@ static void test_m5e_balance(void)
         check(wizard_spell_lower(&t, SP_HARPY) && t.xp == 6 &&
               wizard_spell_lower(&t, SP_HARPY) && t.xp == 18,
               "m5f: lowering refunds base/half exactly");
-        check(wizard_mana_cost() == 9 && t.mana_max == 80,
-              "m5f: mana starts at 80, 9 XP per point");
+        check(wizard_mana_cost() == 9 && t.mana_max == 90 && t.ap == 34,
+              "m5f: mana starts at 90, AP at 34 (F6)");
         t.xp = 9;
-        check(wizard_mana_raise(&t) && t.mana_max == 81 && t.xp == 0 &&
-              wizard_mana_lower(&t) && t.mana_max == 80 && t.xp == 9,
+        check(wizard_mana_raise(&t) && t.mana_max == 91 && t.xp == 0 &&
+              wizard_mana_lower(&t) && t.mana_max == 90 && t.xp == 9,
               "m5f: mana raises and refunds with 9 XP");
         t.xp = 8;
         check(!wizard_mana_raise(&t), "m5f: one mana point costs exactly 9");
+        t.xp = 7;
+        check(!wizard_ap_raise(&t), "m5f: no AP without 8 XP");
+        t.xp = 8;
+        check(wizard_ap_raise(&t) && t.ap == 35 && t.xp == 0 &&
+              wizard_ap_lower(&t) && t.ap == 34 && t.xp == 8,
+              "m5f: AP raises and refunds with exactly 8");
     }
 
     {   /* D32: spell attacks ignore the carried shield */

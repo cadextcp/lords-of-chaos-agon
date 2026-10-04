@@ -7,24 +7,23 @@
 
 Wizard wizard_slots[WIZARD_SLOTS];
 
-/* F6: a stock wizard matches the creatures.csv wizard row. Point costs
- * and the XP-per-mana rate come from the original's designer table
- * (user anchor, 2026-10-04); caps keep the designer honest. */
-#define START_COM 10
-#define START_DEF 12
-#define START_MR 80
-#define START_CON 30
-#define START_STA 60
-#define START_MANA 80
-/* Creation budget: designing a fresh wizard distributes these XP (the
- * original granted a point pool at creation). Own value. */
-#define START_XP 20
-/* XP per attribute point (original designer table, user anchor):
- * combat 6, defence 6, magic resistance 9, constitution 9, stamina 3,
- * mana 9 (wizard_mana_cost). */
-static const uint8_t ATTR_COST[WA_COUNT] = {6, 6, 9, 9, 3};
+/* F6 (user anchor, 2026-10-04): a fresh wizard starts at the minimum
+ * distribution below and distributes 600 XP over attributes, mana, AP
+ * and summon spells. Point costs: combat 2, defence 2, magic
+ * resistance 4, constitution 2, stamina 4, mana 9, AP 8. */
+#define START_COM 5
+#define START_DEF 5
+#define START_MR 70
+#define START_CON 25
+#define START_STA 34
+#define START_MANA 90
+#define START_AP 34
+#define START_XP 600
+static const uint8_t ATTR_COST[WA_COUNT] = {2, 2, 4, 2, 4};
 #define MANA_COST 9
 #define MANA_MAX 250
+#define AP_COST 8
+#define AP_MAX 120
 
 uint8_t wizard_attr(const Wizard *w, WizardAttr a)
 {
@@ -161,6 +160,29 @@ bool wizard_mana_lower(Wizard *w)
     return true;
 }
 
+uint8_t wizard_ap_cost(void)
+{
+    return AP_COST;
+}
+
+bool wizard_ap_raise(Wizard *w)
+{
+    if (w->ap >= AP_MAX || w->xp < AP_COST)
+        return false;
+    w->xp = (uint16_t)(w->xp - AP_COST);
+    w->ap++;
+    return true;
+}
+
+bool wizard_ap_lower(Wizard *w)
+{
+    if (w->ap <= START_AP)
+        return false;                    /* never below the minimum */
+    w->ap--;
+    w->xp = (uint16_t)(w->xp + AP_COST);     /* full refund */
+    return true;
+}
+
 bool wizard_valid(const Wizard *w)
 {
     uint8_t i;
@@ -179,6 +201,8 @@ bool wizard_valid(const Wizard *w)
         w->base_con > w->con || w->base_sta > w->sta)
         return false;
     if (w->mana_max < START_MANA || w->mana_max > MANA_MAX)
+        return false;
+    if (w->ap < START_AP || w->ap > AP_MAX)
         return false;
     for (i = 0; i < SPELL_COUNT; i++)
         if (w->book.level[i] > SPELL_MAX_LEVEL)
@@ -201,6 +225,7 @@ void wizard_slot_reset(uint8_t slot)
     w->con = w->base_con = START_CON;
     w->sta = w->base_sta = START_STA;
     w->mana_max = START_MANA;
+    w->ap = START_AP;
     w->xp = START_XP;      /* creation budget for the designer */
     /* stock book: the original's starting levels (user anchor,
      * 2026-10-04) - no summons, they come from the scenario books */
@@ -258,6 +283,7 @@ void wizard_apply_to_world(const Wizard *w, World *world, uint8_t unit)
     u->con = u->con_max = w->con;
     u->sta = u->sta_max = w->sta;
     u->mana = u->mana_max = w->mana_max;  /* raised with XP (F6) */
+    u->ap = u->ap_max = w->ap;            /* designer AP, min 34 (F6) */
     u->item_count = 0;                   /* F5: the wizard arrives unarmed */
     u->in_use = NO_ITEM;
 }
