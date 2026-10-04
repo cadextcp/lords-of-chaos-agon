@@ -69,7 +69,7 @@ bool music_start(const char *file)
     static uint8_t buf[510];              /* streamed: RAM is tight (S6) */
     uint8_t fh, c;
     music_stop();
-    if (!music_on)
+    if (!music_on || !sound_channels)     /* channels 3-9 need sound_init */
         return false;
     fh = mos_fopen(file, FA_READ);
     if (!fh)

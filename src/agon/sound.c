@@ -92,6 +92,7 @@ static uint16_t sample_base[SFX_COUNT];  /* tunable: pitch of the recording */
 
 bool sound_on = true;
 bool music_on = true;
+bool sound_channels;                  /* channels 3-9 enabled (sound_init) */
 
 uint16_t sound_sample_buffer(uint8_t sfx)
 {
@@ -112,8 +113,12 @@ bool sound_init(void)
 {
     uint8_t fh, head[6], i, count;
     uint8_t chunk[256];
-    for (i = 4; i <= 9; i++)             /* effects 0, 4; music 1-3, 5-9 */
+    /* only 0-2 are active after boot: effects 0, 4; music 1-3, 5-9. A
+     * command with parameters to an inactive channel is not consumed and
+     * its bytes appear as text on the screen (vdptest 6) */
+    for (i = 3; i <= 9; i++)
         vdp_audio_enable_channel(i);
+    sound_channels = true;
     memset(loaded, 0, sizeof loaded);
     fh = mos_fopen("sfx.bin", FA_READ);
     if (!fh)
@@ -191,7 +196,9 @@ void sound_play(uint8_t fx)
 {
     uint8_t i, pick = FX_VOICES;
     uint32_t now = getsysvar_time();
-    if (!sound_on || fx >= SND_COUNT)
+    /* commands to a channel that was never enabled print their
+     * parameter bytes as text (vdptest) - nothing before sound_init */
+    if (!sound_on || !sound_channels || fx >= SND_COUNT)
         return;
     for (i = 0; i < FX_VOICES; i++)       /* a channel that is silent */
         if (!voices[i].active && (int32_t)(now - voices[i].next) >= 0) {

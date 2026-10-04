@@ -64,6 +64,7 @@ uint16_t sound_sample_ms(uint8_t sfx, uint16_t hz);
 /* Player settings (setup menu), kept in /loc/settings.dat. */
 extern bool sound_on;
 extern bool music_on;
+extern bool sound_channels;           /* sound_init has enabled 3-9 */
 void sound_settings_load(void);
 void sound_settings_save(void);
 
