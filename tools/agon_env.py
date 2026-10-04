@@ -34,6 +34,8 @@ WSL_DISTRO = os.environ.get("LOC_WSL_DISTRO", "Ubuntu")
 # MOS 2.3.3; the GUI defaults to "platform" MOS 3.x unless pinned).
 FIRMWARE = "console8"
 AGON_BIN = ROOT / "bin" / "loc.bin"
+SPIKE_DIR = ROOT / "spikes" / "vdptest"          # VDP feature spike (ADR 0012)
+SPIKE_BIN = SPIKE_DIR / "bin" / "vdptest.bin"
 
 
 def exe(name: str) -> Path:
@@ -80,6 +82,8 @@ def stage_game() -> Path:
     dest = SDCARD / GAME_DIR
     dest.mkdir(exist_ok=True)
     shutil.copy2(AGON_BIN, dest / AGON_BIN.name)
+    if SPIKE_BIN.exists():
+        shutil.copy2(SPIKE_BIN, dest / SPIKE_BIN.name)
     tiles = BUILD / "tiles.bin"
     if tiles.exists():
         shutil.copy2(tiles, dest / tiles.name)

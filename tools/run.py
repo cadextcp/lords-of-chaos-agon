@@ -36,8 +36,8 @@ def log(msg: str) -> None:
     print(f"[run] {msg}", flush=True)
 
 
-def write_autoexec(args: list[str], keyboard: int) -> None:
-    cmd = " ".join(["loc", *args])
+def write_autoexec(args: list[str], keyboard: int, program: str = "loc") -> None:
+    cmd = " ".join([program, *args])
     # MOS wants LF line endings in autoexec.txt
     text = f"SET KEYBOARD {keyboard}\ncd /{env.GAME_DIR}\n{cmd}\n"
     (env.SDCARD / "autoexec.txt").write_bytes(text.encode())
@@ -54,6 +54,8 @@ def main() -> int:
     ap.add_argument("--dump", action="store_true", help="game writes loc.log screen dumps")
     ap.add_argument("--bench", action="store_true", help="game measures redraw times -> loc.log")
     ap.add_argument("--keytest", action="store_true", help="keyboard spike: log every key event")
+    ap.add_argument("--vdptest", nargs="?", const="0", default=None,
+                    help="VDP feature spike, optional test number 1-5 (ADR 0012)")
     ap.add_argument("--endscreen", action="store_true", help="show the end screen (dev)")
     ap.add_argument("--endscreen-lose", action="store_true", help="show the game over screen (dev)")
     ap.add_argument("--helppage", action="store_true", help="show the help viewer (dev, M5)")
@@ -112,7 +114,12 @@ def main() -> int:
         mode = ["--lexicon"]
     elif args.fxdemo:
         mode = ["--fxdemo"]
-    write_autoexec(mode, args.keyboard)
+    if args.vdptest is not None:             # separate spike program (ADR 0012)
+        write_autoexec([args.vdptest], args.keyboard, program="vdptest")
+        logfile = env.SDCARD / env.GAME_DIR / "vdptest.log"
+        logfile.unlink(missing_ok=True)
+    else:
+        write_autoexec(mode, args.keyboard)
 
     cmd = [str(env.GUI_EMULATOR), "--sdcard", str(env.SDCARD.resolve()),
            "--firmware", env.FIRMWARE]

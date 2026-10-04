@@ -2,6 +2,15 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – VDP-Spike: was der Agon kann (2026-10-04)
+
+### Hinzugefügt
+- **`vdptest [n]`** – eigenes kleines Agon-Programm (`spikes/vdptest/`, von `build.py` gebaut, liegt als `/loc/vdptest.bin` auf der SD; `run.py --vdptest [n]`): misst Audio-Warteschlange, Samples, Zusatzkanäle, eigene Schriften, Palette in MODE 8, Sprites und Doppelpuffer; Ergebnisse in `vdptest.log`. Auf der Hardware laufen lassen und vergleichen.
+- **ADR 0012**: Samples, eigene Schriften und Sprite-Animation werden genutzt; Doppelpuffer nicht fürs Spielbild, Paletten/Copper verworfen (wirken in MODE 8 nicht).
+
+### Korrigiert (Doku)
+- QUIRKS A1/A5: Der VDP queued Noten **nicht** – eine Note auf belegtem Kanal wird verworfen. Daher spielten die Mehrton-Effekte bisher nur ihren ersten Ton. Neue Einträge A6 (Samples), S3–S6 (Schrift, Palette, Doppelpuffer, RAM), V11 (Sprite-Kosten).
+
 ## [Unreleased] – Keine Bildschirmreste mehr, Titelbild sichtbar (2026-10-04)
 
 ### Behoben

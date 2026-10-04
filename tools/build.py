@@ -61,6 +61,23 @@ def build_agon(clean: bool = True) -> int:
         return 1
     binary = env.ROOT / "bin" / "loc.bin"
     log(f"Agon binary: {binary.relative_to(env.ROOT)} ({binary.stat().st_size} bytes)")
+    return build_spike(clean)
+
+
+def build_spike(clean: bool = True) -> int:
+    """The VDP feature spike is its own Agon program (ADR 0012): it must not
+    eat the game's RAM, but it belongs on the SD card for hardware runs."""
+    if not env.SPIKE_DIR.exists():
+        return 0
+    if clean:
+        env.run_linux(["make", "clean"], cwd=env.SPIKE_DIR, check=False, capture_output=True)
+    r = env.run_linux(["make"], cwd=env.SPIKE_DIR, check=False, capture_output=True)
+    if r.returncode != 0:
+        print(r.stdout.decode(errors="replace"), r.stderr.decode(errors="replace"))
+        log("vdptest build FAILED")
+        return 1
+    log(f"spike binary: {env.SPIKE_BIN.relative_to(env.ROOT).as_posix()} "
+        f"({env.SPIKE_BIN.stat().st_size} bytes)")
     return 0
 
 
