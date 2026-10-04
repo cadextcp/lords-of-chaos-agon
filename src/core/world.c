@@ -280,15 +280,23 @@ void world_spend(World *w, uint8_t unit, uint8_t ap)
     u->sta = u->sta > st ? (uint8_t)(u->sta - st) : 0;
 }
 
+void world_delta(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1,
+                 int16_t *dx, int16_t *dy)
+{
+    *dx = (int16_t)(x1 - x0);
+    *dy = (int16_t)(y1 - y0);
+    if (w->wrap) {
+        if (*dx > w->w / 2) *dx = (int16_t)(*dx - w->w);
+        if (*dx < -w->w / 2) *dx = (int16_t)(*dx + w->w);
+        if (*dy > w->h / 2) *dy = (int16_t)(*dy - w->h);
+        if (*dy < -w->h / 2) *dy = (int16_t)(*dy + w->h);
+    }
+}
+
 uint8_t world_distance(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1)
 {
-    int16_t dx = (int16_t)(x1 - x0), dy = (int16_t)(y1 - y0);
-    if (w->wrap) {
-        if (dx > w->w / 2) dx = (int16_t)(dx - w->w);
-        if (dx < -w->w / 2) dx = (int16_t)(dx + w->w);
-        if (dy > w->h / 2) dy = (int16_t)(dy - w->h);
-        if (dy < -w->h / 2) dy = (int16_t)(dy + w->h);
-    }
+    int16_t dx, dy;
+    world_delta(w, x0, y0, x1, y1, &dx, &dy);
     if (dx < 0) dx = (int16_t)-dx;
     if (dy < 0) dy = (int16_t)-dy;
     return (uint8_t)(dx > dy ? dx : dy);

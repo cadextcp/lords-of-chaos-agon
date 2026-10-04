@@ -360,6 +360,13 @@ bool brew_throw_vial(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
             world_unit_at(w, x, y, UL_AIR) != NO_UNIT)
             break;                       /* shatters on the target */
     }
+    {   /* the vial's flight (presentation) */
+        int16_t fx, fy;
+        world_delta(w, w->units[unit].x, w->units[unit].y, x, y, &fx, &fy);
+        events_push(EV_PROJECTILE, w->units[unit].x, w->units[unit].y,
+                    PJ_THROWN, thrower_owner, (uint8_t)(int8_t)fx,
+                    (uint8_t)(int8_t)fy);
+    }
     if (kind != OBJ_VIAL_BOMB)
         return true;                     /* shatters harmlessly */
     {   /* bomb: everyone around the impact takes a hit (Amiga, D21) */

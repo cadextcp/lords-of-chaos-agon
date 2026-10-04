@@ -210,6 +210,13 @@ bool spell_bolt(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
             return false;
         caster = w->units[wiz];
         out->allowed = true;
+        {   /* the projectile flies before it hits (presentation) */
+            int16_t dx, dy;
+            world_delta(w, caster.x, caster.y, x, y, &dx, &dy);
+            events_push(EV_PROJECTILE, caster.x, caster.y,
+                        spell == SP_MAGIC_LIGHTNING ? PJ_LIGHTNING : PJ_BOLT,
+                        caster.owner, (uint8_t)(int8_t)dx, (uint8_t)(int8_t)dy);
+        }
         /* D&D-style upcast (D29): the dice grow with the book level the
          * spell is cast at - the first charge of a full book hits hardest */
         out->hit = shoot_field(w, rng, &caster, x, y,

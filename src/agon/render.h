@@ -73,6 +73,8 @@ void render_heading(int x, int y, uint8_t colour, const char *text);
 void render_heading_centred(int y, uint8_t colour, const char *text);
 /* One tile by id at a pixel position (lexicon portraits, M5). */
 void render_draw_tile(uint16_t id, int x, int y);
+/* VDP buffer of a tile (sprite frames, fx.c). */
+uint16_t render_tile_buffer(uint16_t id);
 /* Stream /loc/title.bin (RGBA2222, ADR 0011) into a VDP buffer and show
  * it as a 320x240 bitmap. False when the file is missing or invalid. */
 bool render_show_title(void);

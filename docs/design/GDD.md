@@ -719,6 +719,15 @@ Wie beim Amiga werden pro Feld **mehrere Ebenen übereinander** gezeichnet (B1.2
   Show werden die Felder über `view_mark_dirty` neu gezeichnet.
 - Die KI wird sichtbar: nach jeder KI-Phase (und den unabhängigen Kreaturen)
   leert ein Callback in `turn_end_phase` den Ring und spielt ihn ab.
+- **Sprite-Effekte (Polish-Runde, ADR 0012):** Neues Ereignis `EV_PROJECTILE`
+  (Start, Zielversatz, Art) von Bolt, Blitz, Bogen, Wurf und Bombenphiole.
+  Das Frontend lässt Projektile als VDP-Sprites pixelgenau fliegen (Bolt-Kugel,
+  Blitz mit Funkenschweif, Pfeil in 8 Richtungen, rotierende Wurfwaffe);
+  Zauber spielen am Ziel ihre eigene Sprite-Folge (Beschwörungswirbel,
+  Teleport-Funken, Schildkuppel, Fluchschädel, Trankblasen, Funkeln);
+  Schadenszahlen steigen als Ziffern-Sprites auf (Krit mit „!“). Sprites
+  liegen über der Karte – nichts muss neu gezeichnet werden, nichts bleibt
+  stehen. Eigene Schritte gleiten in 80 ms von Feld zu Feld (Setup: G).
 
 ### 11.5 Hilfe, Tutorial und Lexikon [C] (M5)
 

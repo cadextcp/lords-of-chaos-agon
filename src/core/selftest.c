@@ -33,7 +33,7 @@
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
  * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures;
  * M5c added the seven fx tiles after "floor_*" (IDs shifted again). */
-#define HOUSE_VIEW_HASH 0xC1C0D595UL
+#define HOUSE_VIEW_HASH 0x632E5581UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -3166,8 +3166,13 @@ static void test_m5c_events(void)
         check(n >= 1 && ev[0].type == EV_SPELL && ev[0].kind == SP_MAGIC_BOLT,
               "m5c: the cast emits a spell event with the id");
         check(ev[0].x == 4 && ev[0].y == 3, "m5c: the spell names its target");
-        if (n > 1)
-            check(ev[1].type == EV_HIT || ev[1].type == EV_MISS,
+        check(n >= 2 && ev[1].type == EV_PROJECTILE && ev[1].kind == PJ_BOLT &&
+              ev[1].x == world.units[0].x && ev[1].y == world.units[0].y &&
+              (int8_t)ev[1].a == 4 - world.units[0].x &&
+              (int8_t)ev[1].b == 3 - world.units[0].y,
+              "polish: the bolt flies from the caster to the target");
+        if (n > 2)
+            check(ev[2].type == EV_HIT || ev[2].type == EV_MISS,
                   "m5c: the bolt connects or whiffs");
     }
 

@@ -1082,6 +1082,186 @@ def fx_death(phase):
     return im
 
 
+
+# ---------- sprite effects (polish round: VDP sprites over the map) ----------
+
+def _disc(im, cx, cy, r, col, dither=False):
+    for y in range(N):
+        for x in range(N):
+            if (x - cx) ** 2 + (y - cy) ** 2 <= r * r and (not dither or (x + y) % 2 == 0):
+                px(im, x, y, col)
+
+
+def fx_bolt(phase):
+    """Magic bolt: a white-hot orb in a blue halo, sparks turning."""
+    im = new()
+    _disc(im, 11, 11, 7, C["blue"], dither=True)
+    _disc(im, 11, 11, 5, C["lblue"])
+    _disc(im, 11, 11, 3, C["sky"])
+    _disc(im, 11, 11, 1, C["white"])
+    import math
+    for k in range(4):
+        a = phase * 0.8 + k * math.pi / 2
+        px(im, round(11 + 9 * math.cos(a)), round(11 + 9 * math.sin(a)), C["white"])
+    return im
+
+
+def fx_lightning(phase):
+    """Crackling lightning node: white core, yellow forks."""
+    import random
+    rng = random.Random(40 + phase)
+    im = new()
+    for _ in range(5):
+        x, y = 11, 11
+        for _ in range(7):
+            x = max(0, min(N - 1, x + rng.choice((-2, -1, 1, 2))))
+            y = max(0, min(N - 1, y + rng.choice((-2, -1, 1, 2))))
+            px(im, x, y, C["yellow"])
+            if 0 < x < N - 1:
+                px(im, x + 1, y, C["cream"])
+    _disc(im, 11, 11, 3, C["white"])
+    return im
+
+
+ARROW_DIRS = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)]
+
+
+def fx_arrow(d):
+    """Arrow in one of 8 directions (0 = north, clockwise)."""
+    dx, dy = ARROW_DIRS[d]
+    im = new()
+    for i in range(-7, 8):
+        px(im, 11 + dx * i, 11 + dy * i, C["wood"])
+    hx, hy = 11 + dx * 8, 11 + dy * 8                     # head
+    px(im, hx, hy, C["white"])
+    for (ox, oy) in ((-dy - dx, dx - dy), (dy - dx, -dx - dy)):
+        px(im, hx + (ox if abs(ox) < 2 else ox // 2), hy + (oy if abs(oy) < 2 else oy // 2), C["grey"])
+    tx, ty = 11 - dx * 7, 11 - dy * 7                     # fletching
+    for (ox, oy) in ((-dy, dx), (dy, -dx)):
+        px(im, tx + ox, ty + oy, C["white"])
+        px(im, tx + ox - dx, ty + oy - dy, C["white"])
+    return im
+
+
+def fx_spin(phase):
+    """A thrown object tumbling: a blade, turned 45 degrees per frame."""
+    im = new()
+    dirs = [(1, 0), (0, 1)] if phase == 0 else [(1, 1), (-1, 1)]
+    for (dx, dy) in dirs:
+        for i in range(-6, 7):
+            px(im, 11 + dx * i, 11 + dy * i, C["grey"] if abs(i) > 2 else C["white"])
+    px(im, 11, 11, C["wood"])
+    return im
+
+
+def fx_summon(phase):
+    """Summoning swirl, growing over three frames."""
+    import math
+    im = new()
+    r = (4, 8, 11)[phase]
+    for t in range(0, 360, 6):
+        a = math.radians(t + phase * 40)
+        rr = r * (0.55 + 0.45 * (t % 120) / 120)
+        x, y = round(11 + rr * math.cos(a)), round(11 + rr * math.sin(a))
+        if 0 <= x < N and 0 <= y < N:
+            px(im, x, y, (C["magenta"], C["pink"], C["lviolet"])[(t // 60) % 3])
+    _disc(im, 11, 11, max(1, 3 - phase), C["white"])
+    return im
+
+
+def fx_tele(phase):
+    """Teleport: a column of cyan sparks."""
+    import random
+    rng = random.Random(70 + phase)
+    im = new()
+    for _ in range(26):
+        x = 11 + round(rng.gauss(0, 3))
+        y = rng.randrange(N)
+        if 0 <= x < N:
+            px(im, x, y, rng.choice((C["cyan"], C["sky"], C["white"])))
+    return im
+
+
+def fx_shield():
+    """Protective dome over the unit."""
+    im = new()
+    for y in range(N):
+        for x in range(N):
+            d2 = (x - 11) ** 2 + (y - 14) ** 2
+            if 90 <= d2 <= 130 and y <= 16:
+                px(im, x, y, C["lblue"] if (x + y) % 2 else C["sky"])
+    for x in (6, 16):
+        px(im, x, 7, C["white"])
+    return im
+
+
+def fx_curse():
+    """A purple skull rising - curse, subversion."""
+    im = new()
+    _disc(im, 11, 10, 6, C["violet"])
+    _disc(im, 11, 10, 5, C["lviolet"])
+    for (x, y) in ((9, 9), (13, 9)):
+        _disc(im, x, y, 1, C["purple"])
+    rect(im, 9, 15, 13, 17, C["lviolet"])
+    for x in (9, 11, 13):
+        px(im, x, 17, C["purple"])
+    return im
+
+
+def fx_bubble(phase):
+    """Potion bubbles."""
+    im = new()
+    spots = [(8, 18, 2), (14, 14, 3), (10, 9, 2), (16, 6, 1)] if phase == 0 else \
+            [(9, 15, 3), (15, 10, 2), (11, 5, 2), (6, 11, 1)]
+    for (x, y, r) in spots:
+        for yy in range(N):
+            for xx in range(N):
+                d2 = (xx - x) ** 2 + (yy - y) ** 2
+                if r * r - r <= d2 <= r * r + r:
+                    px(im, xx, yy, C["lgreen"])
+        px(im, x - 1, y - 1, C["white"])
+    return im
+
+
+def fx_spark(phase):
+    """Generic magic: four-pointed sparkles."""
+    im = new()
+    stars = [(6, 6, 3), (16, 9, 4), (9, 16, 2)] if phase == 0 else [(15, 5, 2), (7, 12, 4), (16, 17, 3)]
+    for (x, y, r) in stars:
+        for i in range(-r, r + 1):
+            px(im, x + i, y, C["yellow"] if abs(i) < r else C["orange"])
+            px(im, x, y + i, C["yellow"] if abs(i) < r else C["orange"])
+        px(im, x, y, C["white"])
+    return im
+
+
+# Damage digits for the rising numbers (8x8 icons, red with an outline).
+_DIGITS = {
+    "0": ["xxx", "x.x", "x.x", "x.x", "xxx"], "1": [".x.", "xx.", ".x.", ".x.", "xxx"],
+    "2": ["xxx", "..x", "xxx", "x..", "xxx"], "3": ["xxx", "..x", ".xx", "..x", "xxx"],
+    "4": ["x.x", "x.x", "xxx", "..x", "..x"], "5": ["xxx", "x..", "xxx", "..x", "xxx"],
+    "6": ["xxx", "x..", "xxx", "x.x", "xxx"], "7": ["xxx", "..x", ".x.", ".x.", ".x."],
+    "8": ["xxx", "x.x", "xxx", "x.x", "xxx"], "9": ["xxx", "x.x", "xxx", "..x", "xxx"],
+    "minus": ["...", "...", "xxx", "...", "..."], "bang": [".x.", ".x.", ".x.", "...", ".x."],
+}
+
+
+def _digit_map(rows, fill):
+    grid = [["."] * 8 for _ in range(8)]
+    for y, row in enumerate(rows):
+        for x, c in enumerate(row):
+            if c == "x":
+                for oy in (-1, 0, 1):
+                    for ox in (-1, 0, 1):
+                        gx, gy = x + 2 + ox, y + 1 + oy
+                        if grid[gy][gx] == ".":
+                            grid[gy][gx] = "k"
+    for y, row in enumerate(rows):
+        for x, c in enumerate(row):
+            if c == "x":
+                grid[y + 1][x + 2] = fill
+    return ["".join(r) for r in grid]
+
 ICON_MAPS = {
     "boot":   ["..kkk...", "..kgk...", "..kgk...", "..kgk...", ".kggkkk.", ".kggggk.", ".kkkkkk.", "........"],
     "bolt":   ["....kyk.", "...kyk..", "..kyyyk.", ".kyyyk..", "...kyk..", "..kyk...", "..kk....", "........"],
@@ -1096,6 +1276,9 @@ ICON_MAPS = {
     "st_wound":     ["...k....", "..krk...", "..krk...", ".krrrk..", "krrrrrk.", ".krrrk..", "..kkk...", "........"],
     "st_invisible": ["........", ".kkkkk..", "kgwwwgk.", "kwgkgwk.", "kgwwwgk.", ".kkkkk..", "k.....k.", "........"],
 }
+for _name, _rows in _DIGITS.items():
+    ICON_MAPS[f"dmg_{_name}"] = _digit_map(_rows, "y" if _name == "bang" else "r")
+
 ICON_LEGEND = {"k": C["black"], "g": C["green"], "y": C["yellow"], "r": C["bred"],
                "w": C["white"], "b": C["blue"], "p": C["pink"], "c": C["lblue"]}
 
@@ -1202,6 +1385,16 @@ def all_tiles() -> dict[str, Image.Image]:
         "fx_slash": fx_slash(), "fx_hit": fx_hit(), "fx_miss": fx_miss(),
         "fx_death_0": fx_death(0), "fx_death_1": fx_death(1),
         "fx_death_2": fx_death(2), "fx_death_3": fx_death(3),
+        "fx_bolt_0": fx_bolt(0), "fx_bolt_1": fx_bolt(1),
+        "fx_lightning_0": fx_lightning(0), "fx_lightning_1": fx_lightning(1),
+        "fx_spin_0": fx_spin(0), "fx_spin_1": fx_spin(1),
+        "fx_summon_0": fx_summon(0), "fx_summon_1": fx_summon(1),
+        "fx_summon_2": fx_summon(2),
+        "fx_tele_0": fx_tele(0), "fx_tele_1": fx_tele(1),
+        "fx_shield": fx_shield(), "fx_curse": fx_curse(),
+        "fx_bubble_0": fx_bubble(0), "fx_bubble_1": fx_bubble(1),
+        "fx_spark_0": fx_spark(0), "fx_spark_1": fx_spark(1),
+        **{f"fx_arrow_{d}": fx_arrow(d) for d in range(8)},
     }
     for m in range(16):
         t[f"wall_{m:02d}"] = wall(m)

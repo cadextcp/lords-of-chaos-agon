@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../core/events.h"
 #include "../core/ai.h"
 #include "../core/area.h"
 #include "../core/ride.h"
@@ -164,6 +165,33 @@ static int selftest(void)
     return fails ? 1 : 0;
 }
 
+/* The step as a gliding sprite (ADR 0012): the map is drawn without the
+ * unit, its tile slides from the old field to the new one, then the
+ * normal frame() shows it again. Riders keep the plain jump. */
+static void update_sight(void);
+
+static void glide(uint8_t id, int16_t old_x, int16_t old_y)
+{
+    uint8_t u = world_find_unit(&world, id);
+    int16_t ovx, ovy, nvx, nvy;
+    const Unit *un;
+    if (u == NO_UNIT || !fx_glide_on)
+        return;
+    un = &world.units[u];
+    if (ride_rider_kind(un) < CR_COUNT)
+        return;
+    update_sight();
+    view_follow(&world, un->x, un->y);
+    world_delta(&world, view_origin_x(), view_origin_y(), old_x, old_y, &ovx, &ovy);
+    world_delta(&world, view_origin_x(), view_origin_y(), un->x, un->y, &nvx, &nvy);
+    view_hide_unit(id);
+    view_update(&world);
+    render_fields();
+    render_cursor(0, 0, CURSOR_GREEN, false);
+    fx_glide((uint16_t)(CREATURE_TILE[un->kind] + un->owner), ovx, ovy, nvx, nvy);
+    view_hide_unit(NO_UNIT);
+}
+
 /* Red messages are refusals: they get the error buzz (render.c hook). */
 static void error_sound(void)
 {
@@ -285,7 +313,6 @@ static void throw_or_fire(bool dump)
     if (target_kind == TA_THROW) {
         if (brew_throw_vial(&world, &turns.rng, active(), sx, sy) ||
             items_throw(&world, &turns.rng, active(), sx, sy)) {
-            sound_play(SND_THROW);
             render_message(1, C_BRIGHT_YELLOW, "Geworfen!");
         }
         else
@@ -294,7 +321,6 @@ static void throw_or_fire(bool dump)
     } else {
         uint8_t dmg = 0;
         if (items_fire(&world, &turns.rng, active(), target_x, target_y, &dmg)) {
-            sound_play(SND_BOW);
             if (dmg)
                 render_message(1, C_BRIGHT_YELLOW, "Schuss trifft!");
             else
@@ -469,9 +495,12 @@ static void step(uint8_t m, bool dump)
         bool was_adjacent = world_enemy_adjacent(&world, active());
         bool fled_died = false;
         CombatResult fs;
+        int16_t old_x = world.units[active()].x, old_y = world.units[active()].y;
         if (!world_move_unit(&world, active(), dx, dy))
             goto bump;                     /* not moved: classify the bump */
         sound_play(SND_STEP);
+        if (!dump)
+            glide(mover_id, old_x, old_y);
         if (was_adjacent &&
             combat_disengage_swings(&world, &turns.rng, active(), &fs)) {
             if (fs.hit) {
@@ -1277,7 +1306,10 @@ static void designer_setup_loop(void)
         render_menu_line(2, 10, C_BRIGHT_WHITE, buf);
         snprintf(buf, sizeof buf, "Toneffekte: %s  (T)", sound_on ? "an" : "aus");
         render_menu_line(2, 12, C_BRIGHT_WHITE, buf);
-        render_menu_line(2, 16, C_GREY, "Esc zurueck ins Menue.");
+        snprintf(buf, sizeof buf, "Gleitende Schritte: %s  (G)",
+                 fx_glide_on ? "an" : "aus");
+        render_menu_line(2, 14, C_BRIGHT_WHITE, buf);
+        render_menu_line(2, 17, C_GREY, "Esc zurueck ins Menue.");
         while (!kbuf_poll_event(&e))
             audio_poll();
         if (!e.isdown)
@@ -1302,6 +1334,9 @@ static void designer_setup_loop(void)
                 music_start("music/title.bin");
             else
                 music_stop();
+            sound_settings_save();
+        } else if (e.ascii == 'g' || e.ascii == 'G') {
+            fx_glide_on = !fx_glide_on;
             sound_settings_save();
         } else if (e.ascii == 't' || e.ascii == 'T') {
             sound_on = !sound_on;
@@ -1563,21 +1598,22 @@ int main(int argc, char **argv)
         view_invalidate();
         view_update(&world);
         render_fields();
-        render_draw_tile(T_FX_SLASH, 2 * TILE_PX, 3 * TILE_PX);
-        render_draw_tile(T_FX_HIT, 3 * TILE_PX, 3 * TILE_PX);
-        render_draw_tile(T_FX_MISS, 4 * TILE_PX, 3 * TILE_PX);
-        render_draw_tile(T_FX_DEATH_0, 5 * TILE_PX, 3 * TILE_PX);
-        render_draw_tile(T_FX_DEATH_1, 2 * TILE_PX, 4 * TILE_PX);
-        render_draw_tile(T_FX_DEATH_2, 3 * TILE_PX, 4 * TILE_PX);
-        render_draw_tile(T_FX_DEATH_3, 4 * TILE_PX, 4 * TILE_PX);
-        sound_play(SND_SWING);
-        sound_play(SND_HIT);
-        sound_play(SND_MISS);
-        sound_play(SND_SPELL);
-        sound_play(SND_SMASH);
-        sound_play(SND_DEATH);
-        sound_play(SND_ROUND);
-        sound_play(SND_WIN);
+        fx_init();
+        sound_init();
+        for (i = 0; i < 12; i++) {        /* every sprite effect, a few times */
+            events_reset();
+            events_push(EV_PROJECTILE, 1, 6, PJ_BOLT, OWN_P1, 5, (uint8_t)-4);
+            events_push(EV_HIT, 6, 2, CR_GOBLIN, OWN_P2, 12, 1);
+            events_push(EV_PROJECTILE, 1, 1, PJ_ARROW, OWN_P1, 6, 2);
+            events_push(EV_PROJECTILE, 7, 6, PJ_THROWN, OWN_P2, (uint8_t)-5, 0);
+            events_push(EV_HIT, 2, 6, CR_GOBLIN, OWN_P2, 7, 0);
+            events_push(EV_PROJECTILE, 7, 7, PJ_LIGHTNING, OWN_P2, (uint8_t)-6, (uint8_t)-5);
+            events_push(EV_SPELL, 4, 4, SP_GOBLIN, OWN_P1, 0, 0);
+            events_push(EV_SPELL, 5, 3, SP_TELEPORT, OWN_P1, 0, 0);
+            events_push(EV_SPELL, 3, 5, SP_CURSE, OWN_P1, 0, 0);
+            events_push(EV_SPELL, 4, 2, SP_MAGIC_SHIELD, OWN_P1, 0, 0);
+            fx_drain_play(&world, NULL);
+        }
         do {                              /* the tiles stay on screen */
             while (!kbuf_poll_event(&e))
                 audio_poll();
@@ -1689,6 +1725,7 @@ int main(int argc, char **argv)
         return 1;
     }
     umfont_install();                    /* ae/oe/ue/ss for the UI (M4j) */
+    fx_init();                           /* effect sprites (ADR 0012) */
     sound_settings_load();
     if (!dump && !do_bench && !sound_init())   /* samples from the SD */
         log_line("SFX missing - waveform fallback");

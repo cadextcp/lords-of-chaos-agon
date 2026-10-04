@@ -180,6 +180,9 @@ void world_kill_unit(World *w, uint8_t victim, uint8_t killer_kind,
 uint8_t world_spawn_unit(World *w, uint8_t owner, uint8_t kind, uint8_t x, uint8_t y);
 /* Chebyshev distance between two fields, honouring wrap-around. */
 uint8_t world_distance(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1);
+/* Offset from (x0, y0) to (x1, y1), the shortest way on wrapping maps. */
+void world_delta(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1,
+                 int16_t *dx, int16_t *dy);
 /* Index of the unit with this id, NO_UNIT when it is gone. */
 uint8_t world_find_unit(const World *w, uint8_t id);
 /* Ground unit that was engaged this turn (UF_ENGAGED) and still stands

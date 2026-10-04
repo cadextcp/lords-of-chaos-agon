@@ -137,6 +137,11 @@ static void draw_tile(uint16_t id, int x, int y)
     vdp_draw_bitmap(x, y);
 }
 
+uint16_t render_tile_buffer(uint16_t id)
+{
+    return (uint16_t)(TILE_BUFFER_BASE + id);
+}
+
 /* Public single-tile draw for non-map screens (lexicon portraits, M5). */
 void render_draw_tile(uint16_t id, int x, int y)
 {

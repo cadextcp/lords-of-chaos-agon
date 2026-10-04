@@ -223,7 +223,7 @@ static void test_audio(void)
 
     /* tunable sample: the same buffer at three pitches (instrument) */
     vdp_audio_create_sample_from_buffer(2, SAMPLE_BUFFER,
-        VDP_AUDIO_SAMPLE_FORMAT_8BIT_SIGNED | VDP_AUDIO_SAMPLE_FORMAT_SAMPLE_TUNEABLE);
+        VDP_AUDIO_SAMPLE_FORMAT_8BIT_SIGNED | 16);   /* tunable = bit 4 (A9) */
     vdp_audio_set_buffer_frequency(2, SAMPLE_BUFFER, 262);
     vdp_audio_set_sample(2, SAMPLE_BUFFER);
     a = note(2, 80, 262, 150);
@@ -547,7 +547,13 @@ static void test_leaks(void)
     vdp_audio_volume_envelope_ADSR(3, 0, 0, 255, 0);
     probe(21, "adsr 8/80/200/60");
     vdp_audio_volume_envelope_ADSR(2, 8, 80, 200, 60);
-    probe(22, "end");
+    probe(22, "tune fmt 8+frq");
+    vdp_audio_create_sample_from_buffer(0, SAMPLE_BUFFER, 8);
+    vdp_audio_set_buffer_frequency(0, SAMPLE_BUFFER, 100);   /* 'd' */
+    probe(23, "tune fmt 16+frq");
+    vdp_audio_create_sample_from_buffer(0, SAMPLE_BUFFER, 16);
+    vdp_audio_set_buffer_frequency(0, SAMPLE_BUFFER, 100);
+    probe(24, "end");
     pause_cs(300);
 }
 

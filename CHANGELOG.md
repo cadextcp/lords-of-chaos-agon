@@ -2,6 +2,20 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Sprite-Effekte und gleitende Schritte (2026-10-04)
+
+### Hinzugefügt
+- **Fliegende Projektile** als VDP-Sprites: Bolt-Kugel, Blitz mit Funkenschweif, Pfeil (8 Richtungen), rotierende Wurfwaffe, Bombenphiole – auch bei KI-Angriffen. Neues Core-Ereignis `EV_PROJECTILE` (Wurf-Schleife umgebaut, Würfelfolge unverändert).
+- **Zauber-Effekte am Ziel:** Beschwörungswirbel, Teleport-Funken, Schildkuppel, Fluchschädel, Trankblasen, Funkeln.
+- **Aufsteigende Schadenszahlen** als Sprites (Krit mit „!“) statt Text über der Karte.
+- **Gleitende Schritte** der eigenen Einheiten (80 ms, im Setup mit G abschaltbar; Reiter springen weiter).
+- `--fxdemo` zeigt alle Sprite-Effekte in Schleife.
+
+### Behoben
+- Bogen-/Wurfgeräusch kommt jetzt aus dem Ereignis – auch für KI-Schüsse, ohne Doppelung.
+- **Stimmbare Samples** nutzen Flag 16 (agondev-Konstante 8 ist „Abtastrate folgt“ und ließ Bytes als Text erscheinen, QUIRK A9).
+- `HOUSE_VIEW_HASH` 0x632E5581 (neue Effekt-Kacheln verschieben die IDs).
+
 ## [Unreleased] – Neues Titelbild, Zierschrift, Menü- und Endbilder, eigene Tränke (2026-10-04)
 
 ### Hinzugefügt

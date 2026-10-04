@@ -175,16 +175,27 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
     u->item_count--;
     u->in_use = NO_ITEM;
 
+    /* fly first (no dice yet), then resolve the hit: the projectile
+     * event must come before its hit or miss */
     x = u->x;
     y = u->y;
-    for (dist = 0; dist < 6; dist++) {
-        int16_t nx = (int16_t)(x + dx), ny = (int16_t)(y + dy);
-        uint8_t target;
-        if (!world_wrap(w, &nx, &ny) || world_blocks(w, nx, ny))
-            break;
-        target = world_unit_at(w, nx, ny, UL_GROUND);
-        if (target == NO_UNIT)
-            target = world_unit_at(w, nx, ny, UL_AIR);
+    {
+        uint8_t target = NO_UNIT, steps = 0;
+        for (dist = 0; dist < 6; dist++) {
+            int16_t nx = (int16_t)(x + dx), ny = (int16_t)(y + dy);
+            if (!world_wrap(w, &nx, &ny) || world_blocks(w, nx, ny))
+                break;
+            target = world_unit_at(w, nx, ny, UL_GROUND);
+            if (target == NO_UNIT)
+                target = world_unit_at(w, nx, ny, UL_AIR);
+            steps++;
+            if (target != NO_UNIT)
+                break;
+            x = nx;
+            y = ny;
+        }
+        events_push(EV_PROJECTILE, u->x, u->y, PJ_THROWN, u->owner,
+                    (uint8_t)(int8_t)(dx * steps), (uint8_t)(int8_t)(dy * steps));
         if (target != NO_UNIT) {        /* thrown weapons hit flyers too */
             if (items_can_harm_undead(w, unit, target)) {
                 uint16_t roll = rng_range(rng, 100);
@@ -198,15 +209,9 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
                 else
                     events_push(EV_MISS, u->x, u->y, u->kind, u->owner, 0, 0);
             }
-            x = (int16_t)(nx - dx);     /* lands in front of the target */
-            y = (int16_t)(ny - dy);
-            world_wrap(w, &x, &y);
-            goto land;
+            /* it lands in front of the target: x/y stopped there */
         }
-        x = nx;
-        y = ny;
     }
-land:
     if (w->object_count < MAX_OBJECTS) {
         w->objects[w->object_count].x = (uint8_t)x;
         w->objects[w->object_count].y = (uint8_t)y;
@@ -250,6 +255,8 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
     if (target == NO_UNIT)
         return false;
     world_spend(w, unit, ACTIONS[ACT_FIRE].ap);
+    events_push(EV_PROJECTILE, u->x, u->y, PJ_ARROW, u->owner,
+                (uint8_t)(int8_t)dx, (uint8_t)(int8_t)dy);
     if (items_can_harm_undead(w, unit, target)) {
         uint16_t roll = rng_range(rng, 100);
         if (roll < combat_hit_chance(items_combat(w, unit),
