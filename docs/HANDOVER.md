@@ -1,6 +1,6 @@
 # Übergabe: Stand und nächste Schritte
 
-> Stand: 2026-10-04 · **M0–M5 vollständig**, **Polish-Runde** in 5 PRs (#113 gemergt, #114–#117 gestapelt offen) · CI grün · `loc.bin` 282 KB
+> Stand: 2026-10-04 · **M0–M5 vollständig**, **Polish-Runde** gemergt (#113–#117), dazu #118 (D34) und #119 (D35–D37) · CI grün · `loc.bin` 299 KB
 > Für die nächste Person bzw. den nächsten Agenten. Zuerst `CLAUDE.md` lesen (Regeln, Befehle), dann dieses Dokument.
 
 ---
@@ -15,7 +15,7 @@
 | **M3 Classic spielbar** | ✅ #27–#33, #41 |
 | **M4 Classic komplett (v1.0)** | ✅ 10 von 10 Teilen (#43–#52) |
 | **M5 Präsentationsrunde** | ✅ #88–#92: Endbildschirm mit Menü-Rücksprung/Kampagne, Hilfeseiten (SD), geführtes Tutorial, Lexikon (persistent), Ereignis-Ring mit Kampf-/Todesanimation, 16 Sound-Effekte mit Wellenformen/ADSR, KI sichtbar, Titelbild (Streaming) + Titelmusik (3 Kanäle) |
-| **Polish-Runde** | #113 ✅ Bildschirmreste/Titelbild-Loader · #114 VDP-Spike (ADR 0012) · #115 Audio (Samples, Musik, Jingles) · #116 Titelbild, Zierschrift, Menü-/Endbilder, Tränke · #117 Sprite-Effekte. Plan: `C:\Users\cadex\.claude\plans\schau-mal-das-spiel-soft-dongarra.md` (Nutzer-Entscheide dort) |
+| **Polish-Runde** | ✅ #113 Bildschirmreste/Titelbild-Loader · #114 VDP-Spike (ADR 0012) · #115 Audio (Samples, Musik, Jingles) · #116 Titelbild, Zierschrift, Menü-/Endbilder, Tränke · #117 Sprite-Effekte · #118 Beschwörungsstufen (D34) · #119 Rundenende, Zufallswelt, Wildtiere, Phasenbildschirm, Aufheben-Auswahl (D35–D37). Plan: `C:\Users\cadex\.claude\plans\schau-mal-das-spiel-soft-dongarra.md` (Nutzer-Entscheide dort) |
 | M6+ Chaos | geplant, siehe `docs/ROADMAP.md` |
 
 **Was heute läuft (Emulator, Stand Polish-Runde):**
@@ -191,7 +191,7 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 
 ## 7. Nächste Schritte
 
-**Polish-Runde (Stand 2026-10-04):** #114–#117 sind gestapelt (Merge-Commits, in Reihenfolge 114 → 115 → 116 → 117) und warten auf die Merge-Freigabe des Nutzers. Danach auf Hardware prüfen (SD-Paket `bin/loc-sd.zip` neu): `vdptest` (Log mit dem Emulator vergleichen, ADR 0012), Klang/Musik, Schrift, Sprites, Ladezeit (`sfx.bin` 110 KB zusätzlich), VDP-RAM. Offen aus dem Plan: Copper/Doppelpuffer verworfen (ADR 0012); KI-Bewegungen gleiten noch nicht (nur eigene Schritte).
+**Polish-Runde (Stand 2026-10-04):** #113–#119 sind alle gemergt, `main` ist grün (Host + eZ80). Als Nächstes auf Hardware prüfen (SD-Paket `bin/loc-sd.zip` neu): `vdptest` (Log mit dem Emulator vergleichen, ADR 0012), Klang/Musik, Schrift, Sprites, Ladezeit (`sfx.bin` 110 KB zusätzlich), VDP-RAM. Offen aus dem Plan: Copper/Doppelpuffer verworfen (ADR 0012); KI-Bewegungen gleiten noch nicht (nur eigene Schritte). Grafik-Restposten: Lexikon-Vorschaubilder, Zauberer-Porträt, Gelände auf der Großkarte; optional Partikel und Status-Symbole für neue Effekte.
 
 **Fallstricke aus der Polish-Runde:** Der eZ80-RAM ist knapp (QUIRK S6) – große Puffer nur streamen, Werkzeuge als eigene Programme (`spikes/`). Audio: VDP queued nicht (A1), Kanal 3+ erst freischalten (A8), stimmbar = Flag 16 (A9) – sonst landen Befehlsbytes als Text auf dem Schirm. Python-Patches unter Windows immer mit `encoding="utf-8"` lesen.
 
