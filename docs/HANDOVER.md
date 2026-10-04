@@ -1,6 +1,6 @@
 # Übergabe: Stand und nächste Schritte
 
-> Stand: 2026-10-04 · **M0–M4 vollständig**, **M5 Präsentationsrunde vollständig** (#88 Endbildschirm, #90 Hilfe/Tutorial/Lexikon, #91 Ereignisse/Animation/Sound, #92 Titelbild/Musik) · CI grün · `loc.bin` 292 KB
+> Stand: 2026-10-04 · **M0–M5 vollständig**, **Polish-Runde** in 5 PRs (#113 gemergt, #114–#117 gestapelt offen) · CI grün · `loc.bin` 282 KB
 > Für die nächste Person bzw. den nächsten Agenten. Zuerst `CLAUDE.md` lesen (Regeln, Befehle), dann dieses Dokument.
 
 ---
@@ -15,10 +15,14 @@
 | **M3 Classic spielbar** | ✅ #27–#33, #41 |
 | **M4 Classic komplett (v1.0)** | ✅ 10 von 10 Teilen (#43–#52) |
 | **M5 Präsentationsrunde** | ✅ #88–#92: Endbildschirm mit Menü-Rücksprung/Kampagne, Hilfeseiten (SD), geführtes Tutorial, Lexikon (persistent), Ereignis-Ring mit Kampf-/Todesanimation, 16 Sound-Effekte mit Wellenformen/ADSR, KI sichtbar, Titelbild (Streaming) + Titelmusik (3 Kanäle) |
+| **Polish-Runde** | #113 ✅ Bildschirmreste/Titelbild-Loader · #114 VDP-Spike (ADR 0012) · #115 Audio (Samples, Musik, Jingles) · #116 Titelbild, Zierschrift, Menü-/Endbilder, Tränke · #117 Sprite-Effekte. Plan: `C:\Users\cadex\.claude\plans\schau-mal-das-spiel-soft-dongarra.md` (Nutzer-Entscheide dort) |
 | M6+ Chaos | geplant, siehe `docs/ROADMAP.md` |
 
-**Was heute läuft (Emulator):**
-- **Start:** `loc` zeigt Titelbild + Titelmusik (Taste → Menü, Musik endet beim ersten Tastendruck), dann Hauptmenü mit Szenarien 1–3, Laden, Designer, Setup, **Hilfe, Lexikon, Tutorial**.
+**Was heute läuft (Emulator, Stand Polish-Runde):**
+- **Start:** Titelbild (Schlachtgetümmel) + Titelmusik (4 Stimmen, Samples), die Musik läuft im Menü weiter; Menü mit Titelbild-Hintergrund; Überschriften in eigener 8×16-Zierschrift.
+- **Klang:** 16 eigene Samples (`tools/gen_sfx.py`, `/loc/sfx.bin`), Effekt-Sequenzer auf Kanal 0/4, Musik auf 1–3/5–9 (je zwei Kanäle pro Stimme), Jingles am Spielende; Setup schaltet Musik (M), Effekte (T), Gleiten (G). Vorhören: `uv run tools/audio_preview.py`.
+- **Effekte:** Projektile/Zauber/Schadenszahlen als VDP-Sprites, gleitende Schritte.
+- **Werkzeug:** `uv run tools/run.py --vdptest [n]` startet das separate Messprogramm `vdptest` (ADR 0012).
 - **Spielende:** Endbildschirm (Sieg/Niederlage) mit Runden/Kills/Beute/VP, Kampagne verbucht XP/Level; Enter zurück ins Menü, Esc beendet.
 - **Tutorial:** kleine Karte, 7 Schritte (Bewegen → Wechseln → Schlüssel → Truhe → Kampf → Zauber → Portal), Hinweiszeile unten; Runde-1-Sperre aufgehoben.
 - **Lexikon (Taste `i`):** entdeckte Kreaturen/Objekte, Detailseite mit Porträt und Text; persistent in `/loc/lexicon.dat`.
@@ -186,6 +190,11 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 ---
 
 ## 7. Nächste Schritte
+
+**Polish-Runde (Stand 2026-10-04):** #114–#117 sind gestapelt (Merge-Commits, in Reihenfolge 114 → 115 → 116 → 117) und warten auf die Merge-Freigabe des Nutzers. Danach auf Hardware prüfen (SD-Paket `bin/loc-sd.zip` neu): `vdptest` (Log mit dem Emulator vergleichen, ADR 0012), Klang/Musik, Schrift, Sprites, Ladezeit (`sfx.bin` 110 KB zusätzlich), VDP-RAM. Offen aus dem Plan: Copper/Doppelpuffer verworfen (ADR 0012); KI-Bewegungen gleiten noch nicht (nur eigene Schritte).
+
+**Fallstricke aus der Polish-Runde:** Der eZ80-RAM ist knapp (QUIRK S6) – große Puffer nur streamen, Werkzeuge als eigene Programme (`spikes/`). Audio: VDP queued nicht (A1), Kanal 3+ erst freischalten (A8), stimmbar = Flag 16 (A9) – sonst landen Befehlsbytes als Text auf dem Schirm. Python-Patches unter Windows immer mit `encoding="utf-8"` lesen.
+
 
 **M5 Präsentationsrunde ist fertig** (alle vier PRs gemergt, CI grün): #88 Endbildschirm + Menü-Rücksprung + Kampagnenergebnis, #90 Hilfeseiten/Tutorial/Lexikon, #91 Ereignis-Ring/Kampf-/Todesanimation/Sound/KI-sichtbar, #92 Titelbild/Titelmusik. Plan war `docs/PLAN-M5.md` (4 PRs nach Nutzerentscheid).
 
