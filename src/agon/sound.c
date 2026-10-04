@@ -11,6 +11,11 @@
 #define FX_VOICES 2
 static const uint8_t FX_CH[FX_VOICES] = {0, 4};
 #define SFX_BUFFER_BASE 0x6000
+/* Tunable sample = format bit 4. agondev's VDP_AUDIO_SAMPLE_FORMAT_SAMPLE_
+ * TUNEABLE is 8, which is "sample rate follows": the VDP then eats the
+ * next bytes and the rest of the stream lands on the screen as text
+ * (vdptest 6, QUIRK A9). */
+#define SAMPLE_TUNEABLE 16
 #define NO_SAMPLE 0xFF
 #define STEPS 3
 
@@ -150,7 +155,7 @@ bool sound_init(void)
         vdp_adv_consolidate(id);         /* one block (QUIRK S1) */
         vdp_audio_create_sample_from_buffer(0, id,
             VDP_AUDIO_SAMPLE_FORMAT_8BIT_SIGNED |
-            ((e[0] & 1) ? VDP_AUDIO_SAMPLE_FORMAT_SAMPLE_TUNEABLE : 0));
+            ((e[0] & 1) ? SAMPLE_TUNEABLE : 0));
         if (e[0] & 1)
             vdp_audio_set_buffer_frequency(0, id, base);
         sample_ms[i] = (uint16_t)(len / 16);   /* 16 kHz */
