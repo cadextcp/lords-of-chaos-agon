@@ -13,6 +13,7 @@ via SendInput, which the emulator receives like real keyboard input.
     uv run tools/send_keys.py ddwe                 # each char = one key press
     uv run tools/send_keys.py --list right,down,esc
     uv run tools/send_keys.py --list up+right,hold=left=800   # chord, held key
+    uv run tools/send_keys.py --list wait=2000,space          # pause, then key
 
 Exit code 0 = keys sent, 2 = emulator window not found.
 """
@@ -56,6 +57,9 @@ def main() -> int:
             for k in (args.keys.split(",") if args.list else list(args.keys))]
     pydirectinput.PAUSE = 0.02
     for k in keys:
+        if k.startswith("wait="):              # wait=1500 -> pause, no key
+            time.sleep(int(k.split("=")[1]) / 1000)
+            continue
         if k.startswith("hold="):              # hold=right=800 -> hold 800 ms
             _, name, ms = k.split("=")
             pydirectinput.keyDown(name)

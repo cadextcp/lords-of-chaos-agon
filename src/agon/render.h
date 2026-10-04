@@ -42,10 +42,21 @@ void render_spell_list(const Spellbook *book);
  * (B). Missing groups are not offered. */
 void render_cast_menu(uint8_t have_spells, uint8_t have_summons,
                       uint8_t n_spells, uint8_t n_summons);
-/* One of the three message lines (0..2) below the map. */
+/* One of the three message lines (0..2) below the map. The text is
+ * remembered; render_messages_redraw() repaints all three after a
+ * full-screen page. */
 void render_message(uint8_t line, uint8_t colour, const char *text);
-/* Menu helpers (M4f): black out the map window, write one text cell. */
+void render_messages_redraw(void);
+/* Menu helpers (M4f): black out the map window (and hide the cursor
+ * sprite), write one text cell. Text drawn after render_menu_clear must
+ * stay within columns 0..26, or it survives the next clear. */
 void render_menu_clear(void);
+/* Full-width text line for full-screen menus: cut at column 38 and
+ * padded with blanks, so a shorter redraw overwrites the old text. */
+void render_menu_line(uint8_t col, uint8_t row, uint8_t colour,
+                      const char *text);
+/* Black out whole text rows row0..row1 (all 40 columns). */
+void render_clear_rows(uint8_t row0, uint8_t row1);
 void render_menu_text(uint8_t col, uint8_t row, uint8_t colour,
                       const char *text);
 /* Full-screen helpers for the title/end/help screens (M5a): the whole

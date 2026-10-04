@@ -445,33 +445,52 @@ void render_panel_at(const World *w, const Sight *s, int16_t x, int16_t y)
  * pick within it. Set from main.c before the call. */
 uint8_t render_list_summons;
 
+/* Names longer than the list column lose their " Potion" to "Pot." so
+ * that "Invisibility Potion" stays readable instead of being cut. */
+static void short_spell_name(char *out, size_t cap, const char *name)
+{
+    size_t n = strlen(name);
+    static const char SUFFIX[] = " Potion";
+    size_t sl = sizeof SUFFIX - 1;
+    if (n + 1 > cap && n > sl && n - sl + 6 <= cap &&
+        strcmp(name + n - sl, SUFFIX) == 0) {
+        memcpy(out, name, n - sl);
+        memcpy(out + n - sl, " Pot.", 6);         /* with the terminator */
+    } else {
+        snprintf(out, cap, "%s", name);
+    }
+}
+
 void render_spell_list(const Spellbook *book)
 {
     uint8_t row = 0, letter = 'a';
     uint16_t i;
-    black(0, 0, MAP_PX - 1, MAP_PX - 1);
-    /* 27 columns fit left of the stat panel: letter, 15 name, count, mana */
-    text_at(0, 0, C_BRIGHT_YELLOW, "  Zauber          Anz Mana");
+    render_menu_clear();
+    /* left of the stat panel: letter, 17 name, count, mana */
+    text_at(0, 0, C_BRIGHT_YELLOW, "  Zauber           Anz Mana");
+    /* values end in column 25: one blank column before the panel */
     for (i = 0; i < SPELL_COUNT && letter <= 'z'; i++) {
-        char line[28];
+        char line[28], name[18];
         if (book->level[i] == 0)
             continue;
         if (render_list_summons != (SPELLS[i].category == SPC_SUMMON))
             continue;
-        snprintf(line, sizeof line, "%c %-15.15s %2u %4u", letter,
-                 SPELLS[i].name, book->level[i], spell_mana((uint8_t)i, book->level[i]));
-        text_at(0, (uint8_t)(2 + row), C_BRIGHT_WHITE, line);
+        short_spell_name(name, sizeof name, SPELLS[i].name);
+        snprintf(line, sizeof line, "%c %-17.17s %2u %3u", letter, name,
+                 book->level[i], spell_mana((uint8_t)i, book->level[i]));
+        text_at(0, (uint8_t)(1 + row), C_BRIGHT_WHITE, line);
         row++;
         letter++;
     }
-    text_at(0, 22, C_GREY, "Buchstabe wirkt, Esc bricht ab.");
+    /* 25 summons fill rows 1..25; the hint takes the last map row */
+    text_at(0, 26, C_GREY, "Taste a-z wirkt, Esc zu.");
 }
 
 /* The c-menu first asks what to cast: spells or the summoned creatures. */
 void render_cast_menu(uint8_t have_spells, uint8_t have_summons,
                       uint8_t n_spells, uint8_t n_summons)
 {
-    black(0, 0, MAP_PX - 1, MAP_PX - 1);
+    render_menu_clear();
     text_at(0, 0, C_BRIGHT_YELLOW, "  Was wirken?");
     if (have_spells) {
         text_at(2, 3, C_BRIGHT_WHITE, "Z  Zauber");
@@ -492,9 +511,40 @@ void render_cast_menu(uint8_t have_spells, uint8_t have_summons,
     text_at(0, 22, C_GREY, "Z/B waehlen, Esc bricht ab.");
 }
 
+static void hide_cursor(void)
+{
+    vdp_select_sprite(CURSOR_SPRITE);
+    vdp_hide_sprite();
+    vdp_refresh_sprites();
+}
+
+/* Overlays cover the map window: the cursor sprite would float above
+ * them, so it goes too (frame() shows it again). */
 void render_menu_clear(void)
 {
+    hide_cursor();
     black(0, 0, MAP_PX - 1, MAP_PX - 1);
+}
+
+void render_menu_line(uint8_t col, uint8_t row, uint8_t colour,
+                      const char *text)
+{
+    char buf[TEXT_COLS];
+    uint8_t width, i;
+    if (col >= TEXT_COLS - 1)
+        return;
+    width = (uint8_t)(TEXT_COLS - 1 - col);       /* never column 39 (V4) */
+    for (i = 0; i < width && text[i]; i++)
+        buf[i] = text[i];
+    for (; i < width; i++)
+        buf[i] = ' ';
+    buf[width] = 0;
+    text_at(col, row, colour, buf);
+}
+
+void render_clear_rows(uint8_t row0, uint8_t row1)
+{
+    black(0, row0 * 8, 319, row1 * 8 + 7);
 }
 
 void render_menu_text(uint8_t col, uint8_t row, uint8_t colour,
@@ -505,6 +555,7 @@ void render_menu_text(uint8_t col, uint8_t row, uint8_t colour,
 
 void render_screen_clear(void)
 {
+    hide_cursor();
     black(0, 0, 319, 239);
 }
 
@@ -517,19 +568,19 @@ void render_screen_clear(void)
 
 bool render_show_title(void)
 {
-    uint8_t fh, head[8];
+    uint8_t fh, head[9];                 /* "LOCB" u8 version u16 w u16 h */
     uint16_t w, h;
     uint24_t total, sent = 0, n;
     fh = mos_fopen("title.bin", FA_READ);
     if (!fh)
         return false;
-    if (mos_fread(fh, (char *)head, 8) != 8 || memcmp(head, "LOCB", 4) != 0 ||
+    if (mos_fread(fh, (char *)head, 9) != 9 || memcmp(head, "LOCB", 4) != 0 ||
         head[4] != 1) {
         mos_fclose(fh);
         return false;
     }
     w = (uint16_t)(head[5] | (head[6] << 8));
-    h = head[7];
+    h = (uint16_t)(head[7] | (head[8] << 8));
     total = (uint24_t)w * h;
     if (w != 320 || h != 240) {
         mos_fclose(fh);
@@ -546,6 +597,8 @@ bool render_show_title(void)
     mos_fclose(fh);
     if (sent != total)
         return false;
+    /* every write appended a block; a bitmap needs one contiguous block */
+    vdp_adv_consolidate(TITLE_BUFFER);
     vdp_adv_select_bitmap(TITLE_BUFFER);
     vdp_adv_bitmap_from_buffer(320, 240, FORMAT_RGBA2222);
     vdp_draw_bitmap(0, 0);
@@ -559,12 +612,30 @@ void render_frame(int x0, int y0, int x1, int y1, uint8_t colour)
     vdp_rectangle(x0 + 2, y0 + 2, x1 - 2, y1 - 2);
 }
 
+/* The message lines are remembered so that a full redraw after a
+ * full-screen page can bring them back (render_messages_redraw). */
+#define MSG_LINES 3
+static char msg_text[MSG_LINES][TEXT_COLS];
+static uint8_t msg_colour[MSG_LINES];
+
 void render_message(uint8_t line, uint8_t colour, const char *text)
 {
-    char buf[TEXT_COLS];
+    char *buf;
+    if (line >= MSG_LINES)
+        return;
+    buf = msg_text[line];
     /* Pad to 39 columns: writing column 39 of the last row would scroll. */
-    snprintf(buf, sizeof buf, "%-39.39s", text);
+    snprintf(buf, TEXT_COLS, "%-39.39s", text);
+    msg_colour[line] = colour;
     text_at(0, (uint8_t)(TEXT_ROW_MSG + line), colour, buf);
+}
+
+void render_messages_redraw(void)
+{
+    uint8_t i;
+    for (i = 0; i < MSG_LINES; i++)
+        if (msg_text[i][0])
+            text_at(0, (uint8_t)(TEXT_ROW_MSG + i), msg_colour[i], msg_text[i]);
 }
 
 void render_shutdown(void)

@@ -424,9 +424,11 @@ static void lexicon_draw_detail(uint16_t entry)
                 snprintf(buf, sizeof buf, "Nahkampf");
             render_menu_text(5, 6, C_GREY, buf);
         }
-        if (o->eat_con || o->eat_mana)
+        if (o->eat_con || o->eat_mana) {
             snprintf(buf, sizeof buf, "Essen: +%u Kons +%u Mana", o->eat_con,
                      o->eat_mana);
+            render_menu_text(5, 7, C_BRIGHT_GREEN, buf);
+        }
         row = 9;
     }
 
@@ -495,9 +497,9 @@ void spell_panel(uint8_t spell, uint8_t top)
     if (spell >= SPELL_COUNT)
         return;
     s = &SPELLS[spell];
-    render_frame(0, (int)(top * 8) - 2, 215, (int)((top + 11) * 8),
+    render_frame(0, (int)(top * 8) - 2, 319, (int)((top + 11) * 8),
                  C_BRIGHT_BLUE);
-    snprintf(buf, sizeof buf, "%.16s (%s)", s->name, CAT[s->category]);
+    snprintf(buf, sizeof buf, "%.20s (%s)", s->name, CAT[s->category]);
     render_menu_text(1, top, C_BRIGHT_YELLOW, buf);
     snprintf(buf, sizeof buf, "Mana L1:%u  +%u/Stufe", s->mana_base,
              s->mana_step);
@@ -556,7 +558,7 @@ void lexicon_creature_panel(uint8_t kind, uint8_t top)
     if (kind >= CR_COUNT)
         return;
     c = &CREATURES[kind];
-    render_frame(0, (int)(top * 8) - 2, 215, (int)((top + 11) * 8), C_BRIGHT_BLUE);
+    render_frame(0, (int)(top * 8) - 2, 319, (int)((top + 11) * 8), C_BRIGHT_BLUE);
     render_draw_tile((uint16_t)(CREATURE_TILE[kind]), 4, (int)(top * 8) + 4);
     snprintf(buf, sizeof buf, "%.14s", c->name);
     render_menu_text(5, top, C_BRIGHT_YELLOW, buf);

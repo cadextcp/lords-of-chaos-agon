@@ -216,6 +216,17 @@ static void frame(bool dump)
     fx_drain_play(&world, &p1_sight);    /* swings, hits, deaths (M5c) */
 }
 
+/* Back from an overlay or a full-screen page: the panel and the message
+ * lines only repaint their own cells, so everything else is blanked
+ * first - otherwise text of the page survives in the gaps. */
+static void game_redraw(bool dump)
+{
+    render_screen_clear();
+    view_invalidate();
+    render_messages_redraw();
+    frame(dump);
+}
+
 /* Sight changes with every own move and at the round boundary (enemy
  * movement enters or leaves view); recomputing is cheap enough to do
  * exactly then, not per frame. */
@@ -998,7 +1009,7 @@ static void draw_menu_mark(uint8_t item, bool on)
 static void draw_menu(uint8_t cursor)
 {
     uint8_t i;
-    render_menu_clear();
+    render_screen_clear();               /* pages before it used all 40 cols */
     render_menu_text(2, 2, C_BRIGHT_YELLOW, "LORDS OF CHAOS");
     for (i = 0; i < MENU_COUNT; i++) {
         draw_menu_mark(i, i == cursor);
@@ -1021,29 +1032,30 @@ static void designer_attrs(Wizard *w)
         "Kampf", "Verteidigung", "Magieresistenz", "Konstitution", "Ausdauer"};
     uint8_t cursor = 0;
     bool running = true;
-    char buf[40];
+    char buf[48];
+    render_screen_clear();               /* lines below overwrite in place */
     while (running) {
         uint8_t i;
-        render_menu_clear();
-        snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u   ATTRIBUTE", w->name,
-                 w->level, w->xp);
-        render_menu_text(1, 1, C_BRIGHT_YELLOW, buf);
+        snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u", w->name, w->level,
+                 w->xp);
+        render_menu_line(1, 1, C_BRIGHT_YELLOW, buf);
+        render_menu_line(1, 2, C_GREY, "ATTRIBUTE");
         for (i = 0; i < WA_COUNT; i++) {
             snprintf(buf, sizeof buf, "%c %-14.14s %3u  %u XP",
                      i == cursor ? '>' : ' ', ATTRS[i],
                      wizard_attr(w, (WizardAttr)i),
                      wizard_attr_cost((WizardAttr)i, 0));
-            render_menu_text(3, (uint8_t)(3 + i), C_BRIGHT_WHITE, buf);
+            render_menu_line(3, (uint8_t)(4 + i), C_BRIGHT_WHITE, buf);
         }
         snprintf(buf, sizeof buf, "%c %-14.14s %3u  %u XP",
                  cursor == WA_COUNT ? '>' : ' ', "Mana", w->mana_max,
                  wizard_mana_cost());
-        render_menu_text(3, (uint8_t)(3 + WA_COUNT), C_BRIGHT_WHITE, buf);
+        render_menu_line(3, (uint8_t)(4 + WA_COUNT), C_BRIGHT_WHITE, buf);
         snprintf(buf, sizeof buf, "%c %-14.14s %3u  %u XP",
                  cursor == WA_COUNT + 1 ? '>' : ' ', "Aktionspunkte", w->ap,
                  wizard_ap_cost());
-        render_menu_text(3, (uint8_t)(4 + WA_COUNT), C_BRIGHT_WHITE, buf);
-        render_menu_text(1, 13, C_GREY, "Links/Rechts senken/erhoehen, Esc zurueck");
+        render_menu_line(3, (uint8_t)(5 + WA_COUNT), C_BRIGHT_WHITE, buf);
+        render_menu_line(1, 14, C_GREY, "Links/Rechts: -/+   Esc: zurueck");
         while (!kbuf_poll_event(&e))
             ;
         if (!e.isdown)
@@ -1096,28 +1108,37 @@ static void designer_shop(Wizard *w, uint8_t page)
         }
     }
 #define SHOP_ROWS 9
+    render_screen_clear();               /* lines overwrite in place */
     while (running) {
         uint8_t row;
         if (scursor < stop)
             stop = scursor;
         if (scursor >= stop + SHOP_ROWS)
             stop = (uint8_t)(scursor - SHOP_ROWS + 1);
-        render_menu_clear();
-        snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u   %s", w->name, w->level,
-                 w->xp, page == PG_CREATURES ? "KREATUREN" : "ZAUBER");
-        render_menu_text(1, 1, C_BRIGHT_YELLOW, buf);
-        snprintf(buf, sizeof buf, "%-16.16s Anz. Preis", "Name");
-        render_menu_text(2, 3, C_BRIGHT_YELLOW, buf);
-        for (row = 0; row < SHOP_ROWS && stop + row < shop_n; row++) {
-            uint8_t s = shop[stop + row];
-            uint16_t cost = wizard_spell_next_cost(w, s);
-            snprintf(buf, sizeof buf, "%c %-15.15s %2u %5u",
+        snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u", w->name, w->level,
+                 w->xp);
+        render_menu_line(1, 1, C_BRIGHT_YELLOW, buf);
+        render_menu_line(1, 2, C_GREY,
+                         page == PG_CREATURES ? "KREATUREN" : "ZAUBER");
+        snprintf(buf, sizeof buf, "  %-20.20s Anz Preis", "Name");
+        render_menu_line(2, 3, C_BRIGHT_YELLOW, buf);
+        for (row = 0; row < SHOP_ROWS; row++) {
+            uint8_t s;
+            uint16_t cost;
+            if (stop + row >= shop_n) {
+                render_menu_line(2, (uint8_t)(4 + row), C_GREY, "");
+                continue;
+            }
+            s = shop[stop + row];
+            cost = wizard_spell_next_cost(w, s);
+            snprintf(buf, sizeof buf, "%c %-20.20s %3u %5u",
                      stop + row == scursor ? '>' : ' ', SPELLS[s].name,
                      w->book.level[s], cost);
-            render_menu_text(2, (uint8_t)(4 + row),
+            render_menu_line(2, (uint8_t)(4 + row),
                              cost && w->xp >= cost ? C_BRIGHT_WHITE : C_GREY,
                              buf);
         }
+        render_clear_rows(13, 25);       /* the detail panel varies */
         if (shop_n) {
             uint8_t sel = shop[scursor];
             uint8_t k = SUMMON_KIND[sel];
@@ -1126,8 +1147,7 @@ static void designer_shop(Wizard *w, uint8_t page)
             else
                 spell_panel(sel, 14);
         }
-        render_menu_text(1, 27, C_GREY,
-                         "Rechts kaufen/Links erstatten, Esc zurueck");
+        render_menu_line(1, 27, C_GREY, "Rechts kauft, Links erstattet, Esc");
         while (!kbuf_poll_event(&e))
             ;
         if (!e.isdown)
@@ -1152,8 +1172,8 @@ static void designer_loop(uint8_t slot)
     struct keyboard_event_t e;
     Wizard *w = &wizard_slots[slot];
     uint8_t cursor = 0;
-    bool running = true;
-    char buf[40];
+    bool running = true, full = true;
+    char buf[48];
     lexicon_texts_load();   /* creature descriptions for the shop panel */
     spells_texts_load();
     while (running) {
@@ -1161,18 +1181,21 @@ static void designer_loop(uint8_t slot)
                                              "Zauber erlernen",
                                              "Kreaturen beschwoeren"};
         uint8_t i;
-        render_menu_clear();
+        if (full) {                      /* entry or back from a page */
+            render_screen_clear();
+            full = false;
+        }
         snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u", w->name, w->level,
                  w->xp);
-        render_menu_text(2, 1, C_BRIGHT_YELLOW, buf);
-        render_menu_text(4, 4, C_GREY, "Zauberer gestalten:");
+        render_menu_line(2, 1, C_BRIGHT_YELLOW, buf);
+        render_menu_line(4, 4, C_GREY, "Zauberer gestalten:");
         for (i = 0; i < 3; i++) {
             snprintf(buf, sizeof buf, "%c %s", i == cursor ? '>' : ' ',
                      PAGES[i]);
-            render_menu_text(5, (uint8_t)(7 + i * 2),
+            render_menu_line(5, (uint8_t)(7 + i * 2),
                              i == cursor ? C_BRIGHT_WHITE : C_GREY, buf);
         }
-        render_menu_text(4, 22, C_GREY, "Enter waehlt, Esc verlaesst den Designer.");
+        render_menu_line(4, 22, C_GREY, "Enter waehlt, Esc verlaesst.");
         while (!kbuf_poll_event(&e))
             ;
         if (!e.isdown)
@@ -1188,6 +1211,7 @@ static void designer_loop(uint8_t slot)
                 designer_attrs(w);
             else
                 designer_shop(w, cursor);
+            full = true;
         }
     }
 }
@@ -1201,16 +1225,16 @@ static void designer_setup_loop(void)
     struct keyboard_event_t e;
     char buf[40];
     bool running = true;
+    render_screen_clear();               /* lines overwrite in place */
     while (running) {
-        render_menu_clear();
-        render_menu_text(2, 2, C_BRIGHT_YELLOW, "SETUP");
-        snprintf(buf, sizeof buf, "Zufalls-Zauberer-Staerke: %u  (Links/Rechts)",
+        render_menu_line(2, 2, C_BRIGHT_YELLOW, "SETUP");
+        snprintf(buf, sizeof buf, "Zufalls-Zauberer-Staerke: %u (Li/Re)",
                  random_strength);
-        render_menu_text(4, 6, C_BRIGHT_WHITE, buf);
+        render_menu_line(2, 6, C_BRIGHT_WHITE, buf);
         snprintf(buf, sizeof buf, "5-Ladungen-Regel: %s  (L)",
                  loads_unlimited ? "aus" : "an");
-        render_menu_text(4, 8, C_BRIGHT_WHITE, buf);
-        render_menu_text(3, 13, C_GREY, "Esc zurueck ins Menue.");
+        render_menu_line(2, 8, C_BRIGHT_WHITE, buf);
+        render_menu_line(2, 13, C_GREY, "Esc zurueck ins Menue.");
         while (!kbuf_poll_event(&e))
             ;
         if (!e.isdown)
@@ -1264,8 +1288,7 @@ static const char *menu_loop(bool *free_round1)
         if (!e.isdown)
             continue;
         music_stop();                     /* any key ends the song */
-        render_menu_text(2, 20, C_BRIGHT_WHITE,       /* old message line */
-                         "                                      ");
+        render_clear_rows(20, 20);        /* old message line */
         if (e.vkey != VK_SPACE && e.ascii != 13)
             confirm_reset = false;       /* any other key cancels the ask */
         if (e.vkey == VK_UP) {
@@ -1294,7 +1317,7 @@ static const char *menu_loop(bool *free_round1)
                                         : "maps/many_coloured_land.map";
                 }
                 render_menu_text(2, 20, C_BRIGHT_RED,
-                                 "Kein Spielstand oder keine Ladungen mehr.");
+                                 "Kein Spielstand / keine Ladungen.");
                 continue;
             case 4:
                 designer_loop(0);
@@ -1304,7 +1327,7 @@ static const char *menu_loop(bool *free_round1)
                 if (!confirm_reset) {   /* destructive: ask once */
                     confirm_reset = true;
                     render_menu_text(2, 20, C_BRIGHT_RED,
-                                     "Nochmal Enter: Zauberer geht verloren.");
+                                     "Nochmal Enter loescht den Zauberer.");
                     continue;
                 }
                 confirm_reset = false;
@@ -1370,6 +1393,7 @@ static uint8_t scenario_number(const char *map)
 /* Clear everything the finished game left in the frontend. */
 static void reset_play_state(void)
 {
+    uint8_t i;
     game_ended = false;
     end_pending = false;
     confirm_end = false;
@@ -1383,6 +1407,8 @@ static void reset_play_state(void)
     save_loaded = false;
     tutorial_on = false;
     area_reset();
+    for (i = 0; i < 3; i++)              /* no stale lines in the next game */
+        render_message(i, C_GREY, "");
     view_invalidate();                   /* the end screen blanked the map */
 }
 
@@ -1683,7 +1709,7 @@ menu_start:
             sum += wizard_slots[0].book.level[k];
         if (sum == 0) {
             struct keyboard_event_t e;
-            render_menu_clear();
+            render_screen_clear();
             render_menu_text(2, 6, C_BRIGHT_YELLOW,
                              "Dein Zauberer hat keine Zauber.");
             render_menu_text(2, 9, C_BRIGHT_WHITE,
@@ -1712,10 +1738,12 @@ menu_start:
             }
         }
     }
+    render_screen_clear();               /* menu/dialog text must not stay */
+    view_invalidate();
     frame(dump);
     render_message(1, C_BRIGHT_YELLOW, tutorial_on
                    ? "Tutorial: Folge der Hinweiszeile."
-                   : "Willkommen in Testland.");
+                   : "Willkommen! F1 zeigt die Hilfe.");
     render_message(2, C_BRIGHT_BLUE, "Tab Einheit  Leertaste fertig  E Zugende");
     if (do_bench)
         bench();
@@ -1760,8 +1788,7 @@ dispatch:
                 }
                 if (e.vkey == VK_ESC) {
                     cast_menu = false;
-                    view_invalidate();
-                    frame(dump);
+                    game_redraw(dump);
                 } else if ((e.ascii == 'z' || e.ascii == 'y') && have_spells) {
                     cast_menu = false;
                     summon_list = false;
@@ -1783,18 +1810,18 @@ dispatch:
                 if (e.vkey == VK_ESC) {
                     spell_list = false;
                     summon_list = false;
-                    view_invalidate();
-                    frame(dump);
+                    game_redraw(dump);
                 } else if (e.ascii >= 'a' && e.ascii <= cast_letters) {
                     uint16_t pick = e.ascii - 'a';
                     uint16_t i, n = 0;
+                    bool from_summons = summon_list;   /* the list shown */
                     spell_list = false;
                     summon_list = false;
                     view_invalidate();
                     for (i = 0; i < SPELL_COUNT; i++) {
                         if (books[OWN_P1].level[i] == 0)
                             continue;
-                        if (summon_list !=
+                        if (from_summons !=
                             (SPELLS[i].category == SPC_SUMMON))
                             continue;          /* wrong list for this pick */
                         if (n == pick)
@@ -1884,22 +1911,23 @@ dispatch:
             } else if (overlay_open) {
                 if (e.vkey == VK_ESC) {
                     overlay_open = false;
-                    view_invalidate();
-                    frame(dump);
+                    overlay_is_context = false;
+                    game_redraw(dump);
                 } else if (overlay_is_context && !input_arrow(e.vkey) &&
                            !input_diagonal(e.vkey) &&
                            (e.ascii || e.vkey == VK_SPACE)) {
                     /* a letter: close and act through the normal path */
                     overlay_open = false;
                     overlay_is_context = false;
-                    view_invalidate();
+                    game_redraw(dump);
                     replay_valid = true;
                     replay_ascii = e.ascii;
                     replay_vkey = e.vkey == VK_SPACE ? VK_SPACE : 0;
                 } else if (e.vkey == VK_F1) {
                     if (screen_help("help/keys.hlp")) {   /* pages (M5) */
-                        view_invalidate();
-                        frame(dump);
+                        overlay_open = false;    /* the page replaced it */
+                        overlay_is_context = false;
+                        game_redraw(dump);
                     } else
                         draw_help();
                 } else if (e.ascii == 'm') {
@@ -1909,8 +1937,7 @@ dispatch:
                 }
             } else if (e.vkey == VK_F1) {
                 if (screen_help("help/keys.hlp")) {       /* pages (M5) */
-                    view_invalidate();
-                    frame(dump);
+                    game_redraw(dump);
                 } else {
                     overlay_open = true;
                     draw_help();
@@ -1923,8 +1950,7 @@ dispatch:
                 draw_log();
             } else if (e.ascii == 'i') {           /* lexicon (M5) */
                 screen_lexicon(&lex);
-                view_invalidate();
-                frame(dump);
+                game_redraw(dump);
             } else if (e.ascii == 13 && !spell_list && !targeting) {
                 overlay_open = true;               /* context menu (GDD 5.1) */
                 overlay_is_context = true;
@@ -2202,7 +2228,7 @@ dispatch:
             step(m, dump);
         if (getsysvar_time() >= next_anim) {   /* candle and water animation */
             next_anim += ANIM_CS;
-            if (!overlay_open && !spell_list) { /* never paint over an overlay */
+            if (!overlay_open && !spell_list && !cast_menu) { /* not over an overlay */
                 view_animate(++phase);
                 render_fields();
             }
@@ -2210,7 +2236,7 @@ dispatch:
         if (getsysvar_time() >= next_blink) {  /* blinking cursor sprite */
             next_blink += BLINK_CS;
             cursor_on = !cursor_on;
-            if (!overlay_open && !spell_list)
+            if (!overlay_open && !spell_list && !cast_menu && !game_ended)
                 place_cursor();
         }
     }
