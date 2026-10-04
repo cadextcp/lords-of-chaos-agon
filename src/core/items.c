@@ -330,6 +330,22 @@ uint8_t items_defence(const World *w, uint8_t unit)
     return def > malus ? (uint8_t)(def - malus) : 0;
 }
 
+uint8_t items_defence_noshield(const World *w, uint8_t unit)
+{
+    const Unit *u;
+    uint8_t def, malus;
+    if (unit >= w->unit_count)
+        return 0;
+    u = &w->units[unit];
+    def = u->def;    /* no carried shield: magic cuts through armour (D32) */
+    if (effect_active(u, EFF_SHIELD))
+        def = (uint8_t)(def + effect_power(u, EFF_SHIELD));
+    if (effect_active(u, EFF_PROTECT))
+        def = (uint8_t)(def + effect_power(u, EFF_PROTECT));
+    malus = con_malus(u);
+    return def > malus ? (uint8_t)(def - malus) : 0;
+}
+
 
 bool items_eat(World *w, uint8_t unit)
 {
