@@ -7,18 +7,24 @@
 
 Wizard wizard_slots[WIZARD_SLOTS];
 
-/* F6 start values (own design, D7): a stock wizard matches the
- * creatures.csv wizard row; costs rise linearly, caps keep the
- * designer honest. */
+/* F6: a stock wizard matches the creatures.csv wizard row. Point costs
+ * and the XP-per-mana rate come from the original's designer table
+ * (user anchor, 2026-10-04); caps keep the designer honest. */
 #define START_COM 10
 #define START_DEF 12
 #define START_MR 80
 #define START_CON 30
 #define START_STA 60
+#define START_MANA 80
 /* Creation budget: designing a fresh wizard distributes these XP (the
- * original gave a point pool at creation). Own value - the Amiga anchor
- * (F6) is still to be read; costs are 5 + value/4 per point. */
+ * original granted a point pool at creation). Own value. */
 #define START_XP 20
+/* XP per attribute point (original designer table, user anchor):
+ * combat 6, defence 6, magic resistance 9, constitution 9, stamina 3,
+ * mana 9 (wizard_mana_cost). */
+static const uint8_t ATTR_COST[WA_COUNT] = {6, 6, 9, 9, 3};
+#define MANA_COST 9
+#define MANA_MAX 250
 
 uint8_t wizard_attr(const Wizard *w, WizardAttr a)
 {
@@ -38,8 +44,8 @@ uint8_t wizard_attr(const Wizard *w, WizardAttr a)
 
 uint8_t wizard_attr_cost(WizardAttr a, uint8_t current)
 {
-    (void)a;
-    return (uint8_t)(5 + current / 4);   /* the stronger, the pricier */
+    (void)current;
+    return a < WA_COUNT ? ATTR_COST[a] : 9;   /* flat, per the anchor */
 }
 
 uint8_t wizard_attr_max(WizardAttr a)
@@ -91,6 +97,70 @@ bool wizard_lower(Wizard *w, WizardAttr a)
     return true;
 }
 
+/* Buyable spell levels (F6 anchor, 2026-10-04): the first level costs
+ * the spell's design_cost XP, every further level half of that again
+ * ("jeder Level 50 % mehr"), cap 8. Only summons are buyable; the
+ * starting book carries everything else. */
+uint16_t wizard_spell_next_cost(const Wizard *w, uint8_t spell)
+{
+    uint16_t base;
+    if (spell >= SPELL_COUNT || !SPELLS[spell].design_cost)
+        return 0;
+    base = SPELLS[spell].design_cost;
+    return w->book.level[spell] == 0 ? base : (uint16_t)(base / 2 ? base / 2 : 1);
+}
+
+bool wizard_spell_raise(Wizard *w, uint8_t spell)
+{
+    uint16_t cost;
+    if (spell >= SPELL_COUNT)
+        return false;
+    cost = wizard_spell_next_cost(w, spell);
+    if (!cost || w->book.level[spell] >= 8 || w->xp < cost)
+        return false;
+    w->xp = (uint16_t)(w->xp - cost);
+    w->book.level[spell]++;
+    return true;
+}
+
+bool wizard_spell_lower(Wizard *w, uint8_t spell)
+{
+    uint16_t refund;
+    if (spell >= SPELL_COUNT || w->book.level[spell] == 0)
+        return false;
+    w->book.level[spell]--;
+    /* the level just given up cost base at level 1, half above */
+    refund = w->book.level[spell] == 0 ? SPELLS[spell].design_cost
+                                       : SPELLS[spell].design_cost / 2;
+    if (refund == 0)
+        refund = 1;
+    w->xp = (uint16_t)(w->xp + refund);
+    return true;
+}
+
+uint8_t wizard_mana_cost(void)
+{
+    return MANA_COST;
+}
+
+bool wizard_mana_raise(Wizard *w)
+{
+    if (w->mana_max >= MANA_MAX || w->xp < MANA_COST)
+        return false;
+    w->xp = (uint16_t)(w->xp - MANA_COST);
+    w->mana_max++;
+    return true;
+}
+
+bool wizard_mana_lower(Wizard *w)
+{
+    if (w->mana_max <= START_MANA)
+        return false;                    /* never below the start value */
+    w->mana_max--;
+    w->xp = (uint16_t)(w->xp + MANA_COST);   /* full refund */
+    return true;
+}
+
 bool wizard_valid(const Wizard *w)
 {
     uint8_t i;
@@ -107,6 +177,8 @@ bool wizard_valid(const Wizard *w)
     }
     if (w->base_com > w->com || w->base_def > w->def || w->base_mr > w->mr ||
         w->base_con > w->con || w->base_sta > w->sta)
+        return false;
+    if (w->mana_max < START_MANA || w->mana_max > MANA_MAX)
         return false;
     for (i = 0; i < SPELL_COUNT; i++)
         if (w->book.level[i] > SPELL_MAX_LEVEL)
@@ -128,6 +200,7 @@ void wizard_slot_reset(uint8_t slot)
     w->mr = w->base_mr = START_MR;
     w->con = w->base_con = START_CON;
     w->sta = w->base_sta = START_STA;
+    w->mana_max = START_MANA;
     w->xp = START_XP;      /* creation budget for the designer */
     /* stock book: the original's starting levels (user anchor,
      * 2026-10-04) - no summons, they come from the scenario books */
@@ -184,7 +257,7 @@ void wizard_apply_to_world(const Wizard *w, World *world, uint8_t unit)
     u->mr = w->mr;
     u->con = u->con_max = w->con;
     u->sta = u->sta_max = w->sta;
-    u->mana = u->mana_max = 80;          /* stock mana pool (GDD 4.1) */
+    u->mana = u->mana_max = w->mana_max;  /* raised with XP (F6) */
     u->item_count = 0;                   /* F5: the wizard arrives unarmed */
     u->in_use = NO_ITEM;
 }
