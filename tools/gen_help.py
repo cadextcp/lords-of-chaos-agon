@@ -100,6 +100,12 @@ def csv_rows(path: Path) -> int:
                if line and not line.startswith(("#", "id,")))
 
 
+# Read buffers in src/agon/screens.c (HELP_MAX, LEXICON_MAX, SPELLS_MAX):
+# a bigger file would be read cut off and rejected as invalid.
+BUFFER_LIMIT = {"lexicon_de": 6656, "spells_de": 4600}
+DEFAULT_LIMIT = 4096
+
+
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for path in sorted(SRC.glob("*.txt")):
@@ -112,6 +118,10 @@ def main() -> int:
                     f"{path.name}: {len(pages)} pages, expected {want} "
                     "(one per creature, then one per object, csv order)")
         data = encode(pages)
+        limit = BUFFER_LIMIT.get(path.stem, DEFAULT_LIMIT)
+        if len(data) > limit:
+            raise SystemExit(f"{path.name}: {len(data)} bytes, the game buffer "
+                             f"holds {limit} (screens.c)")
         (OUT_DIR / (path.stem + ".hlp")).write_bytes(data)
         print(f"[help] {path.name} -> build/help/{path.stem}.hlp "
               f"({len(pages)} pages, {len(data)} bytes)")

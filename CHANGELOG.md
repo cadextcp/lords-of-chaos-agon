@@ -2,6 +2,21 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Neues Titelbild, Zierschrift, Menü- und Endbilder, eigene Tränke (2026-10-04)
+
+### Hinzugefügt
+- **Titelbild neu:** Schlachtgetümmel im Stil der 8-Bit-Ladebilder, eigene Komposition aus den vergrößerten Spielkreaturen (Scale2x/Scale3x), Blitz, Magiewirbel, Gold-Schriftzug.
+- **Hauptmenü mit Bild:** Titelbild als Hintergrund, Menü im Rahmen.
+- **Endbildschirm mit Bild:** Sieg (Portal, Schätze) bzw. Niederlage (Grab); Level-up-Klang.
+- **Eigene Zierschrift 8×16** für Überschriften (Menü, Designer, Setup, Hilfe, Lexikon, Ende, Overlays), mit Schatten; Fallback Systemschrift.
+- **Eigene Kachel für jeden Trank** (Flüssigkeitsfarbe + Symbol): Stärke, Schutz, Unsichtbarkeit, Schnelligkeit, Fliegen, Heilung.
+
+### Behoben
+- **Hilfeseiten fehlten:** `keys.hlp` (3,2 KB) passte nicht mehr in den 3-KB-Puffer und wurde als ungültig verworfen. Puffer 4 KB, `gen_help.py` prüft jetzt die Größen.
+- **Lexikon- und Zaubertexte fehlten:** Der Code suchte `lexicon.hlp`/`spells.hlp`, die Dateien heißen `*_de.hlp`.
+- **Lexikon:** Geteilte Phiolen-Kachel markierte immer den ersten Trank als entdeckt.
+- `HOUSE_VIEW_HASH` 0xC1C0D595 (neue Kacheln verschieben die IDs).
+
 ## [Unreleased] – Neuer Klang: Samples, neue Musik, mehr Sounds (2026-10-04)
 
 ### Behoben

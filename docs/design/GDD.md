@@ -743,17 +743,27 @@ Wie beim Amiga werden pro Feld **mehrere Ebenen übereinander** gezeichnet (B1.2
 
 ### 11.6 Titelbild und Titelmusik [C] (M5d)
 
-- **Titelbild** 320×240 (MODE 8, volle Bildfläche), eigene Pixelart in der
-  Agon-64-Palette (D10/D7): Nachthimmel mit Mond und Sternen, Turm auf
-  Hügeln, Zauberer mit Stab vor glühendem Portal, Schriftzug „LORDS OF
-  CHAOS". Quelle ist `assets/title/title.png` (`tools/art/make_title.py`
-  erzeugt/überschreibt sie), `tools/build_title.py` kompiliert nach
-  `build/title.bin` (RGBA2222, 76 800 Byte) auf die SD (ADR 0011). Motiv
-  ist ein Platzhalter-Vorschlag; der Nutzer stimmt es ab (siehe Handover).
-- **Streaming-Loader:** `render_show_title()` lädt die Datei häppchenweise
-  über den 576-Byte-Staging-Puffer in einen eigenen VDP-Puffer (ID 0x4000,
-  weit oberhalb des Kachel-Bereichs); wiederholte `write_block_data`-Aufrufe
-  hängen an (QUIRKS S1). Fehlt die Datei, zeigt der Titel nur Text.
+- **Titelbild** 320×240 (Polish-Runde): ein Schlachtgetümmel auf Schwarz im
+  Geist der 8-Bit-Ladebilder, eigene Komposition (D7): großer Zauberer wirkt
+  einen Blitz auf einen Dämon, davor Troll, Zentaur, Zombie und Zwerg, oben ein
+  Drache und eine Fledermaus vor einem Magiewirbel, Schriftzug „LORDS OF
+  CHAOS" in abgeschrägten Goldbuchstaben. Die Figuren sind die eigenen
+  24×24-Kreaturen, mit Scale2x/Scale3x vergrößert (glatte Kanten, Palette
+  bleibt). Quelle `assets/title/title.png`, Generator `tools/art/make_title.py`.
+- **Hauptmenü:** Das Titelbild bleibt als Hintergrund; oben sichtbar (Logo,
+  Drache, Wirbel), darunter die Einträge in einem gerahmten Kasten.
+- **Endbildschirm:** 96×96-Bild neben den Werten – Sieg: Zauberer vor dem
+  leuchtenden Portal mit Gold und Edelsteinen; Niederlage: Grab bei Nacht,
+  Hut auf dem Stein, zerbrochener Stab (`tools/art/make_endpics.py`,
+  `win.bin`/`lose.bin` auf der SD).
+- **Überschriften-Schrift:** eigene 8×16-Zierschrift (`tools/build_font.py`,
+  `/loc/fonts/head.fnt`), am Grafikcursor mit Schatten gezeichnet – Menü,
+  Designer, Setup, Hilfe, Lexikon, Endbildschirm, Overlays. Fehlt die Datei,
+  gilt die Systemschrift.
+- **Streaming-Loader:** `show_picture()` (render.c) lädt Titel und Endbilder
+  häppchenweise über den 576-Byte-Staging-Puffer in eigene VDP-Puffer
+  (0x4000–0x4002) und fügt die Blöcke zusammen (QUIRKS S1). Fehlt eine
+  Datei, bleibt es bei Text.
 - **Musik (Polish-Runde):** eigenes Stück in a-Moll, 16 Takte in zwei
   Hälften (A: Am F C G | Am F E E, B: Dm Am F E | Dm Am E Am), vier Stimmen:
   Zupfsaite (Sample) als Melodie, Dreieck-Bass, leise Sinus-Begleitung mit

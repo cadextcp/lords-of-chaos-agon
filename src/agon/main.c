@@ -910,7 +910,7 @@ static void draw_context_menu(void)
     uint8_t i, row = 3;
     const Unit *u = &world.units[active()];
     render_menu_clear();
-    render_menu_text(2, 1, C_BRIGHT_YELLOW, "Aktionen");
+    render_heading(16, 2, C_BRIGHT_YELLOW, "Aktionen");
     for (i = 0; i < sizeof ITEMS / sizeof ITEMS[0]; i++) {
         const char *name = ITEMS[i].name;
         int8_t act = ITEMS[i].act;
@@ -969,7 +969,7 @@ static void draw_log(void)
     uint8_t i, idx;
     char buf[40];
     render_menu_clear();
-    render_menu_text(2, 1, C_BRIGHT_YELLOW, "Nachrichten");
+    render_heading(16, 2, C_BRIGHT_YELLOW, "Nachrichten");
     for (i = 0; i < LOG_RING; i++) {
         idx = (uint8_t)((log_head + i) % LOG_RING);
         snprintf(buf, sizeof buf, "%-24.24s", log_ring[idx]);
@@ -999,29 +999,48 @@ static void draw_help(void)
     };
     uint8_t i;
     render_menu_clear();
-    render_menu_text(2, 1, C_BRIGHT_YELLOW, "HILFE (F1)");
+    render_heading(16, 2, C_BRIGHT_YELLOW, "Hilfe (F1)");
     for (i = 0; i < sizeof LINES / sizeof LINES[0]; i++)
         render_menu_text(1, (uint8_t)(3 + i), C_BRIGHT_WHITE, LINES[i]);
     render_menu_text(2, 24, C_GREY, "Esc zurueck.");
 }
 
+/* Menu layout: with the title picture still in the VDP its top band
+ * (logo, dragon, vortex) stays visible above a framed box; without it the
+ * plain text layout. menu_top is the first item row, menu_msg the row of
+ * the one message line. */
+static uint8_t menu_top = 5, menu_msg = 20;
+
 /* Cursor mark of one item; moving the cursor repaints two cells instead of
  * the whole screen (a full clear + redraw flickered on the real Agon). */
 static void draw_menu_mark(uint8_t item, bool on)
 {
-    render_menu_text(4, (uint8_t)(5 + item), C_BRIGHT_WHITE, on ? ">" : " ");
+    render_menu_text(4, (uint8_t)(menu_top + item), C_BRIGHT_WHITE, on ? ">" : " ");
+}
+
+static void menu_message(uint8_t colour, const char *text)
+{
+    render_menu_line(2, menu_msg, colour, text);
 }
 
 static void draw_menu(uint8_t cursor)
 {
     uint8_t i;
     render_screen_clear();               /* pages before it used all 40 cols */
-    render_menu_text(2, 2, C_BRIGHT_YELLOW, "LORDS OF CHAOS");
+    if (render_title_backdrop()) {
+        menu_top = 10;
+        menu_msg = 22;
+        render_box(2, 74, 317, 199);
+    } else {
+        menu_top = 5;
+        menu_msg = 20;
+        render_heading(16, 12, C_BRIGHT_YELLOW, "LORDS OF CHAOS");
+    }
     for (i = 0; i < MENU_COUNT; i++) {
         draw_menu_mark(i, i == cursor);
-        render_menu_text(6, (uint8_t)(5 + i), C_BRIGHT_WHITE, MENU_ITEMS[i]);
+        render_menu_text(6, (uint8_t)(menu_top + i), C_BRIGHT_WHITE, MENU_ITEMS[i]);
     }
-    render_menu_text(2, 22, C_GREY, "Pfeile + Enter");
+    render_menu_text(2, (uint8_t)(menu_msg + 1), C_GREY, "Pfeile + Enter");
 }
 
 /* The wizard designer: the chooser first (Attribute / Zauber /
@@ -1042,10 +1061,10 @@ static void designer_attrs(Wizard *w)
     render_screen_clear();               /* lines below overwrite in place */
     while (running) {
         uint8_t i;
+        render_heading(8, 0, C_BRIGHT_YELLOW, "Attribute");
         snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u", w->name, w->level,
                  w->xp);
-        render_menu_line(1, 1, C_BRIGHT_YELLOW, buf);
-        render_menu_line(1, 2, C_GREY, "ATTRIBUTE");
+        render_menu_line(1, 2, C_BRIGHT_WHITE, buf);
         for (i = 0; i < WA_COUNT; i++) {
             snprintf(buf, sizeof buf, "%c %-14.14s %3u  %u XP",
                      i == cursor ? '>' : ' ', ATTRS[i],
@@ -1126,11 +1145,11 @@ static void designer_shop(Wizard *w, uint8_t page)
             stop = scursor;
         if (scursor >= stop + SHOP_ROWS)
             stop = (uint8_t)(scursor - SHOP_ROWS + 1);
+        render_heading(8, 0, C_BRIGHT_YELLOW,
+                       page == PG_CREATURES ? "Kreaturen" : "Zauber");
         snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u", w->name, w->level,
                  w->xp);
-        render_menu_line(1, 1, C_BRIGHT_YELLOW, buf);
-        render_menu_line(1, 2, C_GREY,
-                         page == PG_CREATURES ? "KREATUREN" : "ZAUBER");
+        render_menu_line(1, 2, C_BRIGHT_WHITE, buf);
         snprintf(buf, sizeof buf, "  %-20.20s Anz Preis", "Name");
         render_menu_line(2, 3, C_BRIGHT_YELLOW, buf);
         for (row = 0; row < SHOP_ROWS; row++) {
@@ -1201,10 +1220,10 @@ static void designer_loop(uint8_t slot)
             render_screen_clear();
             full = false;
         }
+        render_heading(16, 4, C_BRIGHT_YELLOW, "Zauberer gestalten");
         snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u", w->name, w->level,
                  w->xp);
-        render_menu_line(2, 1, C_BRIGHT_YELLOW, buf);
-        render_menu_line(4, 4, C_GREY, "Zauberer gestalten:");
+        render_menu_line(2, 4, C_BRIGHT_WHITE, buf);
         for (i = 0; i < 3; i++) {
             snprintf(buf, sizeof buf, "%c %s", i == cursor ? '>' : ' ',
                      PAGES[i]);
@@ -1247,7 +1266,7 @@ static void designer_setup_loop(void)
     bool running = true;
     render_screen_clear();               /* lines overwrite in place */
     while (running) {
-        render_menu_line(2, 2, C_BRIGHT_YELLOW, "SETUP");
+        render_heading(16, 8, C_BRIGHT_YELLOW, "Setup");
         snprintf(buf, sizeof buf, "Zufalls-Zauberer-Staerke: %u (Li/Re)",
                  random_strength);
         render_menu_line(2, 6, C_BRIGHT_WHITE, buf);
@@ -1324,7 +1343,7 @@ static const char *menu_loop(bool *free_round1)
         }
         if (!e.isdown)
             continue;
-        render_clear_rows(20, 20);        /* old message line */
+        menu_message(C_GREY, "");         /* old message line */
         if (e.vkey != VK_SPACE && e.ascii != 13)
             confirm_reset = false;       /* any other key cancels the ask */
         if (e.vkey == VK_UP) {
@@ -1355,7 +1374,7 @@ static const char *menu_loop(bool *free_round1)
                     return saved_map[0] ? saved_map
                                         : "maps/many_coloured_land.map";
                 }
-                render_menu_text(2, 20, C_BRIGHT_RED,
+                menu_message(C_BRIGHT_RED,
                                  "Kein Spielstand / keine Ladungen.");
                 continue;
             case 4:
@@ -1365,7 +1384,7 @@ static const char *menu_loop(bool *free_round1)
             case 5:
                 if (!confirm_reset) {   /* destructive: ask once */
                     confirm_reset = true;
-                    render_menu_text(2, 20, C_BRIGHT_RED,
+                    menu_message(C_BRIGHT_RED,
                                      "Nochmal Enter loescht den Zauberer.");
                     continue;
                 }
@@ -1380,7 +1399,7 @@ static const char *menu_loop(bool *free_round1)
                 break;
             case 7:                       /* Hilfe: pages from the SD (M5) */
                 if (!screen_help("help/keys.hlp"))
-                    render_menu_text(2, 20, C_BRIGHT_RED,
+                    menu_message(C_BRIGHT_RED,
                                      "help/keys.hlp fehlt auf der SD.");
                 full = true;
                 break;
@@ -1524,6 +1543,7 @@ int main(int argc, char **argv)
         demo.level_up = true;
         render_init();
         umfont_install();
+        sound_init();
         kbuf_init(16);
         screen_end(&demo);
         kbuf_deinit();

@@ -23,12 +23,16 @@ static void centred(uint8_t row, uint8_t colour, const char *s)
     render_menu_text(col, row, colour, s);
 }
 
+/* Stat lines: next to the end picture (column 15, narrow labels) or,
+ * without it, centred in the old wide layout. */
+static uint8_t stat_col = 8, stat_label = 22;
+
 static void line(uint8_t row, const char *label, uint16_t value,
                  uint8_t colour)
 {
     char buf[40];
-    snprintf(buf, sizeof buf, "%-22s%5u", label, value);
-    render_menu_text(8, row, colour, buf);
+    snprintf(buf, sizeof buf, "%-*s%5u", stat_label, label, value);
+    render_menu_text(stat_col, row, colour, buf);
 }
 
 bool screen_end(const EndInfo *info)
@@ -36,24 +40,32 @@ bool screen_end(const EndInfo *info)
     struct keyboard_event_t e;
     char buf[40];
     bool win = info->outcome == OUT_WIN;
-    uint8_t row = 11;
+    uint8_t row = 10;
 
     render_screen_clear();
     if (!music_start(win ? "music/win.bin" : "music/lose.bin"))
         sound_play(win ? SND_WIN : SND_LOSE);   /* music off or missing */
     render_frame(8, 8, 311, 231, win ? C_BRIGHT_YELLOW : C_RED);
     if (win) {
-        centred(3, C_BRIGHT_YELLOW, "*** Gl\201ckwunsch! ***");
+        render_heading_centred(20, C_BRIGHT_YELLOW, "Gl\201ckwunsch!");
         snprintf(buf, sizeof buf, "%.16s entkommt durchs Portal!",
                  info->name);
         centred(5, C_BRIGHT_GREEN, buf);
     } else {
-        centred(3, C_BRIGHT_RED, "G A M E   O V E R");
+        render_heading_centred(20, C_BRIGHT_RED, "GAME OVER");
         snprintf(buf, sizeof buf, "%.16s ist gefallen.", info->name);
         centred(5, C_BRIGHT_RED, buf);
     }
     if (info->scenario)
         centred(7, C_BRIGHT_CYAN, info->scenario);
+    if (render_show_end_picture(win, 16, 76)) {
+        render_frame(14, 74, 113, 173, win ? C_YELLOW : C_RED);
+        stat_col = 15;
+        stat_label = 16;
+    } else {
+        stat_col = 8;
+        stat_label = 22;
+    }
 
     line(row++, "Runden", info->rounds, C_BRIGHT_WHITE);
     line(row++, "Besiegte Gegner", info->kills, C_BRIGHT_WHITE);
@@ -61,15 +73,17 @@ bool screen_end(const EndInfo *info)
     line(row++, "Siegpunkte", info->vp, C_BRIGHT_YELLOW);
     if (info->campaign) {
         row++;
-        line(row++, "Erfahrung (neu)", info->xp_gain, C_BRIGHT_GREEN);
-        line(row++, "Erfahrung (gesamt)", info->xp_total, C_BRIGHT_GREEN);
+        line(row++, "Erfahrung neu", info->xp_gain, C_BRIGHT_GREEN);
+        line(row++, "Erfahrung ges.", info->xp_total, C_BRIGHT_GREEN);
         snprintf(buf, sizeof buf, "Stufe %u%s", info->level,
-                 info->level_up ? "  - aufgestiegen!" : "");
-        render_menu_text(8, row, info->level_up ? C_BRIGHT_YELLOW : C_GREY,
+                 info->level_up ? " - Aufstieg!" : "");
+        render_menu_text(stat_col, row, info->level_up ? C_BRIGHT_YELLOW : C_GREY,
                          buf);
+        if (info->level_up)
+            sound_play(SND_SUMMON);       /* a level up shimmers */
     } else if (!win) {
         row++;
-        render_menu_text(8, row, C_GREY, "Beute und Punkte sind verloren.");
+        render_menu_text(stat_col, row, C_GREY, "Beute verloren.");
     }
     centred(25, C_GREY, "Enter: Hauptmen\201   Esc: Beenden");
 
@@ -91,7 +105,7 @@ bool screen_end(const EndInfo *info)
 
 /* ---------- help pages from the SD card (M5, ADR 0011) ---------- */
 
-#define HELP_MAX 3072
+#define HELP_MAX 4096                  /* keys.hlp is ~3.2 KB */
 #define HELP_PAGES_MAX 72
 #define LEXICON_MAX 6656
 
@@ -171,7 +185,7 @@ static void help_draw(uint8_t page)
     memcpy(buf, help_buf + off, title_len);
     buf[title_len] = 0;
     off = (uint16_t)(off + title_len);
-    centred(0, C_BRIGHT_YELLOW, buf);
+    render_heading_centred(0, C_BRIGHT_YELLOW, buf);
     lines = help_buf[off++];
     for (i = 0; i < lines && row < 28; i++) {
         uint8_t len = help_buf[off++];
@@ -231,7 +245,7 @@ bool screen_title(void)
     music_start("music/title.bin");
     render_screen_clear();
     if (!render_show_title()) {           /* SD missing: plain text */
-        centred(4, C_BRIGHT_YELLOW, "LORDS OF CHAOS");
+        render_heading_centred(28, C_BRIGHT_YELLOW, "LORDS OF CHAOS");
         centred(6, C_BRIGHT_CYAN, "Ein Remake f\201r den Agon Light");
     }
     centred(28, C_GREY, "- Taste dr\201cken -");
@@ -358,8 +372,8 @@ static void lexicon_draw_list(const Lexicon *lex, uint8_t section,
         seen_all += e < CR_COUNT ? lexicon_seen_creature(lex, (uint8_t)e)
                                  : lexicon_seen_object(lex, (uint8_t)(e - CR_COUNT));
     render_screen_clear();
-    snprintf(buf, sizeof buf, "LEXIKON   %u/%u entdeckt", seen_all, total);
-    centred(LEX_TITLE_ROW, C_BRIGHT_YELLOW, buf);
+    snprintf(buf, sizeof buf, "Lexikon  %u/%u entdeckt", seen_all, total);
+    render_heading_centred(LEX_TITLE_ROW, C_BRIGHT_YELLOW, buf);
     for (i = 0; i < entries; i++) {
         uint8_t col = (uint8_t)(i / half);
         uint16_t row_idx = (uint16_t)(i % half);
@@ -476,7 +490,7 @@ bool spells_texts_load(void)
     uint8_t pages;
     if (spells_len)
         return true;
-    fh = mos_fopen("help/spells.hlp", FA_READ);
+    fh = mos_fopen("help/spells_de.hlp", FA_READ);
     if (fh) {
         len = mos_fread(fh, (char *)spells_buf, (uint24_t)sizeof spells_buf);
         mos_fclose(fh);
@@ -542,7 +556,7 @@ bool lexicon_texts_load(void)
     uint24_t len = 0;
     if (lex_len)
         return true;                       /* already loaded this run */
-    fh = mos_fopen("help/lexicon.hlp", FA_READ);
+    fh = mos_fopen("help/lexicon_de.hlp", FA_READ);
     if (fh) {
         len = mos_fread(fh, (char *)lex_buf, (uint24_t)sizeof lex_buf);
         mos_fclose(fh);
@@ -601,7 +615,7 @@ void screen_lexicon(const Lexicon *lex)
     uint16_t entry = 0;
     uint24_t len;
 
-    fh = mos_fopen("help/lexicon.hlp", FA_READ);
+    fh = mos_fopen("help/lexicon_de.hlp", FA_READ);
     if (fh) {
         len = mos_fread(fh, (char *)lex_buf, (uint24_t)sizeof lex_buf);
         mos_fclose(fh);
