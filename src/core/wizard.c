@@ -128,7 +128,9 @@ bool wizard_spell_lower(Wizard *w, uint8_t spell)
     if (spell >= SPELL_COUNT || w->book.level[spell] == 0)
         return false;
     if (!SPELLS[spell].design_cost)
-        return false;   /* not buyable: no refund for starting-book spells */
+        return false;   /* not learnable: nothing was ever paid */
+    if (w->book.level[spell] <= w->base_book.level[spell])
+        return false;   /* pre-given starting level: no refund for it */
     w->book.level[spell]--;
     /* the level just given up cost base at level 1, half above */
     refund = w->book.level[spell] == 0 ? SPELLS[spell].design_cost
@@ -249,6 +251,7 @@ void wizard_slot_reset(uint8_t slot)
     w->book.level[SP_ENCHANT] = 10;
     w->book.level[SP_SUBVERSION] = 10;
     w->book.level[SP_TELEPORT] = 10;
+    w->base_book = w->book;   /* lowering never refunds these levels */
 }
 
 void wizard_slot_random(uint8_t slot, uint8_t strength, Rng *rng)

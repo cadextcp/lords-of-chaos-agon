@@ -2,6 +2,13 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Zauber kaufbar, Seiten sauber getrennt (2026-10-04)
+
+### Geändert
+- **Alle Zauber sind erlernbar:** Auch Nicht-Beschwörungen haben jetzt XP-Preise — Platzhalter = je 1× Mana auf Stufe 1 (z. B. Bolzen 9, Fluch 11, Teleport 18), **warten auf die Original-Preistabelle**. Weiter Stufen +50 % des Grundpreises, Deckel 8.
+- **Seiten ohne Dopplung:** „Zauber erlernen" listet nur Zauber/Tränke/Flächen (21 Sprüche), „Kreaturen beschwören" nur die Beschwörungen (25) — die „Buch"-Spalte entfällt, alles hat einen Preis. Panels: Kreaturen-Seite Kreatur-Panel, Zauber-Seite Zauber-Panel.
+- **XP-Brunnen-Stopp verstärkt:** `base_book` merkt sich die Startbuch-Stufen; Senken endet dort (Teleport 10 bleibt 10, kaufte Stufen darüber sind erstattbar).
+
 ## [Unreleased] – Designer mit Seiten-Auswahl (2026-10-04)
 
 ### Geändert

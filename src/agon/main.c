@@ -1082,9 +1082,15 @@ static void designer_shop(Wizard *w, uint8_t page)
     uint8_t shop_n = 0;
     {
         uint16_t i;
-        for (i = 0; i < SPELL_COUNT; i++)
-            if (page == PG_SPELLS || SPELLS[i].design_cost)
-                shop[shop_n++] = (uint8_t)i;
+        for (i = 0; i < SPELL_COUNT; i++) {
+            if (page == PG_CREATURES &&
+                SPELLS[i].category != SPC_SUMMON)
+                continue;              /* creatures page: summons only */
+            if (page == PG_SPELLS &&
+                SPELLS[i].category == SPC_SUMMON)
+                continue;              /* spells page: no duplication */
+            shop[shop_n++] = (uint8_t)i;
+        }
     }
 #define SHOP_ROWS 9
     while (running) {
@@ -1118,7 +1124,7 @@ static void designer_shop(Wizard *w, uint8_t page)
         if (shop_n) {
             uint8_t sel = shop[scursor];
             uint8_t k = SUMMON_KIND[sel];
-            if (k < CR_COUNT && SPELLS[sel].design_cost)
+            if (page == PG_CREATURES && k < CR_COUNT)
                 lexicon_creature_panel(k, 14);
             else
                 spell_panel(sel, 14);

@@ -3295,9 +3295,13 @@ static void test_m5e_balance(void)
         wizard_slot_reset(3);
         t = wizard_slots[3];
         t.xp = 100;
+        t.book.level[SP_MAGIC_BOLT] = 0;   /* fresh learn: full base price */
         check(wizard_spell_next_cost(&t, SP_HARPY) == 12 &&
-              wizard_spell_next_cost(&t, SP_MAGIC_BOLT) == 0,
-              "m5f: summons cost their anchor price, others are not for sale");
+              wizard_spell_next_cost(&t, SP_MAGIC_BOLT) == 9,
+              "m5f: summons cost the anchor, spells the mana-at-L1 placeholder");
+        t.book.level[SP_MAGIC_BOLT] = 6;   /* restore the starting level */
+        check(wizard_spell_next_cost(&t, SP_MAGIC_BOLT) == 4,
+              "m5f: above level 1 every level costs half the base");
         check(wizard_spell_raise(&t, SP_HARPY) && t.book.level[SP_HARPY] == 1 &&
               t.xp == 88,
               "m5f: the first level costs the base price");
@@ -3313,7 +3317,7 @@ static void test_m5e_balance(void)
               wizard_spell_lower(&t, SP_HARPY) && t.xp == 18,
               "m5f: lowering refunds base/half exactly");
         check(!wizard_spell_lower(&t, SP_TELEPORT),
-              "m5f: starting-book spells never refund (no XP well)");
+              "m5f: starting-book levels never refund (no XP well)");
         check(wizard_mana_cost() == 9 && t.mana_max == 90 && t.ap == 34,
               "m5f: mana starts at 90, AP at 34 (F6)");
         t.xp = 9;
