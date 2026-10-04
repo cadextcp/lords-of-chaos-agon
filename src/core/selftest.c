@@ -2507,12 +2507,12 @@ static void test_m4f(void)
         check(!wizard_valid(&t), "m4f: unterminated name is rejected");
         t = wizard_slots[3];
         wizard_campaign_result(&t, 5, 0);
-        check(t.level == 1 && t.scenarios_done == 0 && t.xp == 5,
+        check(t.level == 1 && t.scenarios_done == 0 && t.xp == 20 + 5,
               "m4f: scenario 0 changes no level");
     }
-    check(w->level == 1 && w->xp == 0 && w->com == 10 && w->sta == 60 &&
+    check(w->level == 1 && w->xp == 20 && w->com == 10 && w->sta == 60 &&
           w->book.level[SP_GIANT_BAT] == 2,
-          "m4f: stock designer wizard");
+          "m4f: stock designer wizard (20 XP creation budget)");
     check(wizard_attr_cost(WA_COMBAT, 10) == 7 &&
           wizard_attr_cost(WA_COMBAT, 20) == 10,
           "m4f: costs rise with the value");
@@ -2533,10 +2533,10 @@ static void test_m4f(void)
     {   /* campaign: VP -> XP 1:1, level up once per scenario (GDD 9) */
         wizard_slot_reset(1);
         wizard_campaign_result(&wizard_slots[1], 75, 1);
-        check(wizard_slots[1].xp == 75 && wizard_slots[1].level == 2,
+        check(wizard_slots[1].xp == 20 + 75 && wizard_slots[1].level == 2,
               "m4f: first clear gives XP and a level");
         wizard_campaign_result(&wizard_slots[1], 20, 1);
-        check(wizard_slots[1].xp == 95 && wizard_slots[1].level == 2,
+        check(wizard_slots[1].xp == 20 + 95 && wizard_slots[1].level == 2,
               "m4f: repeating scores XP without a level");
         wizard_campaign_result(&wizard_slots[1], 10, 2);
         check(wizard_slots[1].level == 3, "m4f: scenario 2 lifts again");

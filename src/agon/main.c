@@ -1030,8 +1030,8 @@ static void designer_loop(uint8_t slot)
                 render_menu_text(3, (uint8_t)(4 + i), C_BRIGHT_WHITE, buf);
             }
         }
-        render_menu_text(3, 12, C_GREY, "Hoch/Runter waehlen, +/- erhoehen,");
-        render_menu_text(3, 13, C_GREY, "Esc zurueck ins Menue.");
+        render_menu_text(3, 12, C_GREY, "Hoch/Runter Attribut, Links/Rechts");
+        render_menu_text(3, 13, C_GREY, "senken/erhoehen, Esc zurueck.");
         while (!kbuf_poll_event(&e))
             ;
         if (!e.isdown)
@@ -1042,9 +1042,9 @@ static void designer_loop(uint8_t slot)
             cursor = cursor ? (uint8_t)(cursor - 1) : WA_COUNT - 1;
         } else if (e.vkey == VK_DOWN) {
             cursor = (uint8_t)((cursor + 1) % WA_COUNT);
-        } else if (e.ascii == '+') {
+        } else if (e.vkey == VK_RIGHT || e.ascii == '+') {
             wizard_raise(w, (WizardAttr)cursor);
-        } else if (e.ascii == '-') {
+        } else if (e.vkey == VK_LEFT || e.ascii == '-') {
             wizard_lower(w, (WizardAttr)cursor);
         }
     }
@@ -1062,7 +1062,7 @@ static void designer_setup_loop(void)
     while (running) {
         render_menu_clear();
         render_menu_text(2, 2, C_BRIGHT_YELLOW, "SETUP");
-        snprintf(buf, sizeof buf, "Zufalls-Zauberer-Staerke: %u  (+/-)",
+        snprintf(buf, sizeof buf, "Zufalls-Zauberer-Staerke: %u  (Links/Rechts)",
                  random_strength);
         render_menu_text(4, 6, C_BRIGHT_WHITE, buf);
         snprintf(buf, sizeof buf, "5-Ladungen-Regel: %s  (L)",
@@ -1075,8 +1075,9 @@ static void designer_setup_loop(void)
             continue;
         if (e.vkey == VK_ESC) {
             running = false;
-        } else if (e.ascii == '+' || e.ascii == '-') {
-            int8_t d = e.ascii == '+' ? 1 : -1;
+        } else if (e.vkey == VK_RIGHT || e.vkey == VK_LEFT ||
+                   e.ascii == '+' || e.ascii == '-') {
+            int8_t d = (e.vkey == VK_RIGHT || e.ascii == '+') ? 1 : -1;
             int16_t v = (int16_t)random_strength + d;
             if (v >= 1 && v <= 8 && v != random_strength) {
                 Rng setup_rng;           /* not the game RNG (F9) */
