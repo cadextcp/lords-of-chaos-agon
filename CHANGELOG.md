@@ -14,6 +14,11 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ### Geändert
 - **„Zauberer entwerfen" öffnet zuerst eine Übersicht** mit drei Einträgen: **Attribute verteilen / Zauber erlernen / Kreaturen beschwören** — Hoch/Runter + Enter wählt, Esc führt zurück zur Übersicht (und aus ihr heraus). Der versteckte z-Toggle entfällt (das `z` kam wegen QWERTZ-Mapping im Emulator nicht an). „Zauber erlernen" zeigt das Grimoire (alle 46 Sprüche mit Zauber-Panel), „Kreaturen beschwören" nur die kaufbaren Beschwörungen mit Kreatur-Panel.
 
+## [Unreleased] – Standard-Template passt in die 600 XP (2026-10-04)
+
+### Geändert
+- **Das Standard-Template kostet jetzt 522 von 600 XP** (vorher ~1615 — Cheating). Aufteilung: Kernzauber Bolt 4/Schild 3/Heilung 4/Auge 3/Blitz 2/Fluch 2/Schnell 2/Flug 2 (144 XP), **8 Kreaturen auf Stufe 1–3** (Fledermaus 2, Goblin 2, Zwerg 3, Einhorn 1, Harpyie 1, Zombie 1, Gorilla 1, Greif 1 = 100 XP), Attribute +15 auf com/def/con, +15 sta, MR +10 (190 XP), Mana +6 (54), AP +5 (40). **Rest: 78 XP** zum eigenen Verteilen. Die Template-Attribute werden über `wizard_raise` gekauft (echte Kosten, exakte Abrechnung); das Template bleibt idempotent.
+
 ## [Unreleased] – Standardset mit 8 Kreaturen (2026-10-04)
 
 ### Geändert

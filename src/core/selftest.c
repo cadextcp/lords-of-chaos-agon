@@ -2519,13 +2519,16 @@ static void test_m4f(void)
             sum += w->book.level[s];
         check(sum == 0, "m4f: fresh wizards start with empty books");
         wizard_apply_standard_set(w);
-        check(w->book.level[SP_MAGIC_BOLT] == 6 &&
-              w->book.level[SP_TELEPORT] == 10 &&
-              w->book.level[SP_MAGIC_EYE] == 4 &&
-              w->book.level[SP_GIANT_BAT] == 2 && w->book.level[SP_GRYPHON] == 2,
-              "m4f: the standard set fills spells + 8 creatures");
+        check(w->book.level[SP_MAGIC_BOLT] == 4 &&
+              w->book.level[SP_MAGIC_SHIELD] == 3 &&
+              w->book.level[SP_HEALING_POTION] == 4 &&
+              w->book.level[SP_GIANT_BAT] == 2 && w->book.level[SP_GRYPHON] == 1,
+              "m4f: the standard template fills spells + 8 creatures");
+        check(w->com == 20 && w->def == 20 && w->mr == 80 && w->con == 40 &&
+              w->sta == 49 && w->mana_max == 96 && w->ap == 39 && w->xp == 78,
+              "m4f: the template costs 522 of the 600 XP (no cheating)");
         wizard_apply_standard_set(w);   /* idempotent: bolt already there */
-        check(w->book.level[SP_MAGIC_BOLT] == 6,
+        check(w->book.level[SP_MAGIC_BOLT] == 4,
               "m4f: the standard set never overwrites designed books");
         wizard_slot_reset(0);           /* back to empty for the next tests */
     }
