@@ -115,7 +115,7 @@ bool lexicon_import(Lexicon *l, const uint8_t *buf, uint16_t len)
         l->seen_object[1] &= (uint32_t)((1ul << (OBJ_COUNT - 32)) - 1);
     else {
         if (OBJ_COUNT < 32)
-            l->seen_object[0] &= (uint32_t)((1ul << OBJ_COUNT) - 1);
+            l->seen_object[0] &= (uint32_t)((1ul << (OBJ_COUNT & 31)) - 1);
         l->seen_object[1] = 0;
     }
     return true;

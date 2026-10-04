@@ -184,8 +184,21 @@ void world_map_changed(World *w)
 bool world_wrap(const World *w, int16_t *x, int16_t *y)
 {
     if (w->wrap) {
-        *x = (int16_t)(((*x % w->w) + w->w) % w->w);
-        *y = (int16_t)(((*y % w->h) + w->h) % w->h);
+        /* Hot path: callers are at most one map size off. The 68000 has
+         * no fast 32-bit modulo (ADR 0010), so only far coordinates pay
+         * for the division. */
+        if (*x < 0)
+            *x = (int16_t)(*x + w->w);
+        else if (*x >= w->w)
+            *x = (int16_t)(*x - w->w);
+        if (*y < 0)
+            *y = (int16_t)(*y + w->h);
+        else if (*y >= w->h)
+            *y = (int16_t)(*y - w->h);
+        if (*x < 0 || *x >= w->w)
+            *x = (int16_t)(((*x % w->w) + w->w) % w->w);
+        if (*y < 0 || *y >= w->h)
+            *y = (int16_t)(((*y % w->h) + w->h) % w->h);
         return true;
     }
     return *x >= 0 && *y >= 0 && *x < w->w && *y < w->h;
