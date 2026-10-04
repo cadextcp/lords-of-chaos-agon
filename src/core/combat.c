@@ -16,11 +16,31 @@ uint8_t combat_hit_chance(uint8_t com, uint8_t def)
     return (uint8_t)p;
 }
 
-/* Damage of one hit (D28): the weapon in hand rolls its dice plus the
- * fighter's com/5 - a sword clearly outdamages bare fists. */
-static uint8_t roll_damage(const World *w, const Unit *u, Rng *rng)
+/* Damage of one hit (D28/D30): the weapon in hand rolls its dice plus the
+ * fighter's com/5 - a critical hit rolls the dice twice. */
+static uint8_t roll_damage(const World *w, const Unit *u, Rng *rng, bool crit)
 {
-    return items_attack_damage(w, (uint8_t)(u - w->units), rng);
+    return items_attack_damage(w, (uint8_t)(u - w->units), rng, crit);
+}
+
+bool combat_damage(World *w, uint8_t target, uint8_t damage, uint8_t killer_kind,
+                   uint8_t killer_owner, bool melee, bool *wound, bool crit)
+{
+    Unit *u = &w->units[target];
+    bool wounded = damage > u->con_max / 4;   /* fatal wound (PM 17) */
+    if (wound)
+        *wound = wounded;
+    events_push(EV_HIT, u->x, u->y, u->kind, u->owner, damage, crit ? 1 : 0);
+    if (wounded) {
+        u->flags |= UF_WOUNDED;
+        events_push(EV_WOUND, u->x, u->y, u->kind, u->owner, 0, 0);
+    }
+    if (damage >= u->con) {
+        world_kill_unit(w, target, killer_kind, killer_owner, melee);
+        return true;
+    }
+    u->con = (uint8_t)(u->con - damage);
+    return false;
 }
 
 /* Chebyshev distance of two units, honouring wrap-around. */
@@ -34,26 +54,6 @@ static bool adjacent(const World *w, const Unit *a, const Unit *b)
         if (dy < -w->h / 2) dy = (int16_t)(dy + w->h);
     }
     return dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1;
-}
-
-bool combat_damage(World *w, uint8_t target, uint8_t damage, uint8_t killer_kind,
-                   uint8_t killer_owner, bool melee, bool *wound)
-{
-    Unit *u = &w->units[target];
-    bool wounded = damage > u->con_max / 4;   /* fatal wound (PM 17) */
-    if (wound)
-        *wound = wounded;
-    events_push(EV_HIT, u->x, u->y, u->kind, u->owner, damage, 0);
-    if (wounded) {
-        u->flags |= UF_WOUNDED;
-        events_push(EV_WOUND, u->x, u->y, u->kind, u->owner, 0, 0);
-    }
-    if (damage >= u->con) {
-        world_kill_unit(w, target, killer_kind, killer_owner, melee);
-        return true;
-    }
-    u->con = (uint8_t)(u->con - damage);
-    return false;
 }
 
 bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *out)
@@ -77,15 +77,20 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
     world_engage(w, def);
     events_push(EV_SWING, d->x, d->y, a->kind, a->owner, 0, 0);
     /* normal weapons clank off the undead (GDD 4.2); either way the
-     * defender strikes back below, hit or miss (GDD 6) */
-    ok_to_hit = items_can_harm_undead(w, att, def) &&
-                rng_range(rng, 100) <
-                combat_hit_chance(items_combat(w, att), items_defence(w, def));
+     * defender strikes back below, hit or miss (GDD 6). A very low
+     * attack roll is a critical hit: the damage dice double (D30). */
+    {
+        bool can_harm = items_can_harm_undead(w, att, def);
+        uint16_t roll = can_harm ? rng_range(rng, 100) : 100;
+        ok_to_hit = roll <
+                    combat_hit_chance(items_combat(w, att), items_defence(w, def));
+        out->crit = roll < COMBAT_CRIT_PERCENT;
+    }
     if (ok_to_hit) {
         out->hit = true;
-        out->damage = roll_damage(w, a, rng); /* dice of the weapon in hand */
+        out->damage = roll_damage(w, a, rng, out->crit);
         out->died = combat_damage(w, def, out->damage, a->kind, a->owner, true,
-                                  &out->wound);
+                                  &out->wound, out->crit);
         if (out->died)
             return true;                   /* the dead do not strike back */
     } else
@@ -97,17 +102,23 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
      * further attacks in the same round land unanswered. Being attacked
      * still costs no AP and no stamina. */
     if (!(d->flags & UF_REACTED)) {
+        bool rcan_harm, rcrit = false;
+        uint16_t rroll = 100;
         out->returned = true;
         w->units[def].flags |= UF_REACTED;
         events_push(EV_SWING, a->x, a->y, d->kind, d->owner, 0, 0);
-        if (items_can_harm_undead(w, def, att) &&
-            rng_range(rng, 100) <
+        rcan_harm = items_can_harm_undead(w, def, att);
+        if (rcan_harm)
+            rroll = rng_range(rng, 100);
+        if (rroll <
             combat_hit_chance(items_combat(w, def), items_defence(w, att))) {
+            rcrit = rroll < COMBAT_CRIT_PERCENT;
             out->return_hit = true;
-            out->return_damage = roll_damage(w, d, rng);
+            out->return_crit = rcrit;
+            out->return_damage = roll_damage(w, d, rng, rcrit);
             out->attacker_died = combat_damage(w, att, out->return_damage,
                                                d->kind, d->owner, true,
-                                               &out->return_wound);
+                                               &out->return_wound, rcrit);
         } else
             events_push(EV_MISS, a->x, a->y, d->kind, d->owner, 0, 0);
     }
@@ -135,16 +146,20 @@ bool combat_free_swing(World *w, Rng *rng, uint8_t att, uint8_t def,
     w->units[att].flags |= UF_REACTED;     /* the swing uses it up */
     events_push(EV_SWING, d->x, d->y, a->kind, a->owner, 0, 0);
 
-    ok_to_hit = rng_range(rng, 100) <
-                combat_hit_chance(items_combat(w, att), items_defence(w, def));
+    {
+        uint16_t roll = rng_range(rng, 100);
+        ok_to_hit = roll <
+                    combat_hit_chance(items_combat(w, att), items_defence(w, def));
+        out->crit = roll < COMBAT_CRIT_PERCENT;   /* D30 */
+    }
     if (!ok_to_hit) {
         events_push(EV_MISS, d->x, d->y, a->kind, a->owner, 0, 0);
         return true;
     }
     out->hit = true;
-    out->damage = roll_damage(w, a, rng);
+    out->damage = roll_damage(w, a, rng, out->crit);
     out->died = combat_damage(w, def, out->damage, a->kind, a->owner, true,
-                              &out->wound);
+                              &out->wound, out->crit);
     return true;
 }
 
@@ -185,7 +200,7 @@ uint8_t combat_terrain(World *w, Rng *rng, uint8_t att, int16_t x, int16_t y,
         return 0;
     world_spend(w, att, ACTIONS[ACT_MELEE].ap);
     events_push(EV_SWING, x, y, u->kind, u->owner, 0, 1);
-    dmg = roll_damage(w, u, rng);
+    dmg = roll_damage(w, u, rng, false);   /* no crits against furniture */
     if ((uint16_t)(dmg + rng_range(rng, 4)) > FEATURE_TOUGH[fe]) {
         w->feature[y][x] = FE_NONE;        /* smashed to pieces */
         world_map_changed(w);

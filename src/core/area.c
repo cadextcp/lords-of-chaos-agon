@@ -233,13 +233,13 @@ static void area_hit_units(World *w, Area *a, int16_t x, int16_t y,
         if (a->kind == AREA_FIRE && u->owner == a->owner)
             continue;                    /* fire spares its own (GDD) */
         if (damage > 0 &&
-            combat_damage(w, i, damage, CR_WIZARD, a->owner, false, NULL))
+            combat_damage(w, i, damage, CR_WIZARD, a->owner, false, NULL, false))
             continue;                    /* dead: the slot holds another now */
         if (a->kind == AREA_FLOOD &&
             !(CREATURES[u->kind].native & NATIVE_WATER) &&
             !(u->flags & UF_FLYING) &&
             rng_range(rng, 2) == 0)      /* drowning: 50 % (start value) */
-            combat_damage(w, i, u->con, CR_WIZARD, a->owner, false, NULL);
+            combat_damage(w, i, u->con, CR_WIZARD, a->owner, false, NULL, false);
     }
 }
 

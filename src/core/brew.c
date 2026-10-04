@@ -366,7 +366,7 @@ bool brew_throw_vial(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
         uint8_t i;
         for (i = w->unit_count; i-- > 0;)    /* removal swaps in done units */
             if (world_distance(w, x, y, w->units[i].x, w->units[i].y) <= 1)
-                combat_damage(w, i, 20, thrower_kind, thrower_owner, false, NULL);
+                combat_damage(w, i, 20, thrower_kind, thrower_owner, false, NULL, false);
     }
     return true;
 }

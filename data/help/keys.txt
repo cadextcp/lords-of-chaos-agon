@@ -81,7 +81,9 @@ Wer sich aus dem Kampf zieht, riskiert
 einen freien Schlag des Gegners.
 Waffen wuerfeln ihren Schaden (D28):
 ein Schwert trifft deutlich haerter
-als die blosse Faust.
+als die blosse Faust. Etwa jeder
+zwanzigste Treffer ist KRITISCH und
+wuerfelt die Schadenswuerfel doppelt.
 
 Untote verwunden nur untote oder
 magisch bewaffnete Angreifer - und
