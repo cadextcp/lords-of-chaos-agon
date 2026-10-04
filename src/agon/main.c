@@ -425,10 +425,65 @@ static void on_round(Turns *t, World *w, void *ctx)
 
 /* After an AI phase (or the independents' steps): show what happened
  * there (M5c) - the event ring carries swings, hits and deaths. */
+/* ---------- the others' phases: phase screen and sounds ---------- */
+
+static bool phase_screen_on;           /* the map is hidden right now */
+static uint8_t snap_owner;
+static uint8_t snap_n, snap_id[MAX_UNITS], snap_x[MAX_UNITS], snap_y[MAX_UNITS];
+
+static void on_phase(Turns *t, World *w, uint8_t owner, void *ctx)
+{
+    const char *names[OWN_NEUTRAL];
+    uint16_t vp[OWN_NEUTRAL];
+    uint8_t i, n = 0, o;
+    (void)ctx;
+    for (o = OWN_P1; o < OWN_NEUTRAL; o++) {
+        bool present = o == OWN_P1;
+        for (i = 0; i < w->unit_count && !present; i++)
+            present = w->units[i].owner == o && w->units[i].kind == CR_WIZARD;
+        if (!present && game.vp[o] == 0)
+            continue;
+        names[n] = o == OWN_P1 ? wizard_slots[0].name : name_owner(o);
+        vp[n] = game.vp[o];
+        n++;
+    }
+    snap_owner = owner;                   /* who moved: footsteps later */
+    snap_n = 0;
+    for (i = 0; i < w->unit_count; i++)
+        if (w->units[i].owner == owner) {
+            snap_id[snap_n] = w->units[i].id;
+            snap_x[snap_n] = w->units[i].x;
+            snap_y[snap_n] = w->units[i].y;
+            snap_n++;
+        }
+    phase_screen_on = true;
+    screen_phase(owner == OWN_NEUTRAL ? "Unabhaengige" : name_owner(owner),
+                 t->round, n, names, vp);
+    fx_pause(turn_humans_present(t, w) ? 70 : 10);
+}
+
 static void on_ai_events(Turns *t, World *w, void *ctx)
 {
-    (void)t;
     (void)ctx;
+    if (phase_screen_on) {                /* unseen: only listen */
+        uint8_t i, moved = 0;
+        for (i = 0; i < snap_n; i++) {
+            uint8_t u = world_find_unit(w, snap_id[i]);
+            if (u != NO_UNIT && (w->units[u].x != snap_x[i] ||
+                                 w->units[u].y != snap_y[i]))
+                moved++;
+        }
+        if (moved > 4)
+            moved = 4;
+        for (i = 0; i < moved; i++) {     /* footsteps of whoever walked */
+            sound_play(SND_STEP);
+            fx_pause(14);
+        }
+        fx_drain_sounds();
+        if (turn_humans_present(t, w))
+            fx_pause(30);
+        return;
+    }
     view_update(w);                      /* their moves, before the show */
     render_fields();
     fx_drain_play(w, &p1_sight);
@@ -1707,7 +1762,11 @@ static void end_turn(bool dump, const char *map_path)
             render_message(2, C_GREY, "Gespeichert.");
     }
     update_sight();
-    frame(dump);
+    if (phase_screen_on) {               /* back from the unseen phases */
+        phase_screen_on = false;
+        game_redraw(dump);
+    } else
+        frame(dump);
 }
 
 int main(int argc, char **argv)
@@ -1865,6 +1924,7 @@ int main(int argc, char **argv)
         turns.on_round = on_round;
         turns.on_ai = on_ai_events;
         turns.on_ai_ctx = 0;
+        turns.on_phase = (dump || do_bench) ? NULL : on_phase;
         turns.round_ctx = &game;
     }
     game_init(&game, world.portal_x, world.portal_y, world.portal_rmin,
@@ -1911,7 +1971,7 @@ menu_start:
             log_close();
             return 0;
         }
-        if (!save_loaded && chosen != map_path) {   /* reload for the scenario */
+        if (!save_loaded) {      /* every new game reloads (fresh random world) */
             if (!mapfile_load(&world, chosen)) {
                 kbuf_deinit();
                 render_shutdown();
@@ -1943,6 +2003,7 @@ menu_start:
                 turns.on_round = on_round;
                 turns.on_ai = on_ai_events;
                 turns.on_ai_ctx = 0;
+                turns.on_phase = dump ? NULL : on_phase;
                 turns.round_ctx = &game;
             }
             sight_init(&p1_sight, OWN_P1);
@@ -1965,6 +2026,7 @@ menu_start:
             turns.on_round = on_round;
             turns.on_ai = on_ai_events;
             turns.on_ai_ctx = 0;
+            turns.on_phase = dump ? NULL : on_phase;
             turns.round_ctx = &game;
             update_sight();
             view_set_sight(&p1_sight);

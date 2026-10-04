@@ -23,6 +23,11 @@ extern bool fx_glide_on;                 /* setup switch */
 /* Next key release (vkey) swallowed by a show, 0 when none: the main
  * loop feeds them to the chord logic so no arrow stays "held". */
 uint8_t fx_take_release(void);
+/* Unseen phases (phase screen): play the queued events as sounds only,
+ * one after the other. */
+void fx_drain_sounds(void);
+/* Wait (keys are dropped, releases kept). */
+void fx_pause(uint8_t cs);
 /* Drain the core event ring and play every event as a tile overlay plus
  * a sound. */
 void fx_drain_play(World *w, const Sight *s);

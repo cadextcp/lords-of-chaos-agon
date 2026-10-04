@@ -40,6 +40,11 @@ struct Turns {
      * frontend can drain the event ring and animate (M5c). NULL: off. */
     TurnAiFn on_ai;
     void *on_ai_ctx;
+    /* Before every AI wizard phase and the independents' phase (owner =
+     * OWN_NEUTRAL): the frontend shows its phase screen (original: you
+     * only hear the others). NULL = nothing. */
+    void (*on_phase)(struct Turns *t, World *w, uint8_t owner, void *ctx);
+    void *on_phase_ctx;
 };
 
 /* Start round 1: run the independents, then the first owner's phase. */

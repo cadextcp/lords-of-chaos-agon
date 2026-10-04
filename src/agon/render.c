@@ -703,6 +703,12 @@ void render_heading_centred(int y, uint8_t colour, const char *text)
     render_heading((320 - n * 8) / 2, y, colour, text);
 }
 
+void render_dot(int x, int y, uint8_t colour)
+{
+    vdp_gcol(0, colour);
+    vdp_filled_rectangle(x - 1, y - 1, x + 1, y + 1);
+}
+
 void render_frame(int x0, int y0, int x1, int y1, uint8_t colour)
 {
     vdp_gcol(0, colour);
