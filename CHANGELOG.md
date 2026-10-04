@@ -2,6 +2,11 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Designer mit Seiten-Auswahl (2026-10-04)
+
+### Geändert
+- **„Zauberer entwerfen" öffnet zuerst eine Übersicht** mit drei Einträgen: **Attribute verteilen / Zauber erlernen / Kreaturen beschwören** — Hoch/Runter + Enter wählt, Esc führt zurück zur Übersicht (und aus ihr heraus). Der versteckte z-Toggle entfällt (das `z` kam wegen QWERTZ-Mapping im Emulator nicht an). „Zauber erlernen" zeigt das Grimoire (alle 46 Sprüche mit Zauber-Panel), „Kreaturen beschwören" nur die kaufbaren Beschwörungen mit Kreatur-Panel.
+
 ## [Unreleased] – Zauber-Detail und Gesamt-Grimoire im Laden (2026-10-04)
 
 ### Hinzugefügt
