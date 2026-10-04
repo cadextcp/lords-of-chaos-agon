@@ -31,7 +31,7 @@ Gesammeltes Plattformwissen. Teile stammen aus dem ersten Versuch (BBC BASIC, `L
 
 | # | Quirk | Status |
 |---|---|---|
-| S1 | **Gestreamte Bitmaps:** wiederholte `vdp_adv_write_block_data(bufferId, n, data)`-Aufrufe *hängen an* (sequenzielle Schreibposition). So lässt sich ein 320×240-RGBA2222-Bild (76 800 Byte) in 576-Byte-Häppchen durch einen kleinen Staging-Puffer laden; danach `select_bitmap` + `bitmap_from_buffer(320,240,1)` + `draw_bitmap(0,0)`. | ✅ (GUI-Emulator, Titelbild) |
+| S1 | **Gestreamte Bitmaps:** wiederholte `vdp_adv_write_block_data(bufferId, n, data)`-Aufrufe *hängen je einen Block an*. So lässt sich ein 320×240-RGBA2222-Bild (76 800 Byte) in 576-Byte-Häppchen durch einen kleinen Staging-Puffer laden. **Danach `vdp_adv_consolidate(bufferId)`** – ohne das bleibt die Bitmap aus mehreren Blöcken unsichtbar (der Titel war bis 2026-10-04 deshalb schwarz). Dann `select_bitmap` + `bitmap_from_buffer(320,240,1)` + `draw_bitmap(0,0)`. | ✅ (GUI-Emulator, Titelbild) |
 | S2 | VDP-RAM-Budget: Kachelbank (291 Kacheln ≤576 B + Reit-Tiere, Puffer ab 0x2000) + Titel (Puffer 0x4000, 75 KB) laufen im Emulator zusammen; **auf Hardware nachzumessen** (Kacheln + Bitmaps + Titel). Kein `delete_bitmap` in der API — das Titel-Bitmap bleibt für den Programmlauf belegt. | ❓ (Hardware offen) |
 
 ## Emulator

@@ -2,6 +2,21 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Keine Bildschirmreste mehr, Titelbild sichtbar (2026-10-04)
+
+### Behoben
+- **Bildschirmwechsel ohne Reste:** Nach Overlays (Zauberliste, Kontextmenü, Karte, Log) und Vollbildseiten (Hilfe, Lexikon) wird das Spielbild komplett neu aufgebaut (`game_redraw`: ganzer Schirm schwarz, Karte, Panel, gemerkte Meldungszeilen). Vorher blieben Zeichen in Panel-Lücken, Spalte 39 und den Meldungszeilen stehen.
+- **Menü und Designer** löschen beim Eintritt den ganzen Schirm und überschreiben Zeilen danach in voller Breite (`render_menu_line`); zu lange Texte (>40 Zeichen, Zeilenumbruch) sind gekürzt. Shop-Detailrahmen geht jetzt über die volle Breite.
+- **Cursor-Sprite** verschwindet unter Overlays und Vollbildseiten; Animation und Blinken pausieren auch im Zaubermenü.
+- **Zauberliste:** volle Namen („Invisibility Pot.“ statt „Invisibility Po“), Fußzeile bleibt links vom Panel, Abstand zur Panel-Spalte.
+- **Schadenszahlen** („KRIT -12“) bleiben im Kartenfenster und alle überschriebenen Felder werden neu gezeichnet.
+- **Beschwörungsliste:** Die Auswahl griff in die Zauberliste (Liste wurde vor der Suche zurückgesetzt).
+- **Titelbild wird angezeigt:** Der Loader las den 9-Byte-Header als 8 Byte und fügte die gestreamten Blöcke nicht zusammen (`vdp_adv_consolidate`, QUIRK S1) – das Bild war bisher nie zu sehen.
+- Lexikon-Detail zeigt bei Essen „+x Kons +y Mana“ (wurde berechnet, aber nicht gezeichnet).
+
+### Werkzeuge
+- `send_keys.py`: `wait=ms` pausiert ohne Tastendruck (für Skripte über Titel und Menü).
+
 ## [Unreleased] – Zauber kaufbar, Seiten sauber getrennt (2026-10-04)
 
 ### Geändert
