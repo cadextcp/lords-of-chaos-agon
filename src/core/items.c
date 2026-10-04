@@ -49,12 +49,36 @@ static void remove_ground_object(World *w, uint8_t i)
 
 bool items_pick_up(World *w, uint8_t unit)
 {
-    Unit *u;
-    uint8_t kind, i;
+    uint8_t i;
     if (unit >= w->unit_count)
         return false;
+    for (i = 0; i < w->object_count; i++)
+        if (w->objects[i].x == w->units[unit].x &&
+            w->objects[i].y == w->units[unit].y &&
+            items_kind_of_tile(w->objects[i].tile) != NO_ITEM)
+            return items_pick_up_object(w, unit, i);
+    return false;
+}
+
+uint8_t items_kind_of_tile(uint16_t tile)
+{
+    uint8_t k;
+    for (k = 0; k < OBJ_COUNT; k++)
+        if (OBJECTS[k].tile == tile)
+            return k;
+    return NO_ITEM;
+}
+
+bool items_pick_up_object(World *w, uint8_t unit, uint8_t obj)
+{
+    Unit *u;
+    uint8_t kind;
+    if (unit >= w->unit_count || obj >= w->object_count)
+        return false;
     u = &w->units[unit];
-    kind = items_kind_at(w, u->x, u->y);
+    if (world_distance(w, u->x, u->y, w->objects[obj].x, w->objects[obj].y) > 1)
+        return false;                    /* own field or a neighbour */
+    kind = items_kind_of_tile(w->objects[obj].tile);
     if (kind == NO_ITEM || u->item_count >= UNIT_ITEMS)
         return false;
     if (kind == OBJ_CAULDRON_FULL)
@@ -66,12 +90,7 @@ bool items_pick_up(World *w, uint8_t unit)
         return false;
     world_spend(w, unit, ACTIONS[ACT_PICK_UP].ap);
     u->items[u->item_count++] = kind;
-    for (i = 0; i < w->object_count; i++)
-        if (w->objects[i].x == u->x && w->objects[i].y == u->y &&
-            w->objects[i].tile == OBJECTS[kind].tile) {
-            remove_ground_object(w, i);
-            break;
-        }
+    remove_ground_object(w, obj);
     return true;
 }
 

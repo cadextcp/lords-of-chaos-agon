@@ -2,6 +2,12 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Aufheben mit Auswahl, Zauber durch hohes Gras (2026-10-04)
+
+### Geändert
+- **`g` mit Auswahl:** Liegen mehrere Gegenstände auf dem eigenen Feld oder auf Nachbarfeldern, fragt ein Menü, welcher (Buchstabe) oder alle (Leertaste). Ein einzelner Gegenstand auf dem eigenen Feld wird wie bisher direkt genommen. Nachbarfelder sind jetzt erreichbar.
+- **Zauber durch hohes Gras (D36):** Hohes Gras versperrt die Sicht, aber nicht mehr den Zauber.
+
 ## [Unreleased] – Zufällige Welt, Wildtiere und Herden (D35, 2026-10-04)
 
 ### Geändert

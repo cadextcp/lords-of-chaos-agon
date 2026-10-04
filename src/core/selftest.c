@@ -1152,6 +1152,28 @@ static void test_wild(void)
         check(swung(CR_LION), "d35: an intruder in the territory is attacked");
     }
 
+    /* picking up from the own field or a neighbour, not further */
+    world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+    {
+        uint8_t k, apple = 0xFF, sword = 0xFF, w0 = 0, before;
+        for (k = 0; k < world.object_count; k++) {
+            if (world.objects[k].tile == T_OBJ_APPLE)
+                apple = k;
+            if (world.objects[k].tile == T_OBJ_SWORD)
+                sword = k;
+        }
+        for (k = 0; k < world.unit_count; k++)
+            if (world.units[k].owner == OWN_P1)
+                w0 = k;
+        world.units[w0].ap = 40;
+        check(sword != 0xFF && !items_pick_up_object(&world, w0, sword),
+              "pickup: two fields away is out of reach");
+        before = world.units[w0].item_count;
+        check(apple != 0xFF && items_pick_up_object(&world, w0, apple) &&
+              world.units[w0].item_count == before + 1,
+              "pickup: the apple next door is taken");
+    }
+
     /* spells reach through tall grass, eyes do not (D36) */
     world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
     check(world.floor[17][12] == FL_TALL_GRASS &&
