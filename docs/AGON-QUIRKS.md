@@ -75,6 +75,7 @@ Gesammeltes Plattformwissen. Teile stammen aus dem ersten Versuch (BBC BASIC, `L
 | K2 | **Kein Auto-Repeat über `kbuf`**: Eine gehaltene Taste liefert genau ein Down-Event. Die Wiederholung macht das Spiel selbst (`chord.c`). | ✅ (Emulator) |
 | K3 | VKeys: ↑ 96, ↓ 98, ← 9A, → 9C, Pos1 86, Ende 88, Bild↑ 93, Bild↓ 95, ESC 7D, a–z = 16 + Index (nach Layout). | ✅ (Emulator) |
 | K5 | Die Hauptschleife muss die `kbuf`-Warteschlange **vollständig leeren**, bevor sie Tastenwiederholung oder Zeitlogik auswertet. Sonst wirken langsame Frames (Scrollen) wie gehaltene Tasten. | ✅ (M2a) |
+| K6 | **Warteschleifen dürfen kein Loslassen verschlucken.** Wer während einer Animation die Warteschlange leert (K5), muss Key-up-Ereignisse aufheben und später an `chord_key(..., false, ...)` geben (`fx_take_release`). Sonst bleibt ein kurz getippter Pfeil „gehalten“ und die Einheit läuft von selbst bis an die Wand (Fund 2026-10-04 mit den gleitenden Schritten). | ✅ |
 | K4 | `SET KEYBOARD 2` ist das deutsche Layout (y/z vertauscht). `tools/run.py` setzt es standardmäßig (`--keyboard`). | ✅ |
 
 ## Hardware (Zielgerät)

@@ -2337,6 +2337,17 @@ dispatch:
         }
         audio_poll();                            /* effect step lists */
         now = (uint16_t)getsysvar_time();
+        {   /* releases that arrived during an animation (fx_take_release) */
+            uint8_t vk;
+            while ((vk = fx_take_release()) != 0) {
+                uint8_t arrow = input_arrow(vk);
+                if (arrow) {
+                    m = chord_key(&chord, arrow, false, now);
+                    if (m)
+                        step(m, dump);
+                }
+            }
+        }
         m = chord_poll(&chord, now);
         if (m)
             step(m, dump);

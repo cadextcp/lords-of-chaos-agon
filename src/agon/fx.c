@@ -47,9 +47,28 @@ void fx_init(void)
     vdp_refresh_sprites();
 }
 
-/* Wait n centiseconds (the clock ticks in steps of 2); queued keys are
- * read and dropped (K5: no stale "held" state may leak into the chord
- * logic afterwards). */
+/* Key releases that arrived during a show. Presses are dropped (K5: no
+ * ghost input), but a dropped release would leave the arrow "held" in the
+ * chord logic and the unit would run on by itself (a tapped arrow is
+ * released within the 80 ms glide). The main loop collects them with
+ * fx_take_release(). */
+#define RELEASES 8
+static uint8_t release_vkey[RELEASES];
+static uint8_t release_n;
+
+uint8_t fx_take_release(void)
+{
+    uint8_t v;
+    if (!release_n)
+        return 0;
+    v = release_vkey[0];
+    release_n--;
+    memmove(release_vkey, release_vkey + 1, release_n);
+    return v;
+}
+
+/* Wait n centiseconds (the clock ticks in steps of 2); queued presses are
+ * dropped, releases kept for the chord logic. */
 static void wait_cs(uint8_t n)
 {
     struct keyboard_event_t e;
@@ -57,7 +76,8 @@ static void wait_cs(uint8_t n)
     while ((int32_t)(getsysvar_time() - until) < 0) {
         audio_poll();                     /* effects are step lists */
         while (kbuf_poll_event(&e))
-            ;
+            if (!e.isdown && release_n < RELEASES)
+                release_vkey[release_n++] = (uint8_t)e.vkey;
     }
 }
 
