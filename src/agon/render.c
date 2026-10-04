@@ -501,7 +501,9 @@ void render_spell_list(const Spellbook *book)
     uint16_t i;
     render_menu_clear();
     /* left of the stat panel: letter, 17 name, count, mana */
-    text_at(0, 0, C_BRIGHT_YELLOW, "  Zauber           Anz Mana");
+    text_at(0, 0, C_BRIGHT_YELLOW, render_list_summons
+            ? "  Kreatur          Stf Mana"   /* summons: level (D34) */
+            : "  Zauber           Anz Mana");
     /* values end in column 25: one blank column before the panel */
     for (i = 0; i < SPELL_COUNT && letter <= 'z'; i++) {
         char line[28], name[18];
@@ -511,7 +513,7 @@ void render_spell_list(const Spellbook *book)
             continue;
         short_spell_name(name, sizeof name, SPELLS[i].name);
         snprintf(line, sizeof line, "%c %-17.17s %2u %3u", letter, name,
-                 book->level[i], spell_mana((uint8_t)i, book->level[i]));
+                 book->level[i], spell_cast_mana((uint8_t)i, book->level[i]));
         text_at(0, (uint8_t)(1 + row), C_BRIGHT_WHITE, line);
         row++;
         letter++;

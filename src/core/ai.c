@@ -365,7 +365,7 @@ static void wizard_actions(Turns *t, World *w, AiCtx *ctx, uint8_t owner)
     while (own < 3 && w->units[wiz].ap >= ACTIONS[ACT_CAST].ap) {
         uint8_t pick = 0xFF, k, best = 0xFF;   /* summon company */
         for (k = 0; k < SPELL_COUNT; k++) {
-            uint8_t cost = spell_mana(k, ctx->books[owner].level[k]);
+            uint8_t cost = spell_cast_mana(k, ctx->books[owner].level[k]);
             if (ctx->books[owner].level[k] == 0 ||
                 SPELLS[k].category != SPC_SUMMON ||
                 w->units[wiz].mana < cost || cost >= best)

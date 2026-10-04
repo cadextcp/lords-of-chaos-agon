@@ -952,13 +952,26 @@ static void test_spells(void)
 
     world.units[0].ap = 40;
     {
+        const CreatureDef *bat = &CREATURES[CR_GIANT_BAT];
         uint8_t got = spell_summon(&world, &book, 0, SP_GIANT_BAT);
-        check(got == 2 && world.unit_count == 3, "spells: level 2 summons two bats");
+        check(got == 1 && world.unit_count == 2,
+              "d34: one cast summons one creature");
         check(world.units[1].kind == CR_GIANT_BAT && world.units[1].owner == OWN_P1 &&
               world.units[1].ap == 24 && world.units[1].sta == 75,
-              "spells: summoned with its own values");
-        check(world.units[0].ap == 30 && world.units[0].mana == 71 &&
-              book.level[SP_GIANT_BAT] == 1, "spells: 10 AP, 9 mana, one level");
+              "spells: summoned with its own AP and stamina");
+        check(world.units[1].com == (uint8_t)(bat->combat * 115 / 100) &&
+              world.units[1].def == (uint8_t)(bat->defence * 115 / 100) &&
+              world.units[1].con_max == (uint8_t)(bat->con * 115 / 100) &&
+              world.units[1].con == world.units[1].con_max,
+              "d34: level 2 = +15 % combat, defence, constitution");
+        check(world.units[0].ap == 30 && world.units[0].mana == 73 &&
+              book.level[SP_GIANT_BAT] == 2,
+              "d34: 10 AP, the level-1 mana (7), the level stays");
+        check(spell_summon(&world, &book, 0, SP_GIANT_BAT) == 1 &&
+              world.units[0].mana == 66 && book.level[SP_GIANT_BAT] == 2,
+              "d34: summons can be cast again (no charges)");
+        world_remove_unit(&world, 2);
+        world.units[0].mana = 73;
     }
 
     {   /* no room: mana lost, nothing appears (GDD 7.2) */
@@ -973,7 +986,7 @@ static void test_spells(void)
         }
         world.units[0].ap = 40;
         check(spell_summon(&world, &book, 0, SP_GIANT_BAT) == 0 &&
-              world.units[0].mana == 71 - 7 && book.level[SP_GIANT_BAT] == 0,
+              world.units[0].mana == 73 - 7 && book.level[SP_GIANT_BAT] == 2,
               "spells: without room the mana is lost");
     }
 }

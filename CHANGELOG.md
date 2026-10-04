@@ -2,6 +2,13 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Beschwörungen: Stufe = Stärke (D34, 2026-10-04)
+
+### Geändert
+- **Ein Wurf, eine Kreatur:** Die Stufe einer Beschwörung bestimmt jetzt die Stärke (+15 % Kampf/Verteidigung/Konstitution pro Stufe über 1, Deckel 8) statt der Anzahl.
+- **Beschwörungen verbrauchen sich nicht** und kosten festes Mana (Stufe-1-Preis) plus 10 AP. Andere Zauber behalten Ladungen.
+- Zauberliste und Designer zeigen bei Kreaturen „Stf“ (Stufe) statt „Anz“; die KI rechnet mit dem neuen Manapreis.
+
 ## [Unreleased] – Sprite-Effekte und gleitende Schritte (2026-10-04)
 
 ### Hinzugefügt

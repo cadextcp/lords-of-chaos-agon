@@ -1179,7 +1179,8 @@ static void designer_shop(Wizard *w, uint8_t page)
         snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u", w->name, w->level,
                  w->xp);
         render_menu_line(1, 2, C_BRIGHT_WHITE, buf);
-        snprintf(buf, sizeof buf, "  %-20.20s Anz Preis", "Name");
+        snprintf(buf, sizeof buf, "  %-20.20s %s Preis", "Name",
+                 page == PG_CREATURES ? "Stf" : "Anz");   /* D34 */
         render_menu_line(2, 3, C_BRIGHT_YELLOW, buf);
         for (row = 0; row < SHOP_ROWS; row++) {
             uint8_t s;
