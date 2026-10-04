@@ -408,21 +408,25 @@ Ein langsamer Zombie (24 AP) schafft 2 Angriffe; ein Löwe (54 AP) läuft 13 Fel
 
 **Werte je Waffe** (`data/weapons.csv`): Gewicht, Combat-/Defence-Bonus (in der Hand bzw. getragen beim Schild), Wurf-/Fernkampf-Flag und **Schadenswürfel**. Der Schaden eines Treffers ist `Würfel der Waffe + Kampf/5` (abgerundet; 0–10 Punkte). **Waffen machen den Unterschied** (D28): Vor D28 rechnete jeder Treffer nur mit dem Kampf-Wert — ein Schwert fühlte sich wie die bloße Faust an.
 
-| Waffe | Würfel | Ø mit Kampf 6 | Ø mit Kampf 50 | Bemerkung |
-|---|---|---|---|---|
-| Waffenlos / beliebiges Objekt | 1d4 | 3,5 | 12,5 | Faustschlag |
-| Messer | 1d6 | 4,5 | 13,5 | leicht zu werfen |
-| Wurfstern | 1d6 | 4,5 | 13,5 | Wurfwaffe |
-| Keule, Speer | 2d6 | 8 | 17 | |
-| Bogen | 2d6 | 8 | 17 | Fernkampf (Reichweite 6) |
-| Schwert | 2d8 | 10 | 19 | |
-| Axt, Slayer | 2d10 | 12 | 21 | Slayer: verletzt Untote |
-| Magie-Slayer | 3d8 | 14,5 | 23,5 | verletzt Untote |
-| Schild | 1d4 | — | — | **wird nie geführt** (D21/D28): er verteidigt getragen |
+| Waffe | Würfel | Kampf+ | Ø mit Kampf 6 | Ø mit Kampf 50 | Bemerkung |
+|---|---|---|---|---|---|
+| Waffenlos / beliebiges Objekt | 1d4 | — | 3,5 | 12,5 | Faustschlag |
+| Messer | 1d6 | +5 | 4,5 | 13,5 | leicht zu werfen |
+| Wurfstern | 1d6 | +4 | 4,5 | 13,5 | Wurfwaffe |
+| Keule | 2d6 | +7 | 8 | 17 | |
+| Speer | 2d6 | +8 | 8 | 17 | |
+| Bogen | 2d6 | — | 8 | 17 | Fernkampf (Reichweite 6), kein Konterrisiko |
+| Schwert | 2d8 | +10 | 10 | 19 | |
+| Axt | 2d10 | +9 | 12 | 21 | |
+| Slayer | 2d10 | +13 | 12 | 21 | verletzt Untote |
+| Magie-Slayer | 3d8 | +16 | 14,5 | 23,5 | verletzt Untote |
+| Schild | 1d4 | **+13 Ver)** | — | — | **wird nie geführt** (D21/D28): +13 Verteidigung getragen (Original-Anker, D31) |
 
 **Treffer bis zum Sieg** (Kampf 6, mittlerer Wurf): Goblin (Con 32) — waffenlos ~9, Schwert ~3, Axt ~3 Treffer; Zwerg (25) — Schwert ~2–3; Troll (47) — Schwert ~5; Gold-Drache (90) — Schwert ~9.
 
 **Magische Waffen** (über Enchant): doppelte Werte; Ausnahme ist der Slayer, der einen eigenen Magic-Slayer-Eintrag hat. Sie verletzen Untote. **Der Schild nimmt nie die Hand** (D28): `w` überspringt Schilde — getragen verteidigt er immer (D21), in der Hand wäre er verschenkt.
+
+**Ausrüstung prägt den Kampf (D31):** Die Boni stehen in **Original-Proportionen** (Anker: der Schild des Originals gibt +13 Verteidigung; D7 hatte sie auf +4/+8 verkleinert, was gegen Kreaturenwerte bis Kampf 50/Verteidigung 42 wirkungslos war — laut Arena-Simulation gewannen Waffenträger praktisch nie). Mit D31 hat eine waffenfähige Kreatur mit sehr guter Waffe und Schild eine reale Chance: in der Mittelfeld-Arena (ohne Drachen, 2000 Läufe) gewinnt der Riese mit Ausrüstung ~11 % der Schlachten, Magie-Slayer-Halter sind die erfolgreichste Waffe, und 11 % aller Sieger tragen ein Schild. Drachen bleiben Apex (~95 %).
 
 ---
 
@@ -831,6 +835,7 @@ Spalte „WinUAE“: Was sich im Amiga-Original direkt beobachten lässt (●), 
 | D26 | Gebunden: freier Schlag beim Wegziehen (Review-Fix) | **Wegbewegen aus dem Nahkontakt ist erlaubt** (Bewegungskosten wie üblich); der angrenzende Gegner erhält **einen freien Schlag** ohne AP-Kosten (normale Trefferchance/Schaden, Untoten-Regel, Boden-gegen-Flieger). Löst der Ausbruch den Kontakt ganz (diagonal heraus, kein Gegner mehr angrenzend), entfällt der Schlag. Pro Wegziehen ein Schlag. Ersetzt die M3a-Regel „keine Bewegung im Engagement“. |
 | D27 | Freier Rückschlag (Playtest 2026-10-04) | **Der Rückschlag ist eine freie Abwehrreaktion: keine AP, keine Ausdauer, immer.** Vorher kostete er 6 AP + 3 Ausdauer — wer oft angegriffen wurde (KI-Goblin: bis 3 Angriffe pro Zug), musste unfreiwillig zurückschlagen und startete ausgelaugt in den eigenen Zug; AP regenerierten scheinbar nie (Ausdauer-Absturz halbiert die Auffüllung), Aussetzen half nichts. Angriffe kosten weiter 10 AP + 4 Ausdauer (Angreifen bleibt eine Entscheidung). |
 | D28 | Waffen- und Zauberschaden mit Würfeln (Playtest 2026-10-04, D&D-orientiert) | **Schaden = Würfel der Waffe + Kampf/5** (Tabelle §6.1: waffenlos 1w4 … Magie-Slayer 3w8) — vorher rechnete jeder Treffer nur mit Kampf/4, das Schwert brachte keinen spürbaren Schaden. **Zauber würfeln eigene Würfel** (§7.2): Magic Bolt **7w10**, Magic Lightning **10w8 + 3w6 Splash** — ein treffender Bolt tötet einen Goblin meist sofort; Zauber verbrauchen Stufen und müssen sich darin lohnen. **Der Schild nimmt nie die Hand** (`w` überspringt Schilde; getragen verteidigt er immer, D18/D21). Con-Werte der Kreaturen bleiben Anker (D12); die Skalierung steckt in den Würfeln. |
+| D31 | Waffenbonis in Original-Proportionen (Arena-Befund 2026-10-04) | **Combat-Bonis deutlich erhöht** (Schwert +4→+10, Axt +3→+9, Slayer +6→+13, Magie-Slayer +8→+16, Messer +5, Speer +8, Keule +7, Wurfstern +4) und **Schild +4→+13 Verteidigung** (Anker: Original-Wert; bewusst übernommen statt D7-Verkleinerung). Grund: Die Arena-Simulation zeigte, dass Ausrüstung die Kämpfe nicht prägte — waffenführende Kreaturen hatten ~0 % Siege. Mit D31 gilt: sehr gute Waffe + Schild = reale Siegchance im Mittelfeld; Drachen bleiben dominant. Validiert über `host/arena.c` (2000 Läufe, Vorher/Nachher). |
 | D30 | Kritische Treffer (Wunsch 2026-10-04, D&D-orientiert) | **Angriffswurf < 5 % = kritisch: Schadenswürfel doppelt, Boni einfach** — Schwert 2w8 → 4w8, Stufe-1-Bolt 4w6 → 8w6. Etwa jeder zwanzigste Angriff; Nahkampf, Rückschlag, Freier Schlag, Wurf, Bogen, Bolt/Blitz; Flächen/Bomben/Möbel nicht. Meldung „KRIT! …“, rotes Overlay mit Crash-Sound. |
 | D29 | Eine Reaktion pro Runde; Zauber skalieren nach Stufe (Playtest 2026-10-04) | **Jede Einheit hat eine defensive Reaktion pro Runde** (D&D-5e-Vorbild): der freie Rückschlag (D27) und der freie Schlag beim Wegziehen (D26) teilen sich dieses Budget (`UF_REACTED`, geräumt mit der Regeneration). Mehrere Angriffe im selben Rundenverlauf laufen danach unbestraft ins Ziel. **Magic Bolt auf (3+Stufe)w6 und Lightning auf (5+Stufe)w6 + 2w6 Splash reduziert** (7w10 war zu stark): D&D-Upcasting — die Buchstufe beim Wirken bestimmt die Würfel, volle Bücher schlagen am härtesten, entladene am schwächsten. Stufe 1 = 4w6 (Ø 14): clearly über einem Schwertstreich, aber kein Sofort-Kill. |
 | D22 | M4-Aufteilung (Review 3) | **Zehn Teile M4a–M4j** in der Reihenfolge von §16: erst Systeme, dann Kampagne, Szenarien, KI, Speichern, Politur. **Kampagne ohne Gegenstände** (F5), **Dächer sichtbar** und innen ausgeblendet (F7). Die Formeln F1–F4 und die Vorschläge F6, F8, F9 gelten als Startwerte. |

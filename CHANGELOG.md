@@ -2,6 +2,12 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Ausrüstung prägt den Kampf (D31, Arena-Befund 2026-10-04)
+
+### Geändert
+- **Waffenbonis in Original-Proportionen (D31):** Combat-Bonis erhöht (Schwert +4→+10, Speer +8, Keule +7, Axt +9, Slayer +13, Magie-Slayer +16, Messer +5, Wurfstern +4) und **Schild +4→+13 Verteidigung** (Anker: Original-Wert). Grund: Die Arena-Simulation (2000 Läufe) zeigte, dass waffenführende Kreaturen mit der alten Skala praktisch nie gewannen — Ausrüstung prägte den Kampf nicht. Mit D31 gewinnt der ausgerüstete Riese ~11 % der Mittelfeld-Schlachten, Magie-Slayer-Halter sind die erfolgreichste Waffe, 11 % der Sieger tragen ein Schild; Drachen bleiben Apex.
+- **Arena:** Einheiten heben jetzt bis zu zwei Gegenstände auf (Waffe + Schild wird testbar), Korrelation/Stabilitätsausgaben unverändert.
+
 ## [Unreleased] – Kritische Treffer (D30, 2026-10-04)
 
 ### Hinzugefügt

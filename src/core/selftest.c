@@ -1059,7 +1059,7 @@ static void test_items(void)
     check(OBJECTS[OBJ_SWORD].weapon == WEAPON_SWORD &&
           OBJECTS[OBJ_GOLD].vp == 40 && OBJECTS[OBJ_SCROLL].category == OC_SCROLL,
           "items: table values from objects.csv");
-    check(WEAPONS[WEAPON_SWORD].combat == 4 && WEAPONS[WEAPON_SHIELD].defence == 4 &&
+    check(WEAPONS[WEAPON_SWORD].combat == 10 && WEAPONS[WEAPON_SHIELD].defence == 13 &&
           WEAPONS[WEAPON_BOW].ranged == 1 && WEAPONS[WEAPON_SWORD].dice_n == 2 &&
           WEAPONS[WEAPON_SWORD].die == 8 && WEAPONS[WEAPON_MAGIC_SLAYER].dice_n == 3,
           "items: weapon values");
@@ -1079,15 +1079,15 @@ static void test_items(void)
 
     check(items_cycle(&world, 0) && world.units[0].in_use == 0 &&
           world.units[0].ap == 30, "items: wielding costs 4 AP");
-    check(items_combat(&world, 0) == 14, "items: sword +4 combat");
+    check(items_combat(&world, 0) == 20, "items: sword +10 combat (D31)");
 
     {   /* shield carried: defence always (GDD 6.1) */
         world.units[0].items[1] = OBJ_SHIELD;
         world.units[0].item_count = 2;
-        check(items_defence(&world, 0) == 16, "items: carried shield +4 defence");
+        check(items_defence(&world, 0) == 25, "items: carried shield +13 defence (D31)");
         world.units[0].items[2] = OBJ_SHIELD;
         world.units[0].item_count = 3;
-        check(items_defence(&world, 0) == 16, "items: shields do not stack (D21)");
+        check(items_defence(&world, 0) == 25, "items: shields do not stack (D21)");
         world.units[0].item_count = 2;
     }
 
@@ -2272,7 +2272,7 @@ static void test_m4e(void)
     area_reset();
 
     check(WEAPONS[WEAPON_KNIFE].thrown == 1 && WEAPONS[WEAPON_SPEAR].ranged == 0 &&
-          WEAPONS[WEAPON_CLUB].combat == 2 && WEAPONS[WEAPON_MAGIC_SLAYER].combat == 8 &&
+          WEAPONS[WEAPON_CLUB].combat == 7 && WEAPONS[WEAPON_MAGIC_SLAYER].combat == 16 &&
           WEAPONS[WEAPON_AXE].dice_n == 2 && WEAPONS[WEAPON_AXE].die == 10,
           "m4e: weapon values from weapons.csv");
     check(OBJECTS[OBJ_SPEAR].weapon == WEAPON_SPEAR &&
@@ -2441,12 +2441,12 @@ static void test_m4e(void)
         world.units[a].items[0] = OBJ_AXE;
         world.units[a].item_count = 1;
         world.units[a].in_use = 0;
-        check(items_combat(&world, a) == 10 + 3,
-              "m4e: the axe gives +3 combat");
+        check(items_combat(&world, a) == 10 + 9,
+              "m4e: the axe gives +9 combat (D31)");
         rng_seed(&rng, 5);
         check(combat_hit_chance(items_combat(&world, a),
-                                items_defence(&world, b)) == 70,
-              "m4e: axe vs goblin hits 70 %");
+                                items_defence(&world, b)) == 90,
+              "m4e: axe vs goblin hits 90 % (D31)");
     }
 
     {   /* enemy in the roofed house is hidden from outside rays */

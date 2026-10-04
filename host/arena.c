@@ -107,7 +107,7 @@ static uint8_t run_battle(uint32_t seed, uint16_t *rounds_out)
     uint8_t kind;
     int round_no, i;
     uint8_t order[MAX_UNITS];
-    bool has_item[MAX_UNITS] = {0};       /* already grabbed the loot */
+    uint8_t held[MAX_UNITS] = {0};         /* objects grabbed so far (max 2) */
     bool no_loot[MAX_UNITS] = {0};        /* too heavy - stop chasing */
     uint8_t alive_kinds[CR_COUNT];
     uint8_t winner = 255;
@@ -144,7 +144,7 @@ static uint8_t run_battle(uint32_t seed, uint16_t *rounds_out)
                 Unit *u = &world.units[kind];
                 u->items[0] = obj;
                 u->item_count = 1;
-                has_item[kind] = true;   /* equipped ones stop chasing loot */
+                held[kind] = 1;   /* equipped ones still look for a 2nd */
                 if (OBJECTS[obj].weapon == WEAPON_SHIELD) {
                     shield_picks++;      /* carried, defends anyway (D21/D28) */
                 } else if (OBJECTS[obj].category == OC_WEAPON &&
@@ -192,7 +192,7 @@ static uint8_t run_battle(uint32_t seed, uint16_t *rounds_out)
             while (world.units[unit].ap >= 4 && guard++ < 40) {
                 int16_t px = world.units[unit].x, py = world.units[unit].y;
                 /* 1) loot: walk to the nearest seen object, grab it */
-                if (!has_item[id] && !no_loot[id] &&
+                if (held[id] < 2 && !no_loot[id] &&
                     world.object_count > 0) {
                     int best = -1, bestd = 1 << 20;
                     uint8_t o;
@@ -208,7 +208,7 @@ static uint8_t run_battle(uint32_t seed, uint16_t *rounds_out)
                         if (items_pick_up(&world, unit)) {
                             uint8_t k = world.units[unit].item_count - 1;
                             uint8_t obj = world.units[unit].items[k];
-                            has_item[id] = true;
+                            held[id]++;
                             if (OBJECTS[obj].weapon == WEAPON_SHIELD) {
                                 shield_picks++;   /* carried only (D21/D28) */
                             } else if (OBJECTS[obj].category == OC_WEAPON) {
@@ -353,7 +353,7 @@ static uint8_t run_battle(uint32_t seed, uint16_t *rounds_out)
     /* survival credit for the fallen: tracked via deaths is approximate;
        rounds_alive only counts finalists - the table notes this. */
     for (i = 0; i < CR_COUNT; i++) {
-        if (has_item[i])
+        if (held[i])
             stats[i].items++;
         if (!skip_kind[i] && !alive_kinds[i])
             stats[i].real_deaths++;
