@@ -2,6 +2,24 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Neuer Klang: Samples, neue Musik, mehr Sounds (2026-10-04)
+
+### Behoben
+- **Titelmusik lief 10× zu langsam** (ms auf die Zentisekunden-Uhr addiert): man hörte nur einzelne Piepser im Abstand von Sekunden.
+- **Mehrton-Effekte spielten nur den ersten Ton** (der VDP verwirft Noten auf belegten Kanälen, ADR 0012).
+
+### Geändert
+- **Eigene Samples** (`tools/gen_sfx.py`, synthetisiert, 16 Stück, `/loc/sfx.bin`): Treffer, Klirren, Wisch, Stöhnen, Donner, Zisch, Knarren, Truhe, Funkeln, Beschwörung, Blubbern, Krachen u. a.; Wellenform-Ersatz, falls die Datei fehlt.
+- **Effekt-Sequenzer** mit Prioritäten auf zwei Kanälen; jeder Zauber klingt nach seiner Art (Bolt, Blitz, Beschwörung, Teleport, Fluch, Trank).
+- **Neue Musik:** eigenes vierstimmiges Stück (Zupfsaite, Bass, Begleitung, Trommel), läuft im Menü weiter; **Sieg- und Niederlage-Jingle** auf dem Endbildschirm. Musikformat LOCM v2 mit Instrumenten, Hüllkurven und Schleife.
+- **Neue Sounds:** Menü (bewegen, bestätigen, zurück), verweigerte Aktion, Essen, Trinken/Brauen, Fliegen/Reiten/Landen.
+- **Setup:** Musik und Toneffekte getrennt abschaltbar (gespeichert in `settings.dat`).
+- **RAM:** Selftest, Bildschirme und Tastaturtest werden mit `-Oz` übersetzt; `loc.bin` 321 → 275 KB.
+
+### Werkzeuge
+- `tools/audio_preview.py` rendert Musik und Samples als WAV nach `build/sfx/preview/` – zum Probehören ohne Agon.
+- `vdptest` misst zusätzlich Kanal-Reset, Sample-Längen und Tonhöhenbereich (A6–A11).
+
 ## [Unreleased] – VDP-Spike: was der Agon kann (2026-10-04)
 
 ### Hinzugefügt

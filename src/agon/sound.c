@@ -88,6 +88,7 @@ typedef struct {
 static Voice voices[FX_VOICES];
 static bool loaded[SFX_COUNT];
 static uint16_t sample_ms[SFX_COUNT];
+static uint16_t sample_base[SFX_COUNT];  /* tunable: pitch of the recording */
 
 bool sound_on = true;
 bool music_on = true;
@@ -97,12 +98,22 @@ uint16_t sound_sample_buffer(uint8_t sfx)
     return sfx < SFX_COUNT && loaded[sfx] ? (uint16_t)(SFX_BUFFER_BASE + sfx) : 0xFFFF;
 }
 
+uint16_t sound_sample_ms(uint8_t sfx, uint16_t hz)
+{
+    if (sfx >= SFX_COUNT || !loaded[sfx])
+        return 0;
+    if (!sample_base[sfx] || !hz)
+        return sample_ms[sfx];
+    /* a tunable sample plays faster when pitched up */
+    return (uint16_t)((uint32_t)sample_ms[sfx] * sample_base[sfx] / hz);
+}
+
 bool sound_init(void)
 {
     uint8_t fh, head[6], i, count;
     uint8_t chunk[256];
-    vdp_audio_enable_channel(4);
-    vdp_audio_enable_channel(5);
+    for (i = 4; i <= 9; i++)             /* effects 0, 4; music 1-3, 5-9 */
+        vdp_audio_enable_channel(i);
     memset(loaded, 0, sizeof loaded);
     fh = mos_fopen("sfx.bin", FA_READ);
     if (!fh)
@@ -138,6 +149,7 @@ bool sound_init(void)
         if (e[0] & 1)
             vdp_audio_set_buffer_frequency(0, id, base);
         sample_ms[i] = (uint16_t)(len / 16);   /* 16 kHz */
+        sample_base[i] = (e[0] & 1) ? base : 0;
         loaded[i] = true;
     }
     mos_fclose(fh);
@@ -154,6 +166,10 @@ static bool voice_step(Voice *v, uint8_t ch)
     s = &EFFECTS[v->fx].step[v->step];
     if (s->vol == 0)
         return false;
+    /* the VDP starts notes with up to ~150 ms latency: the previous step
+     * may still sound, and a busy channel drops the note (A1) - a reset
+     * frees it at once (vdptest A6/A9) */
+    vdp_audio_reset_channel(ch);
     vdp_audio_volume_envelope_disable(ch);
     if (s->sample != NO_SAMPLE && loaded[s->sample]) {
         ms = sample_ms[s->sample];
@@ -192,8 +208,7 @@ void sound_play(uint8_t fx)
             }
         }
         if (pick == FX_VOICES)
-            return;
-        vdp_audio_reset_channel(FX_CH[pick]);   /* frees it at once */
+            return;                       /* voice_step resets the channel */
     }
     voices[pick].active = true;
     voices[pick].fx = fx;

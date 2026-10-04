@@ -212,6 +212,94 @@ static void test_audio(void)
     snprintf(line, sizeof line, "A5 extra channels 4/5: %u %u", a, b);
     out(C_BRIGHT_WHITE, line);
     pause_cs(30);
+
+    /* interrupting: a long note, then reset the channel and play again */
+    a = note(0, 50, 300, 2000);
+    vdp_audio_reset_channel(0);
+    b = note(0, 50, 400, 200);
+    snprintf(line, sizeof line, "A6 long note, reset, new: %u %u", a, b);
+    out(C_BRIGHT_WHITE, line);
+    pause_cs(30);
+
+    /* tunable sample: the same buffer at three pitches (instrument) */
+    vdp_audio_create_sample_from_buffer(2, SAMPLE_BUFFER,
+        VDP_AUDIO_SAMPLE_FORMAT_8BIT_SIGNED | VDP_AUDIO_SAMPLE_FORMAT_SAMPLE_TUNEABLE);
+    vdp_audio_set_buffer_frequency(2, SAMPLE_BUFFER, 262);
+    vdp_audio_set_sample(2, SAMPLE_BUFFER);
+    a = note(2, 80, 262, 150);
+    pause_cs(20);
+    b = note(2, 80, 392, 150);
+    pause_cs(20);
+    c = note(2, 80, 523, 150);
+    snprintf(line, sizeof line, "A7 tunable sample C/G/C': %u %u %u", a, b, c);
+    out(C_BRIGHT_WHITE, line);
+    pause_cs(30);
+
+    /* do enabled extra channels survive a reset? */
+    vdp_audio_enable_channel(9);
+    a = note(9, 50, 500, 100);
+    pause_cs(15);
+    vdp_audio_reset_channel(9);
+    b = note(9, 50, 500, 100);
+    pause_cs(15);
+    vdp_audio_reset_channel(4);
+    c = note(4, 50, 500, 100);
+    snprintf(line, sizeof line, "A8 ch9, reset ch9, reset ch4: %u %u %u", a, b, c);
+    out(C_BRIGHT_WHITE, line);
+    pause_cs(30);
+
+    /* samples: is the note length honoured, and does a reset free a
+     * channel that plays a sample? (the sample is 500 ms long) */
+    vdp_audio_set_sample(1, SAMPLE_BUFFER);
+    a = note(1, 80, 0, 100);              /* 100 ms of a 500 ms sample */
+    {
+        uint32_t t = getsysvar_time() + 20;   /* 200 ms later */
+        while ((int32_t)(getsysvar_time() - t) < 0)
+            ;
+    }
+    b = note(1, 80, 0, 500);              /* 1 = length honoured */
+    {
+        uint32_t t = getsysvar_time() + 5;
+        while ((int32_t)(getsysvar_time() - t) < 0)
+            ;
+    }
+    vdp_audio_reset_channel(1);           /* mid-sample */
+    vdp_audio_set_sample(1, SAMPLE_BUFFER);
+    c = note(1, 80, 0, 500);              /* right after the reset */
+    snprintf(line, sizeof line, "A9 smp len kept/reset now: %u %u %u", a, b, c);
+    out(C_BRIGHT_WHITE, line);
+    {
+        uint32_t t = getsysvar_time() + 5;
+        while ((int32_t)(getsysvar_time() - t) < 0)
+            ;
+    }
+    vdp_audio_reset_channel(1);
+    {
+        uint32_t t = getsysvar_time() + 2;    /* one clock step */
+        while ((int32_t)(getsysvar_time() - t) < 0)
+            ;
+    }
+    vdp_audio_set_sample(1, SAMPLE_BUFFER);
+    a = note(1, 80, 0, 500);
+    snprintf(line, sizeof line, "A10 reset, 20 ms, play: %u", a);
+    out(C_BRIGHT_WHITE, line);
+    pause_cs(60);
+
+    /* how far can a tunable sample (base 262 Hz) be pitched up? */
+    {
+        static const uint16_t HZ[6] = {500, 520, 524, 600, 786, 1048};
+        char *p = line;
+        p += snprintf(p, 20, "A11 x");
+        for (i = 0; i < 6; i++) {
+            vdp_audio_reset_channel(2);
+            vdp_audio_set_sample(2, SAMPLE_BUFFER);
+            a = note(2, 60, HZ[i], 60);
+            p += snprintf(p, 8, " %u:%u", HZ[i] / 10, a);
+            pause_cs(10);
+        }
+        out(C_BRIGHT_WHITE, line);
+    }
+    pause_cs(60);
     out(C_GREY, "(1 = queued, 0 = rejected, 9 = silent)");
     pause_cs(150);
 }

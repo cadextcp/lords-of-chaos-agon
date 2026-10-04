@@ -57,6 +57,9 @@ void sound_poll(void);
 /* The sample id loaded into VDP buffer form, or 0xFFFF when missing
  * (music.c builds its instruments from them). */
 uint16_t sound_sample_buffer(uint8_t sfx);
+/* How long a sample sounds at pitch hz (0 = recorded pitch); 0 when the
+ * sample is missing. */
+uint16_t sound_sample_ms(uint8_t sfx, uint16_t hz);
 
 /* Player settings (setup menu), kept in /loc/settings.dat. */
 extern bool sound_on;

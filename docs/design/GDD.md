@@ -681,16 +681,26 @@ Wie beim Amiga werden pro Feld **mehrere Ebenen übereinander** gezeichnet (B1.2
 - **Mockups:** `tools/mockup.py` rendert aus Kacheln und einer Szenen-Beschreibung ein 320×240-Bild des Spielbildschirms nach `docs/design/mockups/`. So lässt sich die Optik beurteilen, bevor der Agon-Renderer existiert.
 - Alle Grafiken sind eigene Arbeit (D10) und dürfen ins öffentliche Repo.
 
-### 11.4 Sound [C] (M5c ausgebaut)
+### 11.4 Sound [C] (Polish-Runde: Samples)
 
-- Einfache Effekte über den Agon-Soundkanal: Schritt, Treffer, Zauber, Portal.
-- **M5c:** Kanal 0 trägt die Effekte (1–3 bleiben für Musik, M5d). Jeder Effekt
-  wählt eine Wellenform (Square/Triangle/Saw/Sine/Noise/VIC-Noise über
-  `vdp_audio_set_waveform`), eine ADSR-Hüllkurve
-  (`vdp_audio_volume_envelope_ADSR`) und eine kurzen Notenfolge — 16 Effekte:
-  Schwung, Treffer, Verfehlt, Tod, Zauber, Bogen, Wurf, Aufheben, Tür, Truhe,
-  Zerschmettern, Portal (Arpeggio), Rundenwechsel, Sieg, Niederlage, Schritt.
-- Musik ist optional [X] (Titelmusik in M5d).
+- **Samples statt Piepser (ADR 0012):** `tools/gen_sfx.py` synthetisiert eigene
+  8-Bit-Samples (16 kHz, nichts aufgenommen oder kopiert): Schritt, Wisch,
+  Klirren, dumpfer Treffer, Stöhnen, Donner, Zisch, Knarren, Truhendeckel,
+  Funkeln, Beschwörung, Blip, Blubbern, Krachen, dazu die Instrumente Zupfsaite
+  und Trommel. Datei `/loc/sfx.bin` (~110 KB), beim Start in VDP-Buffer geladen.
+  WAV-Vorschauen: `build/sfx/preview/`.
+- **Effekte** (`src/agon/sound.c`) sind kurze Schrittlisten (Sample oder
+  Wellenform-Ton) mit Priorität auf zwei Kanälen (0, 4); `sound_poll()` spielt
+  Schritt für Schritt, weil der VDP Noten auf belegten Kanälen verwirft
+  (QUIRK A1). Fehlt `sfx.bin`, klingen die Wellenform-Ersatztöne.
+- **Zuordnung:** Schwung/Wurf/Bogen = Wisch, Treffer = dumpfer Schlag, Krit =
+  zusätzlich Metallklirren (D30), Tod = Stöhnen, Bolt = Zisch, Blitz = Donner,
+  Beschwörung, Teleport, Fluch/Subversion, Tränke/Brauen = Blubbern, sonstige
+  Zauber = Funkeln; Tür, Truhe, Aufheben, Essen, Trinken, Fliegen/Reiten,
+  Portal, Rundenwechsel; Menü bewegen/bestätigen/zurück; rote Meldungen
+  (verweigerte Aktion) = kurzer tiefer Ton.
+- **Setup:** Musik (M) und Toneffekte (T) einzeln abschaltbar, gespeichert in
+  `/loc/settings.dat`.
 
 #### 11.4.1 Ereignisse und Kampfanimation [C] (M5c)
 
@@ -744,12 +754,16 @@ Wie beim Amiga werden pro Feld **mehrere Ebenen übereinander** gezeichnet (B1.2
   über den 576-Byte-Staging-Puffer in einen eigenen VDP-Puffer (ID 0x4000,
   weit oberhalb des Kachel-Bereichs); wiederholte `write_block_data`-Aufrufe
   hängen an (QUIRKS S1). Fehlt die Datei, zeigt der Titel nur Text.
-- **Titelmusik:** eigener dreistimmiger Satz (A-Moll, Lead/Bass/Arpeggio —
-  nichts kopiert, D7) als Notentabelle in `data/music/title.txt`, von
-  `tools/gen_music.py` nach `build/music/title.bin` kompiliert. Der
-  Sequencer (`src/agon/music.[ch]`) spielt auf den VDP-Kanälen 1–3
-  (Kanal 0 bleibt den Effekten), nicht blockierend: Titel- und Menüschleife
-  pollen `music_poll()`, **jeder Tastendruck beendet die Musik**.
+- **Musik (Polish-Runde):** eigenes Stück in a-Moll, 16 Takte in zwei
+  Hälften (A: Am F C G | Am F E E, B: Dm Am F E | Dm Am E Am), vier Stimmen:
+  Zupfsaite (Sample) als Melodie, Dreieck-Bass, leise Sinus-Begleitung mit
+  Pausen, Trommel (Sample). Läuft in Schleife unter Titel und Menü weiter und
+  endet erst beim Spielstart. Sieg- und Niederlage-Jingles auf dem
+  Endbildschirm (`data/music/win.txt`, `lose.txt`). Format LOCM v2
+  (`tools/gen_music.py`): Instrument, Ersatz-Wellenform, Lautstärke, ADSR,
+  Schleife. Jede Stimme wechselt zwischen zwei VDP-Kanälen (1/6, 2/7, 3/8,
+  5/9), damit Noten ausklingen dürfen; Zeitplan in Millisekunden aus der
+  Zentisekunden-Uhr. Vorhören am PC: `uv run tools/audio_preview.py`.
 
 ---
 
