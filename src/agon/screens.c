@@ -11,6 +11,7 @@
 #include "input.h"
 #include "music.h"
 #include "render.h"
+#include "sound.h"
 
 /* Strings use the umlaut font codes (umfont.c): \204 ae, \224 oe,
  * \201 ue, \341 ss. */
@@ -38,6 +39,8 @@ bool screen_end(const EndInfo *info)
     uint8_t row = 11;
 
     render_screen_clear();
+    if (!music_start(win ? "music/win.bin" : "music/lose.bin"))
+        sound_play(win ? SND_WIN : SND_LOSE);   /* music off or missing */
     render_frame(8, 8, 311, 231, win ? C_BRIGHT_YELLOW : C_RED);
     if (win) {
         centred(3, C_BRIGHT_YELLOW, "*** Gl\201ckwunsch! ***");
@@ -72,13 +75,17 @@ bool screen_end(const EndInfo *info)
 
     for (;;) {                           /* drain, then wait for a key */
         while (!kbuf_poll_event(&e))
-            ;
+            audio_poll();
         if (!e.isdown)
             continue;
-        if (e.vkey == VK_ESC)
+        if (e.vkey == VK_ESC) {
+            music_stop();
             return false;
-        if (e.ascii == 13 || e.vkey == VK_SPACE)
-            return true;
+        }
+        if (e.ascii == 13 || e.vkey == VK_SPACE) {
+            sound_play(SND_CONFIRM);
+            return true;                 /* the jingle may ring out */
+        }
     }
 }
 
@@ -197,17 +204,20 @@ bool screen_help(const char *file)
     help_draw(page);
     for (;;) {
         while (!kbuf_poll_event(&e))
-            ;
+            audio_poll();
         if (!e.isdown)
             continue;
-        if (e.vkey == VK_ESC || e.ascii == 13 || e.vkey == VK_SPACE)
+        if (e.vkey == VK_ESC || e.ascii == 13 || e.vkey == VK_SPACE) {
+            sound_play(SND_BACK);
             return true;
+        }
         if (e.vkey == VK_LEFT)
             page = page ? (uint8_t)(page - 1) : (uint8_t)(help_count - 1);
         else if (e.vkey == VK_RIGHT)
             page = (uint8_t)((page + 1) % help_count);
         else
             continue;
+        sound_play(SND_MENU);
         help_draw(page);
     }
 }
@@ -226,10 +236,9 @@ bool screen_title(void)
     }
     centred(28, C_GREY, "- Taste dr\201cken -");
     for (;;) {
-        music_poll();
+        audio_poll();
         while (kbuf_poll_event(&e)) {
-            if (e.isdown) {
-                music_stop();
+            if (e.isdown) {               /* the song plays on in the menu */
                 render_screen_clear();
                 return true;
             }
@@ -606,10 +615,11 @@ void screen_lexicon(const Lexicon *lex)
     lexicon_draw_list(lex, section, cursor[section]);
     for (;;) {
         while (!kbuf_poll_event(&e))
-            ;
+            audio_poll();
         if (!e.isdown)
             continue;
         if (e.vkey == VK_ESC) {
+            sound_play(SND_BACK);
             if (detail) {
                 detail = false;
                 lexicon_draw_list(lex, section, cursor[section]);
@@ -636,12 +646,14 @@ void screen_lexicon(const Lexicon *lex)
             else if (e.vkey == VK_DOWN)
                 cursor[section] = (uint16_t)((cursor[section] + 1) % entries);
             else if (e.ascii == 13 || e.vkey == VK_SPACE) {
+                sound_play(SND_CONFIRM);
                 detail = true;
                 entry = lexicon_entry_of(section, cursor[section]);
                 lexicon_draw_detail(entry);
                 continue;
             } else
                 continue;
+            sound_play(SND_MENU);
             lexicon_draw_list(lex, section, cursor[section]);
         }
     }

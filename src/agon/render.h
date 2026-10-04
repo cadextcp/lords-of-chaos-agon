@@ -47,6 +47,8 @@ void render_cast_menu(uint8_t have_spells, uint8_t have_summons,
  * full-screen page. */
 void render_message(uint8_t line, uint8_t colour, const char *text);
 void render_messages_redraw(void);
+/* Called for every red (refusal) message, e.g. to play an error sound. */
+void render_set_error_hook(void (*fn)(void));
 /* Menu helpers (M4f): black out the map window (and hide the cursor
  * sprite), write one text cell. Text drawn after render_menu_clear must
  * stay within columns 0..26, or it survives the next clear. */

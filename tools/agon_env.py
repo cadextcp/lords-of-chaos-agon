@@ -102,6 +102,9 @@ def stage_game() -> Path:
         (dest / "help").mkdir(exist_ok=True)
         for f in helpdir.glob("*.hlp"):
             shutil.copy2(f, dest / "help" / f.name)
+    sfx = BUILD / "sfx" / "sfx.bin"
+    if sfx.exists():
+        shutil.copy2(sfx, dest / sfx.name)
     title = BUILD / "title.bin"
     if title.exists():
         shutil.copy2(title, dest / title.name)

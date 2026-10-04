@@ -7,8 +7,10 @@
 
 #include "../core/colors.h"
 #include "../core/events.h"
+#include "../core/gen/data.h"
 #include "../core/gen/tiles.h"
 #include "../core/view.h"
+#include "music.h"
 #include "render.h"
 #include "sound.h"
 
@@ -28,9 +30,37 @@ static void wait_frames(uint8_t n)
 {
     struct keyboard_event_t e;
     uint32_t until = getsysvar_time() + (uint32_t)n * FX_FRAME_CS;
-    while ((int32_t)(getsysvar_time() - until) < 0)
+    while ((int32_t)(getsysvar_time() - until) < 0) {
+        audio_poll();                     /* effects are step lists */
         while (kbuf_poll_event(&e))
             ;
+    }
+}
+
+/* The sound of a spell (event kind = spell id). A switch, not an ||
+ * chain over enums (ez80-clang, T7). */
+static uint8_t spell_sound(uint8_t spell)
+{
+    if (spell >= SPELL_COUNT)
+        return SND_SPELL;
+    switch (spell) {
+    case SP_MAGIC_BOLT:
+        return SND_BOLT;
+    case SP_MAGIC_LIGHTNING:
+        return SND_LIGHTNING;
+    case SP_TELEPORT:
+        return SND_TELEPORT;
+    case SP_CURSE:
+    case SP_SUBVERSION:
+        return SND_CURSE;
+    default:
+        break;
+    }
+    if (SPELLS[spell].category == SPC_SUMMON)
+        return SND_SUMMON;
+    if (SPELLS[spell].category == SPC_POTION)
+        return SND_DRINK;                 /* the cauldron bubbles */
+    return SND_SPELL;
 }
 
 /* World -> view field of an event; false when outside the window. */
@@ -118,7 +148,7 @@ void fx_drain_play(World *w, const Sight *s)
         case EV_HIT:
             sound_play(SND_HIT);
             if (e->b) {                      /* critical (D30): KRIT! */
-                sound_play(SND_SMASH);
+                sound_play(SND_CRIT);        /* second voice: hit + clang */
                 draw_overlay(vx, vy, T_FX_HIT);
                 draw_overlay(vx, vy, T_FX_SLASH);
                 snprintf(buf, sizeof buf, "KRIT -%u", e->a);
@@ -148,7 +178,7 @@ void fx_drain_play(World *w, const Sight *s)
             wait_frames(2);
             break;
         case EV_SPELL:
-            sound_play(SND_SPELL);
+            sound_play(spell_sound(e->kind));
             draw_overlay(vx, vy, T_FX_DEATH_0);   /* flash of magic */
             wait_frames(2);
             break;

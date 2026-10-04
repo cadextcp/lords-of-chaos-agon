@@ -618,11 +618,20 @@ void render_frame(int x0, int y0, int x1, int y1, uint8_t colour)
 static char msg_text[MSG_LINES][TEXT_COLS];
 static uint8_t msg_colour[MSG_LINES];
 
+static void (*error_hook)(void);
+
+void render_set_error_hook(void (*fn)(void))
+{
+    error_hook = fn;
+}
+
 void render_message(uint8_t line, uint8_t colour, const char *text)
 {
     char *buf;
     if (line >= MSG_LINES)
         return;
+    if (colour == C_BRIGHT_RED && error_hook && text[0])
+        error_hook();                     /* refusals buzz (main.c) */
     buf = msg_text[line];
     /* Pad to 39 columns: writing column 39 of the last row would scroll. */
     snprintf(buf, TEXT_COLS, "%-39.39s", text);

@@ -164,6 +164,12 @@ static int selftest(void)
     return fails ? 1 : 0;
 }
 
+/* Red messages are refusals: they get the error buzz (render.c hook). */
+static void error_sound(void)
+{
+    sound_play(SND_ERROR);
+}
+
 /* Message line 0: whose unit is active (handover M2c). */
 static void show_status(void)
 {
@@ -787,7 +793,7 @@ static const char *const MENU_ITEMS[] = {
     "Spielstand laden",
     "Zauberer entwerfen",
     "Zauberer zuruecksetzen",
-    "Setup (Zufall-Staerke)",
+    "Setup (Ton, Musik, Staerke)",
     "Hilfe",
     "Lexikon",
     "Tutorial",
@@ -1057,16 +1063,20 @@ static void designer_attrs(Wizard *w)
         render_menu_line(3, (uint8_t)(5 + WA_COUNT), C_BRIGHT_WHITE, buf);
         render_menu_line(1, 14, C_GREY, "Links/Rechts: -/+   Esc: zurueck");
         while (!kbuf_poll_event(&e))
-            ;
+            audio_poll();
         if (!e.isdown)
             continue;
         if (e.vkey == VK_ESC) {
+            sound_play(SND_BACK);
             running = false;
         } else if (e.vkey == VK_UP) {
+            sound_play(SND_MENU);
             cursor = cursor ? (uint8_t)(cursor - 1) : (uint8_t)(WA_COUNT + 1);
         } else if (e.vkey == VK_DOWN) {
+            sound_play(SND_MENU);
             cursor = (uint8_t)((cursor + 1) % (WA_COUNT + 2));
         } else if (e.vkey == VK_RIGHT || e.ascii == '+') {
+            sound_play(SND_CONFIRM);
             if (cursor == WA_COUNT)
                 wizard_mana_raise(w);
             else if (cursor == WA_COUNT + 1)
@@ -1074,6 +1084,7 @@ static void designer_attrs(Wizard *w)
             else
                 wizard_raise(w, (WizardAttr)cursor);
         } else if (e.vkey == VK_LEFT || e.ascii == '-') {
+            sound_play(SND_BACK);
             if (cursor == WA_COUNT)
                 wizard_mana_lower(w);
             else if (cursor == WA_COUNT + 1)
@@ -1149,18 +1160,23 @@ static void designer_shop(Wizard *w, uint8_t page)
         }
         render_menu_line(1, 27, C_GREY, "Rechts kauft, Links erstattet, Esc");
         while (!kbuf_poll_event(&e))
-            ;
+            audio_poll();
         if (!e.isdown)
             continue;
         if (e.vkey == VK_ESC) {
+            sound_play(SND_BACK);
             running = false;
         } else if (e.vkey == VK_UP) {
+            sound_play(SND_MENU);
             scursor = scursor ? (uint8_t)(scursor - 1) : (uint8_t)(shop_n - 1);
         } else if (e.vkey == VK_DOWN) {
+            sound_play(SND_MENU);
             scursor = (uint8_t)((scursor + 1) % shop_n);
         } else if (e.vkey == VK_RIGHT || e.ascii == '+') {
+            sound_play(SND_CONFIRM);
             wizard_spell_raise(w, shop[scursor]);
         } else if (e.vkey == VK_LEFT || e.ascii == '-') {
+            sound_play(SND_BACK);
             wizard_spell_lower(w, shop[scursor]);
         }
     }
@@ -1197,16 +1213,20 @@ static void designer_loop(uint8_t slot)
         }
         render_menu_line(4, 22, C_GREY, "Enter waehlt, Esc verlaesst.");
         while (!kbuf_poll_event(&e))
-            ;
+            audio_poll();
         if (!e.isdown)
             continue;
         if (e.vkey == VK_ESC) {
+            sound_play(SND_BACK);
             running = false;
         } else if (e.vkey == VK_UP) {
+            sound_play(SND_MENU);
             cursor = cursor ? (uint8_t)(cursor - 1) : 2;
         } else if (e.vkey == VK_DOWN) {
+            sound_play(SND_MENU);
             cursor = (uint8_t)((cursor + 1) % 3);
         } else if (e.ascii == 13 || e.vkey == VK_SPACE) {
+            sound_play(SND_CONFIRM);
             if (cursor == PG_ATTRS)
                 designer_attrs(w);
             else
@@ -1234,9 +1254,13 @@ static void designer_setup_loop(void)
         snprintf(buf, sizeof buf, "5-Ladungen-Regel: %s  (L)",
                  loads_unlimited ? "aus" : "an");
         render_menu_line(2, 8, C_BRIGHT_WHITE, buf);
-        render_menu_line(2, 13, C_GREY, "Esc zurueck ins Menue.");
+        snprintf(buf, sizeof buf, "Musik: %s  (M)", music_on ? "an" : "aus");
+        render_menu_line(2, 10, C_BRIGHT_WHITE, buf);
+        snprintf(buf, sizeof buf, "Toneffekte: %s  (T)", sound_on ? "an" : "aus");
+        render_menu_line(2, 12, C_BRIGHT_WHITE, buf);
+        render_menu_line(2, 16, C_GREY, "Esc zurueck ins Menue.");
         while (!kbuf_poll_event(&e))
-            ;
+            audio_poll();
         if (!e.isdown)
             continue;
         if (e.vkey == VK_ESC) {
@@ -1253,6 +1277,17 @@ static void designer_setup_loop(void)
             }
         } else if (e.ascii == 'l' || e.ascii == 'L') {
             loads_unlimited = !loads_unlimited;
+        } else if (e.ascii == 'm' || e.ascii == 'M') {
+            music_on = !music_on;
+            if (music_on)
+                music_start("music/title.bin");
+            else
+                music_stop();
+            sound_settings_save();
+        } else if (e.ascii == 't' || e.ascii == 'T') {
+            sound_on = !sound_on;
+            sound_settings_save();
+            sound_play(SND_CONFIRM);      /* audible only when switched on */
         }
     }
 }
@@ -1270,6 +1305,8 @@ static const char *menu_loop(bool *free_round1)
     }
     bool full = true;                    /* whole screen needs painting */
     uint8_t drawn = 0;                   /* where the '>' is on screen */
+    if (!music_playing())                /* back from a game: theme again */
+        music_start("music/title.bin");
     while (running) {
         if (full) {
             draw_menu(cursor);
@@ -1281,21 +1318,23 @@ static const char *menu_loop(bool *free_round1)
             drawn = cursor;
         }
         for (;;) {                        /* idle: keep the music fed (M5d) */
-            music_poll();
+            audio_poll();
             if (kbuf_poll_event(&e))
                 break;
         }
         if (!e.isdown)
             continue;
-        music_stop();                     /* any key ends the song */
         render_clear_rows(20, 20);        /* old message line */
         if (e.vkey != VK_SPACE && e.ascii != 13)
             confirm_reset = false;       /* any other key cancels the ask */
         if (e.vkey == VK_UP) {
+            sound_play(SND_MENU);
             cursor = cursor ? (uint8_t)(cursor - 1) : MENU_COUNT - 1;
         } else if (e.vkey == VK_DOWN) {
+            sound_play(SND_MENU);
             cursor = (uint8_t)((cursor + 1) % MENU_COUNT);
         } else if (e.ascii == 13 || e.vkey == VK_SPACE) {
+            sound_play(SND_CONFIRM);
             if (cursor < MENU_SCENARIOS) {
                 const char *map = menu_scenario_map(cursor);
                 wizard_apply_to_world(&wizard_slots[0], &world, active());
@@ -1439,7 +1478,6 @@ static bool end_flow(const char *map)
         info.level_up = w->level > level;
     }
     render_cursor(0, 0, CURSOR_GREEN, false);    /* sprite stays above the screen */
-    sound_play(info.outcome == OUT_WIN ? SND_WIN : SND_LOSE);
     lexicon_save(&lex);                     /* discoveries survive the game (M5) */
     return screen_end(&info);
 }
@@ -1522,7 +1560,7 @@ int main(int argc, char **argv)
         sound_play(SND_WIN);
         do {                              /* the tiles stay on screen */
             while (!kbuf_poll_event(&e))
-                ;
+                audio_poll();
         } while (!e.isdown);
         kbuf_deinit();
         render_shutdown();
@@ -1631,16 +1669,21 @@ int main(int argc, char **argv)
         return 1;
     }
     umfont_install();                    /* ae/oe/ue/ss for the UI (M4j) */
+    sound_settings_load();
+    if (!dump && !do_bench && !sound_init())   /* samples from the SD */
+        log_line("SFX missing - waveform fallback");
+    render_set_error_hook(error_sound);
     kbuf_init(16);
     if (!lexicon_load(&lex))             /* discoveries from the last run */
         lexicon_init(&lex);
     if (!dump && !do_bench) {
-        screen_title();                  /* picture + music (M5d) */
-        music_start("music/title.bin");  /* keeps playing under the menu */
+        screen_title();                  /* picture + music; the song
+                                            plays on under the menu */
     }
 menu_start:
     if (!dump && !do_bench) {            /* main menu (GDD 2.3, M4f) */
         const char *chosen = menu_loop(&free_round1);
+        music_stop();                    /* the game itself is quiet */
         if (!chosen) {
             lexicon_save(&lex);
             kbuf_deinit();
@@ -1718,7 +1761,7 @@ menu_start:
             render_menu_text(4, 13, C_BRIGHT_WHITE, "N = Nein, ganz ohne");
             for (;;) {
                 while (!kbuf_poll_event(&e))
-                    ;
+                    audio_poll();
                 if (!e.isdown)
                     continue;
                 if (e.ascii == 'j' || e.ascii == 'J' || e.ascii == 13) {
@@ -1833,7 +1876,6 @@ dispatch:
                         if (world.units[wiz].kind != CR_WIZARD) {
                             render_message(1, C_BRIGHT_RED, "Nur Zauberer zaubern.");
                         } else if (SPELLS[i].category == SPC_POTION) {
-                            sound_play(SND_SPELL);
                             if (brew_cast(&world, &books[OWN_P1], wiz, (uint8_t)i)) {
                                 if (tutorial_on)
                                     tutorial_notify(&tut, TUT_SPELL);
@@ -1844,7 +1886,6 @@ dispatch:
                                                "Brauen braucht Kessel und Zutat.");
                         } else if (SPELLS[i].category == SPC_SUMMON) {
                             uint8_t got = spell_summon(&world, &books[OWN_P1], wiz, (uint8_t)i);
-                            sound_play(SND_SPELL);
                             if (got) {
                                 if (tutorial_on)
                                     tutorial_notify(&tut, TUT_SPELL);
@@ -2020,8 +2061,10 @@ dispatch:
                 frame(dump);
             } else if (e.ascii == 'e') {            /* eat in-use food */
                 confirm_end = false;
-                if (items_eat(&world, active()))
+                if (items_eat(&world, active())) {
+                    sound_play(SND_EAT);
                     render_message(1, C_BRIGHT_GREEN, "Gegessen.");
+                }
                 else
                     render_message(1, C_BRIGHT_RED, "Kein Essen in der Hand.");
                 frame(dump);
@@ -2038,12 +2081,15 @@ dispatch:
             } else if (e.ascii == 'b') {            /* board / dismount */
                 confirm_end = false;
                 if (world.units[active()].flags & UF_RIDDEN) {
-                    if (ride_dismount(&world, active()))
+                    if (ride_dismount(&world, active())) {
+                        sound_play(SND_FLY);
                         render_message(1, C_BRIGHT_GREEN, "Abgestiegen.");
+                    }
                     else
                         render_message(1, C_BRIGHT_RED, "Kein Platz zum Absteigen.");
                 } else {
                     if (ride_mount_adjacent(&world, active())) {
+                        sound_play(SND_FLY);
                         turn_revalidate(&turns, &world);
                         render_message(1, C_BRIGHT_GREEN, "Aufgesessen!");
                     } else
@@ -2054,17 +2100,22 @@ dispatch:
                 frame(dump);
             } else if (e.ascii == 'q') {            /* quaff: vial or cauldron */
                 confirm_end = false;
-                if (brew_drink_vial(&world, active()))
+                if (brew_drink_vial(&world, active())) {
+                    sound_play(SND_DRINK);
                     render_message(1, C_BRIGHT_GREEN, "Phiole getrunken.");
-                else if (brew_drink(&world, active()))
+                } else if (brew_drink(&world, active())) {
+                    sound_play(SND_DRINK);
                     render_message(1, C_BRIGHT_GREEN, "Aus dem Kessel getrunken.");
+                }
                 else
                     render_message(1, C_BRIGHT_RED, "Nichts zu trinken hier.");
                 frame(dump);
             } else if (e.ascii == 'v') {            /* fill the empty vial */
                 confirm_end = false;
-                if (brew_fill(&world, active()))
+                if (brew_fill(&world, active())) {
+                    sound_play(SND_DRINK);
                     render_message(1, C_BRIGHT_GREEN, "Phiole gefuellt.");
+                }
                 else
                     render_message(1, C_BRIGHT_RED, "Kein Kessel oder keine leere Phiole.");
                 frame(dump);
@@ -2173,8 +2224,10 @@ dispatch:
                 }
             } else if (e.ascii == '<') {              /* take off */
                 confirm_end = false;
-                if (world_take_off(&world, active()))
+                if (world_take_off(&world, active())) {
+                    sound_play(SND_FLY);
                     render_message(1, C_BRIGHT_GREEN, "Steigt auf.");
+                }
                 else if (world.units[active()].ap_fly == 0)
                     render_message(1, C_BRIGHT_RED, "Diese Kreatur fliegt nicht.");
                 else if (world.units[active()].ap < ACTIONS[ACT_TAKE_OFF].ap)
@@ -2185,8 +2238,10 @@ dispatch:
                 frame(dump);
             } else if (e.ascii == '>') {              /* land */
                 confirm_end = false;
-                if (world_land(&world, active()))
+                if (world_land(&world, active())) {
+                    sound_play(SND_FLY);
                     render_message(1, C_BRIGHT_GREEN, "Landet.");
+                }
                 else if (!(world.units[active()].flags & UF_FLYING))
                     render_message(1, C_BRIGHT_RED, "Die Kreatur fliegt nicht.");
                 else if (world.units[active()].ap < ACTIONS[ACT_LAND].ap)
@@ -2222,6 +2277,7 @@ dispatch:
                 running = false;
             }
         }
+        audio_poll();                            /* effect step lists */
         now = (uint16_t)getsysvar_time();
         m = chord_poll(&chord, now);
         if (m)
