@@ -2521,8 +2521,9 @@ static void test_m4f(void)
         wizard_apply_standard_set(w);
         check(w->book.level[SP_MAGIC_BOLT] == 6 &&
               w->book.level[SP_TELEPORT] == 10 &&
-              w->book.level[SP_MAGIC_EYE] == 4 && w->book.level[SP_GIANT_BAT] == 0,
-              "m4f: the standard set fills the book on request");
+              w->book.level[SP_MAGIC_EYE] == 4 &&
+              w->book.level[SP_GIANT_BAT] == 2 && w->book.level[SP_GRYPHON] == 2,
+              "m4f: the standard set fills spells + 8 creatures");
         wizard_apply_standard_set(w);   /* idempotent: bolt already there */
         check(w->book.level[SP_MAGIC_BOLT] == 6,
               "m4f: the standard set never overwrites designed books");

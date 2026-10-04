@@ -262,6 +262,16 @@ void wizard_apply_standard_set(Wizard *w)
     w->book.level[SP_ENCHANT] = 10;
     w->book.level[SP_SUBVERSION] = 10;
     w->book.level[SP_TELEPORT] = 10;
+    /* 8 different creatures, spread over the tiers: cheap scouts and
+     * fighters, mid-tier allrounders, one flying heavy (user request) */
+    w->book.level[SP_GIANT_BAT] = 2;
+    w->book.level[SP_GOBLIN] = 2;
+    w->book.level[SP_DWARF] = 2;
+    w->book.level[SP_UNICORN] = 2;
+    w->book.level[SP_HARPY] = 2;
+    w->book.level[SP_ZOMBIE] = 2;
+    w->book.level[SP_GORILLA] = 2;
+    w->book.level[SP_GRYPHON] = 2;
 }
 
 void wizard_slot_random(uint8_t slot, uint8_t strength, Rng *rng)
