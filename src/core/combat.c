@@ -16,11 +16,11 @@ uint8_t combat_hit_chance(uint8_t com, uint8_t def)
     return (uint8_t)p;
 }
 
-/* Damage of one hit (D16): quarter of Combat plus a random quarter. */
-static uint8_t roll_damage(const Unit *u, Rng *rng)
+/* Damage of one hit (D28): the weapon in hand rolls its dice plus the
+ * fighter's com/5 - a sword clearly outdamages bare fists. */
+static uint8_t roll_damage(const World *w, const Unit *u, Rng *rng)
 {
-    uint16_t d = (uint16_t)((u->com + rng_range(rng, (uint16_t)(u->com + 1))) / 4);
-    return d == 0 ? 1 : (uint8_t)d;
+    return items_attack_damage(w, (uint8_t)(u - w->units), rng);
 }
 
 /* Chebyshev distance of two units, honouring wrap-around. */
@@ -83,7 +83,7 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
                 combat_hit_chance(items_combat(w, att), items_defence(w, def));
     if (ok_to_hit) {
         out->hit = true;
-        out->damage = roll_damage(a, rng);   /* base value; weapon bonus in chance */
+        out->damage = roll_damage(w, a, rng); /* dice of the weapon in hand */
         out->died = combat_damage(w, def, out->damage, a->kind, a->owner, true,
                                   &out->wound);
         if (out->died)
@@ -92,22 +92,22 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
         events_push(EV_MISS, d->x, d->y, a->kind, a->owner, 0, 0);
 
     d = &w->units[def];                    /* pointer refreshed, not removed */
-    if (d->ap >= ACTIONS[ACT_RETURN_ATTACK].ap &&
-        d->sta >= ACTIONS[ACT_RETURN_ATTACK].stamina) {
-        out->returned = true;
-        world_spend(w, def, ACTIONS[ACT_RETURN_ATTACK].ap);
-        events_push(EV_SWING, a->x, a->y, d->kind, d->owner, 0, 0);
-        if (items_can_harm_undead(w, def, att) &&
-            rng_range(rng, 100) <
-            combat_hit_chance(items_combat(w, def), items_defence(w, att))) {
-            out->return_hit = true;
-            out->return_damage = roll_damage(d, rng);
-            out->attacker_died = combat_damage(w, att, out->return_damage,
-                                               d->kind, d->owner, true,
-                                               &out->return_wound);
-        } else
-            events_push(EV_MISS, a->x, a->y, d->kind, d->owner, 0, 0);
-    }
+    /* The return blow is a free defensive reaction (D27): whoever
+     * attacks risks the counter, but being attacked costs no AP and no
+     * stamina - a besieged unit still enters its own turn at full
+     * strength. Hit or miss, the defender strikes back (GDD 6). */
+    out->returned = true;
+    events_push(EV_SWING, a->x, a->y, d->kind, d->owner, 0, 0);
+    if (items_can_harm_undead(w, def, att) &&
+        rng_range(rng, 100) <
+        combat_hit_chance(items_combat(w, def), items_defence(w, att))) {
+        out->return_hit = true;
+        out->return_damage = roll_damage(w, d, rng);
+        out->attacker_died = combat_damage(w, att, out->return_damage,
+                                           d->kind, d->owner, true,
+                                           &out->return_wound);
+    } else
+        events_push(EV_MISS, a->x, a->y, d->kind, d->owner, 0, 0);
     return true;
 }
 
@@ -136,7 +136,7 @@ bool combat_free_swing(World *w, Rng *rng, uint8_t att, uint8_t def,
         return true;
     }
     out->hit = true;
-    out->damage = roll_damage(a, rng);
+    out->damage = roll_damage(w, a, rng);
     out->died = combat_damage(w, def, out->damage, a->kind, a->owner, true,
                               &out->wound);
     return true;
@@ -179,7 +179,7 @@ uint8_t combat_terrain(World *w, Rng *rng, uint8_t att, int16_t x, int16_t y,
         return 0;
     world_spend(w, att, ACTIONS[ACT_MELEE].ap);
     events_push(EV_SWING, x, y, u->kind, u->owner, 0, 1);
-    dmg = roll_damage(u, rng);
+    dmg = roll_damage(w, u, rng);
     if ((uint16_t)(dmg + rng_range(rng, 4)) > FEATURE_TOUGH[fe]) {
         w->feature[y][x] = FE_NONE;        /* smashed to pieces */
         world_map_changed(w);

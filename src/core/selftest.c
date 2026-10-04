@@ -716,29 +716,34 @@ static void test_combat(void)
 
     rng_seed(&rng, 7);                          /* determinism */
     world.units[0].ap = 40;
-    world.units[1].ap = 0;                      /* too tired to strike back */
+    world.units[1].ap = 0;                      /* exhausted ... */
+    world.units[0].con = 30;
     world.units[1].con = 32;
     {
         CombatResult a, b;
         combat_melee(&world, &rng, 0, 1, &a);
         world.units[0].ap = 40;
+        world.units[0].con = 30;
         world.units[1].ap = 0;
         world.units[1].con = 32;
         rng_seed(&rng, 7);
         combat_melee(&world, &rng, 0, 1, &b);
         check(a.hit == b.hit && a.damage == b.damage && a.returned == b.returned,
               "combat: same seed, same outcome");
-        check(!a.returned, "combat: no return without AP");
+        check(a.returned, "combat: free counter even without AP (D27)");
         check(world.units[0].ap == 30, "combat: melee costs 10 AP");
+        if (a.returned && !a.attacker_died)
+            check(world.units[1].ap == 0, "combat: the counter costs no AP (D27)");
     }
 
-    world.units[1].ap = 30;                     /* with AP: return attack */
+    world.units[1].ap = 30;                     /* fresh defender */
     world.units[1].sta = 45;
     world.units[1].con = 32;
     rng_seed(&rng, 21);
     combat_melee(&world, &rng, 0, 1, &r);
-    check(r.returned, "combat: defenders with AP strike back");
-    check(world.units[1].ap == 24 || !r.returned, "combat: return costs 6 AP");
+    check(r.returned, "combat: defenders strike back");
+    check(world.units[1].ap == 30 || !r.returned,
+          "combat: return blow leaves the defender's AP alone (D27)");
 
     world.units[1].con = 1;                     /* mortal blow */
     world.units[1].ap = 0;
@@ -1037,7 +1042,9 @@ static void test_items(void)
           OBJECTS[OBJ_GOLD].vp == 40 && OBJECTS[OBJ_SCROLL].category == OC_SCROLL,
           "items: table values from objects.csv");
     check(WEAPONS[WEAPON_SWORD].combat == 4 && WEAPONS[WEAPON_SHIELD].defence == 4 &&
-          WEAPONS[WEAPON_BOW].ranged == 4, "items: weapon values");
+          WEAPONS[WEAPON_BOW].ranged == 1 && WEAPONS[WEAPON_SWORD].dice_n == 2 &&
+          WEAPONS[WEAPON_SWORD].die == 8 && WEAPONS[WEAPON_MAGIC_SLAYER].dice_n == 3,
+          "items: weapon values");
 
     world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
     world.unit_count = 1;                    /* wizard at 6,6 */
@@ -1474,6 +1481,7 @@ static void test_m4a(void)
             uint8_t k, hit = 0;
             for (k = 0; k < 30; k++) {
                 world.units[0].ap = 40;
+                world.units[0].con = 30;   /* free counters wear him down */
                 world.units[1].con = 40;
                 rng_seed(&rng, 200 + k);
                 combat_melee(&world, &rng, 0, 1, &r);
@@ -1487,6 +1495,7 @@ static void test_m4a(void)
             uint8_t k, hit = 0;
             for (k = 0; k < 30; k++) {
                 world.units[0].ap = 40;
+                world.units[0].con = 30;
                 world.units[1].con = 40;
                 rng_seed(&rng, 300 + k);
                 combat_melee(&world, &rng, 0, 1, &r);
@@ -2244,8 +2253,9 @@ static void test_m4e(void)
     world.unit_count = 0;
     area_reset();
 
-    check(WEAPONS[WEAPON_KNIFE].thrown == 2 && WEAPONS[WEAPON_SPEAR].ranged == 0 &&
-          WEAPONS[WEAPON_CLUB].combat == 2 && WEAPONS[WEAPON_MAGIC_SLAYER].combat == 8,
+    check(WEAPONS[WEAPON_KNIFE].thrown == 1 && WEAPONS[WEAPON_SPEAR].ranged == 0 &&
+          WEAPONS[WEAPON_CLUB].combat == 2 && WEAPONS[WEAPON_MAGIC_SLAYER].combat == 8 &&
+          WEAPONS[WEAPON_AXE].dice_n == 2 && WEAPONS[WEAPON_AXE].die == 10,
           "m4e: weapon values from weapons.csv");
     check(OBJECTS[OBJ_SPEAR].weapon == WEAPON_SPEAR &&
           OBJECTS[OBJ_SLAYER].weight == 6,
@@ -3105,6 +3115,106 @@ static void test_m5c_events(void)
     }
 }
 
+/* ---------- M5e: combat rebalance (D27 free counter, D28 dice) ---------- */
+
+static void test_m5e_balance(void)
+{
+    Rng rng;
+    CombatResult r;
+
+    {   /* D27: the counter is free - even an exhausted unit strikes back
+         * and enters its own turn unharmed */
+        load_house();
+        world.units[1].owner = OWN_P2;
+        world.units[1].x = 4;
+        world.units[1].y = 4;
+        world.units[1].ap = 0;
+        world.units[1].sta = 0;
+        world.units[0].con = 30;
+        world.units[1].con = 32;
+        rng_seed(&rng, 5);
+        check(combat_melee(&world, &rng, 0, 1, &r) && r.returned,
+              "m5e: exhausted defenders still counter (D27)");
+        check(world.units[1].ap == 0 && world.units[1].sta == 0,
+              "m5e: the counter costs no AP and no stamina");
+    }
+
+    {   /* D28: weapon dice beat bare hands over many rolls */
+        uint16_t k;
+        uint32_t bare = 0, sword = 0, axe = 0;
+        load_house();
+        world.units[0].kind = CR_DWARF;      /* com 6 */
+        world.units[0].com = CREATURES[CR_DWARF].combat;
+        for (k = 0; k < 400; k++) {
+            rng_seed(&rng, 7000 + k);
+            bare += items_attack_damage(&world, 0, &rng);
+            world.units[0].items[0] = OBJ_SWORD;
+            world.units[0].item_count = 1;
+            world.units[0].in_use = 0;
+            rng_seed(&rng, 7000 + k);
+            sword += items_attack_damage(&world, 0, &rng);
+            world.units[0].items[0] = OBJ_AXE;
+            rng_seed(&rng, 7000 + k);
+            axe += items_attack_damage(&world, 0, &rng);
+            world.units[0].item_count = 0;
+            world.units[0].in_use = NO_ITEM;
+        }
+        bare /= 400;
+        sword /= 400;
+        axe /= 400;
+        check(bare >= 2 && bare <= 5, "m5e: bare hands average 1d4+1");
+        check(sword >= 8 && sword <= 12, "m5e: sword averages 2d8+1");
+        check(axe > sword, "m5e: the axe outdamages the sword");
+        check(sword > bare * 2, "m5e: weapons clearly beat bare hands (D28)");
+    }
+
+    {   /* D28: the shield never takes the hand */
+        load_house();
+        world.units[0].ap = 40;
+        world.units[0].items[0] = OBJ_SWORD;
+        world.units[0].items[1] = OBJ_SHIELD;
+        world.units[0].item_count = 2;
+        world.units[0].in_use = NO_ITEM;
+        check(items_cycle(&world, 0) && world.units[0].in_use == 0,
+              "m5e: cycle from bare hands wields the sword");
+        check(items_cycle(&world, 0) && world.units[0].in_use == NO_ITEM,
+              "m5e: next stop is bare hands again");
+        check(!items_cycle(&world, 0) || world.units[0].in_use != 1,
+              "m5e: the shield is never wielded (D28/D21)");
+        world.units[0].items[0] = OBJ_SHIELD;   /* shield only */
+        world.units[0].item_count = 1;
+        world.units[0].in_use = NO_ITEM;
+        check(!items_cycle(&world, 0),
+              "m5e: nothing to wield but a shield");
+        check(items_defence(&world, 0) == 12 + WEAPONS[WEAPON_SHIELD].defence,
+              "m5e: the carried shield still defends");
+    }
+
+    {   /* D28: a Magic Bolt that hits usually kills a goblin outright */
+        uint8_t k, kills = 0, hits = 0;
+        for (k = 0; k < 100; k++) {
+            Spellbook b;
+            SpellShot shot;
+            load_house();                   /* fresh wizard and goblin */
+            world.units[1].owner = OWN_P2;  /* hostile, con 32 */
+            world.units[1].x = 4;
+            world.units[1].y = 3;
+            memset(&b, 0, sizeof b);
+            b.level[SP_MAGIC_BOLT] = 1;
+            rng_seed(&rng, 900 + k);
+            spell_bolt(&world, &b, 0, SP_MAGIC_BOLT, 4, 3, &rng, &shot);
+            if (shot.hit) {
+                hits++;
+                if (shot.died)
+                    kills++;
+            }
+        }
+        check(hits >= 35, "m5e: the bolt connects over many seeds");
+        check(kills * 2 > hits,
+              "m5e: a hitting bolt kills the goblin most of the time");
+    }
+}
+
 uint16_t core_selftest(selftest_log_fn log)
 {
     out = log;
@@ -3146,6 +3256,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m5b_tutorial();
     test_m5b_lexicon();
     test_m5c_events();
+    test_m5e_balance();
     load_house();   /* leave a clean state */
     return fails;
 }

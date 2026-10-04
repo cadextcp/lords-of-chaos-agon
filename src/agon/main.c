@@ -1799,8 +1799,12 @@ dispatch:
                                        OBJECTS[u->items[u->in_use]].name);
                     else
                         render_message(1, C_GREY, "Leere Haende.");
-                } else
+                } else if (world.units[active()].ap < ACTIONS[ACT_CHANGE].ap) {
                     render_message(1, C_BRIGHT_RED, "Zu wenig AP.");
+                } else {
+                    render_message(1, C_BRIGHT_RED,
+                                   "Keine Waffe zum Fuehren (Schild zaehlt getragen).");
+                }
                 frame(dump);
             } else if (e.ascii == 't') {            /* throw in use */
                 confirm_end = false;

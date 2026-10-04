@@ -9,7 +9,7 @@
 #include "sight.h"
 
 /* Weapon of the object in use, WEAPON_NONE without one. */
-static uint8_t in_use_weapon(const Unit *u)
+uint8_t items_in_use_weapon(const Unit *u)
 {
     if (u->in_use == NO_ITEM || u->in_use >= u->item_count)
         return WEAPON_NONE;
@@ -102,27 +102,54 @@ bool items_drop(World *w, uint8_t unit)
 bool items_cycle(World *w, uint8_t unit)
 {
     Unit *u;
+    uint8_t n, pos, start;
     if (unit >= w->unit_count)
         return false;
     u = &w->units[unit];
     if (u->item_count == 0)
         return false;                    /* nothing to cycle through */
+    n = u->item_count;
+    /* Wield cycle (D28): every carried object in turn, then bare hands.
+     * A shield defends from wherever it is carried (D21) and never
+     * takes the hand. */
+    start = (u->in_use == NO_ITEM || u->in_use >= n) ? n : u->in_use;
+    pos = start;
+    for (;;) {
+        pos = (uint8_t)((pos + 1) % (uint8_t)(n + 1));   /* slot n = bare */
+        if (pos == n)
+            break;                       /* bare hands always allowed */
+        if (OBJECTS[u->items[pos]].weapon != WEAPON_SHIELD)
+            break;
+    }
+    if (pos == start)
+        return false;                    /* nothing else to wield */
     if (u->ap < ACTIONS[ACT_CHANGE].ap)
         return false;
     world_spend(w, unit, ACTIONS[ACT_CHANGE].ap);
-    if (u->in_use == NO_ITEM || u->in_use + 1 >= u->item_count) {
-        u->in_use = 0;
-    } else {
-        u->in_use = (uint8_t)(u->in_use + 1);
-    }
+    u->in_use = pos == n ? NO_ITEM : pos;
     return true;
 }
 
-/* Damage off a base value (throwing/firing, D16 style). */
-static uint8_t roll(uint8_t base, Rng *rng)
+/* Damage roll of one weapon (D28): the weapon's dice plus com/5, bare
+ * hands and any non-weapon object 1d4. */
+static uint8_t weapon_damage(uint8_t weapon, uint8_t com, Rng *rng)
 {
-    uint16_t d = (uint16_t)((base + rng_range(rng, (uint16_t)(base + 1))) / 2);
+    uint8_t n = 1, die = 4, i;
+    uint16_t d;
+    if (weapon != WEAPON_NONE) {
+        n = WEAPONS[weapon].dice_n;
+        die = WEAPONS[weapon].die;
+    }
+    d = (uint16_t)(com / 5);
+    for (i = 0; i < n; i++)
+        d = (uint16_t)(d + rng_range(rng, die) + 1);
     return d == 0 ? 1 : (uint8_t)d;
+}
+
+uint8_t items_attack_damage(const World *w, uint8_t unit, Rng *rng)
+{
+    const Unit *u = &w->units[unit];
+    return weapon_damage(items_in_use_weapon(u), u->com, rng);
 }
 
 bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
@@ -160,7 +187,7 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
                 rng_range(rng, 100) < combat_hit_chance(items_combat(w, unit),
                                                        items_defence(w, target)))
                 combat_damage(w, target,
-                              roll(weapon != WEAPON_NONE ? WEAPONS[weapon].thrown : 1, rng),
+                              weapon_damage(weapon, u->com, rng),
                               u->kind, u->owner, false, NULL);
             x = (int16_t)(nx - dx);     /* lands in front of the target */
             y = (int16_t)(ny - dy);
@@ -191,7 +218,7 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
     if (unit >= w->unit_count || !world_wrap(w, &tx, &ty))
         return false;
     u = &w->units[unit];
-    weapon = in_use_weapon(u);
+    weapon = items_in_use_weapon(u);
     if (weapon == WEAPON_NONE || WEAPONS[weapon].ranged == 0)
         return false;                    /* no bow in hand */
     if (u->ap < ACTIONS[ACT_FIRE].ap)
@@ -217,7 +244,7 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
     if (items_can_harm_undead(w, unit, target) &&
         rng_range(rng, 100) < combat_hit_chance(items_combat(w, unit),
                                                 items_defence(w, target))) {
-        uint8_t dmg = roll(WEAPONS[weapon].ranged, rng);
+        uint8_t dmg = weapon_damage(weapon, u->com, rng);
         if (damage)
             *damage = dmg;
         combat_damage(w, target, dmg, u->kind, u->owner, false, NULL);
@@ -243,7 +270,7 @@ bool items_can_harm_undead(const World *w, uint8_t attacker, uint8_t defender)
         return true;                     /* the living are always woundable */
     if (a->flags & UF_UNDEAD)
         return true;
-    weapon = in_use_weapon(a);
+    weapon = items_in_use_weapon(a);
     return weapon != WEAPON_NONE &&
            (weapon == WEAPON_MAGIC_SLAYER || a->flags & UF_MAGIC_WEAPON);
 }
@@ -256,7 +283,7 @@ uint8_t items_combat(const World *w, uint8_t unit)
         return 0;
     u = &w->units[unit];
     com = u->com;
-    weapon = in_use_weapon(u);
+    weapon = items_in_use_weapon(u);
     if (weapon != WEAPON_NONE) {         /* enchanted: double values (GDD 6.1) */
         uint8_t bonus = WEAPONS[weapon].combat;
         com = (uint8_t)(com + ((u->flags & UF_MAGIC_WEAPON) ? 2 * bonus : bonus));

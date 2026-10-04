@@ -119,9 +119,12 @@ uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
  * caster comes by value: a lightning splash may kill the caster himself
  * (or reorder the unit list) before the remaining fields are rolled. */
 static bool shoot_field(World *w, Rng *rng, const Unit *caster, int16_t x,
-                        int16_t y, uint8_t *damage)
+                        int16_t y, uint8_t dice_n, uint8_t die,
+                        uint8_t *damage)
 {
     uint8_t target = world_unit_at(w, x, y, UL_GROUND);
+    uint8_t i;
+    uint16_t d = 0;
     *damage = 0;
     if (target == NO_UNIT)
         target = world_unit_at(w, x, y, UL_AIR);
@@ -132,10 +135,12 @@ static bool shoot_field(World *w, Rng *rng, const Unit *caster, int16_t x,
         events_push(EV_MISS, x, y, caster->kind, caster->owner, 0, 0);
         return false;
     }
-    *damage = (uint8_t)((caster->com +
-                         rng_range(rng, (uint16_t)(caster->com + 1))) / 4);
-    if (*damage == 0)
-        *damage = 1;
+    /* the spell's damage dice (D28): magic outdamages a weapon swing */
+    for (i = 0; i < dice_n; i++)
+        d = (uint16_t)(d + rng_range(rng, die) + 1);
+    if (d == 0)
+        d = 1;
+    *damage = (uint8_t)d;
     combat_damage(w, target, *damage, caster->kind, caster->owner, false, NULL);
     return true;
 }
@@ -192,7 +197,8 @@ bool spell_bolt(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
             return false;
         caster = w->units[wiz];
         out->allowed = true;
-        out->hit = shoot_field(w, rng, &caster, x, y, &out->damage);
+        out->hit = shoot_field(w, rng, &caster, x, y, SPELLS[spell].dice_n,
+                               SPELLS[spell].die, &out->damage);
         out->died = w->unit_count < before;
     }
     return true;
@@ -227,7 +233,8 @@ bool spell_lightning(World *w, Spellbook *b, uint8_t wiz,
         uint8_t before = w->unit_count;
         if (!world_wrap(w, &nx, &ny))
             continue;
-        if (shoot_field(w, rng, &caster, nx, ny, &dmg))
+        if (shoot_field(w, rng, &caster, nx, ny, SPELLS[SP_MAGIC_LIGHTNING].splash_n,
+                        SPELLS[SP_MAGIC_LIGHTNING].splash_die, &dmg))
             out->splash_hits++;
         if (w->unit_count < before)
             out->died = true;
