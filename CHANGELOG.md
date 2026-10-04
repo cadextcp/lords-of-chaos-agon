@@ -2,6 +2,11 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Kreatur-Detail im Zauber-Laden (2026-10-04)
+
+### Hinzugefügt
+- **Detail-Panel beim Auswählen einer Beschwörung:** Im Designer-Zauber-Laden (`z`) zeigt die Auswahl sofort **Porträt, Kurzbeschreibung (aus dem Lexikon-Text) und die Hauptattribute** (Kampf/Verteidigung/Magieresistenz, Leben/Ausdauer/AP, VP) der Kreatur. Beim Blättern durch die Liste wandert das Panel mit — man weiß beim Freischalten, was man kauft.
+
 ## [Unreleased] – Designer nach Nutzertabellen korrigiert (2026-10-04)
 
 ### Geändert

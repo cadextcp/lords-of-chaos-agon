@@ -46,6 +46,14 @@ const char *tutorial_hint_line(uint8_t step);
  * the detail page (portrait, values, description). Blocking, Esc leaves. */
 void screen_lexicon(const Lexicon *lex);
 
+/* Load /loc/help/lexicon.hlp once for the designer's spell shop detail
+ * (creature pages are 0..CR_COUNT-1 in csv order). False when missing. */
+bool lexicon_texts_load(void);
+/* Portrait, main attributes and the short description of a creature,
+ * drawn into the menu window starting at text row `top` (needs one
+ * lexicon_texts_load first). */
+void lexicon_creature_panel(uint8_t kind, uint8_t top);
+
 /* Title screen (M5d): the streamed title bitmap (/loc/title.bin) and the
  * title music (/loc/title.bin's neighbour music/title.bin). Any key
  * stops the music and returns. */

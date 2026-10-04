@@ -450,6 +450,62 @@ static void lexicon_draw_detail(uint16_t entry)
     centred(29, C_GREY, "Esc zur\201ck");
 }
 
+bool lexicon_texts_load(void)
+{
+    uint8_t fh;
+    uint24_t len = 0;
+    if (lex_len)
+        return true;                       /* already loaded this run */
+    fh = mos_fopen("help/lexicon.hlp", FA_READ);
+    if (fh) {
+        len = mos_fread(fh, (char *)lex_buf, (uint24_t)sizeof lex_buf);
+        mos_fclose(fh);
+    }
+    if (len == 0 || help_parse(lex_buf, len, help_page) == 0) {
+        lex_len = 0;
+        return false;
+    }
+    lex_len = len;
+    return true;
+}
+
+/* Portrait + main values + lexicon description of one creature, drawn
+ * into the menu window (designer spell shop detail). */
+void lexicon_creature_panel(uint8_t kind, uint8_t top)
+{
+    const CreatureDef *c;
+    char buf[40];
+    uint16_t off;
+    uint8_t lines, i, row = (uint8_t)(top + 3);
+
+    if (kind >= CR_COUNT)
+        return;
+    c = &CREATURES[kind];
+    render_frame(0, (int)(top * 8) - 2, 215, (int)((top + 11) * 8), C_BRIGHT_BLUE);
+    render_draw_tile((uint16_t)(CREATURE_TILE[kind]), 4, (int)(top * 8) + 4);
+    snprintf(buf, sizeof buf, "%.14s", c->name);
+    render_menu_text(5, top, C_BRIGHT_YELLOW, buf);
+    snprintf(buf, sizeof buf, "K%u V%u  MR%u", c->combat, c->defence,
+             c->magic_res);
+    render_menu_text(5, (uint8_t)(top + 1), C_BRIGHT_WHITE, buf);
+    snprintf(buf, sizeof buf, "L%u A%u AP%u", c->con, c->stamina, c->ap);
+    render_menu_text(5, (uint8_t)(top + 2), C_BRIGHT_WHITE, buf);
+    snprintf(buf, sizeof buf, "VP %u", c->vp);
+    render_menu_text(17, (uint8_t)(top + 2), C_GREY, buf);
+    if (!lex_len || (uint16_t)kind >= help_count)
+        return;
+    off = help_page[kind];
+    off = (uint16_t)(off + 1 + lex_buf[off]);   /* skip the title */
+    lines = lex_buf[off++];
+    for (i = 0; i < lines && row < top + 11; i++) {
+        uint8_t len = lex_buf[off++];
+        memcpy(buf, lex_buf + off, len);
+        buf[len] = 0;
+        off = (uint16_t)(off + len);
+        render_menu_text(1, row++, C_BRIGHT_WHITE, buf);
+    }
+}
+
 void screen_lexicon(const Lexicon *lex)
 {
     struct keyboard_event_t e;
