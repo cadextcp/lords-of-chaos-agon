@@ -2,6 +2,12 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Zauber-Detail und Gesamt-Grimoire im Laden (2026-10-04)
+
+### Hinzugefügt
+- **Zauber-Detail-Panel:** Der Designer-Laden listet jetzt das **gesamte Grimoire** (alle 46 Sprüche, nicht nur kaufbare Beschwörungen). Beim Auswählen eines Zaubers zeigt das Panel **Kategorie (Beschwörung/Trank/Fläche/Zauber), Manakosten (L1 + Zuwachs pro Stufe), Schadenswürfel** — Bolt/Blitz mit Stufen-Skalierung — **und eine Kurzbeschreibung** aus der neuen `data/help/spells_de.txt` (46 Seiten, von gen_help auf SPELL-Reihenfolge geprüft). Beschwörungen zeigen weiterhin Porträt + Kreaturwerte.
+- **Gefahren-Fix:** Nicht-kaufbare Startbuch-Zauber lassen sich nicht mehr „erstatten" (würde XP aus dem Nichts erzeugen — Selftest sichert das ab).
+
 ## [Unreleased] – Kreatur-Detail im Zauber-Laden (2026-10-04)
 
 ### Hinzugefügt

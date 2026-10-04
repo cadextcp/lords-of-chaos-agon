@@ -53,6 +53,11 @@ bool lexicon_texts_load(void);
  * drawn into the menu window starting at text row `top` (needs one
  * lexicon_texts_load first). */
 void lexicon_creature_panel(uint8_t kind, uint8_t top);
+/* Load /loc/help/spells.hlp (one page per spell, csv order) and draw
+ * the spell detail panel - category, mana, damage dice, description -
+ * into the menu window at text row `top`. False when missing. */
+bool spells_texts_load(void);
+void spell_panel(uint8_t spell, uint8_t top);
 
 /* Title screen (M5d): the streamed title bitmap (/loc/title.bin) and the
  * title music (/loc/title.bin's neighbour music/title.bin). Any key

@@ -3312,6 +3312,8 @@ static void test_m5e_balance(void)
         check(wizard_spell_lower(&t, SP_HARPY) && t.xp == 6 &&
               wizard_spell_lower(&t, SP_HARPY) && t.xp == 18,
               "m5f: lowering refunds base/half exactly");
+        check(!wizard_spell_lower(&t, SP_TELEPORT),
+              "m5f: starting-book spells never refund (no XP well)");
         check(wizard_mana_cost() == 9 && t.mana_max == 90 && t.ap == 34,
               "m5f: mana starts at 90, AP at 34 (F6)");
         t.xp = 9;
