@@ -148,9 +148,9 @@ verbraucht. Was darauf steht,
 ueberrascht immer wieder.
 
 = Schwert
-Die ausgewogene Waffe: ordentlicher
-Kampfbonus, kein Sonderwurf. Gehoert
-in jede Hand.
+Die ausgewogene Waffe (2w8 Schaden):
+ordentlicher Kampfbonus, kein
+Sonderwurf. Gehoert in jede Hand.
 
 = Messer
 Leicht und billig: kaum Kampfbonus,
@@ -166,9 +166,9 @@ Der Troll-Favorit: schwer und
 kraefig, wenn auch plump.
 
 = Axt
-Die Waffe der Zwerge: schlaegt
-haerter als das Schwert und wiegt
-dafuer mehr.
+Die Waffe der Zwerge (2w10 Schaden):
+schlaegt haerter als das Schwert und
+wiegt dafuer mehr.
 
 = Wurfstern
 Fuer Ninja: extrem leicht, fliegt
@@ -179,9 +179,9 @@ Eine Klinge gegen Untote: verwundet
 Geister und Vampire wie Lebewesen.
 
 = Magie-Slayer
-Die beste Waffe des Spiels: magisch,
-schneidet durch jede Ruestung und
-jedem Untoten ins Fleisch.
+Die beste Waffe des Spiels (3w8
+Schaden): magisch, schneidet durch
+jede Ruestung und Untote.
 
 = Bogen
 Schiessen (f) bis sechs Felder weit:
@@ -189,9 +189,9 @@ ohne Kampfbonus des Ziels die
 sicherste Art, anzugreifen.
 
 = Schild
-Wird getragen (nicht benutzt):
-erhoeht die Verteidigung. Mehr als
-eins zaehlt nicht.
+Zaehlt getragen - nie in der Hand
+(D28): +4 Verteidigung, ganz gleich
+wo im Gepaeck. Stapelt nicht.
 
 = Gold
 Der Klassiker unter den Schaetzen:

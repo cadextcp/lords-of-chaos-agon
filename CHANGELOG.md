@@ -2,6 +2,15 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Kampf-Rebalance (D27/D28, Playtest 2026-10-04)
+
+### Geändert
+- **Rückschlag ist frei (D27):** Ein angegriffenes Ziel schlägt immer sofort zurück — ohne AP- oder Ausdauerkosten. Zuvor kostete der Gegenangriff 6 AP + 3 Ausdauer; wer oft attackiert wurde (KI-Goblin bis 3× pro Zug), wurde durch die erzwungenen Gegenangriffe ausgelaugt und konnte selbst nie mehr angreifen — Aussetzen half nicht, weil die AP-Auffüllung an der Ausdauer hängt. Angriffe kosten unverändert 10 AP + 4 Ausdauer.
+- **Waffenschaden mit Würfeln (D28):** Schaden eines Treffers = Würfel der Waffe + Kampf/5 (waffenlos 1w4, Schwert 2w8, Axt/Slayer 2w10, Magie-Slayer 3w8, Bogen/Wurfspeer 2w6 …). Vorher rechnete jeder Treffer nur mit Kampf/4 — das Schwert brachte keinen spürbaren Schadensvorteil. Neue Spalten `dice_n,die` in `data/weapons.csv`; Treffer-bis-Sieg-Tabelle im GDD §6.1.
+- **Zauber deutlich stärker (D28):** Magic Bolt **7w10** (Ø 38,5) und Magic Lightning **10w8 + 3w6 Splash** — ein treffender Bolt tötet einen Goblin meist sofort; Zauber verbrauchen Buchstufen und müssen sich lohnen. Würfel-Spalten in `data/spells.csv` (`dice_n,die,splash_n,splash_die`), Schadenstabelle im GDD §7.2.
+- **Schild nie in der Hand (D28):** `w` überspringt Schilde (Zyklus: Waffen → leere Hände); ein getragener Schild verteidigt immer (D18/D21). Ohne führbare Waffe meldet `w` „Keine Waffe zum Fuehren (Schild zaehlt getragen).“
+- Hilfeseite „Kampf“ und Lexikon-Einträge (Schwert/Axt/Magie-Slayer/Schild) beschreiben die neuen Regeln und Würfel.
+
 ## [Unreleased] – M5 Präsentationsrunde
 
 ### Hinzugefügt (M5d: Titelbild + Titelmusik)

@@ -1,15 +1,16 @@
 # Weapons (GDD 6.1, PM 35 as starting values, D7). combat/defence: bonuses
-# while in use (shield counts always, when carried); thrown: damage roll
-# base when thrown; ranged: bow attack base, 0 = no ranged attack.
-# weight counts against the carry limit (creatures.csv).
-id,name,combat,defence,thrown,ranged,weight
-sword,Schwert,4,0,4,0,4
-knife,Messer,1,0,2,0,1
-shield,Schild,0,4,0,0,4
-bow,Bogen,0,0,0,4,3
-spear,Speer,3,0,3,0,5
-club,Keule,2,0,2,0,5
-axe,Axt,3,0,3,0,6
-ninja_star,Wurfstern,0,0,4,0,1
-slayer,Slayer,6,0,6,0,6
-magic_slayer,Magie-Slayer,8,0,8,0,6
+# while in use (shield counts always, when carried - never needs the hand,
+# D28); thrown: 1 = proper throwing weapon; ranged: 1 = bow attack,
+# 0 = none. dice_n d die: damage dice for melee, thrown and bow (D28),
+# plus the fighter's com/5. Weight counts against the carry limit.
+id,name,combat,defence,thrown,ranged,weight,dice_n,die
+sword,Schwert,4,0,1,0,4,2,8
+knife,Messer,1,0,1,0,1,1,6
+shield,Schild,0,4,0,0,4,1,4
+bow,Bogen,0,0,0,1,3,2,6
+spear,Speer,3,0,1,0,5,2,6
+club,Keule,2,0,1,0,5,2,6
+axe,Axt,3,0,1,0,6,2,10
+ninja_star,Wurfstern,0,0,1,0,1,1,6
+slayer,Slayer,6,0,1,0,6,2,10
+magic_slayer,Magie-Slayer,8,0,1,0,6,3,8

@@ -73,10 +73,13 @@ Anrempeln greift an. Trefferchance
 haengt von Kampf gegen Verteidigung
 ab, Waffen und Schilde zaehlen mit.
 
-Der Angegriffene schlaegt zurueck,
-solange er AP und Ausdauer hat.
+Der Angegriffene schlaegt sofort
+zurueck - das kostet ihn nichts (D27).
 Wer sich aus dem Kampf zieht, riskiert
 einen freien Schlag des Gegners.
+Waffen wuerfeln ihren Schaden (D28):
+ein Schwert trifft deutlich haerter
+als die blosse Faust.
 
 Untote verwunden nur untote oder
 magisch bewaffnete Angreifer - und
