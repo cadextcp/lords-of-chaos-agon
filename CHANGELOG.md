@@ -2,6 +2,13 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Designer nach Nutzertabellen korrigiert (2026-10-04)
+
+### Geändert
+- **Mindestverteilung + 600 XP (F6, korrigiert):** Ein frischer Zauberer startet bei Kampf 5, Abwehr 5, Magiewiderstand 70, Konstitution 25, Ausdauer 34, Mana 90, **AP 34** — und verteilt **600 XP** auf Attribute, Mana, AP und Zauber (zuvor fälschlich 20 XP und höhere Startwerte). **Kosten:** Kampf 2, Abwehr 2, Magiewiderstand 4, Konstitution 2, Ausdauer 4, Mana 9, AP 8 pro Punkt (Voll-Rückerstattung beim Senken; Maxima: Mana 250, AP 120).
+- **AP ist jetzt ein Designer-Wert:** `wizard_apply_to_world` setzt die Aktionspunkte der Einheit aus dem Designer (Minimum 34) statt starr 40 aus der Kreaturtabelle.
+- Der Designer zeigt die Kosten je Zeile; „Zauberer zurücksetzen" liefert Minima + 600 XP + Anker-Startbuch (alte Zauberer auf der SD werden wegen geändertem Layout zurückgewiesen → einmal zurücksetzen).
+
 ## [Unreleased] – Designer komplett: Zauber-Kauf, Anker-Kosten, Mana (2026-10-04)
 
 ### Hinzugefügt
