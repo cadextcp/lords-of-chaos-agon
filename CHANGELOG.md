@@ -2,6 +2,102 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Phasenbildschirm, aufgescheuchte Tiere (D37/D38, 2026-10-04)
+
+### Geändert
+- **Drei Phasen wie im Original:** Während der KI- und der Neutralen-Phase zeigt ein Phasenbildschirm (Rankenrahmen, wer am Zug ist, Runde, Siegpunkte) statt der Karte; man hört nur Schritte, Kampf und Zauber.
+- **Aufgescheuchte Tiere:** Kampf und Zauber in der Nähe (4 Felder) scheuchen friedliche Tiere und Herden auf – pro Herde ein Wurf am Leittier: 20 % Angriff auf den Verursacher, sonst Flucht; alle Tiere der Herde gleich.
+- **Elefanten trampeln** in Panik durch kleinere Einheiten (2w6) und walzen hohes Gras platt.
+
+## [Unreleased] – Aufheben mit Auswahl, Zauber durch hohes Gras (2026-10-04)
+
+### Geändert
+- **`g` mit Auswahl:** Liegen mehrere Gegenstände auf dem eigenen Feld oder auf Nachbarfeldern, fragt ein Menü, welcher (Buchstabe) oder alle (Leertaste). Ein einzelner Gegenstand auf dem eigenen Feld wird wie bisher direkt genommen. Nachbarfelder sind jetzt erreichbar.
+- **Zauber durch hohes Gras (D36):** Hohes Gras versperrt die Sicht, aber nicht mehr den Zauber.
+
+## [Unreleased] – Zufällige Welt, Wildtiere und Herden (D35, 2026-10-04)
+
+### Geändert
+- **Jede Partie ist anders:** Zufallsstartwert aus der Uhr.
+- **Der KI-Zauberer startet allein** und beschwört seine Kreaturen selbst – kein Goblin mehr vor der Tür.
+- **Wildtiere:** 5–8 an Zufallsorten. Friedliche streifen umher und wehren sich nur gegen Angreifer; territoriale verteidigen ihr Revier (3 Felder).
+- **Herden** (Elefanten, Einhörner, Pegasi) ziehen ab Runde 4 gelegentlich über die Karte.
+- **Beute zufällig:** 5–7 Truhen (Schätze, Waffen, Tränke), 2 Truhenschlüssel, 6–9 lose Fundstücke passend zum Boden. Fest bleibt nur die Hausausstattung.
+- Spielstand-Format v4 (alte Spielstände werden abgelehnt).
+
+## [Unreleased] – Rundenende ohne Umwege (2026-10-04)
+
+### Geändert
+- **Shift+E beendet die Runde sofort** (keine Rückfrage mehr).
+- **Leertaste beendet die Runde**, wenn alle Einheiten fertig sind.
+
+### Behoben
+- Panel: Nach dem Wechsel von einer Einheit mit Waffe blieben Reste des Waffennamens hinter „Hand: -“ stehen.
+
+## [Unreleased] – Beschwörungen: Stufe = Stärke (D34, 2026-10-04)
+
+### Geändert
+- **Ein Wurf, eine Kreatur:** Die Stufe einer Beschwörung bestimmt jetzt die Stärke (+15 % Kampf/Verteidigung/Konstitution pro Stufe über 1, Deckel 8) statt der Anzahl.
+- **Beschwörungen verbrauchen sich nicht** und kosten festes Mana (Stufe-1-Preis) plus 10 AP. Andere Zauber behalten Ladungen.
+- Zauberliste und Designer zeigen bei Kreaturen „Stf“ (Stufe) statt „Anz“; die KI rechnet mit dem neuen Manapreis.
+
+## [Unreleased] – Sprite-Effekte und gleitende Schritte (2026-10-04)
+
+### Hinzugefügt
+- **Fliegende Projektile** als VDP-Sprites: Bolt-Kugel, Blitz mit Funkenschweif, Pfeil (8 Richtungen), rotierende Wurfwaffe, Bombenphiole – auch bei KI-Angriffen. Neues Core-Ereignis `EV_PROJECTILE` (Wurf-Schleife umgebaut, Würfelfolge unverändert).
+- **Zauber-Effekte am Ziel:** Beschwörungswirbel, Teleport-Funken, Schildkuppel, Fluchschädel, Trankblasen, Funkeln.
+- **Aufsteigende Schadenszahlen** als Sprites (Krit mit „!“) statt Text über der Karte.
+- **Gleitende Schritte** der eigenen Einheiten (80 ms, im Setup mit G abschaltbar; Reiter springen weiter).
+- `--fxdemo` zeigt alle Sprite-Effekte in Schleife.
+
+### Behoben
+- **Einheit lief nach kurzem Tippen von selbst bis an die Wand:** Die Gleit-/Effektpause verschluckte das Loslassen der Pfeiltaste. Loslassen wird jetzt aufgehoben und an die Akkord-Logik gegeben (QUIRK K6).
+- Bogen-/Wurfgeräusch kommt jetzt aus dem Ereignis – auch für KI-Schüsse, ohne Doppelung.
+- **Stimmbare Samples** nutzen Flag 16 (agondev-Konstante 8 ist „Abtastrate folgt“ und ließ Bytes als Text erscheinen, QUIRK A9).
+- `HOUSE_VIEW_HASH` 0x632E5581 (neue Effekt-Kacheln verschieben die IDs).
+
+## [Unreleased] – Neues Titelbild, Zierschrift, Menü- und Endbilder, eigene Tränke (2026-10-04)
+
+### Hinzugefügt
+- **Titelbild neu:** Schlachtgetümmel im Stil der 8-Bit-Ladebilder, eigene Komposition aus den vergrößerten Spielkreaturen (Scale2x/Scale3x), Blitz, Magiewirbel, Gold-Schriftzug.
+- **Hauptmenü mit Bild:** Titelbild als Hintergrund, Menü im Rahmen.
+- **Endbildschirm mit Bild:** Sieg (Portal, Schätze) bzw. Niederlage (Grab); Level-up-Klang.
+- **Eigene Zierschrift 8×16** für Überschriften (Menü, Designer, Setup, Hilfe, Lexikon, Ende, Overlays), mit Schatten; Fallback Systemschrift.
+- **Eigene Kachel für jeden Trank** (Flüssigkeitsfarbe + Symbol): Stärke, Schutz, Unsichtbarkeit, Schnelligkeit, Fliegen, Heilung.
+
+### Behoben
+- **Hilfeseiten fehlten:** `keys.hlp` (3,2 KB) passte nicht mehr in den 3-KB-Puffer und wurde als ungültig verworfen. Puffer 4 KB, `gen_help.py` prüft jetzt die Größen.
+- **Lexikon- und Zaubertexte fehlten:** Der Code suchte `lexicon.hlp`/`spells.hlp`, die Dateien heißen `*_de.hlp`.
+- **Lexikon:** Geteilte Phiolen-Kachel markierte immer den ersten Trank als entdeckt.
+- `HOUSE_VIEW_HASH` 0xC1C0D595 (neue Kacheln verschieben die IDs).
+
+## [Unreleased] – Neuer Klang: Samples, neue Musik, mehr Sounds (2026-10-04)
+
+### Behoben
+- **Titelmusik lief 10× zu langsam** (ms auf die Zentisekunden-Uhr addiert): man hörte nur einzelne Piepser im Abstand von Sekunden.
+- **Mehrton-Effekte spielten nur den ersten Ton** (der VDP verwirft Noten auf belegten Kanälen, ADR 0012).
+
+### Geändert
+- **Eigene Samples** (`tools/gen_sfx.py`, synthetisiert, 16 Stück, `/loc/sfx.bin`): Treffer, Klirren, Wisch, Stöhnen, Donner, Zisch, Knarren, Truhe, Funkeln, Beschwörung, Blubbern, Krachen u. a.; Wellenform-Ersatz, falls die Datei fehlt.
+- **Effekt-Sequenzer** mit Prioritäten auf zwei Kanälen; jeder Zauber klingt nach seiner Art (Bolt, Blitz, Beschwörung, Teleport, Fluch, Trank).
+- **Neue Musik:** eigenes vierstimmiges Stück (Zupfsaite, Bass, Begleitung, Trommel), läuft im Menü weiter; **Sieg- und Niederlage-Jingle** auf dem Endbildschirm. Musikformat LOCM v2 mit Instrumenten, Hüllkurven und Schleife.
+- **Neue Sounds:** Menü (bewegen, bestätigen, zurück), verweigerte Aktion, Essen, Trinken/Brauen, Fliegen/Reiten/Landen.
+- **Setup:** Musik und Toneffekte getrennt abschaltbar (gespeichert in `settings.dat`).
+- **RAM:** Selftest, Bildschirme und Tastaturtest werden mit `-Oz` übersetzt; `loc.bin` 321 → 275 KB.
+
+### Werkzeuge
+- `tools/audio_preview.py` rendert Musik und Samples als WAV nach `build/sfx/preview/` – zum Probehören ohne Agon.
+- `vdptest` misst zusätzlich Kanal-Reset, Sample-Längen und Tonhöhenbereich (A6–A11).
+
+## [Unreleased] – VDP-Spike: was der Agon kann (2026-10-04)
+
+### Hinzugefügt
+- **`vdptest [n]`** – eigenes kleines Agon-Programm (`spikes/vdptest/`, von `build.py` gebaut, liegt als `/loc/vdptest.bin` auf der SD; `run.py --vdptest [n]`): misst Audio-Warteschlange, Samples, Zusatzkanäle, eigene Schriften, Palette in MODE 8, Sprites und Doppelpuffer; Ergebnisse in `vdptest.log`. Auf der Hardware laufen lassen und vergleichen.
+- **ADR 0012**: Samples, eigene Schriften und Sprite-Animation werden genutzt; Doppelpuffer nicht fürs Spielbild, Paletten/Copper verworfen (wirken in MODE 8 nicht).
+
+### Korrigiert (Doku)
+- QUIRKS A1/A5: Der VDP queued Noten **nicht** – eine Note auf belegtem Kanal wird verworfen. Daher spielten die Mehrton-Effekte bisher nur ihren ersten Ton. Neue Einträge A6 (Samples), S3–S6 (Schrift, Palette, Doppelpuffer, RAM), V11 (Sprite-Kosten).
+
 ## [Unreleased] – Keine Bildschirmreste mehr, Titelbild sichtbar (2026-10-04)
 
 ### Behoben

@@ -15,17 +15,22 @@ Gesammeltes Plattformwissen. Teile stammen aus dem ersten Versuch (BBC BASIC, `L
 | V8 | `vdp_set_pixel_coordinates()`: Ursprung oben links, y nach unten. Gilt für `draw_bitmap` und Rechtecke. | ✅ (M1) |
 | V9 | Kachel-Draw = `select_bitmap(buffer)` (5 Byte) + `draw_bitmap(x, y)` (7 Byte). 81 Felder mit etwa 3,2 Ebenen ≈ 38 ms Übertragung (ADR 0006). | ✅ (M1) |
 | V10 | **Sprites aus Buffer-Bitmaps:** `vdp_adv_add_sprite_bitmap(bufferId)` (16-Bit-ID) fügt Frames hinzu. Danach `activate_sprites(n)`; jede Änderung braucht `vdp_refresh_sprites()`. Nach dem Zeichnen von Bitmaps unter dem Sprite ebenfalls refreshen. | ✅ (M1 #4) |
+| V11 | 8 Sprites mit je 2 Frames, 150 Bewegungen inkl. `vdp_refresh_sprites()`: 3 ms pro Bild — Sprite-Animation ist praktisch gratis. | ✅ (vdptest S1) |
 | V6 | Viele kleine VDU-Aufrufe sind langsam. Deshalb sammelt der Renderer Bytes in einen Puffer und gibt sie mit `mos_puts()` aus. Buffered Commands (`VDU 23,0,&A0`) prüft Spike M1. | ❓ (M1) |
 
 ## Audio (M5c)
 
 | # | Quirk | Status |
 |---|---|---|
-| A1 | **Vier Kanäle (0–3)**, Noten via `VDU 23,0,&85,channel,0,volume,frequency;duration;` (agondev: `vdp_audio_play_note`). Noten pro Kanal werden gequeued — kurze Folgen spielen ohne Blockieren. | ✅ (API, agondev vdp.h; Klang nur auf Hardware/GUI prüfbar) |
+| A1 | **Kanäle 0–3 aktiv, weitere per `vdp_audio_enable_channel(n)`** (4, 5 getestet). Noten via `VDU 23,0,&85,channel,0,volume,frequency;duration;` (`vdp_audio_play_note`). **Der VDP queued nicht:** Eine Note auf einem belegten Kanal wird verworfen (Antwort `audioSuccess` = 0). Folgen deshalb selbst takten. Die Antwort steht nach `vdp_pflag_audio` in `getsysvar_audioSuccess()`. | ✅ (vdptest A1/A2/A5, 2026-10-04) |
 | A2 | Wellenformen pro Kanal: `vdp_audio_set_waveform` mit 0=Square, 1=Triangle, 2=Sawtooth, 3=Sine, 4=Noise, 5=VIC-Noise (Konstanten in vdp.h). Hüllkurven: `vdp_audio_volume_envelope_ADSR(ch, attack-ms, decay-ms, sustain-%, release-ms)`; danach wieder `disable`, sonst wirkt sie für die nächste Note weiter. | ✅ (API) |
 | A3 | Audio-Befehle enthalten 0x00-Bytes (Frequenz/Dauer u16): nie über `printf` senden, immer die agondev-Wrapper (die MOS-puts mit Längenangabe nutzen). | ✅ (wie alle VDU-23-Befehle) |
 | A4 | Der CLI-Emulator hat kein Audio (wie E1 kein VDP): Klang nur im GUI-Emulator/auf Hardware prüfbar. | ✅ |
-| A5 | Musik auf Kanälen 1–3 neben Effekten auf Kanal 0 funktioniert; pro Kanal werden Noten gequeued, lange Notenfolgen spielen ohne Programmblockade. Getaktet über `getsysvar_time()` (Zentisekunden, vorzeichenbehaftet vergleichen wegen Überlauf). | ✅ (M5d, GUI) |
+| A5 | Musik auf eigenen Kanälen neben Effekten. Jede Note einzeln senden, wenn die vorige endet; Takt über `getsysvar_time()` in **Zentisekunden** (Notenlängen in ms also durch 10 teilen; bis 2026-10-04 lief die Titelmusik deshalb 10× zu langsam). Vorzeichenbehaftet vergleichen wegen Überlauf. | ✅ |
+| A6 | **Samples:** 8-Bit-signed-PCM (16 kHz) in einen Buffer schreiben, `vdp_adv_consolidate`, `vdp_audio_create_sample_from_buffer(ch, id, 0)`, `vdp_audio_set_sample(ch, id)`, dann `play_note`. Upload 8000 Byte ≈ 12 cs. Erzeugen auf dem eZ80 ist zu langsam (290 cs für 8000 Byte) — Samples auf dem PC bauen und von der SD streamen. | ✅ (vdptest A3/A4) |
+| A7 | **Notenstart mit Verzögerung:** Der VDP beginnt eine Note bis zu ~150 ms nach dem Senden (Audio-Puffer, GUI-Emulator). Wer eine Folgenote zur berechneten Endzeit schickt, wird teils abgewiesen. Abhilfe: Kanäle abwechseln (Musik) oder vor jeder Note `vdp_audio_reset_channel` (Effekte) – ein Reset gibt den Kanal sofort frei, auch mitten im Sample. Samples halten die Notenlänge ein; stimmbare Samples (Format 8) gehen mindestens bis 4× Grundton. | ✅ (vdptest A6–A11, Musik-Messung <1 % Ablehnung) |
+| A8 | **Nach dem Booten sind nur die Kanäle 0–2 aktiv** (nicht 0–3). Befehle mit Parametern (z. B. ADSR) an einen inaktiven Kanal werden nicht verarbeitet – ihre Bytes erscheinen **als Text auf dem Bildschirm**. Vor jeder Nutzung von Kanal ≥ 3 `vdp_audio_enable_channel(n)`. Die alte Titelmusik nutzte Kanal 3 ungeschaltet (Zeichenreste, meist vom Titelbild verdeckt). | ✅ (vdptest 6) |
+| A9 | **agondev-Konstante falsch:** `VDP_AUDIO_SAMPLE_FORMAT_SAMPLE_TUNEABLE` ist 8 – das ist aber das Bit „Abtastrate folgt“. Der VDP erwartet dann zwei weitere Bytes, verschluckt den nächsten Befehl und gibt den Rest als Text aus. **Stimmbar ist Bit 4 = 16.** | ✅ (vdptest 6) |
 
 ## VDP-Speicher und Streaming (M5d)
 
@@ -33,6 +38,10 @@ Gesammeltes Plattformwissen. Teile stammen aus dem ersten Versuch (BBC BASIC, `L
 |---|---|---|
 | S1 | **Gestreamte Bitmaps:** wiederholte `vdp_adv_write_block_data(bufferId, n, data)`-Aufrufe *hängen je einen Block an*. So lässt sich ein 320×240-RGBA2222-Bild (76 800 Byte) in 576-Byte-Häppchen durch einen kleinen Staging-Puffer laden. **Danach `vdp_adv_consolidate(bufferId)`** – ohne das bleibt die Bitmap aus mehreren Blöcken unsichtbar (der Titel war bis 2026-10-04 deshalb schwarz). Dann `select_bitmap` + `bitmap_from_buffer(320,240,1)` + `draw_bitmap(0,0)`. | ✅ (GUI-Emulator, Titelbild) |
 | S2 | VDP-RAM-Budget: Kachelbank (291 Kacheln ≤576 B + Reit-Tiere, Puffer ab 0x2000) + Titel (Puffer 0x4000, 75 KB) laufen im Emulator zusammen; **auf Hardware nachzumessen** (Kacheln + Bitmaps + Titel). Kein `delete_bitmap` in der API — das Titel-Bitmap bleibt für den Programmlauf belegt. | ❓ (Hardware offen) |
+| S3 | **Eigene Schriften:** Font-Bitmap (1 Byte pro Zeile bei 8 px Breite, 256 Zeichen hintereinander) in einen Buffer, `vdp_font_create(id, w, h, ascent, 0)`, `vdp_font_select(id, 0)`; zurück mit `vdp_font_select(0xFFFF, 0)`. `vdp_font_copy(id)` legt den Systemfont als Vorlage ab. 8×16 getestet. Mit `vdp_write_at_graphics_cursor()` (VDU 5) zeichnet die Schrift transparent am Grafikcursor (Schatten, Text über Bildern); danach `vdp_write_at_text_cursor()` und Systemfont wählen. | ✅ (vdptest F1/F2, Überschriften) |
+| S4 | **Kein Paletten-Trick in MODE 8:** `VDU 19` ändert dort nichts (64-Farben-Modi sind nicht palettiert). Copper nur in Modi mit ≤16 Farben. | ✅ (vdptest P1) |
+| S5 | **Doppelpuffer** MODE 136 = 8 + 128 läuft (320×240, 64 Farben), `vdp_swap()` wartet auf VSYNC; Buffer-Bitmaps überleben den Moduswechsel. Ein Vollbild + Swap ≈ 39 ms. Für das Spielbild ungeeignet (ADR 0012). | ✅ (vdptest D1/D2) |
+| S6 | **eZ80-RAM ist knapp:** zusätzliche 12 KB statische Puffer sprengten `USERRAM` (5 KB zu viel); mit ~10 KB mehr Code blieben nur ~6 KB Stack und der eZ80-Selftest scheiterte. Große Daten nur durch kleine Puffer streamen; Werkzeuge als eigene Programme (`spikes/`). | ✅ |
 
 ## Emulator
 
@@ -66,6 +75,7 @@ Gesammeltes Plattformwissen. Teile stammen aus dem ersten Versuch (BBC BASIC, `L
 | K2 | **Kein Auto-Repeat über `kbuf`**: Eine gehaltene Taste liefert genau ein Down-Event. Die Wiederholung macht das Spiel selbst (`chord.c`). | ✅ (Emulator) |
 | K3 | VKeys: ↑ 96, ↓ 98, ← 9A, → 9C, Pos1 86, Ende 88, Bild↑ 93, Bild↓ 95, ESC 7D, a–z = 16 + Index (nach Layout). | ✅ (Emulator) |
 | K5 | Die Hauptschleife muss die `kbuf`-Warteschlange **vollständig leeren**, bevor sie Tastenwiederholung oder Zeitlogik auswertet. Sonst wirken langsame Frames (Scrollen) wie gehaltene Tasten. | ✅ (M2a) |
+| K6 | **Warteschleifen dürfen kein Loslassen verschlucken.** Wer während einer Animation die Warteschlange leert (K5), muss Key-up-Ereignisse aufheben und später an `chord_key(..., false, ...)` geben (`fx_take_release`). Sonst bleibt ein kurz getippter Pfeil „gehalten“ und die Einheit läuft von selbst bis an die Wand (Fund 2026-10-04 mit den gleitenden Schritten). | ✅ |
 | K4 | `SET KEYBOARD 2` ist das deutsche Layout (y/z vertauscht). `tools/run.py` setzt es standardmäßig (`--keyboard`). | ✅ |
 
 ## Hardware (Zielgerät)

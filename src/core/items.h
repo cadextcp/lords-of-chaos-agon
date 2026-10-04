@@ -22,6 +22,11 @@ uint8_t items_weight(const World *w, uint8_t unit);
 uint8_t items_kind_at(const World *w, int16_t x, int16_t y);
 /* Pick up the object under the unit (ACT_PICK_UP): weight limit applies. */
 bool items_pick_up(World *w, uint8_t unit);
+/* Pick up ground object obj from the own field or a neighbour (same
+ * checks: room, weight, AP, no full cauldron). */
+bool items_pick_up_object(World *w, uint8_t unit, uint8_t obj);
+/* Object kind of a ground tile, NO_ITEM when none. */
+uint8_t items_kind_of_tile(uint16_t tile);
 /* Drop the object in use onto the unit's field (ACT_DROP). */
 bool items_drop(World *w, uint8_t unit);
 /* Wield the next carried object (ACT_CHANGE); empty hands are allowed. */

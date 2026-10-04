@@ -14,6 +14,7 @@
 #define MAP_MAX_H 36
 #define MAX_UNITS 32
 #define MAX_OBJECTS 64
+#define WORLD_DISTURB 6
 #define NO_UNIT 0xFF
 #define MAX_KILLS 16
 
@@ -72,7 +73,15 @@ typedef struct {
     uint8_t in_use;           /* index into items, 0xFF = bare hands */
     uint8_t id;               /* stable while the unit lives (indices shift) */
     uint8_t rider_kind;       /* kind carried on this mount, 0xFF = none */
-    uint8_t post_x, post_y;   /* guard post (M4h), 0xFF = none */
+    uint8_t post_x, post_y;   /* guard post (M4h) / territory, 0xFF = none */
+    uint8_t grudge;           /* wild animals (D35): owners that attacked it */
+    uint8_t herd_dir;         /* crossing herd: direction 1..8, 0 = none */
+    uint8_t travel;           /* crossing herd: fields walked so far */
+    uint8_t group;            /* herd: the leader's id (0 = alone) */
+    uint8_t alarm;            /* alarmed for this many rounds (D37) */
+    uint8_t alarm_charge;     /* 1 = attack the disturber, 0 = flee */
+    uint8_t alarm_x, alarm_y; /* where the trouble was */
+    uint8_t alarm_owner;      /* who caused it */
     bool done;                /* finished for this phase (space, turn.h) */
     Effect effects[UNIT_EFFECTS];   /* timed, tick at the round end (M4b) */
 } Unit;
@@ -96,6 +105,10 @@ typedef struct {
     uint8_t decor[MAP_MAX_H][MAP_MAX_W];
     uint8_t feature[MAP_MAX_H][MAP_MAX_W];
     Unit units[MAX_UNITS];
+    /* aggressive acts this round (D37): x, y, owner - the independents'
+     * phase scares the animals nearby */
+    uint8_t disturb_n;
+    uint8_t disturb[WORLD_DISTURB][3];
     uint8_t unit_count;
     Object objects[MAX_OBJECTS];
     uint8_t object_count;
@@ -132,6 +145,8 @@ bool world_blocks_sight(const World *w, int16_t x, int16_t y);
 /* Same test for coordinates already normalised inside the map (ray fast
  * path; see world.c). */
 bool world_blocks_sight_at(const World *w, uint8_t x, uint8_t y);
+/* Only the feature on (x, y) (wall, tree, closed door ...) blocks sight. */
+bool world_feature_blocks_sight(const World *w, uint8_t x, uint8_t y);
 /* Roof of the field (v4 maps): blocks sight and landing (GDD 3.2). */
 bool world_has_roof(const World *w, int16_t x, int16_t y);
 /* Eight blocking flags of row y starting at column x, packed MSB-first;
@@ -169,6 +184,11 @@ void world_spend(World *w, uint8_t unit, uint8_t ap);
 /* Remove a unit (swap with the last): indices of other units may change,
  * so callers re-find units by id (world_find_unit, turn_revalidate). */
 void world_remove_unit(World *w, uint8_t unit);
+/* A wild animal (D35) remembers who attacked it and fights back. */
+void world_provoke(World *w, uint8_t unit, uint8_t attacker_owner);
+/* Note an aggressive act at (x, y) by owner (D37); a full list keeps the
+ * first ones. */
+void world_disturb(World *w, int16_t x, int16_t y, uint8_t owner);
 /* A unit dies by someone's hand: its carried objects drop onto its
  * field (D21), the kill is logged for the VP account (game_credit_kills)
  * unless the killer is independent, then the unit is removed. Killer kind and owner are passed by value - the killer itself
@@ -180,6 +200,9 @@ void world_kill_unit(World *w, uint8_t victim, uint8_t killer_kind,
 uint8_t world_spawn_unit(World *w, uint8_t owner, uint8_t kind, uint8_t x, uint8_t y);
 /* Chebyshev distance between two fields, honouring wrap-around. */
 uint8_t world_distance(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1);
+/* Offset from (x0, y0) to (x1, y1), the shortest way on wrapping maps. */
+void world_delta(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1,
+                 int16_t *dx, int16_t *dy);
 /* Index of the unit with this id, NO_UNIT when it is gone. */
 uint8_t world_find_unit(const World *w, uint8_t id);
 /* Ground unit that was engaged this turn (UF_ENGAGED) and still stands

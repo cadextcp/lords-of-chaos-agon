@@ -272,10 +272,21 @@ static void apply_roof_rule(const World *w, int16_t wx, int16_t wy,
     out->n = k;
 }
 
+/* A unit the frontend animates itself (gliding sprite): left out of the
+ * composition meanwhile. NO_UNIT = none. Presentation only. */
+static uint8_t hidden_unit_id = NO_UNIT;
+
+void view_hide_unit(uint8_t id)
+{
+    hidden_unit_id = id;
+}
+
 /* Hidden movement (GDD 3.4, AMI 4): enemy units are only drawn when the
  * viewer currently sees their field; invisible enemies never. */
 static void push_unit(const World *w, const Unit *un, FieldLayers *out, bool air)
 {
+    if (hidden_unit_id != NO_UNIT && un->id == hidden_unit_id)
+        return;
     if (sight_map && un->owner != sight_map->owner &&
         (!sight_visible(sight_map, w, un->x, un->y) || (un->flags & UF_INVISIBLE)))
         return;

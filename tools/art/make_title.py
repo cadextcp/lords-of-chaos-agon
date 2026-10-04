@@ -4,204 +4,294 @@
 # dependencies = ["pillow"]
 # ///
 """
-Generate the title screen (M5d, GDD 11.6) as an editable PNG.
+Generate the title screen (GDD 11.6) as an editable PNG.
 
     uv run tools/art/make_title.py      # -> assets/title/title.png
 
-Own pixel art in the spirit of the original box art (3/4 view, wizard,
-tower, portal - D7/D10: nothing copied): night sky with moon and stars,
-a wizard with his staff before a glowing portal, a tower on the hills.
-Only colours from the Agon 64 palette; gradients are dithered bands.
+A crowded wizard battle on black, in the spirit of the 8-bit loading
+screens of the time - an own composition (D7: nothing traced or copied).
+The figures are the game's own 24x24 creature tiles, enlarged with the
+Scale2x/Scale3x pixel-art scalers (smooth diagonals, no blur, palette
+kept): a huge wizard casts a bolt at a demon, a troll, a centaur, a
+zombie and a dwarf fight in front, a bat and a dragon circle the magic
+vortex. The logo uses a bevelled block font. Only Agon 64 colours.
 tools/build_title.py compiles the PNG to build/title.bin for the SD card.
 The PNG is the source of truth; re-running overwrites it.
 """
 
 from __future__ import annotations
 
+import math
 import random
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from palette import C, PALETTE  # noqa: E402
+from palette import C, KEY_DARK, KEY_LIGHT, OWNERS, PALETTE  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
+TILES = ROOT / "assets" / "tiles"
 OUT = ROOT / "assets" / "title" / "title.png"
 W, H = 320, 240
+CLEAR = (0, 0, 0, 0)
 
-# 5x7 pixel font for the letters we need (LORDS OF CHAOS).
+
+# ---------- pixel-art scalers ----------
+
+def scale2x(im: Image.Image) -> Image.Image:
+    w, h = im.size
+    src = im.load()
+    out = Image.new("RGBA", (w * 2, h * 2))
+    dst = out.load()
+
+    def px(x, y):
+        return src[min(max(x, 0), w - 1), min(max(y, 0), h - 1)]
+    for y in range(h):
+        for x in range(w):
+            p = px(x, y)
+            a, b, c, d = px(x, y - 1), px(x + 1, y), px(x - 1, y), px(x, y + 1)
+            e0 = a if (c == a and c != d and a != b) else p
+            e1 = b if (a == b and a != c and b != d) else p
+            e2 = c if (d == c and d != b and c != a) else p
+            e3 = d if (b == d and b != a and d != c) else p
+            dst[2 * x, 2 * y], dst[2 * x + 1, 2 * y] = e0, e1
+            dst[2 * x, 2 * y + 1], dst[2 * x + 1, 2 * y + 1] = e2, e3
+    return out
+
+
+def scale3x(im: Image.Image) -> Image.Image:
+    w, h = im.size
+    src = im.load()
+    out = Image.new("RGBA", (w * 3, h * 3))
+    dst = out.load()
+
+    def px(x, y):
+        return src[min(max(x, 0), w - 1), min(max(y, 0), h - 1)]
+    for y in range(h):
+        for x in range(w):
+            A, B, Cc = px(x - 1, y - 1), px(x, y - 1), px(x + 1, y - 1)
+            D, E, F = px(x - 1, y), px(x, y), px(x + 1, y)
+            G, Hh, I = px(x - 1, y + 1), px(x, y + 1), px(x + 1, y + 1)
+            e = [E] * 9
+            if B != Hh and D != F:
+                e[0] = D if D == B else E
+                e[1] = B if (D == B and E != Cc) or (B == F and E != A) else E
+                e[2] = F if B == F else E
+                e[3] = D if (D == B and E != G) or (D == Hh and E != A) else E
+                e[5] = F if (B == F and E != I) or (Hh == F and E != Cc) else E
+                e[6] = D if D == Hh else E
+                e[7] = Hh if (D == Hh and E != I) or (Hh == F and E != G) else E
+                e[8] = F if Hh == F else E
+            for k in range(9):
+                dst[3 * x + k % 3, 3 * y + k // 3] = e[k]
+    return out
+
+
+def enlarge(im: Image.Image, factor: int) -> Image.Image:
+    steps = {2: [2], 3: [3], 4: [2, 2], 6: [2, 3]}[factor]
+    for s in steps:
+        im = scale2x(im) if s == 2 else scale3x(im)
+    return im
+
+
+def creature(name: str, owner: str | None, factor: int, flip: bool = False) -> Image.Image:
+    im = Image.open(TILES / f"{name}.png").convert("RGBA")
+    if owner:
+        light, dark = OWNERS[owner]
+        px = im.load()
+        for y in range(im.height):
+            for x in range(im.width):
+                r, g, b, a = px[x, y]
+                if a and (r, g, b) == KEY_LIGHT:
+                    px[x, y] = (*light, 255)
+                elif a and (r, g, b) == KEY_DARK:
+                    px[x, y] = (*dark, 255)
+    if flip:
+        im = im.transpose(Image.FLIP_LEFT_RIGHT)
+    return enlarge(im, factor)
+
+
+# ---------- drawing helpers ----------
+
+class Canvas:
+    def __init__(self):
+        self.im = Image.new("RGBA", (W, H), (0, 0, 0, 255))
+        self.px = self.im.load()
+
+    def put(self, x: int, y: int, rgb) -> None:
+        if 0 <= x < W and 0 <= y < H:
+            self.px[x, y] = (*rgb, 255)
+
+    def paste(self, sprite: Image.Image, x: int, y: int) -> None:
+        self.im.alpha_composite(sprite, (x, y)) if x >= 0 and y >= 0 else self._paste_clip(sprite, x, y)
+
+    def _paste_clip(self, sprite, x, y):
+        sp = sprite.load()
+        for sy in range(sprite.height):
+            for sx in range(sprite.width):
+                if sp[sx, sy][3]:
+                    self.put(x + sx, y + sy, sp[sx, sy][:3])
+
+
+def stars(cv: Canvas, rng: random.Random) -> None:
+    for _ in range(140):
+        x, y = rng.randrange(W), rng.randrange(150)
+        cv.put(x, y, rng.choice([C["dgrey"], C["grey"], C["white"], C["lblue"]]))
+
+
+def vortex(cv: Canvas, cx: int, cy: int, rng: random.Random) -> None:
+    """Swirling magic cloud: dithered rings, densest in the middle."""
+    cols = [C["navy"], C["purple"], C["blue"], C["violet"], C["lviolet"], C["magenta"], C["pink"], C["white"]]
+    for y in range(max(0, cy - 70), min(H, cy + 70)):
+        for x in range(max(0, cx - 110), min(W, cx + 110)):
+            dx, dy = (x - cx) / 105, (y - cy) / 62
+            r = math.hypot(dx, dy)
+            if r >= 1:
+                continue
+            ang = math.atan2(dy, dx)
+            swirl = 0.5 + 0.5 * math.sin(ang * 3 + r * 9)
+            level = (1 - r) * 0.85 + swirl * 0.35 * (1 - r)
+            idx = level * (len(cols) - 1)
+            base = int(idx)
+            frac = idx - base
+            # 2x2 ordered dither between neighbouring colours
+            thr = [[0.2, 0.7], [0.95, 0.45]][y % 2][x % 2]
+            k = min(len(cols) - 1, base + (1 if frac > thr else 0))
+            if k == 0 and rng.random() < 0.5:
+                continue                      # ragged edge
+            cv.put(x, y, cols[k])
+
+
+def bolt(cv: Canvas, x0, y0, x1, y1, rng: random.Random) -> None:
+    pts = [(x0, y0)]
+    n = 9
+    for i in range(1, n):
+        t = i / n
+        pts.append((x0 + (x1 - x0) * t + rng.randint(-9, 9), y0 + (y1 - y0) * t + rng.randint(-7, 7)))
+    pts.append((x1, y1))
+    for (ax, ay), (bx, by) in zip(pts, pts[1:]):
+        steps = int(max(abs(bx - ax), abs(by - ay))) + 1
+        for s in range(steps):
+            x = round(ax + (bx - ax) * s / steps)
+            y = round(ay + (by - ay) * s / steps)
+            for ox in (-2, -1, 0, 1, 2):
+                for oy in (-2, -1, 0, 1, 2):
+                    d = abs(ox) + abs(oy)
+                    if d >= 3:
+                        continue
+                    col = C["white"] if d == 0 else (C["sky"] if d == 1 else C["lblue"])
+                    cur = cv.px[x + ox, y + oy][:3] if 0 <= x + ox < W and 0 <= y + oy < H else None
+                    if cur is not None and (d == 0 or cur in ((0, 0, 0), C["navy"], C["purple"], C["blue"])):
+                        cv.put(x + ox, y + oy, col)
+
+
+def sparkle(cv: Canvas, x: int, y: int, size: int, col) -> None:
+    for i in range(-size, size + 1):
+        cv.put(x + i, y, col if abs(i) < size else C["dgrey"])
+        cv.put(x, y + i, col if abs(i) < size else C["dgrey"])
+    cv.put(x, y, C["white"])
+
+
+# ---------- logo ----------
+
 FONT = {
     "L": ["X....", "X....", "X....", "X....", "X....", "X....", "XXXXX"],
-    "O": [".XXX.", "X...X", "X...X", "X...X", "X...X", "X...X", ".XXX."],
-    "R": ["XXXX.", "X...X", "X...X", "XXXX.", "X.X..", "X..X.", "X...X"],
-    "D": ["XXXX.", "X...X", "X...X", "X...X", "X...X", "X...X", "XXXX."],
-    "S": [".XXXX", "X....", "X....", ".XXX.", "....X", "....X", "XXXX."],
-    "F": ["XXXXX", "X....", "X....", "XXX..", "X....", "X....", "X...."],
-    "C": [".XXXX", "X....", "X....", "X....", "X....", "X....", ".XXXX"],
+    "O": [".XXX.", "XX.XX", "X...X", "X...X", "X...X", "XX.XX", ".XXX."],
+    "R": ["XXXX.", "X..XX", "X...X", "XXXX.", "X.XX.", "X..XX", "X...X"],
+    "D": ["XXXX.", "X..XX", "X...X", "X...X", "X...X", "X..XX", "XXXX."],
+    "S": [".XXXX", "XX...", "XX...", ".XXX.", "...XX", "...XX", "XXXX."],
+    "F": ["XXXXX", "X....", "X....", "XXXX.", "X....", "X....", "X...."],
+    "C": [".XXXX", "XX...", "X....", "X....", "X....", "XX...", ".XXXX"],
     "H": ["X...X", "X...X", "X...X", "XXXXX", "X...X", "X...X", "X...X"],
-    "A": [".XXX.", "X...X", "X...X", "XXXXX", "X...X", "X...X", "X...X"],
-    " ": [".....", ".....", ".....", ".....", ".....", ".....", "....."],
+    "A": ["..X..", ".XXX.", "XX.XX", "X...X", "XXXXX", "X...X", "X...X"],
 }
 
 
-def px(im, x, y, col):
-    if 0 <= x < W and 0 <= y < H:
-        im.putpixel((x, y), (*col, 255))
-
-
-def rect(im, x0, y0, x1, y1, col):
-    ImageDraw.Draw(im).rectangle((x0, y0, x1, y1), fill=(*col, 255))
-
-
-def ellipse(im, box, fill=None, outline=None):
-    ImageDraw.Draw(im).ellipse(box, fill=(*fill, 255) if fill else None,
-                               outline=(*outline, 255) if outline else None)
-
-
-def poly(im, pts, col):
-    ImageDraw.Draw(im).polygon(pts, fill=(*col, 255))
-
-
-def text(im, s, x0, y0, scale, col, shadow=None):
-    x = x0
-    for ch in s:
-        rows = FONT[ch]
-        for ry, row in enumerate(rows):
-            for rx, c in enumerate(row):
-                if c == "X":
-                    for dy in range(scale):
-                        for dx in range(scale):
-                            if shadow:
-                                px(im, x + rx * scale + dx + 2,
-                                   y0 + ry * scale + dy + 2, shadow)
-                            px(im, x + rx * scale + dx, y0 + ry * scale + dy, col)
-        x += 6 * scale
-
-
-def dither(im, y0, y1, a, b, ratio_fn):
-    """Two-colour dithered band between palette colours a and b."""
-    for y in range(y0, y1):
-        r = ratio_fn(y)
-        for x in range(W):
-            if ((x * 7 + y * 13) % 16) / 15 < r:
-                px(im, x, y, b)
-            else:
-                px(im, x, y, a)
+def logo_word(cv: Canvas, word: str, x: int, y: int, s: int) -> int:
+    """Bevelled gold letters: light top edge, orange lower half, dark red
+    outline and a drop shadow. Returns the x after the word."""
+    mask = set()
+    cx = x
+    for ch in word:
+        if ch == " ":
+            cx += 3 * s
+            continue
+        for ry, row in enumerate(FONT[ch]):
+            for rx, v in enumerate(row):
+                if v == "X":
+                    for yy in range(s):
+                        for xx in range(s):
+                            mask.add((cx + rx * s + xx, y + ry * s + yy))
+        cx += 6 * s
+    top, bot = y, y + 7 * s
+    for (mx, my) in mask:                                   # shadow
+        for d in (1, 2, 3):
+            if (mx - d, my - d) not in mask:
+                cv.put(mx + d, my + d, C["dred"] if d < 3 else C["purple"])
+    for (mx, my) in mask:                                   # outline
+        for ox, oy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            if (mx + ox, my + oy) not in mask:
+                cv.put(mx + ox, my + oy, C["red"])
+    for (mx, my) in mask:                                   # fill
+        t = (my - top) / max(1, bot - top)
+        if (mx, my - 1) not in mask:
+            col = C["cream"]
+        elif t < 0.45:
+            col = C["yellow"]
+        elif t < 0.75:
+            col = C["orange"] if (mx + my) % 2 else C["yellow"]
+        else:
+            col = C["orange"]
+        cv.put(mx, my, col)
+    return cx
 
 
 def main() -> int:
-    im = Image.new("RGBA", (W, H), (0, 0, 0, 255))
-    rnd = random.Random(5)
+    rng = random.Random(7)
+    cv = Canvas()
+    stars(cv, rng)
+    vortex(cv, 236, 52, rng)
 
-    # night sky: three dithered bands, darker at the top
-    dither(im, 0, 40, C["black"], C["navy"], lambda y: 0.15)
-    dither(im, 40, 85, C["navy"], C["blue"], lambda y: (y - 40) / 45 * 0.5)
-    dither(im, 85, 130, C["blue"], C["mblue"], lambda y: (y - 85) / 45 * 0.7)
+    # back to front
+    cv.paste(creature("red_dragon", None, 4), 196, 2)
+    cv.paste(creature("giant_bat", "p2", 3, flip=True), 268, 70)
+    cv.paste(creature("troll", "p2", 4), 6, 92)
+    cv.paste(creature("zombie", "p2", 3), 58, 150)
+    cv.paste(creature("demon", "p2", 4, flip=True), 96, 82)
+    cv.paste(creature("centaur", "p1", 4), -26, 150)
+    cv.paste(creature("dwarf", "p1", 3), 112, 168)
+    wizard = creature("wizard", "p1", 6, flip=True)
+    cv.paste(wizard, 182, 96)
+    # the bolt leaves the staff tip (flipped tile: left side) at the demon,
+    # with two side branches and sparks where it strikes
+    bolt(cv, 209, 110, 146, 134, rng)
+    bolt(cv, 182, 118, 160, 160, rng)
+    bolt(cv, 170, 124, 128, 104, rng)
+    for (x, y, s) in [(146, 134, 5), (130, 124, 3), (156, 146, 3), (138, 112, 2),
+                      (209, 108, 3), (214, 84, 2), (120, 70, 2), (300, 140, 3),
+                      (40, 80, 2), (88, 140, 2), (110, 40 + 120, 2)]:
+        sparkle(cv, x, y, s, C["sky"])
 
-    # stars
-    for _ in range(90):
-        x, y = rnd.randrange(W), rnd.randrange(0, 120)
-        col = rnd.choice([C["white"], C["sky"], C["cream"]])
-        px(im, x, y, col)
-        if rnd.random() < 0.2:
-            px(im, x + 1, y, col)
+    end = logo_word(cv, "LORDS OF", 8, 6, 3)
+    logo_word(cv, "CHAOS", 8, 32, 5)
+    del end
 
-    # moon with a halo
-    for r, col in ((34, C["navy"]), (29, C["mblue"]), (25, C["blue"])):
-        ellipse(im, (250 - r, 38 - r, 250 + r, 38 + r), fill=col)
-    ellipse(im, (228, 16, 272, 60), fill=C["cream"])
-    ellipse(im, (234, 22, 252, 34), fill=C["white"])
-    ellipse(im, (256, 40, 266, 50), fill=C["grey"])
-    ellipse(im, (242, 46, 250, 54), fill=C["grey"])
-
-    # far hills
-    poly(im, [(0, 128), (60, 104), (130, 122), (200, 100), (320, 126),
-              (320, 150), (0, 150)], C["dgreen"])
-    poly(im, [(0, 140), (80, 120), (180, 138), (260, 118), (320, 140),
-              (320, 170), (0, 170)], C["black"])
-
-    # the tower on the right hill
-    rect(im, 236, 60, 268, 130, C["dgrey"])
-    for y in range(62, 130, 6):
-        for x in range(236, 268, 8):
-            rect(im, x + (3 if (y // 6) % 2 else 0), y, x + 6, y + 4, C["grey"])
-    for (wx, wy) in ((242, 76), (256, 90), (244, 104)):
-        rect(im, wx, wy, wx + 4, wy + 6, C["yellow"])
-        rect(im, wx + 1, wy + 1, wx + 2, wy + 2, C["orange"])
-    poly(im, [(232, 60), (252, 34), (272, 60)], C["purple"])   # roof
-    poly(im, [(232, 60), (252, 34), (252, 60)], C["violet"])
-    rect(im, 250, 26, 254, 36, C["dgrey"])                     # spire
-    ellipse(im, (248, 20, 256, 28), fill=C["yellow"])
-
-    # ground ledge
-    poly(im, [(0, 240), (0, 168), (70, 152), (180, 160), (320, 172), (320, 240)],
-         C["dgreen"])
-    for _ in range(140):                     # grass specks
-        x = rnd.randrange(W)
-        y = rnd.randrange(165, 240)
-        px(im, x, y, C["green"])
-    poly(im, [(0, 240), (0, 200), (110, 186), (240, 196), (320, 206), (320, 240)],
-         C["black"])
-
-    # glowing portal behind the wizard
-    for r, col in ((40, C["navy"]), (33, C["purple"]), (26, C["violet"]),
-                   (18, C["lviolet"])):
-        ellipse(im, (158 - r, 130 - r // 2 - r // 2, 158 + r,
-                     130 + r + r // 3), fill=col)
-    ellipse(im, (146, 112, 170, 152), fill=C["lviolet"])
-    ellipse(im, (152, 120, 164, 144), fill=C["magenta"])
-    for (x, y) in ((150, 118), (166, 132), (156, 142), (162, 116)):
-        px(im, x, y, C["white"])
-
-    # the wizard: big version of the in-game sprite (violet robe)
-    wx, wy = 84, 168                          # feet position
-    poly(im, [(wx - 26, wy), (wx - 14, wy - 52), (wx + 14, wy - 52),
-              (wx + 26, wy)], C["magenta"])   # robe
-    poly(im, [(wx + 2, wy - 52), (wx + 14, wy - 52), (wx + 26, wy),
-              (wx + 10, wy)], C["violet"])
-    rect(im, wx - 10, wy - 74, wx + 10, wy - 52, C["skin"])          # head
-    poly(im, [(wx - 10, wy - 58), (wx + 10, wy - 58), (wx, wy - 44)], C["white"])
-    px(im, wx - 4, wy - 68, C["black"])
-    px(im, wx + 4, wy - 68, C["black"])
-    poly(im, [(wx - 2, wy - 96), (wx + 22, wy - 74), (wx - 22, wy - 74)],
-         C["magenta"])                        # hat
-    poly(im, [(wx - 2, wy - 96), (wx + 22, wy - 74), (wx + 4, wy - 74)],
-         C["violet"])
-    rect(im, wx - 24, wy - 76, wx + 24, wy - 74, C["violet"])         # brim
-    px(im, wx + 6, wy - 90, C["yellow"])
-    rect(im, wx + 28, wy - 64, wx + 31, wy - 50, C["skin"])           # hand
-    rect(im, wx + 30, wy - 120, wx + 34, wy - 46, C["wood"])          # staff
-    ellipse(im, (wx + 24, wy - 132, wx + 40, wy - 116), fill=C["lviolet"])
-    ellipse(im, (wx + 28, wy - 128, wx + 36, wy - 120), fill=C["white"])
-    rect(im, wx - 20, wy - 4, wx - 12, wy, C["dbrown"])               # feet
-    rect(im, wx + 10, wy - 4, wx + 18, wy, C["dbrown"])
-    # staff light spills onto the robe
-    for i in range(6):
-        px(im, wx + 26 - i, wy - 60 + i * 4, C["lviolet"])
-
-    # title block
-    text(im, "LORDS OF CHAOS", 32, 12, 3, C["gold"], C["black"])
-    text(im, "LORDS OF CHAOS", 34, 14, 3, C["yellow"], None)
-    for x in range(16, 304, 8):               # separator
-        px(im, x, 42, C["gold"])
-        px(im, x + 1, 42, C["dbrown"])
-
-    # frame
-    ImageDraw.Draw(im).rectangle((0, 0, W - 1, H - 1), outline=(*C["black"], 255))
-    ImageDraw.Draw(im).rectangle((2, 2, W - 3, H - 3), outline=(*C["dgreen"], 255))
-
-    # palette guard (build_title checks again, fail early here)
-    for y in range(H):
+    # the bottom row stays dark for "- Taste druecken -"
+    for y in range(222, H):
         for x in range(W):
-            r, g, b, a = im.getpixel((x, y))
-            if a not in (0, 255) or (a and (r, g, b) not in PALETTE):
-                raise SystemExit(f"colour {(r, g, b, a)} at {x},{y} not allowed")
+            if cv.px[x, y][:3] != (0, 0, 0) and y > 225:
+                cv.px[x, y] = (0, 0, 0, 255)
 
+    out = cv.im.convert("RGB")
+    for (r, g, b) in out.get_flattened_data():
+        if (r, g, b) not in PALETTE:
+            raise SystemExit(f"colour {(r, g, b)} not in the Agon palette")
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    im.save(OUT)
-    print(f"[title] {OUT.relative_to(ROOT)} ({W}x{H})")
+    out.convert("RGBA").save(OUT)
+    out.resize((W * 3, H * 3), Image.NEAREST).save(ROOT / "build" / "title_preview.png")
+    print(f"[title] {OUT.relative_to(ROOT).as_posix()} (preview: build/title_preview.png)")
     return 0
 
 

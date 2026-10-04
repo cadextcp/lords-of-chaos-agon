@@ -67,8 +67,6 @@ const char *name_decor(uint8_t decor)
 const char *name_object(uint16_t tile)
 {
     uint8_t k;
-    if (tile == T_OBJ_VIAL_FULL)
-        return "Phiole (voll)";          /* one tile for all filled vials */
     for (k = 0; k < OBJ_COUNT; k++)
         if (OBJECTS[k].tile == tile)
             return OBJECTS[k].name;      /* German name from objects.csv */

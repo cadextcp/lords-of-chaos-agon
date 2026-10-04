@@ -1,29 +1,89 @@
-# Title theme (M5d) - own composition in the spirit of a Chaos-titled
-# fantasy game (D7: nothing copied). A minor, 4 phrases of 8 eighths.
-#
-# Format (tools/gen_music.py):
-#   tempo <quarter notes per minute>
-#   channel <waveform: square|triangle|sawtooth|sine>
-#   <note>:<eighths> ...  notes like a4, gs4, cb5, r = rest
-#
-# Channel 1 plays the lead, 2 the bass, 3 a soft arpeggio (see music.c).
+# Title and menu theme (polish round) - own composition (D7: nothing
+# copied). A minor, 16 bars in two halves, loops under the menu.
+#   A: Am  F  C  G  | Am F  E  E
+#   B: Dm  Am F  E  | Dm Am E  Am
+# Lead = plucked string sample, bass = triangle, a quiet sine harmony
+# with rests on the beat, and a drum sample (see tools/gen_sfx.py).
+# Format: tools/gen_music.py. One unit = one eighth note, 8 per bar.
 
 tempo 96
+loop
 
-channel square
-a4:2 a4:2 c5:2 b4:2 a4:4 e4:4
-a4:2 a4:2 d5:2 c5:2 b4:4 gs4:4
-e5:2 e5:2 f5:2 e5:2 d5:4 c5:4
-b4:2 c5:2 b4:2 gs4:2 a4:8
+channel pluck 100
+fallback square
+env 4 120 90 80
+# A
+a4:3 c5:1 e5:2 a5:2
+g5:2 f5:2 e5:2 c5:2
+e5:3 d5:1 c5:2 g4:2
+b4:2 d5:2 g5:4
+a4:3 c5:1 e5:2 a5:2
+c6:2 a5:2 f5:2 a5:2
+gs5:3 f5:1 e5:2 d5:2
+e5:4 r:2 b4:2
+# B
+d5:2 f5:2 a5:3 g5:1
+e5:4 c5:2 a4:2
+f5:2 a5:2 c6:3 a5:1
+gs5:4 b5:2 e5:2
+f5:2 e5:2 d5:2 f5:2
+e5:2 c5:2 a4:4
+b4:2 d5:2 gs5:2 b5:2
+a5:6 r:2
 
-channel triangle
-a2:4 e3:4 f2:4 c3:4
-g2:4 d3:4 e2:4 e2:4
-a2:4 e3:4 f2:4 c3:4
-g2:4 e2:4 a2:8
+channel triangle 75
+env 8 80 200 60
+a2:2 e3:2 a2:2 e3:2
+f2:2 c3:2 f2:2 c3:2
+c3:2 g2:2 c3:2 g2:2
+g2:2 d3:2 g2:2 d3:2
+a2:2 e3:2 a2:2 e3:2
+f2:2 c3:2 f2:2 c3:2
+e2:2 b2:2 e2:2 b2:2
+e2:2 b2:2 e2:2 b2:2
+d3:2 a2:2 d3:2 a2:2
+a2:2 e3:2 a2:2 e3:2
+f2:2 c3:2 f2:2 c3:2
+e2:2 b2:2 e2:2 b2:2
+d3:2 a2:2 d3:2 a2:2
+a2:2 e3:2 a2:2 e3:2
+e2:2 b2:2 e2:2 b2:2
+a2:2 e3:2 a2:4
 
-channel sine
-a3:2 c4:2 e4:2 c4:2 a3:2 c4:2 e4:2 c4:2
-f3:2 a3:2 c4:2 a3:2 g3:2 b3:2 d4:2 b3:2
-a3:2 c4:2 e4:2 c4:2 a3:2 c4:2 e4:2 c4:2
-e3:2 gs3:2 b3:2 gs3:2 a3:2 c4:2 e4:2 c4:2
+channel sine 38
+env 30 100 160 80
+r:2 a3:1 c4:1 e4:2 c4:2
+r:2 f3:1 a3:1 c4:2 a3:2
+r:2 g3:1 c4:1 e4:2 c4:2
+r:2 g3:1 b3:1 d4:2 b3:2
+r:2 a3:1 c4:1 e4:2 c4:2
+r:2 f3:1 a3:1 c4:2 a3:2
+r:2 gs3:1 b3:1 e4:2 b3:2
+r:2 gs3:1 b3:1 e4:2 b3:2
+r:2 f3:1 a3:1 d4:2 a3:2
+r:2 a3:1 c4:1 e4:2 c4:2
+r:2 f3:1 a3:1 c4:2 a3:2
+r:2 gs3:1 b3:1 e4:2 b3:2
+r:2 f3:1 a3:1 d4:2 a3:2
+r:2 a3:1 c4:1 e4:2 c4:2
+r:2 gs3:1 b3:1 e4:2 b3:2
+r:2 a3:1 c4:1 e4:4
+
+channel drum 60
+fallback noise
+c2:2 g3:2 c2:1 c2:1 g3:2
+c2:2 g3:2 c2:1 c2:1 g3:2
+c2:2 g3:2 c2:1 c2:1 g3:2
+c2:2 g3:2 c2:1 c2:1 g3:2
+c2:2 g3:2 c2:1 c2:1 g3:2
+c2:2 g3:2 c2:1 c2:1 g3:2
+c2:2 g3:2 c2:1 c2:1 g3:2
+c2:2 g3:1 g3:1 a3:1 a3:1 c4:2
+c2:2 g3:2 c2:1 c2:1 g3:2
+c2:2 g3:2 c2:1 c2:1 g3:2
+c2:2 g3:2 c2:1 c2:1 g3:2
+c2:2 g3:2 c2:1 c2:1 g3:2
+c2:2 g3:2 c2:1 c2:1 g3:2
+c2:2 g3:2 c2:1 c2:1 g3:2
+c2:2 g3:2 c2:1 c2:1 g3:2
+c2:2 g3:1 g3:1 a3:1 a3:1 c4:2

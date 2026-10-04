@@ -52,6 +52,14 @@ static void init_unit(Unit *u, uint8_t x, uint8_t y, uint8_t kind, uint8_t owner
     u->in_use = NO_ITEM;
     u->rider_kind = 0xFF;
     u->post_x = u->post_y = 0xFF;
+    u->grudge = 0;
+    u->herd_dir = 0;
+    u->travel = 0;
+    u->group = 0;
+    u->alarm = 0;
+    u->alarm_charge = 0;
+    u->alarm_x = u->alarm_y = 0;
+    u->alarm_owner = OWN_NEUTRAL;
 }
 
 bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
@@ -81,6 +89,7 @@ bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
     n = b[pos++];
     if (n > MAX_UNITS || len < pos + 4u * n + 1u)
         return false;
+    w->disturb_n = 0;                    /* a new map: no old trouble */
     for (i = 0; i < n; i++) {
         const uint8_t *u = &b[pos + 4u * i];
         if (u[0] >= mw || u[1] >= mh || u[2] >= CR_COUNT || u[3] >= OWN_COUNT)
@@ -217,6 +226,11 @@ bool world_blocks_sight(const World *w, int16_t x, int16_t y)
 /* Eight blocking flags of one row packed into a byte (x -> MSB); fields
  * beyond the map read as clear. Lets callers build bitmaps a byte at a
  * time instead of paying per-field indexing (sight.c, M2d). */
+bool world_feature_blocks_sight(const World *w, uint8_t x, uint8_t y)
+{
+    return FEATURE_SIGHT[w->feature[y][x]];
+}
+
 uint8_t world_sight_byte(const World *w, uint8_t y, uint8_t x)
 {
     const uint8_t *fl = w->floor[y], *fe = w->feature[y];
@@ -280,15 +294,23 @@ void world_spend(World *w, uint8_t unit, uint8_t ap)
     u->sta = u->sta > st ? (uint8_t)(u->sta - st) : 0;
 }
 
+void world_delta(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1,
+                 int16_t *dx, int16_t *dy)
+{
+    *dx = (int16_t)(x1 - x0);
+    *dy = (int16_t)(y1 - y0);
+    if (w->wrap) {
+        if (*dx > w->w / 2) *dx = (int16_t)(*dx - w->w);
+        if (*dx < -w->w / 2) *dx = (int16_t)(*dx + w->w);
+        if (*dy > w->h / 2) *dy = (int16_t)(*dy - w->h);
+        if (*dy < -w->h / 2) *dy = (int16_t)(*dy + w->h);
+    }
+}
+
 uint8_t world_distance(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1)
 {
-    int16_t dx = (int16_t)(x1 - x0), dy = (int16_t)(y1 - y0);
-    if (w->wrap) {
-        if (dx > w->w / 2) dx = (int16_t)(dx - w->w);
-        if (dx < -w->w / 2) dx = (int16_t)(dx + w->w);
-        if (dy > w->h / 2) dy = (int16_t)(dy - w->h);
-        if (dy < -w->h / 2) dy = (int16_t)(dy + w->h);
-    }
+    int16_t dx, dy;
+    world_delta(w, x0, y0, x1, y1, &dx, &dy);
     if (dx < 0) dx = (int16_t)-dx;
     if (dy < 0) dy = (int16_t)-dy;
     return (uint8_t)(dx > dy ? dx : dy);
@@ -319,6 +341,29 @@ uint8_t world_spawn_unit(World *w, uint8_t owner, uint8_t kind, uint8_t x, uint8
     u->id = w->next_id++;
     u->done = false;
     return w->unit_count++;
+}
+
+void world_provoke(World *w, uint8_t unit, uint8_t attacker_owner)
+{
+    if (unit < w->unit_count && attacker_owner < OWN_NEUTRAL &&
+        w->units[unit].owner == OWN_NEUTRAL)
+        w->units[unit].grudge |= (uint8_t)(1u << attacker_owner);
+}
+
+void world_disturb(World *w, int16_t x, int16_t y, uint8_t owner)
+{
+    uint8_t i;
+    if (!world_wrap(w, &x, &y))
+        return;
+    for (i = 0; i < w->disturb_n; i++)    /* one entry per field is enough */
+        if (w->disturb[i][0] == x && w->disturb[i][1] == y)
+            return;
+    if (w->disturb_n >= WORLD_DISTURB)
+        return;
+    w->disturb[w->disturb_n][0] = (uint8_t)x;
+    w->disturb[w->disturb_n][1] = (uint8_t)y;
+    w->disturb[w->disturb_n][2] = owner;
+    w->disturb_n++;
 }
 
 void world_remove_unit(World *w, uint8_t unit)
