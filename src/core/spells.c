@@ -200,6 +200,7 @@ static bool pay_for_spell(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
     w->units[wiz].mana = (uint8_t)(w->units[wiz].mana - mana);
     b->level[spell] = (uint8_t)(level - 1);
     events_push(EV_SPELL, x, y, spell, w->units[wiz].owner, 0, 0);
+    world_disturb(w, x, y, w->units[wiz].owner);   /* magic scares (D37) */
     return true;
 }
 

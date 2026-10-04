@@ -376,8 +376,184 @@ static void wild_herd(World *w, Rng *rng, uint8_t unit)
     }
 }
 
+/* ---------- scared animals (D37) ---------- */
+
+#define ALARM_RADIUS 4     /* an aggressive act scares animals this close */
+#define ALARM_ROUNDS 3     /* they stay alarmed this long */
+#define CHARGE_PERCENT 20  /* else they flee */
+
+static uint8_t group_of(const Unit *u)
+{
+    return u->group ? u->group : u->id;
+}
+
+/* Every disturbance of the round scares the peaceful and herd animals
+ * nearby. One roll per group - the herd follows its leader: all charge
+ * the disturber or all flee. */
+static void resolve_disturbances(World *w, Rng *rng)
+{
+    uint8_t d, i, k, nd = 0;
+    uint8_t decided[MAX_UNITS];
+    for (d = 0; d < w->disturb_n; d++) {
+        uint8_t dx = w->disturb[d][0], dy = w->disturb[d][1], who = w->disturb[d][2];
+        for (i = 0; i < w->unit_count; i++) {
+            const Unit *u = &w->units[i];
+            uint8_t g, wild, j;
+            bool seen = false, charge;
+            if (u->owner != OWN_NEUTRAL || u->alarm)
+                continue;
+            wild = CREATURES[u->kind].wild;
+            if (wild != WILD_PEACEFUL && wild != WILD_HERD)
+                continue;                 /* monsters and territorials: own rules */
+            if (world_distance(w, u->x, u->y, dx, dy) > ALARM_RADIUS)
+                continue;
+            g = group_of(u);
+            for (j = 0; j < nd; j++)
+                if (decided[j] == g)
+                    seen = true;
+            if (seen)
+                continue;
+            decided[nd++] = g;
+            /* attacked themselves, they defend (D35); otherwise one roll */
+            charge = who < OWN_NEUTRAL &&
+                     ((u->grudge & (1u << who)) ||
+                      rng_range(rng, 100) < CHARGE_PERCENT);
+            for (k = 0; k < w->unit_count; k++) {
+                Unit *m = &w->units[k];
+                if (m->owner != OWN_NEUTRAL || group_of(m) != g)
+                    continue;
+                m->alarm = ALARM_ROUNDS;
+                m->alarm_charge = charge ? 1 : 0;
+                m->alarm_x = dx;
+                m->alarm_y = dy;
+                m->alarm_owner = who;
+            }
+        }
+    }
+    w->disturb_n = 0;
+}
+
+/* One rushing step. An elephant tramples: whoever stands in the way (not
+ * another elephant) takes 2w6 and, if he falls, the elephant moves on;
+ * tall grass under its feet is flattened. Returns the unit's new index,
+ * NO_UNIT when it did not move. */
+static uint8_t rush_step(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
+{
+    uint8_t id = w->units[unit].id;
+    bool elephant = w->units[unit].kind == CR_ELEPHANT;
+    if (!world_move_unit(w, unit, dx, dy)) {
+        int16_t nx = (int16_t)(w->units[unit].x + dx), ny = (int16_t)(w->units[unit].y + dy);
+        uint8_t victim;
+        if (!elephant || !world_wrap(w, &nx, &ny))
+            return NO_UNIT;
+        victim = world_unit_at(w, nx, ny, UL_GROUND);
+        if (victim == NO_UNIT || w->units[victim].kind == CR_ELEPHANT)
+            return NO_UNIT;
+        combat_damage(w, victim,
+                      (uint8_t)(2 + rng_range(rng, 6) + rng_range(rng, 6)),
+                      CR_ELEPHANT, OWN_NEUTRAL, false, NULL, false);
+        unit = world_find_unit(w, id);
+        if (unit == NO_UNIT || !world_move_unit(w, unit, dx, dy))
+            return NO_UNIT;
+    }
+    unit = world_find_unit(w, id);
+    if (unit != NO_UNIT && elephant) {
+        uint8_t x = w->units[unit].x, y = w->units[unit].y;
+        if (w->floor[y][x] == FL_TALL_GRASS) {   /* trampled flat */
+            w->floor[y][x] = FL_GRASS;
+            world_map_changed(w);
+        }
+    }
+    return unit;
+}
+
+/* Flee: three steps straight away from the trouble, or else to the
+ * neighbour farthest from it. */
+static void flee(World *w, Rng *rng, uint8_t unit)
+{
+    uint8_t steps, id = w->units[unit].id;
+    for (steps = 0; steps < 3; steps++) {
+        uint8_t d, best = 0xFF, best_dist = 0, start = (uint8_t)rng_range(rng, WILD_DIRS);
+        Unit *u;
+        unit = world_find_unit(w, id);
+        if (unit == NO_UNIT)
+            return;
+        u = &w->units[unit];
+        {   /* straight away first - a stampede runs through */
+            int16_t ax, ay;
+            int8_t sx, sy;
+            uint8_t moved;
+            world_delta(w, u->alarm_x, u->alarm_y, u->x, u->y, &ax, &ay);
+            sx = (int8_t)(ax > 0 ? 1 : (ax < 0 ? -1 : 0));
+            sy = (int8_t)(ay > 0 ? 1 : (ay < 0 ? -1 : 0));
+            if (sx == 0 && sy == 0)
+                sx = (int8_t)(rng_range(rng, 2) ? 1 : -1);
+            moved = rush_step(w, rng, unit, sx, sy);
+            if (moved != NO_UNIT)
+                continue;
+            unit = world_find_unit(w, id);
+            if (unit == NO_UNIT)
+                return;
+            u = &w->units[unit];
+        }
+        for (d = 0; d < WILD_DIRS; d++) {
+            uint8_t dd = (uint8_t)((start + d) % WILD_DIRS);
+            int16_t nx = (int16_t)(u->x + WDX[dd]), ny = (int16_t)(u->y + WDY[dd]);
+            uint8_t dist;
+            if (!world_wrap(w, &nx, &ny))
+                continue;
+            dist = world_distance(w, nx, ny, u->alarm_x, u->alarm_y);
+            if (dist > best_dist) {
+                best_dist = dist;
+                best = dd;
+            }
+        }
+        if (best == 0xFF || rush_step(w, rng, unit, WDX[best], WDY[best]) == NO_UNIT)
+            return;
+    }
+}
+
+/* Charge: run at the nearest unit of the disturber and attack it. */
+static void charge(World *w, Rng *rng, uint8_t unit)
+{
+    uint8_t steps, id = w->units[unit].id;
+    uint8_t mask = (uint8_t)(1u << w->units[unit].alarm_owner);
+    for (steps = 0; steps < 3; steps++) {
+        uint8_t foe, prey;
+        CombatResult r;
+        int8_t dx, dy;
+        unit = world_find_unit(w, id);
+        if (unit == NO_UNIT)
+            return;
+        foe = nearest_masked(w, unit, 1, mask, 0, 0, 0xFF);
+        if (foe != NO_UNIT) {
+            if (!combat_melee(w, rng, unit, foe, &r) || r.died || r.attacker_died)
+                return;
+            continue;
+        }
+        prey = nearest_masked(w, unit, SIGHT_GROUND, mask, 0, 0, 0xFF);
+        if (prey == NO_UNIT) {
+            flee(w, rng, unit);           /* lost sight of him: run off */
+            return;
+        }
+        dx = w->units[prey].x > w->units[unit].x ? 1 : (w->units[prey].x < w->units[unit].x ? -1 : 0);
+        dy = w->units[prey].y > w->units[unit].y ? 1 : (w->units[prey].y < w->units[unit].y ? -1 : 0);
+        if (rush_step(w, rng, unit, dx, dy) == NO_UNIT &&
+            !ai_step_toward(w, rng, unit, w->units[prey].x, w->units[prey].y))
+            return;
+    }
+}
+
 static void ai_wild(World *w, Rng *rng, uint8_t unit)
 {
+    if (w->units[unit].alarm) {           /* scared (D37) */
+        w->units[unit].alarm--;
+        if (w->units[unit].alarm_charge && w->units[unit].alarm_owner < OWN_NEUTRAL)
+            charge(w, rng, unit);
+        else
+            flee(w, rng, unit);
+        return;
+    }
     if (w->units[unit].herd_dir) {
         wild_herd(w, rng, unit);
         return;
@@ -395,6 +571,8 @@ static void ai_wild(World *w, Rng *rng, uint8_t unit)
 void ai_run_hunters(World *w, Rng *rng, uint8_t owner, uint8_t skip_id)
 {
     uint8_t ids[MAX_UNITS], n = 0, i;
+    if (owner == OWN_NEUTRAL)             /* the round's trouble scares (D37) */
+        resolve_disturbances(w, rng);
     for (i = 0; i < w->unit_count; i++)
         if (w->units[i].owner == owner && w->units[i].id != skip_id)
             ids[n++] = w->units[i].id;

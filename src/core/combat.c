@@ -29,6 +29,7 @@ bool combat_damage(World *w, uint8_t target, uint8_t damage, uint8_t killer_kind
     Unit *u = &w->units[target];
     bool wounded = damage > u->con_max / 4;   /* fatal wound (PM 17) */
     world_provoke(w, target, killer_owner);
+    world_disturb(w, u->x, u->y, killer_owner);    /* D37 */
     if (wound)
         *wound = wounded;
     events_push(EV_HIT, u->x, u->y, u->kind, u->owner, damage, crit ? 1 : 0);
@@ -75,6 +76,7 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
 
     world_spend(w, att, ACTIONS[ACT_MELEE].ap);
     world_provoke(w, def, a->owner);       /* even a miss angers an animal */
+    world_disturb(w, d->x, d->y, a->owner);
     world_engage(w, att);                  /* melee contact binds both (GDD 6) */
     world_engage(w, def);
     events_push(EV_SWING, d->x, d->y, a->kind, a->owner, 0, 0);

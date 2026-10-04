@@ -55,6 +55,11 @@ static void init_unit(Unit *u, uint8_t x, uint8_t y, uint8_t kind, uint8_t owner
     u->grudge = 0;
     u->herd_dir = 0;
     u->travel = 0;
+    u->group = 0;
+    u->alarm = 0;
+    u->alarm_charge = 0;
+    u->alarm_x = u->alarm_y = 0;
+    u->alarm_owner = OWN_NEUTRAL;
 }
 
 bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
@@ -84,6 +89,7 @@ bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
     n = b[pos++];
     if (n > MAX_UNITS || len < pos + 4u * n + 1u)
         return false;
+    w->disturb_n = 0;                    /* a new map: no old trouble */
     for (i = 0; i < n; i++) {
         const uint8_t *u = &b[pos + 4u * i];
         if (u[0] >= mw || u[1] >= mh || u[2] >= CR_COUNT || u[3] >= OWN_COUNT)
@@ -342,6 +348,22 @@ void world_provoke(World *w, uint8_t unit, uint8_t attacker_owner)
     if (unit < w->unit_count && attacker_owner < OWN_NEUTRAL &&
         w->units[unit].owner == OWN_NEUTRAL)
         w->units[unit].grudge |= (uint8_t)(1u << attacker_owner);
+}
+
+void world_disturb(World *w, int16_t x, int16_t y, uint8_t owner)
+{
+    uint8_t i;
+    if (!world_wrap(w, &x, &y))
+        return;
+    for (i = 0; i < w->disturb_n; i++)    /* one entry per field is enough */
+        if (w->disturb[i][0] == x && w->disturb[i][1] == y)
+            return;
+    if (w->disturb_n >= WORLD_DISTURB)
+        return;
+    w->disturb[w->disturb_n][0] = (uint8_t)x;
+    w->disturb[w->disturb_n][1] = (uint8_t)y;
+    w->disturb[w->disturb_n][2] = owner;
+    w->disturb_n++;
 }
 
 void world_remove_unit(World *w, uint8_t unit)

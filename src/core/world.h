@@ -14,6 +14,7 @@
 #define MAP_MAX_H 36
 #define MAX_UNITS 32
 #define MAX_OBJECTS 64
+#define WORLD_DISTURB 6
 #define NO_UNIT 0xFF
 #define MAX_KILLS 16
 
@@ -76,6 +77,11 @@ typedef struct {
     uint8_t grudge;           /* wild animals (D35): owners that attacked it */
     uint8_t herd_dir;         /* crossing herd: direction 1..8, 0 = none */
     uint8_t travel;           /* crossing herd: fields walked so far */
+    uint8_t group;            /* herd: the leader's id (0 = alone) */
+    uint8_t alarm;            /* alarmed for this many rounds (D37) */
+    uint8_t alarm_charge;     /* 1 = attack the disturber, 0 = flee */
+    uint8_t alarm_x, alarm_y; /* where the trouble was */
+    uint8_t alarm_owner;      /* who caused it */
     bool done;                /* finished for this phase (space, turn.h) */
     Effect effects[UNIT_EFFECTS];   /* timed, tick at the round end (M4b) */
 } Unit;
@@ -99,6 +105,10 @@ typedef struct {
     uint8_t decor[MAP_MAX_H][MAP_MAX_W];
     uint8_t feature[MAP_MAX_H][MAP_MAX_W];
     Unit units[MAX_UNITS];
+    /* aggressive acts this round (D37): x, y, owner - the independents'
+     * phase scares the animals nearby */
+    uint8_t disturb_n;
+    uint8_t disturb[WORLD_DISTURB][3];
     uint8_t unit_count;
     Object objects[MAX_OBJECTS];
     uint8_t object_count;
@@ -176,6 +186,9 @@ void world_spend(World *w, uint8_t unit, uint8_t ap);
 void world_remove_unit(World *w, uint8_t unit);
 /* A wild animal (D35) remembers who attacked it and fights back. */
 void world_provoke(World *w, uint8_t unit, uint8_t attacker_owner);
+/* Note an aggressive act at (x, y) by owner (D37); a full list keeps the
+ * first ones. */
+void world_disturb(World *w, int16_t x, int16_t y, uint8_t owner);
 /* A unit dies by someone's hand: its carried objects drop onto its
  * field (D21), the kill is logged for the VP account (game_credit_kills)
  * unless the killer is independent, then the unit is removed. Killer kind and owner are passed by value - the killer itself

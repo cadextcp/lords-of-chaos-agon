@@ -152,7 +152,7 @@ static bool herd_out(const World *w)
 
 bool populate_herd(World *w, Rng *rng, uint8_t round)
 {
-    uint8_t dir, kind, size, placed = 0, k, tries;
+    uint8_t dir, kind, size, placed = 0, k, tries, leader = 0;
     int16_t x0, y0;
     if (round < HERD_FIRST_ROUND || herd_out(w))
         return false;
@@ -177,7 +177,7 @@ bool populate_herd(World *w, Rng *rng, uint8_t round)
         x0 = (int16_t)rng_range(rng, w->w);
         y0 = (int16_t)(w->h - 1);
     }
-    /* the herd enters side by side along the edge */
+    /* the herd enters side by side along the edge; the first one leads */
     for (k = 0, tries = 0; placed < size && tries < 12; tries++, k++) {
         int16_t off = (int16_t)((k & 1) ? -(int16_t)((k + 1) / 2) : (int16_t)(k / 2));
         int16_t x = (int16_t)(x0 + (DIR_X[dir] == 0 ? off : 0));
@@ -190,6 +190,9 @@ bool populate_herd(World *w, Rng *rng, uint8_t round)
             break;
         w->units[slot].herd_dir = (uint8_t)(dir + 1);
         w->units[slot].travel = 0;
+        if (!placed)
+            leader = w->units[slot].id;
+        w->units[slot].group = leader;
         placed++;
     }
     return placed > 0;

@@ -1174,6 +1174,63 @@ static void test_wild(void)
               "pickup: the apple next door is taken");
     }
 
+    /* scared animals (D37): one roll per herd, all alike */
+    world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+    strip_neutrals();
+    {
+        uint8_t e1 = world_spawn_unit(&world, OWN_NEUTRAL, CR_ELEPHANT, 24, 12);
+        uint8_t lead = world.units[e1].id, k, alarmed = 0, same = 1;
+        uint8_t e2 = world_spawn_unit(&world, OWN_NEUTRAL, CR_ELEPHANT, 25, 12);
+        uint8_t e3 = world_spawn_unit(&world, OWN_NEUTRAL, CR_ELEPHANT, 26, 12);
+        uint8_t mode, d0;
+        world.units[e1].group = world.units[e2].group = world.units[e3].group = lead;
+        world_disturb(&world, 22, 12, OWN_P1);
+        rng_seed(&r, 21);
+        d0 = world_distance(&world, 25, 12, 22, 12);
+        ai_run_hunters(&world, &r, OWN_NEUTRAL, NO_UNIT);
+        mode = world.units[world_find_unit(&world, lead)].alarm_charge;
+        for (k = 0; k < world.unit_count; k++)
+            if (world.units[k].kind == CR_ELEPHANT) {
+                if (world.units[k].alarm)
+                    alarmed++;
+                if (world.units[k].alarm_charge != mode)
+                    same = 0;
+            }
+        check(alarmed == 3 && same && world.disturb_n == 0,
+              "d37: the whole herd is scared and acts alike");
+        if (!mode)
+            check(world_distance(&world, world.units[world_find_unit(&world, lead)].x,
+                                 world.units[world_find_unit(&world, lead)].y,
+                                 22, 12) > d0 - 1,
+                  "d37: fleeing, the leader runs away from the trouble");
+    }
+    {   /* a charging elephant tramples whoever is in the way */
+        uint8_t e, g, gid, k;
+        world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+        strip_neutrals();
+        for (k = 0; k < world.unit_count; k++)
+            if (world.units[k].owner == OWN_P2)
+                world.units[k].x = 30, world.units[k].y = 20;
+        e = world_spawn_unit(&world, OWN_NEUTRAL, CR_ELEPHANT, 20, 12);
+        g = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 21, 12);
+        gid = world.units[g].id;
+        world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 23, 12);
+        world.units[e].alarm = 3;
+        world.units[e].alarm_charge = 0;     /* fleeing east, from x = 17 */
+        world.units[e].alarm_x = 17;
+        world.units[e].alarm_y = 12;
+        world.units[e].alarm_owner = OWN_P1;
+        rng_seed(&r, 4);
+        events_reset();
+        world_new_turn(&world);
+        ai_run_hunters(&world, &r, OWN_NEUTRAL, NO_UNIT);
+        g = world_find_unit(&world, gid);
+        check(g == NO_UNIT || world.units[g].con < world.units[g].con_max ||
+              world.units[g].x != 21,
+              "d37: the stampeding elephant tramples the goblin");
+        events_reset();
+    }
+
     /* spells reach through tall grass, eyes do not (D36) */
     world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
     check(world.floor[17][12] == FL_TALL_GRASS &&
