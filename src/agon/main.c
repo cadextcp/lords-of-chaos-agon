@@ -120,7 +120,7 @@ static uint8_t target_cursor_colour(void)
     }
     if (dx > SPELL_RANGE || dx < -SPELL_RANGE || dy > SPELL_RANGE || dy < -SPELL_RANGE)
         return CURSOR_RED;
-    if (!sight_has_los(&world, u->x, u->y, target_x, target_y))
+    if (!sight_has_spell_los(&world, u->x, u->y, target_x, target_y))
         return CURSOR_RED;
     if (world_unit_at(&world, target_x, target_y, UL_AIR) != NO_UNIT)
         return CURSOR_BLUE;

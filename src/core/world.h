@@ -135,6 +135,8 @@ bool world_blocks_sight(const World *w, int16_t x, int16_t y);
 /* Same test for coordinates already normalised inside the map (ray fast
  * path; see world.c). */
 bool world_blocks_sight_at(const World *w, uint8_t x, uint8_t y);
+/* Only the feature on (x, y) (wall, tree, closed door ...) blocks sight. */
+bool world_feature_blocks_sight(const World *w, uint8_t x, uint8_t y);
 /* Roof of the field (v4 maps): blocks sight and landing (GDD 3.2). */
 bool world_has_roof(const World *w, int16_t x, int16_t y);
 /* Eight blocking flags of row y starting at column x, packed MSB-first;

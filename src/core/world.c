@@ -220,6 +220,11 @@ bool world_blocks_sight(const World *w, int16_t x, int16_t y)
 /* Eight blocking flags of one row packed into a byte (x -> MSB); fields
  * beyond the map read as clear. Lets callers build bitmaps a byte at a
  * time instead of paying per-field indexing (sight.c, M2d). */
+bool world_feature_blocks_sight(const World *w, uint8_t x, uint8_t y)
+{
+    return FEATURE_SIGHT[w->feature[y][x]];
+}
+
 uint8_t world_sight_byte(const World *w, uint8_t y, uint8_t x)
 {
     const uint8_t *fl = w->floor[y], *fe = w->feature[y];

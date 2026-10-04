@@ -229,7 +229,7 @@ bool spell_bolt(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
     if (wiz >= w->unit_count || !world_wrap(w, &x, &y))
         return false;
     u = &w->units[wiz];
-    if (!in_range(w, u, x, y) || !sight_has_los(w, u->x, u->y, x, y))
+    if (!in_range(w, u, x, y) || !sight_has_spell_los(w, u->x, u->y, x, y))
         return false;
     {
         uint8_t before = w->unit_count;
@@ -310,7 +310,7 @@ static bool resist_roll(Rng *rng, uint8_t level, uint8_t mr, int8_t bonus)
 static bool reachable(const World *w, const Unit *u, int16_t *x, int16_t *y)
 {
     return world_wrap(w, x, y) && in_range(w, u, *x, *y) &&
-           sight_has_los(w, u->x, u->y, *x, *y);
+           sight_has_spell_los(w, u->x, u->y, *x, *y);
 }
 
 /* Find a free, non-massive landing field near (x, y) for Teleport. */
@@ -345,7 +345,7 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
 
     case SP_MAGIC_EYE:                 /* sight from a point, one round */
         if (!world_wrap(w, &x, &y) || !in_range(w, u, x, y) ||
-            !sight_has_los(w, u->x, u->y, x, y))
+            !sight_has_spell_los(w, u->x, u->y, x, y))
             return CAST_REJECTED;
         pay_for_spell(w, b, wiz, spell, x, y);
         out->allowed = true;
