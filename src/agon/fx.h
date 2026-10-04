@@ -20,6 +20,9 @@ void fx_init(void);
  * caller hides the unit in the view meanwhile, view_hide_unit). */
 void fx_glide(uint16_t tile, int16_t vx0, int16_t vy0, int16_t vx1, int16_t vy1);
 extern bool fx_glide_on;                 /* setup switch */
+/* Next key release (vkey) swallowed by a show, 0 when none: the main
+ * loop feeds them to the chord logic so no arrow stays "held". */
+uint8_t fx_take_release(void);
 /* Drain the core event ring and play every event as a tile overlay plus
  * a sound. */
 void fx_drain_play(World *w, const Sight *s);

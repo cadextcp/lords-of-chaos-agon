@@ -12,6 +12,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 - `--fxdemo` zeigt alle Sprite-Effekte in Schleife.
 
 ### Behoben
+- **Einheit lief nach kurzem Tippen von selbst bis an die Wand:** Die Gleit-/Effektpause verschluckte das Loslassen der Pfeiltaste. Loslassen wird jetzt aufgehoben und an die Akkord-Logik gegeben (QUIRK K6).
 - Bogen-/Wurfgeräusch kommt jetzt aus dem Ereignis – auch für KI-Schüsse, ohne Doppelung.
 - **Stimmbare Samples** nutzen Flag 16 (agondev-Konstante 8 ist „Abtastrate folgt“ und ließ Bytes als Text erscheinen, QUIRK A9).
 - `HOUSE_VIEW_HASH` 0x632E5581 (neue Effekt-Kacheln verschieben die IDs).
