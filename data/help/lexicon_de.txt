@@ -190,7 +190,7 @@ sicherste Art, anzugreifen.
 
 = Schild
 Zaehlt getragen - nie in der Hand
-(D28): +4 Verteidigung, ganz gleich
+(D28): +13 Verteidigung, ganz gleich
 wo im Gepaeck. Stapelt nicht.
 
 = Gold

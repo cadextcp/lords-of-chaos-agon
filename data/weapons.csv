@@ -1,16 +1,17 @@
-# Weapons (GDD 6.1, PM 35 as starting values, D7). combat/defence: bonuses
-# while in use (shield counts always, when carried - never needs the hand,
-# D28); thrown: 1 = proper throwing weapon; ranged: 1 = bow attack,
-# 0 = none. dice_n d die: damage dice for melee, thrown and bow (D28),
-# plus the fighter's com/5. Weight counts against the carry limit.
+# Weapons (GDD 6.1). combat/defence: bonuses while in use - in ORIGINAL
+# proportions (D31, anchor: the manual's shield is +13 defence; earlier
+# D7 had scaled them down to +4/+8 which made gear meaningless against
+# creature stats up to com 50). Shield counts always, when carried -
+# never needs the hand (D28). thrown: 1 = proper throwing weapon;
+# ranged: 1 = bow. dice_n d die: damage dice (D28) plus com/5.
 id,name,combat,defence,thrown,ranged,weight,dice_n,die
-sword,Schwert,4,0,1,0,4,2,8
-knife,Messer,1,0,1,0,1,1,6
-shield,Schild,0,4,0,0,4,1,4
+sword,Schwert,10,0,1,0,4,2,8
+knife,Messer,5,0,1,0,1,1,6
+shield,Schild,0,13,0,0,4,1,4
 bow,Bogen,0,0,0,1,3,2,6
-spear,Speer,3,0,1,0,5,2,6
-club,Keule,2,0,1,0,5,2,6
-axe,Axt,3,0,1,0,6,2,10
-ninja_star,Wurfstern,0,0,1,0,1,1,6
-slayer,Slayer,6,0,1,0,6,2,10
-magic_slayer,Magie-Slayer,8,0,1,0,6,3,8
+spear,Speer,8,0,1,0,5,2,6
+club,Keule,7,0,1,0,5,2,6
+axe,Axt,9,0,1,0,6,2,10
+ninja_star,Wurfstern,4,0,1,0,1,1,6
+slayer,Slayer,13,0,1,0,6,2,10
+magic_slayer,Magie-Slayer,16,0,1,0,6,3,8
