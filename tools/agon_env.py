@@ -102,12 +102,18 @@ def stage_game() -> Path:
         (dest / "help").mkdir(exist_ok=True)
         for f in helpdir.glob("*.hlp"):
             shutil.copy2(f, dest / "help" / f.name)
+    fonts = BUILD / "fonts"
+    if fonts.exists():
+        (dest / "fonts").mkdir(exist_ok=True)
+        for f in fonts.glob("*.fnt"):
+            shutil.copy2(f, dest / "fonts" / f.name)
     sfx = BUILD / "sfx" / "sfx.bin"
     if sfx.exists():
         shutil.copy2(sfx, dest / sfx.name)
-    title = BUILD / "title.bin"
-    if title.exists():
-        shutil.copy2(title, dest / title.name)
+    for name in ("title.bin", "win.bin", "lose.bin"):
+        pic = BUILD / name
+        if pic.exists():
+            shutil.copy2(pic, dest / pic.name)
     music = BUILD / "music"
     if music.exists():
         (dest / "music").mkdir(exist_ok=True)

@@ -66,11 +66,28 @@ void render_menu_text(uint8_t col, uint8_t row, uint8_t colour,
  * full-screen screen call view_invalidate() and redraw the game. */
 void render_screen_clear(void);
 void render_frame(int x0, int y0, int x1, int y1, uint8_t colour);
+/* A 3x3 dot (ornaments). */
+void render_dot(int x, int y, uint8_t colour);
+/* Headings in the 8x16 display font (fonts/head.fnt) at pixel x/y (top
+ * left), transparent with a shadow; system font when the file is missing.
+ * Blank the area first when redrawing over old text. */
+void render_heading(int x, int y, uint8_t colour, const char *text);
+void render_heading_centred(int y, uint8_t colour, const char *text);
 /* One tile by id at a pixel position (lexicon portraits, M5). */
 void render_draw_tile(uint16_t id, int x, int y);
+/* VDP buffer of a tile (sprite frames, fx.c). */
+uint16_t render_tile_buffer(uint16_t id);
 /* Stream /loc/title.bin (RGBA2222, ADR 0011) into a VDP buffer and show
  * it as a 320x240 bitmap. False when the file is missing or invalid. */
 bool render_show_title(void);
+/* Draw the title bitmap again (menu backdrop); false when it was never
+ * loaded. */
+bool render_title_backdrop(void);
+/* The 96x96 end screen picture (win.bin / lose.bin) at x/y; false when
+ * missing. */
+bool render_show_end_picture(bool win, int x, int y);
+/* Black box with a double blue frame (pixel coordinates). */
+void render_box(int x0, int y0, int x1, int y1);
 void render_shutdown(void);
 
 #endif

@@ -37,7 +37,7 @@ def log(msg: str) -> None:
 def generate() -> int:
     """Tile bank + generated C sources (src/core/gen/) from assets and data."""
     for script in ("build_tiles.py", "gen_data.py", "gen_maps.py",
-                   "gen_scenarios.py", "gen_help.py", "gen_sfx.py", "gen_music.py",
+                   "gen_scenarios.py", "gen_help.py", "gen_sfx.py", "gen_music.py", "build_font.py",
                    "build_title.py"):
         r = subprocess.run(["uv", "run", "--quiet", str(env.ROOT / "tools" / script)], cwd=env.ROOT)
         if r.returncode != 0:

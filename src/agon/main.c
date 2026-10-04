@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../core/events.h"
+#include "../core/populate.h"
 #include "../core/ai.h"
 #include "../core/area.h"
 #include "../core/ride.h"
@@ -73,6 +75,7 @@ static bool cursor_on = true;
 static bool confirm_end = false;   /* Shift+E asks before ending the turn */
 static bool look_mode = false;     /* x: examine any field (GDD 5.1) */
 static bool overlay_open;          /* big map / log / help / context */
+static bool pickup_menu;           /* g: choose what to pick up */
 static bool overlay_is_context;    /* the context menu replays keys */
 static bool replay_valid;          /* letter to act after menu close */
 static char replay_ascii;
@@ -118,7 +121,7 @@ static uint8_t target_cursor_colour(void)
     }
     if (dx > SPELL_RANGE || dx < -SPELL_RANGE || dy > SPELL_RANGE || dy < -SPELL_RANGE)
         return CURSOR_RED;
-    if (!sight_has_los(&world, u->x, u->y, target_x, target_y))
+    if (!sight_has_spell_los(&world, u->x, u->y, target_x, target_y))
         return CURSOR_RED;
     if (world_unit_at(&world, target_x, target_y, UL_AIR) != NO_UNIT)
         return CURSOR_BLUE;
@@ -162,6 +165,163 @@ static int selftest(void)
     fflush(stdout);                      /* reach the UART before the exit */
     emu_exit(fails ? 1 : 0);
     return fails ? 1 : 0;
+}
+
+/* The step as a gliding sprite (ADR 0012): the map is drawn without the
+ * unit, its tile slides from the old field to the new one, then the
+ * normal frame() shows it again. Riders keep the plain jump. */
+static void update_sight(void);
+
+static void glide(uint8_t id, int16_t old_x, int16_t old_y)
+{
+    uint8_t u = world_find_unit(&world, id);
+    int16_t ovx, ovy, nvx, nvy;
+    const Unit *un;
+    if (u == NO_UNIT || !fx_glide_on)
+        return;
+    un = &world.units[u];
+    if (ride_rider_kind(un) < CR_COUNT)
+        return;
+    update_sight();
+    view_follow(&world, un->x, un->y);
+    world_delta(&world, view_origin_x(), view_origin_y(), old_x, old_y, &ovx, &ovy);
+    world_delta(&world, view_origin_x(), view_origin_y(), un->x, un->y, &nvx, &nvy);
+    view_hide_unit(id);
+    view_update(&world);
+    render_fields();
+    render_cursor(0, 0, CURSOR_GREEN, false);
+    fx_glide((uint16_t)(CREATURE_TILE[un->kind] + un->owner), ovx, ovy, nvx, nvy);
+    view_hide_unit(NO_UNIT);
+}
+
+static void frame(bool dump);
+static void game_redraw(bool dump);
+
+/* ---------- picking up: own field and neighbours ---------- */
+
+#define PICK_MAX 18
+typedef struct { uint8_t x, y; uint16_t tile; } PickEntry;
+static PickEntry picks[PICK_MAX];
+static uint8_t pick_n;
+
+static const char *pick_where(int16_t dx, int16_t dy)
+{
+    static const char *const NAMES[9] = {"Nordwest", "Nord", "Nordost",
+                                         "West", "hier", "Ost",
+                                         "Suedwest", "Sued", "Suedost"};
+    return NAMES[(dy + 1) * 3 + (dx + 1)];
+}
+
+/* Everything the active unit can reach and sees: its field first. */
+static void pick_gather(void)
+{
+    const Unit *u = &world.units[active()];
+    uint8_t i, pass;
+    pick_n = 0;
+    for (pass = 0; pass < 2; pass++)
+        for (i = 0; i < world.object_count && pick_n < PICK_MAX; i++) {
+            const Object *o = &world.objects[i];
+            bool here = o->x == u->x && o->y == u->y;
+            if ((pass == 0) != here)
+                continue;
+            if (world_distance(&world, u->x, u->y, o->x, o->y) > 1 ||
+                !sight_visible(&p1_sight, &world, o->x, o->y) ||
+                items_kind_of_tile(o->tile) == NO_ITEM)
+                continue;
+            picks[pick_n].x = o->x;
+            picks[pick_n].y = o->y;
+            picks[pick_n].tile = o->tile;
+            pick_n++;
+        }
+}
+
+static void draw_pick_menu(void)
+{
+    const Unit *u = &world.units[active()];
+    char buf[40];
+    uint8_t i;
+    render_menu_clear();
+    render_heading(16, 2, C_BRIGHT_YELLOW, "Aufheben");
+    for (i = 0; i < pick_n; i++) {
+        int16_t dx, dy;
+        world_delta(&world, u->x, u->y, picks[i].x, picks[i].y, &dx, &dy);
+        snprintf(buf, sizeof buf, "%c %-14.14s %s", 'a' + i,
+                 OBJECTS[items_kind_of_tile(picks[i].tile)].name,
+                 pick_where(dx, dy));
+        render_menu_text(1, (uint8_t)(3 + i), C_BRIGHT_WHITE, buf);
+    }
+    render_menu_text(1, 23, C_BRIGHT_WHITE, "Leertaste: alles");
+    render_menu_text(1, 25, C_GREY, "Buchstabe nimmt, Esc zu.");
+}
+
+/* Pick one entry (by position and tile: indices move after a pick). */
+static bool pick_entry(uint8_t k)
+{
+    uint8_t i;
+    for (i = 0; i < world.object_count; i++)
+        if (world.objects[i].x == picks[k].x && world.objects[i].y == picks[k].y &&
+            world.objects[i].tile == picks[k].tile) {
+            uint8_t kind = items_kind_of_tile(picks[k].tile);
+            if (!items_pick_up_object(&world, active(), i))
+                return false;
+            if (kind != NO_ITEM)
+                lexicon_see_object(&lex, kind);   /* discovery */
+            return true;
+        }
+    return false;
+}
+
+/* g: one object on the own field goes straight into the pack, several
+ * (or some next door) open the choice. */
+static void pick_start(bool dump)
+{
+    pick_gather();
+    if (pick_n == 0) {
+        render_message(1, C_BRIGHT_RED, "Nichts aufzuheben.");
+        frame(dump);
+        return;
+    }
+    if (pick_n == 1 && picks[0].x == world.units[active()].x &&
+        picks[0].y == world.units[active()].y) {
+        if (pick_entry(0)) {
+            sound_play(SND_PICKUP);
+            render_message(1, C_BRIGHT_GREEN, "Aufgehoben.");
+        } else
+            render_message(1, C_BRIGHT_RED, "Zu schwer, kein Platz oder AP.");
+        frame(dump);
+        return;
+    }
+    pickup_menu = true;
+    draw_pick_menu();
+}
+
+/* A key in the choice: letter = one, Space = all, Esc = close. */
+static void pick_key(const struct keyboard_event_t *e, bool dump)
+{
+    uint8_t got = 0, k;
+    if (e->vkey == VK_ESC) {
+        pickup_menu = false;
+        game_redraw(dump);
+        return;
+    }
+    if (e->vkey == VK_SPACE) {
+        for (k = 0; k < pick_n; k++)
+            if (pick_entry(k))
+                got++;
+    } else if (e->ascii >= 'a' && e->ascii < 'a' + pick_n) {
+        if (pick_entry((uint8_t)(e->ascii - 'a')))
+            got++;
+    } else {
+        return;
+    }
+    pickup_menu = false;
+    if (got) {
+        sound_play(SND_PICKUP);
+        render_message(1, C_BRIGHT_GREEN, got > 1 ? "Alles aufgehoben, was ging."
+                                                   : "Aufgehoben.");
+    } else
+        render_message(1, C_BRIGHT_RED, "Zu schwer, kein Platz oder AP.");
+    game_redraw(dump);
 }
 
 /* Red messages are refusals: they get the error buzz (render.c hook). */
@@ -265,10 +425,65 @@ static void on_round(Turns *t, World *w, void *ctx)
 
 /* After an AI phase (or the independents' steps): show what happened
  * there (M5c) - the event ring carries swings, hits and deaths. */
+/* ---------- the others' phases: phase screen and sounds ---------- */
+
+static bool phase_screen_on;           /* the map is hidden right now */
+static uint8_t snap_owner;
+static uint8_t snap_n, snap_id[MAX_UNITS], snap_x[MAX_UNITS], snap_y[MAX_UNITS];
+
+static void on_phase(Turns *t, World *w, uint8_t owner, void *ctx)
+{
+    const char *names[OWN_NEUTRAL];
+    uint16_t vp[OWN_NEUTRAL];
+    uint8_t i, n = 0, o;
+    (void)ctx;
+    for (o = OWN_P1; o < OWN_NEUTRAL; o++) {
+        bool present = o == OWN_P1;
+        for (i = 0; i < w->unit_count && !present; i++)
+            present = w->units[i].owner == o && w->units[i].kind == CR_WIZARD;
+        if (!present && game.vp[o] == 0)
+            continue;
+        names[n] = o == OWN_P1 ? wizard_slots[0].name : name_owner(o);
+        vp[n] = game.vp[o];
+        n++;
+    }
+    snap_owner = owner;                   /* who moved: footsteps later */
+    snap_n = 0;
+    for (i = 0; i < w->unit_count; i++)
+        if (w->units[i].owner == owner) {
+            snap_id[snap_n] = w->units[i].id;
+            snap_x[snap_n] = w->units[i].x;
+            snap_y[snap_n] = w->units[i].y;
+            snap_n++;
+        }
+    phase_screen_on = true;
+    screen_phase(owner == OWN_NEUTRAL ? "Unabhaengige" : name_owner(owner),
+                 t->round, n, names, vp);
+    fx_pause(turn_humans_present(t, w) ? 70 : 10);
+}
+
 static void on_ai_events(Turns *t, World *w, void *ctx)
 {
-    (void)t;
     (void)ctx;
+    if (phase_screen_on) {                /* unseen: only listen */
+        uint8_t i, moved = 0;
+        for (i = 0; i < snap_n; i++) {
+            uint8_t u = world_find_unit(w, snap_id[i]);
+            if (u != NO_UNIT && (w->units[u].x != snap_x[i] ||
+                                 w->units[u].y != snap_y[i]))
+                moved++;
+        }
+        if (moved > 4)
+            moved = 4;
+        for (i = 0; i < moved; i++) {     /* footsteps of whoever walked */
+            sound_play(SND_STEP);
+            fx_pause(14);
+        }
+        fx_drain_sounds();
+        if (turn_humans_present(t, w))
+            fx_pause(30);
+        return;
+    }
     view_update(w);                      /* their moves, before the show */
     render_fields();
     fx_drain_play(w, &p1_sight);
@@ -285,7 +500,6 @@ static void throw_or_fire(bool dump)
     if (target_kind == TA_THROW) {
         if (brew_throw_vial(&world, &turns.rng, active(), sx, sy) ||
             items_throw(&world, &turns.rng, active(), sx, sy)) {
-            sound_play(SND_THROW);
             render_message(1, C_BRIGHT_YELLOW, "Geworfen!");
         }
         else
@@ -294,7 +508,6 @@ static void throw_or_fire(bool dump)
     } else {
         uint8_t dmg = 0;
         if (items_fire(&world, &turns.rng, active(), target_x, target_y, &dmg)) {
-            sound_play(SND_BOW);
             if (dmg)
                 render_message(1, C_BRIGHT_YELLOW, "Schuss trifft!");
             else
@@ -469,9 +682,12 @@ static void step(uint8_t m, bool dump)
         bool was_adjacent = world_enemy_adjacent(&world, active());
         bool fled_died = false;
         CombatResult fs;
+        int16_t old_x = world.units[active()].x, old_y = world.units[active()].y;
         if (!world_move_unit(&world, active(), dx, dy))
             goto bump;                     /* not moved: classify the bump */
         sound_play(SND_STEP);
+        if (!dump)
+            glide(mover_id, old_x, old_y);
         if (was_adjacent &&
             combat_disengage_swings(&world, &turns.rng, active(), &fs)) {
             if (fs.hit) {
@@ -910,7 +1126,7 @@ static void draw_context_menu(void)
     uint8_t i, row = 3;
     const Unit *u = &world.units[active()];
     render_menu_clear();
-    render_menu_text(2, 1, C_BRIGHT_YELLOW, "Aktionen");
+    render_heading(16, 2, C_BRIGHT_YELLOW, "Aktionen");
     for (i = 0; i < sizeof ITEMS / sizeof ITEMS[0]; i++) {
         const char *name = ITEMS[i].name;
         int8_t act = ITEMS[i].act;
@@ -969,7 +1185,7 @@ static void draw_log(void)
     uint8_t i, idx;
     char buf[40];
     render_menu_clear();
-    render_menu_text(2, 1, C_BRIGHT_YELLOW, "Nachrichten");
+    render_heading(16, 2, C_BRIGHT_YELLOW, "Nachrichten");
     for (i = 0; i < LOG_RING; i++) {
         idx = (uint8_t)((log_head + i) % LOG_RING);
         snprintf(buf, sizeof buf, "%-24.24s", log_ring[idx]);
@@ -999,29 +1215,48 @@ static void draw_help(void)
     };
     uint8_t i;
     render_menu_clear();
-    render_menu_text(2, 1, C_BRIGHT_YELLOW, "HILFE (F1)");
+    render_heading(16, 2, C_BRIGHT_YELLOW, "Hilfe (F1)");
     for (i = 0; i < sizeof LINES / sizeof LINES[0]; i++)
         render_menu_text(1, (uint8_t)(3 + i), C_BRIGHT_WHITE, LINES[i]);
     render_menu_text(2, 24, C_GREY, "Esc zurueck.");
 }
 
+/* Menu layout: with the title picture still in the VDP its top band
+ * (logo, dragon, vortex) stays visible above a framed box; without it the
+ * plain text layout. menu_top is the first item row, menu_msg the row of
+ * the one message line. */
+static uint8_t menu_top = 5, menu_msg = 20;
+
 /* Cursor mark of one item; moving the cursor repaints two cells instead of
  * the whole screen (a full clear + redraw flickered on the real Agon). */
 static void draw_menu_mark(uint8_t item, bool on)
 {
-    render_menu_text(4, (uint8_t)(5 + item), C_BRIGHT_WHITE, on ? ">" : " ");
+    render_menu_text(4, (uint8_t)(menu_top + item), C_BRIGHT_WHITE, on ? ">" : " ");
+}
+
+static void menu_message(uint8_t colour, const char *text)
+{
+    render_menu_line(2, menu_msg, colour, text);
 }
 
 static void draw_menu(uint8_t cursor)
 {
     uint8_t i;
     render_screen_clear();               /* pages before it used all 40 cols */
-    render_menu_text(2, 2, C_BRIGHT_YELLOW, "LORDS OF CHAOS");
+    if (render_title_backdrop()) {
+        menu_top = 10;
+        menu_msg = 22;
+        render_box(2, 74, 317, 199);
+    } else {
+        menu_top = 5;
+        menu_msg = 20;
+        render_heading(16, 12, C_BRIGHT_YELLOW, "LORDS OF CHAOS");
+    }
     for (i = 0; i < MENU_COUNT; i++) {
         draw_menu_mark(i, i == cursor);
-        render_menu_text(6, (uint8_t)(5 + i), C_BRIGHT_WHITE, MENU_ITEMS[i]);
+        render_menu_text(6, (uint8_t)(menu_top + i), C_BRIGHT_WHITE, MENU_ITEMS[i]);
     }
-    render_menu_text(2, 22, C_GREY, "Pfeile + Enter");
+    render_menu_text(2, (uint8_t)(menu_msg + 1), C_GREY, "Pfeile + Enter");
 }
 
 /* The wizard designer: the chooser first (Attribute / Zauber /
@@ -1042,10 +1277,10 @@ static void designer_attrs(Wizard *w)
     render_screen_clear();               /* lines below overwrite in place */
     while (running) {
         uint8_t i;
+        render_heading(8, 0, C_BRIGHT_YELLOW, "Attribute");
         snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u", w->name, w->level,
                  w->xp);
-        render_menu_line(1, 1, C_BRIGHT_YELLOW, buf);
-        render_menu_line(1, 2, C_GREY, "ATTRIBUTE");
+        render_menu_line(1, 2, C_BRIGHT_WHITE, buf);
         for (i = 0; i < WA_COUNT; i++) {
             snprintf(buf, sizeof buf, "%c %-14.14s %3u  %u XP",
                      i == cursor ? '>' : ' ', ATTRS[i],
@@ -1126,12 +1361,13 @@ static void designer_shop(Wizard *w, uint8_t page)
             stop = scursor;
         if (scursor >= stop + SHOP_ROWS)
             stop = (uint8_t)(scursor - SHOP_ROWS + 1);
+        render_heading(8, 0, C_BRIGHT_YELLOW,
+                       page == PG_CREATURES ? "Kreaturen" : "Zauber");
         snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u", w->name, w->level,
                  w->xp);
-        render_menu_line(1, 1, C_BRIGHT_YELLOW, buf);
-        render_menu_line(1, 2, C_GREY,
-                         page == PG_CREATURES ? "KREATUREN" : "ZAUBER");
-        snprintf(buf, sizeof buf, "  %-20.20s Anz Preis", "Name");
+        render_menu_line(1, 2, C_BRIGHT_WHITE, buf);
+        snprintf(buf, sizeof buf, "  %-20.20s %s Preis", "Name",
+                 page == PG_CREATURES ? "Stf" : "Anz");   /* D34 */
         render_menu_line(2, 3, C_BRIGHT_YELLOW, buf);
         for (row = 0; row < SHOP_ROWS; row++) {
             uint8_t s;
@@ -1201,10 +1437,10 @@ static void designer_loop(uint8_t slot)
             render_screen_clear();
             full = false;
         }
+        render_heading(16, 4, C_BRIGHT_YELLOW, "Zauberer gestalten");
         snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u", w->name, w->level,
                  w->xp);
-        render_menu_line(2, 1, C_BRIGHT_YELLOW, buf);
-        render_menu_line(4, 4, C_GREY, "Zauberer gestalten:");
+        render_menu_line(2, 4, C_BRIGHT_WHITE, buf);
         for (i = 0; i < 3; i++) {
             snprintf(buf, sizeof buf, "%c %s", i == cursor ? '>' : ' ',
                      PAGES[i]);
@@ -1247,7 +1483,7 @@ static void designer_setup_loop(void)
     bool running = true;
     render_screen_clear();               /* lines overwrite in place */
     while (running) {
-        render_menu_line(2, 2, C_BRIGHT_YELLOW, "SETUP");
+        render_heading(16, 8, C_BRIGHT_YELLOW, "Setup");
         snprintf(buf, sizeof buf, "Zufalls-Zauberer-Staerke: %u (Li/Re)",
                  random_strength);
         render_menu_line(2, 6, C_BRIGHT_WHITE, buf);
@@ -1258,7 +1494,10 @@ static void designer_setup_loop(void)
         render_menu_line(2, 10, C_BRIGHT_WHITE, buf);
         snprintf(buf, sizeof buf, "Toneffekte: %s  (T)", sound_on ? "an" : "aus");
         render_menu_line(2, 12, C_BRIGHT_WHITE, buf);
-        render_menu_line(2, 16, C_GREY, "Esc zurueck ins Menue.");
+        snprintf(buf, sizeof buf, "Gleitende Schritte: %s  (G)",
+                 fx_glide_on ? "an" : "aus");
+        render_menu_line(2, 14, C_BRIGHT_WHITE, buf);
+        render_menu_line(2, 17, C_GREY, "Esc zurueck ins Menue.");
         while (!kbuf_poll_event(&e))
             audio_poll();
         if (!e.isdown)
@@ -1283,6 +1522,9 @@ static void designer_setup_loop(void)
                 music_start("music/title.bin");
             else
                 music_stop();
+            sound_settings_save();
+        } else if (e.ascii == 'g' || e.ascii == 'G') {
+            fx_glide_on = !fx_glide_on;
             sound_settings_save();
         } else if (e.ascii == 't' || e.ascii == 'T') {
             sound_on = !sound_on;
@@ -1324,7 +1566,7 @@ static const char *menu_loop(bool *free_round1)
         }
         if (!e.isdown)
             continue;
-        render_clear_rows(20, 20);        /* old message line */
+        menu_message(C_GREY, "");         /* old message line */
         if (e.vkey != VK_SPACE && e.ascii != 13)
             confirm_reset = false;       /* any other key cancels the ask */
         if (e.vkey == VK_UP) {
@@ -1355,7 +1597,7 @@ static const char *menu_loop(bool *free_round1)
                     return saved_map[0] ? saved_map
                                         : "maps/many_coloured_land.map";
                 }
-                render_menu_text(2, 20, C_BRIGHT_RED,
+                menu_message(C_BRIGHT_RED,
                                  "Kein Spielstand / keine Ladungen.");
                 continue;
             case 4:
@@ -1365,7 +1607,7 @@ static const char *menu_loop(bool *free_round1)
             case 5:
                 if (!confirm_reset) {   /* destructive: ask once */
                     confirm_reset = true;
-                    render_menu_text(2, 20, C_BRIGHT_RED,
+                    menu_message(C_BRIGHT_RED,
                                      "Nochmal Enter loescht den Zauberer.");
                     continue;
                 }
@@ -1380,7 +1622,7 @@ static const char *menu_loop(bool *free_round1)
                 break;
             case 7:                       /* Hilfe: pages from the SD (M5) */
                 if (!screen_help("help/keys.hlp"))
-                    render_menu_text(2, 20, C_BRIGHT_RED,
+                    menu_message(C_BRIGHT_RED,
                                      "help/keys.hlp fehlt auf der SD.");
                 full = true;
                 break;
@@ -1438,6 +1680,7 @@ static void reset_play_state(void)
     confirm_end = false;
     look_mode = false;
     spell_list = false;
+    pickup_menu = false;
     targeting = false;
     overlay_open = false;
     overlay_is_context = false;
@@ -1493,6 +1736,39 @@ static void start_tutorial(void)
     turns.round1_lock = false;   /* the tutorial teaches movement at once */
 }
 
+/* Shift+E, or Space once every unit is done: the AI plays, the round
+ * hook runs (portal), the outcome is checked and the game autosaved. */
+static void end_turn(bool dump, const char *map_path)
+{
+    confirm_end = false;
+    if (!turn_humans_present(&turns, &world))
+        render_message(1, C_BRIGHT_YELLOW, "Die KI spielt zu Ende ...");
+    turn_end_phase(&turns, &world);    /* round hook: portal */
+    game_credit_kills(&game, &world);
+    view_set_portal(game.portal_open ? game.portal_x : -1, game.portal_y);
+    if (game_over(&game, &world) || !turn_humans_present(&turns, &world) ||
+        game_outcome(&game, &world, OWN_P1) != OUT_RUNNING) {
+        end_pending = true;            /* shown by the main loop */
+    } else if (game.portal_open && turns.round == game.portal_round) {
+        render_message(0, C_BRIGHT_MAGENTA, "Das Portal oeffnet sich!");
+        sound_play(SND_PORTAL);
+    } else {
+        render_message(1, C_BRIGHT_GREEN, "Neue Runde.");
+        sound_play(SND_ROUND);
+    }
+    if (!game_ended && !end_pending) { /* autosave (GDD 2.3) */
+        copy_name(saved_map, sizeof saved_map, map_path);
+        if (save_to_sd())
+            render_message(2, C_GREY, "Gespeichert.");
+    }
+    update_sight();
+    if (phase_screen_on) {               /* back from the unseen phases */
+        phase_screen_on = false;
+        game_redraw(dump);
+    } else
+        frame(dump);
+}
+
 int main(int argc, char **argv)
 {
     struct keyboard_event_t e;
@@ -1524,6 +1800,7 @@ int main(int argc, char **argv)
         demo.level_up = true;
         render_init();
         umfont_install();
+        sound_init();
         kbuf_init(16);
         screen_end(&demo);
         kbuf_deinit();
@@ -1543,21 +1820,22 @@ int main(int argc, char **argv)
         view_invalidate();
         view_update(&world);
         render_fields();
-        render_draw_tile(T_FX_SLASH, 2 * TILE_PX, 3 * TILE_PX);
-        render_draw_tile(T_FX_HIT, 3 * TILE_PX, 3 * TILE_PX);
-        render_draw_tile(T_FX_MISS, 4 * TILE_PX, 3 * TILE_PX);
-        render_draw_tile(T_FX_DEATH_0, 5 * TILE_PX, 3 * TILE_PX);
-        render_draw_tile(T_FX_DEATH_1, 2 * TILE_PX, 4 * TILE_PX);
-        render_draw_tile(T_FX_DEATH_2, 3 * TILE_PX, 4 * TILE_PX);
-        render_draw_tile(T_FX_DEATH_3, 4 * TILE_PX, 4 * TILE_PX);
-        sound_play(SND_SWING);
-        sound_play(SND_HIT);
-        sound_play(SND_MISS);
-        sound_play(SND_SPELL);
-        sound_play(SND_SMASH);
-        sound_play(SND_DEATH);
-        sound_play(SND_ROUND);
-        sound_play(SND_WIN);
+        fx_init();
+        sound_init();
+        for (i = 0; i < 12; i++) {        /* every sprite effect, a few times */
+            events_reset();
+            events_push(EV_PROJECTILE, 1, 6, PJ_BOLT, OWN_P1, 5, (uint8_t)-4);
+            events_push(EV_HIT, 6, 2, CR_GOBLIN, OWN_P2, 12, 1);
+            events_push(EV_PROJECTILE, 1, 1, PJ_ARROW, OWN_P1, 6, 2);
+            events_push(EV_PROJECTILE, 7, 6, PJ_THROWN, OWN_P2, (uint8_t)-5, 0);
+            events_push(EV_HIT, 2, 6, CR_GOBLIN, OWN_P2, 7, 0);
+            events_push(EV_PROJECTILE, 7, 7, PJ_LIGHTNING, OWN_P2, (uint8_t)-6, (uint8_t)-5);
+            events_push(EV_SPELL, 4, 4, SP_GOBLIN, OWN_P1, 0, 0);
+            events_push(EV_SPELL, 5, 3, SP_TELEPORT, OWN_P1, 0, 0);
+            events_push(EV_SPELL, 3, 5, SP_CURSE, OWN_P1, 0, 0);
+            events_push(EV_SPELL, 4, 2, SP_MAGIC_SHIELD, OWN_P1, 0, 0);
+            fx_drain_play(&world, NULL);
+        }
         do {                              /* the tiles stay on screen */
             while (!kbuf_poll_event(&e))
                 audio_poll();
@@ -1646,6 +1924,7 @@ int main(int argc, char **argv)
         turns.on_round = on_round;
         turns.on_ai = on_ai_events;
         turns.on_ai_ctx = 0;
+        turns.on_phase = (dump || do_bench) ? NULL : on_phase;
         turns.round_ctx = &game;
     }
     game_init(&game, world.portal_x, world.portal_y, world.portal_rmin,
@@ -1669,6 +1948,7 @@ int main(int argc, char **argv)
         return 1;
     }
     umfont_install();                    /* ae/oe/ue/ss for the UI (M4j) */
+    fx_init();                           /* effect sprites (ADR 0012) */
     sound_settings_load();
     if (!dump && !do_bench && !sound_init())   /* samples from the SD */
         log_line("SFX missing - waveform fallback");
@@ -1691,7 +1971,7 @@ menu_start:
             log_close();
             return 0;
         }
-        if (!save_loaded && chosen != map_path) {   /* reload for the scenario */
+        if (!save_loaded) {      /* every new game reloads (fresh random world) */
             if (!mapfile_load(&world, chosen)) {
                 kbuf_deinit();
                 render_shutdown();
@@ -1701,7 +1981,13 @@ menu_start:
             map_path = chosen;
             /* everything derived from the map must be rebuilt */
             brew_register_map_cauldrons(&world);
-            turn_init(&turns, &world, TURN_SEED, 1u << OWN_P1);
+            /* every game differs (D35): the seed comes from the clock,
+             * which ran for however long the menu was open */
+            turn_init(&turns, &world, TURN_SEED ^ getsysvar_time(), 1u << OWN_P1);
+            if (scenario_number(chosen)) {   /* campaign: random world */
+                populate_scenario(&world, &turns.rng);
+                turns.wildlife = true;
+            }
             game_init(&game, world.portal_x, world.portal_y, world.portal_rmin,
                       world.portal_rmax, &turns.rng);
             game_new_round(&game, turns.round);
@@ -1717,6 +2003,7 @@ menu_start:
                 turns.on_round = on_round;
                 turns.on_ai = on_ai_events;
                 turns.on_ai_ctx = 0;
+                turns.on_phase = dump ? NULL : on_phase;
                 turns.round_ctx = &game;
             }
             sight_init(&p1_sight, OWN_P1);
@@ -1739,6 +2026,7 @@ menu_start:
             turns.on_round = on_round;
             turns.on_ai = on_ai_events;
             turns.on_ai_ctx = 0;
+            turns.on_phase = dump ? NULL : on_phase;
             turns.round_ctx = &game;
             update_sight();
             view_set_sight(&p1_sight);
@@ -1847,6 +2135,10 @@ dispatch:
                     render_list_summons = 1;
                     render_spell_list(&books[OWN_P1]);
                 }
+                continue;
+            }
+            if (pickup_menu && e.isdown) {       /* g: what to pick up */
+                pick_key(&e, dump);
                 continue;
             }
             if (spell_list && e.isdown) {        /* letters pick (a is WASD too) */
@@ -2036,21 +2328,9 @@ dispatch:
                 } else {
                     render_message(1, C_BRIGHT_RED, "Nur Zauberer zaubern.");
                 }
-            } else if (e.ascii == 'g') {            /* pick up */
+            } else if (e.ascii == 'g') {            /* pick up (choice) */
                 confirm_end = false;
-                {
-                    uint8_t kind = items_kind_at(&world, world.units[active()].x,
-                                                 world.units[active()].y);
-                    if (items_pick_up(&world, active())) {
-                        sound_play(SND_PICKUP);
-                        if (kind != NO_ITEM)
-                            lexicon_see_object(&lex, kind);   /* discovery */
-                        render_message(1, C_BRIGHT_GREEN, "Aufgehoben.");
-                    }
-                    else
-                        render_message(1, C_BRIGHT_RED, "Nichts aufzuheben.");
-                }
-                frame(dump);
+                pick_start(dump);
             } else if (e.ascii == 'd') {            /* drop in use */
                 confirm_end = false;
                 if (items_drop(&world, active()))
@@ -2179,49 +2459,23 @@ dispatch:
                 render_message(1, C_GREY, "");
                 if (!turn_units_left(&turns, &world))
                     render_message(1, C_BRIGHT_YELLOW,
-                                   "Alle Einheiten fertig - E fuer Zugende.");
+                                   "Alle fertig - Leertaste/E: Zugende.");
                 frame(dump);
             } else if (e.vkey == VK_SPACE) {     /* unit finished */
                 confirm_end = false;
+                if (!turn_units_left(&turns, &world)) {
+                    end_turn(dump, map_path);    /* all done: Space ends */
+                    continue;
+                }
                 turn_finish_unit(&turns, &world);
                 if (turn_units_left(&turns, &world))
                     render_message(1, C_GREY, "");
                 else
                     render_message(1, C_BRIGHT_YELLOW,
-                                   "Alle Einheiten fertig - E fuer Zugende.");
+                                   "Alle fertig - Leertaste/E: Zugende.");
                 frame(dump);
-            } else if (e.ascii == 'E') {         /* Shift+E: turn end */
-                if (!confirm_end) {
-                    confirm_end = true;
-                    render_message(1, C_BRIGHT_YELLOW,
-                                   "Zug beenden? Nochmal E=ja, Esc=nein.");
-                } else {
-                    confirm_end = false;
-                    if (!turn_humans_present(&turns, &world))
-                        render_message(1, C_BRIGHT_YELLOW, "Die KI spielt zu Ende ...");
-                    turn_end_phase(&turns, &world);    /* round hook: portal */
-                    game_credit_kills(&game, &world);
-                    view_set_portal(game.portal_open ? game.portal_x : -1,
-                                    game.portal_y);
-                    if (game_over(&game, &world) ||
-                        !turn_humans_present(&turns, &world) ||
-                        game_outcome(&game, &world, OWN_P1) != OUT_RUNNING) {
-                        end_pending = true;       /* shown by the main loop */
-                    } else if (game.portal_open && turns.round == game.portal_round) {
-                        render_message(0, C_BRIGHT_MAGENTA, "Das Portal oeffnet sich!");
-                        sound_play(SND_PORTAL);
-                    } else {
-                        render_message(1, C_BRIGHT_GREEN, "Neue Runde.");
-                        sound_play(SND_ROUND);
-                    }
-                    if (!game_ended && !end_pending) {   /* autosave (GDD 2.3) */
-                        copy_name(saved_map, sizeof saved_map, map_path);
-                        if (save_to_sd())
-                            render_message(2, C_GREY, "Gespeichert.");
-                    }
-                    update_sight();
-                    frame(dump);
-                }
+            } else if (e.ascii == 'E') {         /* Shift+E: turn end at once */
+                end_turn(dump, map_path);
             } else if (e.ascii == '<') {              /* take off */
                 confirm_end = false;
                 if (world_take_off(&world, active())) {
@@ -2279,12 +2533,23 @@ dispatch:
         }
         audio_poll();                            /* effect step lists */
         now = (uint16_t)getsysvar_time();
+        {   /* releases that arrived during an animation (fx_take_release) */
+            uint8_t vk;
+            while ((vk = fx_take_release()) != 0) {
+                uint8_t arrow = input_arrow(vk);
+                if (arrow) {
+                    m = chord_key(&chord, arrow, false, now);
+                    if (m)
+                        step(m, dump);
+                }
+            }
+        }
         m = chord_poll(&chord, now);
         if (m)
             step(m, dump);
         if (getsysvar_time() >= next_anim) {   /* candle and water animation */
             next_anim += ANIM_CS;
-            if (!overlay_open && !spell_list && !cast_menu) { /* not over an overlay */
+            if (!overlay_open && !spell_list && !cast_menu && !pickup_menu) {
                 view_animate(++phase);
                 render_fields();
             }
@@ -2292,7 +2557,8 @@ dispatch:
         if (getsysvar_time() >= next_blink) {  /* blinking cursor sprite */
             next_blink += BLINK_CS;
             cursor_on = !cursor_on;
-            if (!overlay_open && !spell_list && !cast_menu && !game_ended)
+            if (!overlay_open && !spell_list && !cast_menu && !pickup_menu &&
+                !game_ended)
                 place_cursor();
         }
     }

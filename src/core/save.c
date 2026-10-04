@@ -3,7 +3,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC "LOCSG"
-#define SAVE_VERSION 3   /* v3: Turns.on_ai callback (M5c); v2 saves rejected */
+#define SAVE_VERSION 4   /* v4: wild animals (D35: Unit grudge/herd, Turns.wildlife) */
 
 /* Length of the blob: header + the member images (no struct padding). */
 static uint16_t blob_size(void)

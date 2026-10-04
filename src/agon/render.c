@@ -24,6 +24,10 @@
 #define TEXT_COLS 40
 
 #define CURSOR_SPRITE 0
+#define HEAD_FONT 0x5000            /* VDP buffer of the heading font */
+#define SYSTEM_FONT 0xFFFF
+
+static bool head_font;              /* fonts/head.fnt loaded */
 
 static uint8_t pixels[TILE_PX * TILE_PX];
 
@@ -133,6 +137,11 @@ static void draw_tile(uint16_t id, int x, int y)
     vdp_draw_bitmap(x, y);
 }
 
+uint16_t render_tile_buffer(uint16_t id)
+{
+    return (uint16_t)(TILE_BUFFER_BASE + id);
+}
+
 /* Public single-tile draw for non-map screens (lexicon portraits, M5). */
 void render_draw_tile(uint16_t id, int x, int y)
 {
@@ -153,6 +162,30 @@ static void draw_small_mount(uint16_t id, int x, int y)
     vdp_draw_bitmap(x + (TILE_PX - MOUNT_PX) / 2, y + (TILE_PX - MOUNT_PX));
 }
 
+/* The 8x16 heading font (tools/build_font.py): 256 glyphs x 16 bytes,
+ * streamed into a VDP buffer and registered as a font (ADR 0012, S3). */
+static bool load_head_font(void)
+{
+    uint8_t fh, chunk[256];
+    uint16_t sent = 0;
+    fh = mos_fopen("fonts/head.fnt", FA_READ);
+    if (!fh)
+        return false;
+    vdp_adv_clear_buffer(HEAD_FONT);
+    while (sent < 4096) {
+        if (mos_fread(fh, (char *)chunk, sizeof chunk) != sizeof chunk)
+            break;
+        vdp_adv_write_block_data(HEAD_FONT, sizeof chunk, (char *)chunk);
+        sent = (uint16_t)(sent + sizeof chunk);
+    }
+    mos_fclose(fh);
+    if (sent != 4096)
+        return false;
+    vdp_adv_consolidate(HEAD_FONT);
+    vdp_font_create(HEAD_FONT, 8, 16, 14, 0);
+    return true;
+}
+
 bool render_init(void)
 {
     vdp_mode(SCREEN_MODE);
@@ -164,6 +197,7 @@ bool render_init(void)
         return false;
     vdp_clear_screen();
     view_invalidate();
+    head_font = load_head_font();
 
     /* Cursor sprite: one frame per colour, in CursorColour order. */
     vdp_select_sprite(CURSOR_SPRITE);
@@ -366,11 +400,12 @@ void render_panel(const World *w, uint8_t unit)
     snprintf(buf, sizeof buf, "%-13.13s", name_unit(u));
     text_at(TEXT_COL_PANEL, 5, C_BRIGHT_WHITE, buf);
     {   /* the object in use (GDD 8, M4j polish): weapons act only in hand */
+        /* always 13 columns: a shorter line must cover the longer one */
         if (u->in_use != NO_ITEM && u->in_use < u->item_count)
-            snprintf(buf, sizeof buf, "Hand: %-6.6s",
+            snprintf(buf, sizeof buf, "Hand: %-7.7s",
                      OBJECTS[u->items[u->in_use]].name);
         else
-            snprintf(buf, sizeof buf, "Hand: -");
+            snprintf(buf, sizeof buf, "Hand: %-7s", "-");
         text_at(TEXT_COL_PANEL, 4, C_BRIGHT_YELLOW, buf);
     }
     snprintf(buf, sizeof buf, "AP %2u  ", u->ap);
@@ -467,7 +502,9 @@ void render_spell_list(const Spellbook *book)
     uint16_t i;
     render_menu_clear();
     /* left of the stat panel: letter, 17 name, count, mana */
-    text_at(0, 0, C_BRIGHT_YELLOW, "  Zauber           Anz Mana");
+    text_at(0, 0, C_BRIGHT_YELLOW, render_list_summons
+            ? "  Kreatur          Stf Mana"   /* summons: level (D34) */
+            : "  Zauber           Anz Mana");
     /* values end in column 25: one blank column before the panel */
     for (i = 0; i < SPELL_COUNT && letter <= 'z'; i++) {
         char line[28], name[18];
@@ -477,7 +514,7 @@ void render_spell_list(const Spellbook *book)
             continue;
         short_spell_name(name, sizeof name, SPELLS[i].name);
         snprintf(line, sizeof line, "%c %-17.17s %2u %3u", letter, name,
-                 book->level[i], spell_mana((uint8_t)i, book->level[i]));
+                 book->level[i], spell_cast_mana((uint8_t)i, book->level[i]));
         text_at(0, (uint8_t)(1 + row), C_BRIGHT_WHITE, line);
         row++;
         letter++;
@@ -565,13 +602,35 @@ void render_screen_clear(void)
  * write_block_data calls append to the buffer. The bitmap stays in VDP
  * RAM for the program run - the menu redraws over it. */
 #define TITLE_BUFFER 0x4000
+static bool title_loaded;            /* the bitmap is in the VDP */
 
-bool render_show_title(void)
+bool render_title_backdrop(void)
+{
+    if (!title_loaded)
+        return false;
+    vdp_adv_select_bitmap(TITLE_BUFFER);
+    vdp_draw_bitmap(0, 0);
+    return true;
+}
+
+void render_box(int x0, int y0, int x1, int y1)
+{
+    black(x0, y0, x1, y1);
+    vdp_gcol(0, C_BLUE);
+    vdp_rectangle(x0, y0, x1, y1);
+    vdp_gcol(0, C_BRIGHT_BLUE);
+    vdp_rectangle(x0 + 2, y0 + 2, x1 - 2, y1 - 2);
+}
+
+/* Stream a LOCB picture (RGBA2222) into its own VDP buffer and draw it
+ * at x/y. False when the file is missing, invalid or not w x h. */
+static bool show_picture(const char *file, uint16_t buffer, uint16_t want_w,
+                         uint16_t want_h, int x, int y)
 {
     uint8_t fh, head[9];                 /* "LOCB" u8 version u16 w u16 h */
     uint16_t w, h;
     uint24_t total, sent = 0, n;
-    fh = mos_fopen("title.bin", FA_READ);
+    fh = mos_fopen(file, FA_READ);
     if (!fh)
         return false;
     if (mos_fread(fh, (char *)head, 9) != 9 || memcmp(head, "LOCB", 4) != 0 ||
@@ -582,27 +641,72 @@ bool render_show_title(void)
     w = (uint16_t)(head[5] | (head[6] << 8));
     h = (uint16_t)(head[7] | (head[8] << 8));
     total = (uint24_t)w * h;
-    if (w != 320 || h != 240) {
+    if (w != want_w || h != want_h) {
         mos_fclose(fh);
         return false;
     }
-    vdp_adv_clear_buffer(TITLE_BUFFER);
+    vdp_adv_clear_buffer(buffer);
     do {
         n = mos_fread(fh, (char *)pixels, sizeof pixels);
         if (n == 0)
             break;
-        vdp_adv_write_block_data(TITLE_BUFFER, (int)n, (char *)pixels);
+        vdp_adv_write_block_data(buffer, (int)n, (char *)pixels);
         sent += n;
     } while (sent < total);
     mos_fclose(fh);
     if (sent != total)
         return false;
     /* every write appended a block; a bitmap needs one contiguous block */
-    vdp_adv_consolidate(TITLE_BUFFER);
-    vdp_adv_select_bitmap(TITLE_BUFFER);
-    vdp_adv_bitmap_from_buffer(320, 240, FORMAT_RGBA2222);
-    vdp_draw_bitmap(0, 0);
+    vdp_adv_consolidate(buffer);
+    vdp_adv_select_bitmap(buffer);
+    vdp_adv_bitmap_from_buffer(w, h, FORMAT_RGBA2222);
+    vdp_draw_bitmap(x, y);
     return true;
+}
+
+bool render_show_title(void)
+{
+    title_loaded = show_picture("title.bin", TITLE_BUFFER, 320, 240, 0, 0);
+    return title_loaded;
+}
+
+bool render_show_end_picture(bool win, int x, int y)
+{
+    return show_picture(win ? "win.bin" : "lose.bin",
+                        (uint16_t)(TITLE_BUFFER + (win ? 1 : 2)), 96, 96, x, y);
+}
+
+/* Headings in the 8x16 display font, drawn at the graphics cursor: no
+ * background box, a shadow one pixel down-right (red under yellow, else
+ * blue). Without the font file: the system font at the nearest cell. */
+void render_heading(int x, int y, uint8_t colour, const char *text)
+{
+    if (!head_font) {
+        text_at((uint8_t)(x / 8), (uint8_t)((y + 4) / 8), colour, text);
+        return;
+    }
+    vdp_font_select(HEAD_FONT, 0);
+    vdp_write_at_graphics_cursor();
+    vdp_gcol(0, colour == C_BRIGHT_YELLOW ? C_RED : C_BLUE);
+    vdp_move_to(x + 1, y + 1);
+    printf("%s", text);
+    vdp_gcol(0, colour);
+    vdp_move_to(x, y);
+    printf("%s", text);
+    vdp_write_at_text_cursor();
+    vdp_font_select(SYSTEM_FONT, 0);
+}
+
+void render_heading_centred(int y, uint8_t colour, const char *text)
+{
+    int n = (int)strlen(text);
+    render_heading((320 - n * 8) / 2, y, colour, text);
+}
+
+void render_dot(int x, int y, uint8_t colour)
+{
+    vdp_gcol(0, colour);
+    vdp_filled_rectangle(x - 1, y - 1, x + 1, y + 1);
 }
 
 void render_frame(int x0, int y0, int x1, int y1, uint8_t colour)

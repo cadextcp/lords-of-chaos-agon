@@ -30,12 +30,12 @@ chest_key,Truhenschluessel,key,obj_chest_key,1,0,0,0
 cauldron_empty,Kessel (leer),potion,obj_cauldron_empty,8,0,0,0
 cauldron_full,Kessel (voll),potion,obj_cauldron_full,8,0,0,0
 vial_empty,Phiole (leer),potion,obj_vial_empty,1,0,0,0
-vial_strength,Phiole Staerke,potion,obj_vial_full,1,0,0,0
-vial_protection,Phiole Schutz,potion,obj_vial_full,1,0,0,0
-vial_invisibility,Phiole Unsichtbar,potion,obj_vial_full,1,0,0,0
-vial_speed,Phiole Schnell,potion,obj_vial_full,1,0,0,0
-vial_flying,Phiole Fliegen,potion,obj_vial_full,1,0,0,0
-vial_healing,Phiole Heilkraut,potion,obj_vial_full,1,0,0,0
+vial_strength,Phiole Staerke,potion,obj_vial_strength,1,0,0,0
+vial_protection,Phiole Schutz,potion,obj_vial_protection,1,0,0,0
+vial_invisibility,Phiole Unsichtbar,potion,obj_vial_invisibility,1,0,0,0
+vial_speed,Phiole Schnell,potion,obj_vial_speed,1,0,0,0
+vial_flying,Phiole Fliegen,potion,obj_vial_flying,1,0,0,0
+vial_healing,Phiole Heilkraut,potion,obj_vial_healing,1,0,0,0
 vial_bomb,Bombenphiole,potion,obj_vial_bomb,1,0,0,0
 mistletoe,Mistelzweig,ingredient,obj_mistletoe,1,0,0,0
 clover,Kleeblatt,ingredient,obj_clover,1,0,0,0

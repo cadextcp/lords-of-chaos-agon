@@ -223,7 +223,7 @@ static void test_audio(void)
 
     /* tunable sample: the same buffer at three pitches (instrument) */
     vdp_audio_create_sample_from_buffer(2, SAMPLE_BUFFER,
-        VDP_AUDIO_SAMPLE_FORMAT_8BIT_SIGNED | VDP_AUDIO_SAMPLE_FORMAT_SAMPLE_TUNEABLE);
+        VDP_AUDIO_SAMPLE_FORMAT_8BIT_SIGNED | 16);   /* tunable = bit 4 (A9) */
     vdp_audio_set_buffer_frequency(2, SAMPLE_BUFFER, 262);
     vdp_audio_set_sample(2, SAMPLE_BUFFER);
     a = note(2, 80, 262, 150);
@@ -493,6 +493,70 @@ static void test_double_buffer(void)
     pause_cs(300);
 }
 
+/* ---------- 6: which wrapper leaks bytes as text? ---------- */
+
+static void probe(uint8_t r, const char *label)
+{
+    vdp_cursor_tab(0, r);
+    vdp_set_text_colour(C_GREY);
+    printf("%-12s|", label);
+}
+
+static void test_leaks(void)
+{
+    heading("6 LEAKS (text after | = leak)");
+    probe(2, "reset");
+    vdp_audio_reset_channel(1);
+    probe(3, "waveform");
+    vdp_audio_set_waveform(1, VDP_AUDIO_WAVEFORM_TRIANGLE);
+    probe(4, "adsr");
+    vdp_audio_volume_envelope_ADSR(1, 4, 120, 90, 80);
+    probe(5, "env off");
+    vdp_audio_volume_envelope_disable(1);
+    probe(6, "play_note");
+    vdp_audio_play_note(1, 40, 440, 50);
+    probe(7, "set_sample");
+    vdp_audio_set_sample(1, SAMPLE_BUFFER);
+    probe(8, "smp_from_buf");
+    vdp_audio_create_sample_from_buffer(0, SAMPLE_BUFFER,
+                                        VDP_AUDIO_SAMPLE_FORMAT_8BIT_SIGNED);
+    probe(9, "buf_freq");
+    vdp_audio_set_buffer_frequency(0, SAMPLE_BUFFER, 262);
+    probe(10, "enable ch");
+    vdp_audio_enable_channel(7);
+    probe(11, "font_select");
+    vdp_font_select(0xFFFF, 0);
+    probe(12, "wr_gfx/txt");
+    vdp_write_at_graphics_cursor();
+    vdp_write_at_text_cursor();
+    probe(13, "move_to");
+    vdp_move_to(10, 10);
+    probe(14, "consolidate");
+    vdp_adv_consolidate(SAMPLE_BUFFER);
+    probe(15, "ch 9 note");
+    vdp_audio_play_note(9, 40, 440, 50);
+    probe(16, "ch 12 reset");
+    vdp_audio_reset_channel(12);
+    probe(17, "adsr 8/120/200/300");
+    vdp_audio_volume_envelope_ADSR(2, 8, 120, 200, 300);
+    probe(18, "adsr 40/120/160/300");
+    vdp_audio_volume_envelope_ADSR(3, 40, 120, 160, 300);
+    probe(19, "adsr 4/120/90/80");
+    vdp_audio_volume_envelope_ADSR(3, 4, 120, 90, 80);
+    probe(20, "adsr 0/0/255/0");
+    vdp_audio_volume_envelope_ADSR(3, 0, 0, 255, 0);
+    probe(21, "adsr 8/80/200/60");
+    vdp_audio_volume_envelope_ADSR(2, 8, 80, 200, 60);
+    probe(22, "tune fmt 8+frq");
+    vdp_audio_create_sample_from_buffer(0, SAMPLE_BUFFER, 8);
+    vdp_audio_set_buffer_frequency(0, SAMPLE_BUFFER, 100);   /* 'd' */
+    probe(23, "tune fmt 16+frq");
+    vdp_audio_create_sample_from_buffer(0, SAMPLE_BUFFER, 16);
+    vdp_audio_set_buffer_frequency(0, SAMPLE_BUFFER, 100);
+    probe(24, "end");
+    pause_cs(300);
+}
+
 int main(int argc, char **argv)
 {
     int which = argc > 1 ? argv[1][0] - '0' : 0;
@@ -513,6 +577,8 @@ int main(int argc, char **argv)
         test_palette();
     if (which == 0 || which == 4)
         test_sprites();
+    if (which == 6)
+        test_leaks();
     if (which == 0 || which == 5)
         test_double_buffer();
     log_line("VDPTEST END");
