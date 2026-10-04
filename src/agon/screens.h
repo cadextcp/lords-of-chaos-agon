@@ -64,4 +64,9 @@ void spell_panel(uint8_t spell, uint8_t top);
  * stops the music and returns. */
 bool screen_title(void);
 
+/* Between the turns (original style): who acts now, the round and the
+ * victory points; the map stays hidden, the frontend only plays sounds. */
+void screen_phase(const char *who, uint8_t round, uint8_t n,
+                  const char *const *names, const uint16_t *vp);
+
 #endif

@@ -66,6 +66,8 @@ void render_menu_text(uint8_t col, uint8_t row, uint8_t colour,
  * full-screen screen call view_invalidate() and redraw the game. */
 void render_screen_clear(void);
 void render_frame(int x0, int y0, int x1, int y1, uint8_t colour);
+/* A 3x3 dot (ornaments). */
+void render_dot(int x, int y, uint8_t colour);
 /* Headings in the 8x16 display font (fonts/head.fnt) at pixel x/y (top
  * left), transparent with a shadow; system font when the file is missing.
  * Blank the area first when redrawing over old text. */

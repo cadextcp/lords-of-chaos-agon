@@ -1,5 +1,7 @@
 #include "turn.h"
 
+#include "populate.h"
+
 #include <string.h>
 
 #include "ai.h"
@@ -186,6 +188,10 @@ void turn_end_phase(Turns *t, World *w)
             world_new_turn(w);            /* regeneration (GDD 2.1.4) */
             if (t->on_round)
                 t->on_round(t, w, t->round_ctx);
+            if (t->wildlife)              /* now and then a herd (D35) */
+                populate_herd(w, &t->rng, t->round);
+            if (t->on_phase)              /* the independents' phase */
+                t->on_phase(t, w, OWN_NEUTRAL, t->on_phase_ctx);
             turn_independents(t, w);      /* next round starts (GDD 2.1.1) */
             if (t->on_ai)                 /* their fights animate too (M5c) */
                 t->on_ai(t, w, t->on_ai_ctx);
@@ -197,6 +203,8 @@ void turn_end_phase(Turns *t, World *w)
         start_phase(t, w, o);
         if ((t->humans & (1u << o)) != 0)
             return;                       /* human players act */
+        if (t->on_phase)
+            t->on_phase(t, w, o, t->on_phase_ctx);
         if (t->ai)
             t->ai(t, w, t->ai_ctx);       /* wizard AI (GDD 10, M3f) */
         if (t->on_ai)                     /* per AI phase (M5c) */

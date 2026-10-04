@@ -51,6 +51,33 @@ bool spellbook_load(Spellbook *books, const uint8_t *data, uint16_t len)
     return true;
 }
 
+/* Summons (D34): the book level is the creature's level, not a count.
+ * Casting costs the level-1 mana and spends nothing; every other spell
+ * pays for its level and uses a charge up. */
+uint8_t spell_cast_mana(uint8_t spell, uint8_t level)
+{
+    if (spell < SPELL_COUNT && SPELLS[spell].category == SPC_SUMMON)
+        return spell_mana(spell, 1);
+    return spell_mana(spell, level);
+}
+
+void spell_scale_creature(Unit *u, uint8_t level)
+{
+    uint16_t pct, v;
+    if (level > SPELL_SUMMON_MAX_LEVEL)
+        level = SPELL_SUMMON_MAX_LEVEL;
+    if (level <= 1)
+        return;
+    pct = (uint16_t)(100 + SUMMON_LEVEL_PERCENT * (level - 1));
+    v = (uint16_t)((uint16_t)u->com * pct / 100);
+    u->com = v > 255 ? 255 : (uint8_t)v;
+    v = (uint16_t)((uint16_t)u->def * pct / 100);
+    u->def = v > 255 ? 255 : (uint8_t)v;
+    v = (uint16_t)((uint16_t)u->con_max * pct / 100);
+    u->con_max = v > 255 ? 255 : (uint8_t)v;
+    u->con = u->con_max;
+}
+
 bool spell_can_cast(const World *w, const Spellbook *b, uint8_t wiz, uint8_t spell)
 {
     const Unit *u;
@@ -59,7 +86,7 @@ bool spell_can_cast(const World *w, const Spellbook *b, uint8_t wiz, uint8_t spe
     u = &w->units[wiz];
     return u->kind == CR_WIZARD && !(u->flags & UF_FLYING) &&
            b->level[spell] > 0 &&
-           u->mana >= spell_mana(spell, b->level[spell]) &&
+           u->mana >= spell_cast_mana(spell, b->level[spell]) &&
            u->ap >= ACTIONS[ACT_CAST].ap;
 }
 
@@ -74,7 +101,7 @@ uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
         return 0;
     u = &w->units[wiz];
     level = b->level[spell];
-    mana = spell_mana(spell, level);
+    mana = spell_cast_mana(spell, level);
     kind = SUMMON_KIND[spell];                /* one summon spell per kind */
     if (kind >= CR_COUNT)
         return 0;
@@ -92,24 +119,26 @@ uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
             world_unit_at(w, x, y, UL_GROUND) == NO_UNIT)
             free_count++;
     }
-    /* all or nothing: not enough room for the whole level and the mana
-     * is lost (GDD 7.2) */
-    want = free_count >= level ? level : 0;
+    /* one creature of the book's level (D34); without a free field the
+     * mana is lost (GDD 7.2) */
+    want = free_count >= 1 ? 1 : 0;
     if (want == 0)
         dragon_herb_spend = false;       /* failed: the herb survives */
     else if (dragon_herb_spend)
         brew_dragon_spend(w, wiz);
     world_spend(w, wiz, ACTIONS[ACT_CAST].ap);
     w->units[wiz].mana = (uint8_t)(u->mana - mana);
-    b->level[spell] = (uint8_t)(level - 1);
-    if (want)
+    if (want)                             /* summons spend no level (D34) */
         events_push(EV_SPELL, u->x, u->y, spell, u->owner, 0, 0);
     for (i = 0; i < 8 && placed < want; i++) {
         int16_t x = (int16_t)(u->x + DX[i]), y = (int16_t)(u->y + DY[i]);
         if (world_wrap(w, &x, &y) && !world_blocks(w, x, y) &&
-            world_unit_at(w, x, y, UL_GROUND) == NO_UNIT &&
-            world_spawn_unit(w, u->owner, kind, (uint8_t)x, (uint8_t)y) != NO_UNIT) {
-            placed++;
+            world_unit_at(w, x, y, UL_GROUND) == NO_UNIT) {
+            uint8_t slot = world_spawn_unit(w, u->owner, kind, (uint8_t)x, (uint8_t)y);
+            if (slot != NO_UNIT) {
+                spell_scale_creature(&w->units[slot], level);
+                placed++;
+            }
         }
     }
     return placed;
@@ -171,6 +200,7 @@ static bool pay_for_spell(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
     w->units[wiz].mana = (uint8_t)(w->units[wiz].mana - mana);
     b->level[spell] = (uint8_t)(level - 1);
     events_push(EV_SPELL, x, y, spell, w->units[wiz].owner, 0, 0);
+    world_disturb(w, x, y, w->units[wiz].owner);   /* magic scares (D37) */
     return true;
 }
 
@@ -200,7 +230,7 @@ bool spell_bolt(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
     if (wiz >= w->unit_count || !world_wrap(w, &x, &y))
         return false;
     u = &w->units[wiz];
-    if (!in_range(w, u, x, y) || !sight_has_los(w, u->x, u->y, x, y))
+    if (!in_range(w, u, x, y) || !sight_has_spell_los(w, u->x, u->y, x, y))
         return false;
     {
         uint8_t before = w->unit_count;
@@ -281,7 +311,7 @@ static bool resist_roll(Rng *rng, uint8_t level, uint8_t mr, int8_t bonus)
 static bool reachable(const World *w, const Unit *u, int16_t *x, int16_t *y)
 {
     return world_wrap(w, x, y) && in_range(w, u, *x, *y) &&
-           sight_has_los(w, u->x, u->y, *x, *y);
+           sight_has_spell_los(w, u->x, u->y, *x, *y);
 }
 
 /* Find a free, non-massive landing field near (x, y) for Teleport. */
@@ -316,7 +346,7 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
 
     case SP_MAGIC_EYE:                 /* sight from a point, one round */
         if (!world_wrap(w, &x, &y) || !in_range(w, u, x, y) ||
-            !sight_has_los(w, u->x, u->y, x, y))
+            !sight_has_spell_los(w, u->x, u->y, x, y))
             return CAST_REJECTED;
         pay_for_spell(w, b, wiz, spell, x, y);
         out->allowed = true;
