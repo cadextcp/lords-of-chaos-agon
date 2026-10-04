@@ -237,41 +237,51 @@ void wizard_slot_reset(uint8_t slot)
      * scenario start (wizard_apply_standard_set). */
 }
 
-/* A sensible starting set, applied temporarily when the player accepts
- * the offer at scenario start (user rule, 2026-10-04). Values follow
- * the original's starting book anchor. */
+/* A sensible starting template that FITS the 600 XP budget (user rule:
+ * nothing above 600, no cheating). Total 522 XP, 78 left to spend.
+ * 8 different creatures at level 1-3, core spells, balanced
+ * attributes. Applied on request at scenario start; never overwrites
+ * a designed book. */
 void wizard_apply_standard_set(Wizard *w)
 {
     if (!w || w->book.level[SP_MAGIC_BOLT] != 0)
         return;                        /* already has spells: leave it */
-    w->book.level[SP_MAGIC_EYE] = 4;
-    w->book.level[SP_SPEED_POTION] = 6;
-    w->book.level[SP_STRENGTH_POTION] = 6;
-    w->book.level[SP_PROTECTION_POTION] = 6;
-    w->book.level[SP_FLYING_POTION] = 6;
-    w->book.level[SP_MAGIC_BOLT] = 6;
-    w->book.level[SP_BOMB_POTION] = 8;
-    w->book.level[SP_INVISIBILITY_POTION] = 8;
-    w->book.level[SP_CURSE] = 8;
-    w->book.level[SP_MAGIC_SHIELD] = 8;
-    w->book.level[SP_MAGIC_LIGHTNING] = 8;
-    w->book.level[SP_HEALING_POTION] = 9;
-    w->book.level[SP_FLOOD] = 10;
-    w->book.level[SP_TANGLE_VINE] = 10;
-    w->book.level[SP_GOOEY_BLOB] = 10;
-    w->book.level[SP_ENCHANT] = 10;
-    w->book.level[SP_SUBVERSION] = 10;
-    w->book.level[SP_TELEPORT] = 10;
-    /* 8 different creatures, spread over the tiers: cheap scouts and
-     * fighters, mid-tier allrounders, one flying heavy (user request) */
+    /* core spells (bolt/shield/healing/eye/lightning/curse) */
+    w->book.level[SP_MAGIC_BOLT] = 4;
+    w->book.level[SP_MAGIC_SHIELD] = 3;
+    w->book.level[SP_HEALING_POTION] = 4;
+    w->book.level[SP_MAGIC_EYE] = 3;
+    w->book.level[SP_MAGIC_LIGHTNING] = 2;
+    w->book.level[SP_CURSE] = 2;
+    w->book.level[SP_SPEED_POTION] = 2;
+    w->book.level[SP_FLYING_POTION] = 2;
+    /* 8 different creatures, level 1-3 (cheap to heavy) */
     w->book.level[SP_GIANT_BAT] = 2;
     w->book.level[SP_GOBLIN] = 2;
-    w->book.level[SP_DWARF] = 2;
-    w->book.level[SP_UNICORN] = 2;
-    w->book.level[SP_HARPY] = 2;
-    w->book.level[SP_ZOMBIE] = 2;
-    w->book.level[SP_GORILLA] = 2;
-    w->book.level[SP_GRYPHON] = 2;
+    w->book.level[SP_DWARF] = 3;
+    w->book.level[SP_UNICORN] = 1;
+    w->book.level[SP_HARPY] = 1;
+    w->book.level[SP_ZOMBIE] = 1;
+    w->book.level[SP_GORILLA] = 1;
+    w->book.level[SP_GRYPHON] = 1;
+    /* balanced attributes: 5 -> 20 com/def/con, 34 -> 49 sta,
+     * 70 -> 80 MR, mana 90 -> 96, AP 34 -> 39 */
+    {
+        uint8_t i;
+        for (i = 0; i < 15; i++) {
+            wizard_raise(w, WA_COMBAT);
+            wizard_raise(w, WA_DEFENCE);
+            wizard_raise(w, WA_CONSTITUTION);
+            wizard_raise(w, WA_STAMINA);
+        }
+        for (i = 0; i < 10; i++)
+            wizard_raise(w, WA_MAGIC_RES);
+        for (i = 0; i < 6; i++)
+            wizard_mana_raise(w);
+        for (i = 0; i < 5; i++)
+            wizard_ap_raise(w);
+    }
+    w->xp = 78;            /* what the template leaves from the 600 */
 }
 
 void wizard_slot_random(uint8_t slot, uint8_t strength, Rng *rng)
