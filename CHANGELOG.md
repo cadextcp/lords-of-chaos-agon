@@ -14,6 +14,11 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ### Geändert
 - **„Zauberer entwerfen" öffnet zuerst eine Übersicht** mit drei Einträgen: **Attribute verteilen / Zauber erlernen / Kreaturen beschwören** — Hoch/Runter + Enter wählt, Esc führt zurück zur Übersicht (und aus ihr heraus). Der versteckte z-Toggle entfällt (das `z` kam wegen QWERTZ-Mapping im Emulator nicht an). „Zauber erlernen" zeigt das Grimoire (alle 46 Sprüche mit Zauber-Panel), „Kreaturen beschwören" nur die kaufbaren Beschwörungen mit Kreatur-Panel.
 
+## [Unreleased] – Standardset mit 8 Kreaturen (2026-10-04)
+
+### Geändert
+- **Standardset enthält 8 verschiedene Kreaturen** (Nutzerwunsch): Riesenfledermaus 2, Goblin 2, Zwerg 2, Einhorn 2, Harpyie 2, Zombie 2, Gorilla 2, Greif 2 — aufgeteilt über die Preisklassen (Scouts, Mittelklasse, fliegender Schwerer). Damit deckt das J-Set beim Spielstart die volle Bandbreite ab: Zauber, Tränke und eine lebendige Truppe.
+
 ## [Unreleased] – c-Menü mit Zauber/Beschwörung-Auswahl (2026-10-04)
 
 ### Geändert
