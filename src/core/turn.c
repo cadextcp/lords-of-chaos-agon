@@ -1,5 +1,7 @@
 #include "turn.h"
 
+#include "populate.h"
+
 #include <string.h>
 
 #include "ai.h"
@@ -186,6 +188,8 @@ void turn_end_phase(Turns *t, World *w)
             world_new_turn(w);            /* regeneration (GDD 2.1.4) */
             if (t->on_round)
                 t->on_round(t, w, t->round_ctx);
+            if (t->wildlife)              /* now and then a herd (D35) */
+                populate_herd(w, &t->rng, t->round);
             turn_independents(t, w);      /* next round starts (GDD 2.1.1) */
             if (t->on_ai)                 /* their fights animate too (M5c) */
                 t->on_ai(t, w, t->on_ai_ctx);

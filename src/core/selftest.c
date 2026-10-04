@@ -19,6 +19,7 @@
 #include "gen/maps.h"
 #include "gen/scenarios.h"
 #include "names.h"
+#include "populate.h"
 #include "rng.h"
 #include "sight.h"
 #include "spells.h"
@@ -991,6 +992,191 @@ static void test_spells(void)
     }
 }
 
+/* ---------- wild animals and random scenarios (D35) ---------- */
+
+static void strip_neutrals(void)
+{
+    uint8_t i = world.unit_count;
+    while (i-- > 0)
+        if (world.units[i].owner == OWN_NEUTRAL)
+            world_remove_unit(&world, i);
+}
+
+static uint8_t count_chests(void)
+{
+    uint8_t x, y, n = 0;
+    for (y = 0; y < world.h; y++)
+        for (x = 0; x < world.w; x++)
+            if (world.feature[y][x] == FE_CHEST)
+                n++;
+    return n;
+}
+
+static uint32_t world_digest(void)
+{
+    uint32_t h = 2166136261u;
+    uint8_t i;
+    for (i = 0; i < world.unit_count; i++)
+        h = (h ^ (uint32_t)(world.units[i].kind * 7 + world.units[i].x * 131 +
+                            world.units[i].y * 4099)) * 16777619u;
+    for (i = 0; i < world.object_count; i++)
+        h = (h ^ (uint32_t)(world.objects[i].tile + world.objects[i].x * 977 +
+                            world.objects[i].y * 31)) * 16777619u;
+    return h ^ count_chests();
+}
+
+/* Did the ring see a swing by this creature kind? */
+static bool swung(uint8_t kind)
+{
+    GameEvent ev[EVENT_RING];
+    uint8_t n = events_drain(ev, EVENT_RING), i;
+    for (i = 0; i < n; i++)
+        if (ev[i].type == EV_SWING && ev[i].kind == kind)
+            return true;
+    return false;
+}
+
+static void rounds_of_neutrals(Rng *r, uint8_t n)
+{
+    uint8_t k;
+    for (k = 0; k < n; k++) {
+        world_new_turn(&world);
+        ai_run_hunters(&world, r, OWN_NEUTRAL, NO_UNIT);
+    }
+}
+
+static void test_wild(void)
+{
+    Rng r;
+    uint32_t d1, d2;
+    uint8_t i, animals = 0, chests_before, wiz = NO_UNIT;
+    bool placed_ok = true;
+
+    /* the same seed populates the same world, another seed another one */
+    world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+    strip_neutrals();
+    chests_before = count_chests();
+    rng_seed(&r, 5);
+    populate_scenario(&world, &r);
+    d1 = world_digest();
+    for (i = 0; i < world.unit_count; i++) {
+        const Unit *u = &world.units[i];
+        if (u->kind == CR_WIZARD) {
+            if (u->owner == OWN_P1)
+                wiz = i;
+            continue;
+        }
+        animals++;
+        if (u->owner != OWN_NEUTRAL || CREATURES[u->kind].wild == WILD_NONE)
+            placed_ok = false;
+    }
+    for (i = 0; i < world.unit_count; i++) {
+        uint8_t k;
+        if (world.units[i].kind == CR_WIZARD)
+            continue;
+        for (k = 0; k < world.unit_count; k++)
+            if (world.units[k].kind == CR_WIZARD &&
+                world_distance(&world, world.units[i].x, world.units[i].y,
+                               world.units[k].x, world.units[k].y) < POP_WIZARD_GAP)
+                placed_ok = false;
+        if (world.floor[world.units[i].y][world.units[i].x] == FL_WATER)
+            placed_ok = false;
+    }
+    check(animals >= POP_ANIMALS_MIN && animals <= POP_ANIMALS_MIN + 3 && placed_ok,
+          "d35: 5-8 wild animals, far from the wizards, not in water");
+    check(count_chests() >= chests_before + POP_CHESTS_MIN,
+          "d35: at least five new chests");
+    check(world.object_count >= POP_FINDS_MIN + POP_KEYS,
+          "d35: loose finds and chest keys lie around");
+    world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+    strip_neutrals();
+    rng_seed(&r, 5);
+    populate_scenario(&world, &r);
+    d2 = world_digest();
+    check(d1 == d2, "d35: same seed, same world");
+    world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+    strip_neutrals();
+    rng_seed(&r, 6);
+    populate_scenario(&world, &r);
+    check(world_digest() != d1, "d35: another seed, another world");
+
+    /* behaviour on the open road (row 12 is path) */
+    world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+    strip_neutrals();
+    for (i = 0; i < world.unit_count; i++)
+        if (world.units[i].owner == OWN_P1)
+            wiz = i;
+    world.units[wiz].x = 20;
+    world.units[wiz].y = 12;
+    world.units[wiz].con = world.units[wiz].con_max;
+    {   /* peaceful: leaves a neighbour alone until attacked */
+        uint8_t g = world_spawn_unit(&world, OWN_NEUTRAL, CR_GORILLA, 21, 12);
+        uint8_t gid = world.units[g].id;
+        rng_seed(&r, 9);
+        events_reset();
+        rounds_of_neutrals(&r, 4);
+        check(!swung(CR_GORILLA), "d35: a peaceful gorilla leaves the wizard alone");
+        g = world_find_unit(&world, gid);
+        world_provoke(&world, g, OWN_P1);
+        check(world.units[g].grudge == 1, "d35: an attack is remembered");
+        g = world_find_unit(&world, gid);
+        world.units[g].x = 21;               /* next to the wizard again */
+        world.units[g].y = 12;
+        events_reset();
+        rounds_of_neutrals(&r, 2);
+        check(swung(CR_GORILLA), "d35: provoked, it fights back");
+        g = world_find_unit(&world, gid);
+        if (g != NO_UNIT)
+            world_remove_unit(&world, g);
+    }
+    world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+    strip_neutrals();                    /* the gorilla may have won */
+    for (i = 0; i < world.unit_count; i++)
+        if (world.units[i].owner == OWN_P1)
+            wiz = i;
+    world.units[wiz].x = 20;
+    world.units[wiz].y = 12;
+    {   /* territorial: defends its home, ignores the far wizard */
+        uint8_t l = world_spawn_unit(&world, OWN_NEUTRAL, CR_LION, 29, 12);
+        ai_set_post(&world, l);
+        events_reset();
+        rounds_of_neutrals(&r, 3);
+        check(!swung(CR_LION), "d35: the lion ignores a wizard outside its territory");
+        for (i = 0; i < world.unit_count; i++)
+            if (world.units[i].owner == OWN_P1)
+                wiz = i;
+        world.units[wiz].x = 27;             /* two fields from its home */
+        world.units[wiz].y = 12;
+        events_reset();
+        rounds_of_neutrals(&r, 2);
+        check(swung(CR_LION), "d35: an intruder in the territory is attacked");
+    }
+
+    /* herds come only later, then cross and leave */
+    world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+    strip_neutrals();
+    rng_seed(&r, 3);
+    check(!populate_herd(&world, &r, 1), "d35: no herd in the first rounds");
+    {
+        uint8_t tries = 0, herd = 0, left = 0;
+        while (!populate_herd(&world, &r, 10) && tries++ < 200)
+            ;
+        for (i = 0; i < world.unit_count; i++)
+            if (world.units[i].herd_dir)
+                herd++;
+        check(herd >= 1 && herd <= 4 &&
+              CREATURES[world.units[world.unit_count - 1].kind].wild == WILD_HERD,
+              "d35: a herd of herd animals enters at an edge");
+        check(!populate_herd(&world, &r, 11), "d35: one herd at a time");
+        rounds_of_neutrals(&r, 40);
+        for (i = 0; i < world.unit_count; i++)
+            if (world.units[i].herd_dir)
+                left++;
+        check(left == 0, "d35: the herd crosses the map and leaves");
+    }
+    events_reset();
+}
+
 static void test_bolt(void)
 {
     Spellbook book;
@@ -1465,9 +1651,10 @@ static void test_scenario(void)
                 vp_fields = (int16_t)(vp_fields + OBJECTS[kind].vp);
             }
         }
-        check(wizards == 2, "scn: two wizards (human + AI)");
-        check(treasures >= 6 && vp_fields >= 114,
-              "scn: six treasures worth the GDD table");
+        check(wizards == 2 && world.unit_count == 2,
+              "scn: two wizards (human + AI), the AI starts alone (D35)");
+        check(treasures == 0 && vp_fields == 0,
+              "d35: no fixed treasure - chests come at random");
     }
     check(world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN) &&
           world.portal_x == -1,
@@ -2681,9 +2868,8 @@ static void test_m4g(void)
         }
     }
     check(wizards == 2, "m4g: dungeon has two wizards");
-    check(undead >= 4, "m4g: the dungeon crawls with undead");
-    check(treasures >= 4, "m4g: dungeon carries treasures");
-    check(slayer, "m4g: the Slayer lies in the dungeon");
+    check(undead == 0 && treasures == 0 && !slayer && world.unit_count == 2,
+          "d35: the dungeon holds only the wizards and their kit");
     check(!world_has_roof(&world, 32, 32), "m4g: the portal lies open");
 
     world_load_bin(&world, MAPBIN_RAGARILS_DOMAIN, MAPBIN_RAGARILS_DOMAIN_LEN);
@@ -2716,7 +2902,7 @@ static void test_m4g(void)
         }
         check(wizards == 2, "m4g: domain has two wizards (one human)");
         check(swamps > 100 && woods > 20, "m4g: the estate has its regions");
-        check(treasures >= 5, "m4g: domain carries treasures");
+        check(treasures == 0, "d35: domain treasure comes from chests");
     }
 
     {   /* scenario books compile and load */
@@ -2795,16 +2981,16 @@ static void test_m4h(void)
 
     world_load_bin(&world, MAPBIN_SLAYERS_DUNGEON, MAPBIN_SLAYERS_DUNGEON_LEN);
     world.unit_count = 0;
-    {   /* map guards: undead carry their spawn post */
+    {   /* map guards: undead carry their spawn post (testland's zombie;
+         * the campaign maps hold no fixed monsters any more, D35) */
         uint8_t i, posted = 0;
-        world_load_bin(&world, MAPBIN_SLAYERS_DUNGEON,
-                       MAPBIN_SLAYERS_DUNGEON_LEN);
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
         for (i = 0; i < world.unit_count; i++)
             if (world.units[i].owner == OWN_NEUTRAL &&
                 (world.units[i].flags & UF_UNDEAD) &&
                 world.units[i].post_x != 0xFF)
                 posted++;
-        check(posted >= 4, "m4h: undead guards carry a post");
+        check(posted >= 1, "m4h: undead guards carry a post");
     }
 
     {   /* a guard chases an intruder and returns home */
@@ -3511,6 +3697,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_combat();
     test_spells();
     test_bolt();
+    test_wild();
     test_items();
     test_game();
     test_ai();

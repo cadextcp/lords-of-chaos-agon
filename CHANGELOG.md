@@ -2,6 +2,16 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Zufällige Welt, Wildtiere und Herden (D35, 2026-10-04)
+
+### Geändert
+- **Jede Partie ist anders:** Zufallsstartwert aus der Uhr.
+- **Der KI-Zauberer startet allein** und beschwört seine Kreaturen selbst – kein Goblin mehr vor der Tür.
+- **Wildtiere:** 5–8 an Zufallsorten. Friedliche streifen umher und wehren sich nur gegen Angreifer; territoriale verteidigen ihr Revier (3 Felder).
+- **Herden** (Elefanten, Einhörner, Pegasi) ziehen ab Runde 4 gelegentlich über die Karte.
+- **Beute zufällig:** 5–7 Truhen (Schätze, Waffen, Tränke), 2 Truhenschlüssel, 6–9 lose Fundstücke passend zum Boden. Fest bleibt nur die Hausausstattung.
+- Spielstand-Format v4 (alte Spielstände werden abgelehnt).
+
 ## [Unreleased] – Rundenende ohne Umwege (2026-10-04)
 
 ### Geändert

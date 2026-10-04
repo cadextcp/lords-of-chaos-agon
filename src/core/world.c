@@ -52,6 +52,9 @@ static void init_unit(Unit *u, uint8_t x, uint8_t y, uint8_t kind, uint8_t owner
     u->in_use = NO_ITEM;
     u->rider_kind = 0xFF;
     u->post_x = u->post_y = 0xFF;
+    u->grudge = 0;
+    u->herd_dir = 0;
+    u->travel = 0;
 }
 
 bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
@@ -327,6 +330,13 @@ uint8_t world_spawn_unit(World *w, uint8_t owner, uint8_t kind, uint8_t x, uint8
     u->id = w->next_id++;
     u->done = false;
     return w->unit_count++;
+}
+
+void world_provoke(World *w, uint8_t unit, uint8_t attacker_owner)
+{
+    if (unit < w->unit_count && attacker_owner < OWN_NEUTRAL &&
+        w->units[unit].owner == OWN_NEUTRAL)
+        w->units[unit].grudge |= (uint8_t)(1u << attacker_owner);
 }
 
 void world_remove_unit(World *w, uint8_t unit)

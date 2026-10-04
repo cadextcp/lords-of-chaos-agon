@@ -407,9 +407,13 @@ const char *items_read(World *w, uint8_t unit)
 }
 
 /* Chest loot table (own values, D7): every chest holds one treasure. */
+/* Chests hold most of the treasure and the better weapons (D35). */
 static const uint8_t CHEST_LOOT[] = {
-    OBJ_GOLD, OBJ_GOLD, OBJ_EMERALD, OBJ_EMERALD, OBJ_RUBY,
+    OBJ_GOLD, OBJ_GOLD, OBJ_GOLD, OBJ_EMERALD, OBJ_EMERALD, OBJ_RUBY,
     OBJ_WAND, OBJ_RUNE_STONE, OBJ_DIAMOND,
+    OBJ_SWORD, OBJ_AXE, OBJ_SPEAR, OBJ_BOW, OBJ_SHIELD, OBJ_KNIFE,
+    OBJ_NINJA_STAR, OBJ_VIAL_HEALING, OBJ_VIAL_STRENGTH, OBJ_SCROLL,
+    OBJ_SLAYER,                          /* rare: one entry in 20 */
 };
 
 bool items_open_chest(World *w, Rng *rng, uint8_t unit, int16_t x, int16_t y)

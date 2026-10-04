@@ -72,7 +72,10 @@ typedef struct {
     uint8_t in_use;           /* index into items, 0xFF = bare hands */
     uint8_t id;               /* stable while the unit lives (indices shift) */
     uint8_t rider_kind;       /* kind carried on this mount, 0xFF = none */
-    uint8_t post_x, post_y;   /* guard post (M4h), 0xFF = none */
+    uint8_t post_x, post_y;   /* guard post (M4h) / territory, 0xFF = none */
+    uint8_t grudge;           /* wild animals (D35): owners that attacked it */
+    uint8_t herd_dir;         /* crossing herd: direction 1..8, 0 = none */
+    uint8_t travel;           /* crossing herd: fields walked so far */
     bool done;                /* finished for this phase (space, turn.h) */
     Effect effects[UNIT_EFFECTS];   /* timed, tick at the round end (M4b) */
 } Unit;
@@ -169,6 +172,8 @@ void world_spend(World *w, uint8_t unit, uint8_t ap);
 /* Remove a unit (swap with the last): indices of other units may change,
  * so callers re-find units by id (world_find_unit, turn_revalidate). */
 void world_remove_unit(World *w, uint8_t unit);
+/* A wild animal (D35) remembers who attacked it and fights back. */
+void world_provoke(World *w, uint8_t unit, uint8_t attacker_owner);
 /* A unit dies by someone's hand: its carried objects drop onto its
  * field (D21), the kill is logged for the VP account (game_credit_kills)
  * unless the killer is independent, then the unit is removed. Killer kind and owner are passed by value - the killer itself

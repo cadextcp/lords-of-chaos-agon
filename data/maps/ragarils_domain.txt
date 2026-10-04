@@ -160,26 +160,11 @@ roof
 ....................................
 
 units
+# wild animals, chests and finds are placed at random at
+# the start (D35, populate.c); the wizards start alone.
 3 32 wizard p1
 30 4 wizard p2
-28 5 vampire neutral
-31 6 spectre neutral
-12 10 zombie neutral
-8 12 zombie neutral
-15 14 ghost neutral
-20 17 vampire neutral
-6 24 zombie neutral
-14 26 spectre neutral
-24 28 demon neutral
-5 30 giant neutral
-18 30 harpy neutral
 
 objects
-32 5 obj_diamond
-30 7 obj_gold
-16 9 obj_ruby
-6 15 obj_emerald
-22 20 obj_magic_apple
-9 28 obj_rune_stone
-26 29 obj_magic_mushroom
+# only the house equipment is fixed (D35)
 3 33 obj_shield

@@ -30,6 +30,7 @@ struct Turns {
     uint8_t active_id;   /* its Unit.id: survives reordering removals */
     uint8_t humans;      /* owner bitmask of human players */
     bool round1_lock;    /* no movement in round 1, casting only (PM 7) */
+    bool wildlife;       /* herds cross the map (D35; campaign scenarios) */
     Rng rng;             /* independent creatures; seeded, so runs replay */
     TurnAiFn ai;         /* NULL: AI phases pass (tests) */
     void *ai_ctx;

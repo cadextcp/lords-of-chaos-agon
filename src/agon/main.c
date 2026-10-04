@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include "../core/events.h"
+#include "../core/populate.h"
 #include "../core/ai.h"
 #include "../core/area.h"
 #include "../core/ride.h"
@@ -1788,7 +1789,13 @@ menu_start:
             map_path = chosen;
             /* everything derived from the map must be rebuilt */
             brew_register_map_cauldrons(&world);
-            turn_init(&turns, &world, TURN_SEED, 1u << OWN_P1);
+            /* every game differs (D35): the seed comes from the clock,
+             * which ran for however long the menu was open */
+            turn_init(&turns, &world, TURN_SEED ^ getsysvar_time(), 1u << OWN_P1);
+            if (scenario_number(chosen)) {   /* campaign: random world */
+                populate_scenario(&world, &turns.rng);
+                turns.wildlife = true;
+            }
             game_init(&game, world.portal_x, world.portal_y, world.portal_rmin,
                       world.portal_rmax, &turns.rng);
             game_new_round(&game, turns.round);
