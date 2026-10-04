@@ -192,12 +192,16 @@ bool spell_bolt(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
         return false;
     {
         uint8_t before = w->unit_count;
+        uint8_t level = b->level[spell];   /* before the cast spends it */
         Unit caster;
         if (!pay_for_spell(w, b, wiz, spell, x, y))
             return false;
         caster = w->units[wiz];
         out->allowed = true;
-        out->hit = shoot_field(w, rng, &caster, x, y, SPELLS[spell].dice_n,
+        /* D&D-style upcast (D29): the dice grow with the book level the
+         * spell is cast at - the first charge of a full book hits hardest */
+        out->hit = shoot_field(w, rng, &caster, x, y,
+                               (uint8_t)(SPELLS[spell].dice_n + level),
                                SPELLS[spell].die, &out->damage);
         out->died = w->unit_count < before;
     }

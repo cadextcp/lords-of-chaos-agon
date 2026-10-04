@@ -92,22 +92,25 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
         events_push(EV_MISS, d->x, d->y, a->kind, a->owner, 0, 0);
 
     d = &w->units[def];                    /* pointer refreshed, not removed */
-    /* The return blow is a free defensive reaction (D27): whoever
-     * attacks risks the counter, but being attacked costs no AP and no
-     * stamina - a besieged unit still enters its own turn at full
-     * strength. Hit or miss, the defender strikes back (GDD 6). */
-    out->returned = true;
-    events_push(EV_SWING, a->x, a->y, d->kind, d->owner, 0, 0);
-    if (items_can_harm_undead(w, def, att) &&
-        rng_range(rng, 100) <
-        combat_hit_chance(items_combat(w, def), items_defence(w, att))) {
-        out->return_hit = true;
-        out->return_damage = roll_damage(w, d, rng);
-        out->attacker_died = combat_damage(w, att, out->return_damage,
-                                           d->kind, d->owner, true,
-                                           &out->return_wound);
-    } else
-        events_push(EV_MISS, a->x, a->y, d->kind, d->owner, 0, 0);
+    /* The return blow is a free defensive reaction (D27) - but every unit
+     * gets ONE reaction per round (D29, D&D style): it is spent here, and
+     * further attacks in the same round land unanswered. Being attacked
+     * still costs no AP and no stamina. */
+    if (!(d->flags & UF_REACTED)) {
+        out->returned = true;
+        w->units[def].flags |= UF_REACTED;
+        events_push(EV_SWING, a->x, a->y, d->kind, d->owner, 0, 0);
+        if (items_can_harm_undead(w, def, att) &&
+            rng_range(rng, 100) <
+            combat_hit_chance(items_combat(w, def), items_defence(w, att))) {
+            out->return_hit = true;
+            out->return_damage = roll_damage(w, d, rng);
+            out->attacker_died = combat_damage(w, att, out->return_damage,
+                                               d->kind, d->owner, true,
+                                               &out->return_wound);
+        } else
+            events_push(EV_MISS, a->x, a->y, d->kind, d->owner, 0, 0);
+    }
     return true;
 }
 
@@ -127,6 +130,9 @@ bool combat_free_swing(World *w, Rng *rng, uint8_t att, uint8_t def,
         return false;
     if (!items_can_harm_undead(w, att, def))
         return false;                      /* clanks off harmlessly (GDD 4.2) */
+    if (a->flags & UF_REACTED)
+        return false;                      /* reaction spent this round (D29) */
+    w->units[att].flags |= UF_REACTED;     /* the swing uses it up */
     events_push(EV_SWING, d->x, d->y, a->kind, a->owner, 0, 0);
 
     ok_to_hit = rng_range(rng, 100) <

@@ -721,11 +721,13 @@ static void test_combat(void)
     world.units[1].con = 32;
     {
         CombatResult a, b;
+        world.units[1].flags &= (uint8_t)~UF_REACTED;   /* fresh round (D29) */
         combat_melee(&world, &rng, 0, 1, &a);
         world.units[0].ap = 40;
         world.units[0].con = 30;
         world.units[1].ap = 0;
         world.units[1].con = 32;
+        world.units[1].flags &= (uint8_t)~UF_REACTED;   /* fresh round (D29) */
         rng_seed(&rng, 7);
         combat_melee(&world, &rng, 0, 1, &b);
         check(a.hit == b.hit && a.damage == b.damage && a.returned == b.returned,
@@ -739,11 +741,27 @@ static void test_combat(void)
     world.units[1].ap = 30;                     /* fresh defender */
     world.units[1].sta = 45;
     world.units[1].con = 32;
+    world.units[1].flags &= (uint8_t)~UF_REACTED;
     rng_seed(&rng, 21);
     combat_melee(&world, &rng, 0, 1, &r);
     check(r.returned, "combat: defenders strike back");
     check(world.units[1].ap == 30 || !r.returned,
           "combat: return blow leaves the defender's AP alone (D27)");
+    {   /* D29: one reaction per round - the second attack lands unanswered */
+        world.units[0].ap = 40;
+        world.units[0].con = 30;
+        world.units[1].con = 32;
+        rng_seed(&rng, 22);
+        combat_melee(&world, &rng, 0, 1, &r);
+        check(!r.returned, "combat: no second counter in the same round (D29)");
+        world_new_turn(&world);                 /* new round: reaction back */
+        world.units[0].ap = 40;
+        world.units[0].con = 30;
+        world.units[1].con = 32;
+        rng_seed(&rng, 23);
+        combat_melee(&world, &rng, 0, 1, &r);
+        check(r.returned, "combat: the reaction returns next round (D29)");
+    }
 
     world.units[1].con = 1;                     /* mortal blow */
     world.units[1].ap = 0;
@@ -3190,28 +3208,72 @@ static void test_m5e_balance(void)
               "m5e: the carried shield still defends");
     }
 
-    {   /* D28: a Magic Bolt that hits usually kills a goblin outright */
-        uint8_t k, kills = 0, hits = 0;
+    {   /* D29: bolt scales with the book level - level 1 wounds, level 8
+         * usually kills a goblin (con 32) outright */
+        uint8_t k, kills1 = 0, kills8 = 0, hits1 = 0, hits8 = 0;
+        uint32_t dmg1 = 0;
         for (k = 0; k < 100; k++) {
             Spellbook b;
             SpellShot shot;
             load_house();                   /* fresh wizard and goblin */
-            world.units[1].owner = OWN_P2;  /* hostile, con 32 */
+            world.units[1].owner = OWN_P2;
             world.units[1].x = 4;
             world.units[1].y = 3;
             memset(&b, 0, sizeof b);
-            b.level[SP_MAGIC_BOLT] = 1;
+            b.level[SP_MAGIC_BOLT] = 1;     /* 4d6 */
             rng_seed(&rng, 900 + k);
             spell_bolt(&world, &b, 0, SP_MAGIC_BOLT, 4, 3, &rng, &shot);
             if (shot.hit) {
-                hits++;
+                hits1++;
+                dmg1 += shot.damage;
                 if (shot.died)
-                    kills++;
+                    kills1++;
+            }
+            load_house();
+            world.units[1].owner = OWN_P2;
+            world.units[1].x = 4;
+            world.units[1].y = 3;
+            memset(&b, 0, sizeof b);
+            b.level[SP_MAGIC_BOLT] = 8;     /* 11d6 */
+            rng_seed(&rng, 900 + k);
+            spell_bolt(&world, &b, 0, SP_MAGIC_BOLT, 4, 3, &rng, &shot);
+            if (shot.hit) {
+                hits8++;
+                if (shot.died)
+                    kills8++;
             }
         }
-        check(hits >= 35, "m5e: the bolt connects over many seeds");
-        check(kills * 2 > hits,
-              "m5e: a hitting bolt kills the goblin most of the time");
+        check(hits1 >= 35, "m5e: the bolt connects over many seeds");
+        check(kills1 == 0, "m5e: a level-1 bolt never one-shots the goblin");
+        {
+            uint8_t avg = (uint8_t)(dmg1 / (hits1 ? hits1 : 1));
+            check(avg >= 10 && avg <= 18,
+                  "m5e: level-1 bolt averages about 4d6 (D29)");
+        }
+        check(hits8 >= 35 && kills8 * 10 > hits8 * 7,
+              "m5e: a level-8 bolt kills the goblin on most hits");
+    }
+
+    {   /* D29: the free swing on disengage spends the same reaction */
+        CombatResult fs;
+        load_house();
+        world.units[1].owner = OWN_P2;
+        world.units[1].x = 4;
+        world.units[1].y = 4;
+        world.units[0].con = 30;
+        world.units[1].con = 32;
+        world.units[1].ap = 30;
+        world.units[1].sta = 45;
+        rng_seed(&rng, 31);
+        combat_melee(&world, &rng, 0, 1, &r);      /* goblin counters ... */
+        check(r.returned, "m5e: the goblin counters the first attack");
+        rng_seed(&rng, 32);
+        check(combat_disengage_swings(&world, &rng, 0, &fs) == 0,
+              "m5e: no free swing left in the same round (D29)");
+        world.units[1].flags &= (uint8_t)~UF_REACTED;   /* new round */
+        rng_seed(&rng, 33);
+        check(combat_disengage_swings(&world, &rng, 0, &fs) == 1,
+              "m5e: the free swing works again next round");
     }
 }
 

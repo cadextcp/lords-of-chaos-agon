@@ -31,6 +31,7 @@ typedef enum {
 /* Status flags shown as panel icons (PM 11). */
 enum { UF_UNDEAD = 1, UF_FLYING = 2, UF_MOUNT = 4, UF_WOUNDED = 8,
        UF_INVISIBLE = 16, UF_MAGIC_WEAPON = 32 /* enchanted (M4b Enchant) */,
+       UF_REACTED = 64 /* the round's defensive reaction is spent (D29) */,
        UF_ENGAGED = 128 /* bound in melee until its owner's phase ends (GDD 6) */ };
 
 /* Brewing cauldron on a field (M4c, GDD 7.2). */
