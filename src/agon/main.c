@@ -1004,23 +1004,35 @@ static void draw_menu(uint8_t cursor)
     render_menu_text(2, 22, C_GREY, "Pfeile + Enter");
 }
 
-/* One designer screen: raise attributes with +/-, Esc leaves (the XP
- * total lives in the header). */
+/* One designer screen: two pages (z toggles) - attributes and the
+ * spell shop. Links/Rechts lower/raise, the XP total lives in the
+ * header. */
 static void designer_loop(uint8_t slot)
 {
     struct keyboard_event_t e;
     static const char *const ATTRS[WA_COUNT] = {
         "Kampf", "Verteidigung", "Magieresistenz", "Konstitution", "Ausdauer"};
     Wizard *w = &wizard_slots[slot];
-    uint8_t cursor = 0;
+    uint8_t cursor = 0, scursor = 0, stop = 0;
+    bool spells = false;
     bool running = true;
     char buf[40];
+    /* the buyable spells (summons, F6 anchor), in table order */
+    uint8_t shop[SPELL_COUNT];
+    uint8_t shop_n = 0;
+    {
+        uint16_t i;
+        for (i = 0; i < SPELL_COUNT; i++)
+            if (SPELLS[i].design_cost)
+                shop[shop_n++] = (uint8_t)i;
+    }
+#define SHOP_ROWS 14
     while (running) {
         render_menu_clear();
-        snprintf(buf, sizeof buf, "%s   Stufe %u   XP %u", w->name, w->level,
-                 w->xp);
-        render_menu_text(2, 1, C_BRIGHT_YELLOW, buf);
-        {
+        snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u  [z: %s]", w->name,
+                 w->level, w->xp, spells ? "Attribute" : "Zauber");
+        render_menu_text(1, 1, C_BRIGHT_YELLOW, buf);
+        if (!spells) {
             uint8_t i;
             for (i = 0; i < WA_COUNT; i++) {
                 snprintf(buf, sizeof buf, "%c %-14.14s %3u (max %u)",
@@ -1029,25 +1041,68 @@ static void designer_loop(uint8_t slot)
                          wizard_attr_max((WizardAttr)i));
                 render_menu_text(3, (uint8_t)(4 + i), C_BRIGHT_WHITE, buf);
             }
+            snprintf(buf, sizeof buf, "%c %-14.14s %3u (max 250)",
+                     cursor == WA_COUNT ? '>' : ' ', "Mana", w->mana_max);
+            render_menu_text(3, (uint8_t)(4 + WA_COUNT), C_BRIGHT_WHITE, buf);
+            render_menu_text(3, 13, C_GREY, "Hoch/Runter, Links/Rechts +/-, z Zauber");
+        } else {
+            uint8_t row, k;
+            if (scursor < stop)
+                stop = scursor;
+            if (scursor >= stop + SHOP_ROWS)
+                stop = (uint8_t)(scursor - SHOP_ROWS + 1);
+            snprintf(buf, sizeof buf, "%-16.16s St Naechste", "Beschwoerung");
+            render_menu_text(3, 3, C_BRIGHT_YELLOW, buf);
+            for (row = 0; row < SHOP_ROWS && stop + row < shop_n; row++) {
+                uint8_t s = shop[stop + row];
+                uint16_t cost = wizard_spell_next_cost(w, s);
+                snprintf(buf, sizeof buf, "%c %-15.15s %2u %5u",
+                         stop + row == scursor ? '>' : ' ', SPELLS[s].name,
+                         w->book.level[s], cost);
+                render_menu_text(2, (uint8_t)(4 + row),
+                                 cost && w->xp >= cost ? C_BRIGHT_WHITE : C_GREY,
+                                 buf);
+            }
+            render_menu_text(1, 22, C_GREY, "Rechts kaufen, Links erstatten,");
+            render_menu_text(1, 23, C_GREY, "Hoch/Runter waehlen, z Attribute");
         }
-        render_menu_text(3, 12, C_GREY, "Hoch/Runter Attribut, Links/Rechts");
-        render_menu_text(3, 13, C_GREY, "senken/erhoehen, Esc zurueck.");
         while (!kbuf_poll_event(&e))
             ;
         if (!e.isdown)
             continue;
         if (e.vkey == VK_ESC) {
             running = false;
+        } else if (e.ascii == 'z' || e.ascii == 'Z') {
+            spells = !spells;
         } else if (e.vkey == VK_UP) {
-            cursor = cursor ? (uint8_t)(cursor - 1) : WA_COUNT - 1;
+            if (!spells)
+                cursor = cursor ? (uint8_t)(cursor - 1) : (uint8_t)WA_COUNT;
+            else
+                scursor = scursor ? (uint8_t)(scursor - 1) : (uint8_t)(shop_n - 1);
         } else if (e.vkey == VK_DOWN) {
-            cursor = (uint8_t)((cursor + 1) % WA_COUNT);
+            if (!spells)
+                cursor = (uint8_t)((cursor + 1) % (WA_COUNT + 1));
+            else
+                scursor = (uint8_t)((scursor + 1) % shop_n);
         } else if (e.vkey == VK_RIGHT || e.ascii == '+') {
-            wizard_raise(w, (WizardAttr)cursor);
+            if (!spells) {
+                if (cursor == WA_COUNT)
+                    wizard_mana_raise(w);
+                else
+                    wizard_raise(w, (WizardAttr)cursor);
+            } else
+                wizard_spell_raise(w, shop[scursor]);
         } else if (e.vkey == VK_LEFT || e.ascii == '-') {
-            wizard_lower(w, (WizardAttr)cursor);
+            if (!spells) {
+                if (cursor == WA_COUNT)
+                    wizard_mana_lower(w);
+                else
+                    wizard_lower(w, (WizardAttr)cursor);
+            } else
+                wizard_spell_lower(w, shop[scursor]);
         }
     }
+#undef SHOP_ROWS
 }
 
 /* The menu: returns the chosen map path or NULL to quit. Slot 0 is the

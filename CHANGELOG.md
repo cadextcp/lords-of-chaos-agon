@@ -2,6 +2,15 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Designer komplett: Zauber-Kauf, Anker-Kosten, Mana (2026-10-04)
+
+### Hinzugefügt
+- **Zauber-Kauf im Designer (F6-Anker, Erfahrung — kein Mana):** Taste `z` wechselt zwischen Attributen und Beschwörungs-Liste; Rechts kauft die nächste Stufe, Links erstattet. Stufe 1 kostet den Grundpreis (Zwerg/Fledermaus 4 … Spinne 28, Gespenst 44, Dämon 58, Drachen 38/50/62), **jede weitere Stufe +50 % des Grundpreises, Maximum Stufe 8** (Beispiel Anker: Harpyie 12/18/24…, Zwerg 4/6/8). Vampir (50) und Pixie (8) fehlten im Anker und sind interpoliert. Nicht-Beschwörungen sind nicht kaufbar (Startbuch, künftig Schriftrollen — D33).
+- **Mana als steigerbarer Wert:** 9 XP pro Punkt (Original-Anker), Start 80, Maximum 250; fließt über `wizard_apply_to_world` in die Einheit.
+
+### Geändert
+- **Attribut-Kosten nach Anker (flach, ersetzt 5+Wert/4):** Kampf 6, Verteidigung 6, Magieresistenz 9, Konstitution 9, Ausdauer 3 XP pro Punkt.
+
 ## [Unreleased] – Original-Startzauberbuch (Nutzer-Anker 2026-10-04)
 
 ### Geändert

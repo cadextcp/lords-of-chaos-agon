@@ -2514,12 +2514,15 @@ static void test_m4f(void)
           w->book.level[SP_MAGIC_BOLT] == 6 && w->book.level[SP_TELEPORT] == 10 &&
           w->book.level[SP_MAGIC_EYE] == 4 && w->book.level[SP_GIANT_BAT] == 0,
           "m4f: stock wizard: original starting book (anchor 2026-10-04)");
-    check(wizard_attr_cost(WA_COMBAT, 10) == 7 &&
-          wizard_attr_cost(WA_COMBAT, 20) == 10,
-          "m4f: costs rise with the value");
+    check(wizard_attr_cost(WA_COMBAT, 10) == 6 &&
+          wizard_attr_cost(WA_DEFENCE, 20) == 6 &&
+          wizard_attr_cost(WA_MAGIC_RES, 80) == 9 &&
+          wizard_attr_cost(WA_CONSTITUTION, 30) == 9 &&
+          wizard_attr_cost(WA_STAMINA, 60) == 3,
+          "m4f: flat anchor costs per attribute (F6, 2026-10-04)");
 
     w->xp = 50;
-    check(wizard_raise(w, WA_COMBAT) && w->com == 11 && w->xp == 43,
+    check(wizard_raise(w, WA_COMBAT) && w->com == 11 && w->xp == 44,
           "m4f: raising costs XP");
     w->xp = 1;
     check(!wizard_raise(w, WA_COMBAT), "m4f: no raising without XP");
@@ -3283,6 +3286,38 @@ static void test_m5e_balance(void)
         rng_seed(&rng, 33);
         check(combat_disengage_swings(&world, &rng, 0, &fs) == 1,
               "m5e: the free swing works again next round");
+    }
+
+    {   /* F6: spell shop and mana with XP (anchor 2026-10-04) */
+        Wizard t;
+        wizard_slot_reset(3);
+        t = wizard_slots[3];
+        t.xp = 100;
+        check(wizard_spell_next_cost(&t, SP_HARPY) == 12 &&
+              wizard_spell_next_cost(&t, SP_MAGIC_BOLT) == 0,
+              "m5f: summons cost their anchor price, others are not for sale");
+        check(wizard_spell_raise(&t, SP_HARPY) && t.book.level[SP_HARPY] == 1 &&
+              t.xp == 88,
+              "m5f: the first level costs the base price");
+        check(wizard_spell_next_cost(&t, SP_HARPY) == 6 &&
+              wizard_spell_raise(&t, SP_HARPY) && t.xp == 82,
+              "m5f: every further level costs half the base (+50 % rule)");
+        t.xp = 0;
+        check(!wizard_spell_raise(&t, SP_HARPY), "m5f: no buying without XP");
+        t.book.level[SP_HARPY] = 8;
+        check(!wizard_spell_raise(&t, SP_HARPY), "m5f: level 8 is the cap");
+        t.book.level[SP_HARPY] = 2;
+        check(wizard_spell_lower(&t, SP_HARPY) && t.xp == 6 &&
+              wizard_spell_lower(&t, SP_HARPY) && t.xp == 18,
+              "m5f: lowering refunds base/half exactly");
+        check(wizard_mana_cost() == 9 && t.mana_max == 80,
+              "m5f: mana starts at 80, 9 XP per point");
+        t.xp = 9;
+        check(wizard_mana_raise(&t) && t.mana_max == 81 && t.xp == 0 &&
+              wizard_mana_lower(&t) && t.mana_max == 80 && t.xp == 9,
+              "m5f: mana raises and refunds with 9 XP");
+        t.xp = 8;
+        check(!wizard_mana_raise(&t), "m5f: one mana point costs exactly 9");
     }
 
     {   /* D32: spell attacks ignore the carried shield */
