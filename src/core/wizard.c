@@ -231,8 +231,19 @@ void wizard_slot_reset(uint8_t slot)
     w->mana_max = START_MANA;
     w->ap = START_AP;
     w->xp = START_XP;      /* creation budget for the designer */
-    /* stock book: the original's starting levels (user anchor,
-     * 2026-10-04) - no summons, they come from the scenario books */
+    /* fresh wizards start with EMPTY books (user rule, 2026-10-04):
+     * spells and creatures are bought in the designer or picked up as
+     * scrolls; the standard set is offered as a temporary template at
+     * scenario start (wizard_apply_standard_set). */
+}
+
+/* A sensible starting set, applied temporarily when the player accepts
+ * the offer at scenario start (user rule, 2026-10-04). Values follow
+ * the original's starting book anchor. */
+void wizard_apply_standard_set(Wizard *w)
+{
+    if (!w || w->book.level[SP_MAGIC_BOLT] != 0)
+        return;                        /* already has spells: leave it */
     w->book.level[SP_MAGIC_EYE] = 4;
     w->book.level[SP_SPEED_POTION] = 6;
     w->book.level[SP_STRENGTH_POTION] = 6;
@@ -251,7 +262,6 @@ void wizard_slot_reset(uint8_t slot)
     w->book.level[SP_ENCHANT] = 10;
     w->book.level[SP_SUBVERSION] = 10;
     w->book.level[SP_TELEPORT] = 10;
-    w->base_book = w->book;   /* lowering never refunds these levels */
 }
 
 void wizard_slot_random(uint8_t slot, uint8_t strength, Rng *rng)

@@ -60,6 +60,10 @@ bool wizard_lower(Wizard *w, WizardAttr a);
 uint16_t wizard_spell_next_cost(const Wizard *w, uint8_t spell);
 bool wizard_spell_raise(Wizard *w, uint8_t spell);   /* spend XP */
 bool wizard_spell_lower(Wizard *w, uint8_t spell);   /* full refund */
+/* The sensible starting set, applied on request at scenario start
+ * (empty books otherwise). No-op when the wizard already owns Magic
+ * Bolt - never overwrites a designed book. */
+void wizard_apply_standard_set(Wizard *w);
 /* Mana: 9 XP per point up to 250 (F6 anchor); the start value is the
  * minimum 90 and it flows into the unit via apply_to_world. */
 uint8_t wizard_mana_cost(void);

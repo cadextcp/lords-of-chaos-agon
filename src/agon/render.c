@@ -441,16 +441,22 @@ void render_panel_at(const World *w, const Sight *s, int16_t x, int16_t y)
     }
 }
 
+/* The cast list: render_list_summons selects the group - letters a..
+ * pick within it. Set from main.c before the call. */
+uint8_t render_list_summons;
+
 void render_spell_list(const Spellbook *book)
 {
     uint8_t row = 0, letter = 'a';
     uint16_t i;
     black(0, 0, MAP_PX - 1, MAP_PX - 1);
-    /* 27 columns fit left of the stat panel: letter, 15 name, level, mana */
-    text_at(0, 0, C_BRIGHT_YELLOW, "  Zauber          St Mana");
+    /* 27 columns fit left of the stat panel: letter, 15 name, count, mana */
+    text_at(0, 0, C_BRIGHT_YELLOW, "  Zauber          Anz Mana");
     for (i = 0; i < SPELL_COUNT && letter <= 'z'; i++) {
         char line[28];
         if (book->level[i] == 0)
+            continue;
+        if (render_list_summons != (SPELLS[i].category == SPC_SUMMON))
             continue;
         snprintf(line, sizeof line, "%c %-15.15s %2u %4u", letter,
                  SPELLS[i].name, book->level[i], spell_mana((uint8_t)i, book->level[i]));
@@ -458,7 +464,32 @@ void render_spell_list(const Spellbook *book)
         row++;
         letter++;
     }
-    text_at(0, 22, C_GREY, "Esc bricht ab.");
+    text_at(0, 22, C_GREY, "Buchstabe wirkt, Esc bricht ab.");
+}
+
+/* The c-menu first asks what to cast: spells or the summoned creatures. */
+void render_cast_menu(uint8_t have_spells, uint8_t have_summons,
+                      uint8_t n_spells, uint8_t n_summons)
+{
+    black(0, 0, MAP_PX - 1, MAP_PX - 1);
+    text_at(0, 0, C_BRIGHT_YELLOW, "  Was wirken?");
+    if (have_spells) {
+        text_at(2, 3, C_BRIGHT_WHITE, "Z  Zauber");
+        {
+            char line[28];
+            snprintf(line, sizeof line, "   %u Spruenge verfuegbar", n_spells);
+            text_at(2, 4, C_GREY, line);
+        }
+    }
+    if (have_summons) {
+        text_at(2, have_spells ? 7 : 3, C_BRIGHT_WHITE, "B  Beschwoeren");
+        {
+            char line[28];
+            snprintf(line, sizeof line, "   %u Beschwoerungen", n_summons);
+            text_at(2, (uint8_t)((have_spells ? 7 : 3) + 1), C_GREY, line);
+        }
+    }
+    text_at(0, 22, C_GREY, "Z/B waehlen, Esc bricht ab.");
 }
 
 void render_menu_clear(void)
