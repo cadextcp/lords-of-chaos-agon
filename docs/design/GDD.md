@@ -498,7 +498,7 @@ Ein langsamer Zombie (24 AP) schafft 2 Angriffe; ein Löwe (54 AP) läuft 13 Fel
 ### 7.3 Wizard Designer `[PM 24–28, AMI 2]`
 
 - **Name** (Buchstaben und Leerzeichen).
-- **Charakter:** Attribute mit XP erhöhen.
+- **Charakter:** Attribute mit XP erhöhen — frische Zauberer starten mit **20 XP Schöpfungsbudget** (eigener Wert, Original-Anker F6 offen); Pfeile links/rechts senken/erhöhen.
   - Jedes Attribut hat Kosten pro Punkt und eine Obergrenze.
   - Unter den Startwert kann man nicht senken.
 - **Zauber:** Stufen mit XP erhöhen, bis maximal 8.

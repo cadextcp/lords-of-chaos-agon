@@ -2,6 +2,12 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Wizard-Designer bedienbar (2026-10-04)
+
+### Behoben
+- **Attribute verteilen mit Links/Rechts:** Im Emulator kommt `+`/`-` nicht als ASCII an (FabGL-Layout) — der Designer nimmt jetzt **Rechts = erhöhen, Links = senken** (Pfeile hoch/runter wählen wie gehabt); `+`/`-` bleiben als Fallback. Dasselbe gilt für die Zufalls-Stärke im Setup-Panel.
+- **Start-Budget für neue Zauberer:** Der Stock-Zauberer startete mit 0 XP — der Designer konnte nichts anheben, selbst mit richtigen Tasten. Jetzt gibt es **20 XP Schöpfungsbudget** (Kosten 5 + Wert/4 pro Punkt, wie das Original mit Punkte-Pool bei der Erstellung; eigener Wert, Amiga-Anker F6 folgt). „Zauberer zurücksetzen" stellt Budget und Werte wieder her.
+
 ## [Unreleased] – Zauber ignorieren Schilde (D32, Zauberer-Duell-Befund 2026-10-04)
 
 ### Geändert

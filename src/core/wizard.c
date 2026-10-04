@@ -15,6 +15,10 @@ Wizard wizard_slots[WIZARD_SLOTS];
 #define START_MR 80
 #define START_CON 30
 #define START_STA 60
+/* Creation budget: designing a fresh wizard distributes these XP (the
+ * original gave a point pool at creation). Own value - the Amiga anchor
+ * (F6) is still to be read; costs are 5 + value/4 per point. */
+#define START_XP 20
 
 uint8_t wizard_attr(const Wizard *w, WizardAttr a)
 {
@@ -124,6 +128,7 @@ void wizard_slot_reset(uint8_t slot)
     w->mr = w->base_mr = START_MR;
     w->con = w->base_con = START_CON;
     w->sta = w->base_sta = START_STA;
+    w->xp = START_XP;      /* creation budget for the designer */
     /* stock book (same set the test scenario granted p1) */
     w->book.level[SP_GIANT_BAT] = 2;
     w->book.level[SP_MAGIC_BOLT] = 1;
