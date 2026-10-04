@@ -103,6 +103,51 @@ bool screen_end(const EndInfo *info)
     }
 }
 
+/* ---------- phase screen (original: the others act unseen) ---------- */
+
+/* A vine-like border: green frame with blue buds every 8 pixels. */
+static void ornate_frame(int x0, int y0, int x1, int y1)
+{
+    int x, y;
+    render_frame(x0, y0, x1, y1, C_GREEN);
+    render_frame(x0 + 4, y0 + 4, x1 - 4, y1 - 4, C_GREEN);
+    for (x = x0 + 4; x <= x1 - 4; x += 8) {
+        render_dot(x, y0 + 2, C_BRIGHT_BLUE);
+        render_dot(x, y1 - 2, C_BRIGHT_BLUE);
+    }
+    for (y = y0 + 4; y <= y1 - 4; y += 8) {
+        render_dot(x0 + 2, y, C_BRIGHT_BLUE);
+        render_dot(x1 - 2, y, C_BRIGHT_BLUE);
+    }
+}
+
+void screen_phase(const char *who, uint8_t round, uint8_t n,
+                  const char *const *names, const uint16_t *vp)
+{
+    char buf[40];
+    uint8_t i, row = 12;
+    render_screen_clear();
+    ornate_frame(24, 20, 295, 190);
+    render_heading_centred(30, C_BRIGHT_MAGENTA, ">>> * <<<");
+    snprintf(buf, sizeof buf, "%-11s %s", "Am Zug:", who);
+    render_menu_text(6, 7, C_YELLOW, buf);
+    snprintf(buf, sizeof buf, "%-11s %u", "Runde:", round);
+    render_menu_text(6, 9, C_YELLOW, buf);
+    render_menu_text(6, 11, C_YELLOW, "Siegpunkte:");
+    for (i = 0; i < n && row < 21; i++, row++) {
+        char dots[40];
+        uint8_t len = (uint8_t)strlen(names[i]), k;
+        if (len > 16)
+            len = 16;
+        for (k = 0; k < 20 - len; k++)    /* name + dots = 20 columns */
+            dots[k] = '.';
+        dots[k] = 0;
+        snprintf(buf, sizeof buf, "%.16s%s %4u", names[i], dots, vp[i]);
+        render_menu_text(6, (uint8_t)(row + 1), C_YELLOW, buf);
+    }
+    centred(26, C_GREY, "- man hoert nur, was geschieht -");
+}
+
 /* ---------- help pages from the SD card (M5, ADR 0011) ---------- */
 
 #define HELP_MAX 4096                  /* keys.hlp is ~3.2 KB */

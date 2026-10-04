@@ -2,6 +2,38 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Phasenbildschirm, aufgescheuchte Tiere (D37/D38, 2026-10-04)
+
+### Geändert
+- **Drei Phasen wie im Original:** Während der KI- und der Neutralen-Phase zeigt ein Phasenbildschirm (Rankenrahmen, wer am Zug ist, Runde, Siegpunkte) statt der Karte; man hört nur Schritte, Kampf und Zauber.
+- **Aufgescheuchte Tiere:** Kampf und Zauber in der Nähe (4 Felder) scheuchen friedliche Tiere und Herden auf – pro Herde ein Wurf am Leittier: 20 % Angriff auf den Verursacher, sonst Flucht; alle Tiere der Herde gleich.
+- **Elefanten trampeln** in Panik durch kleinere Einheiten (2w6) und walzen hohes Gras platt.
+
+## [Unreleased] – Aufheben mit Auswahl, Zauber durch hohes Gras (2026-10-04)
+
+### Geändert
+- **`g` mit Auswahl:** Liegen mehrere Gegenstände auf dem eigenen Feld oder auf Nachbarfeldern, fragt ein Menü, welcher (Buchstabe) oder alle (Leertaste). Ein einzelner Gegenstand auf dem eigenen Feld wird wie bisher direkt genommen. Nachbarfelder sind jetzt erreichbar.
+- **Zauber durch hohes Gras (D36):** Hohes Gras versperrt die Sicht, aber nicht mehr den Zauber.
+
+## [Unreleased] – Zufällige Welt, Wildtiere und Herden (D35, 2026-10-04)
+
+### Geändert
+- **Jede Partie ist anders:** Zufallsstartwert aus der Uhr.
+- **Der KI-Zauberer startet allein** und beschwört seine Kreaturen selbst – kein Goblin mehr vor der Tür.
+- **Wildtiere:** 5–8 an Zufallsorten. Friedliche streifen umher und wehren sich nur gegen Angreifer; territoriale verteidigen ihr Revier (3 Felder).
+- **Herden** (Elefanten, Einhörner, Pegasi) ziehen ab Runde 4 gelegentlich über die Karte.
+- **Beute zufällig:** 5–7 Truhen (Schätze, Waffen, Tränke), 2 Truhenschlüssel, 6–9 lose Fundstücke passend zum Boden. Fest bleibt nur die Hausausstattung.
+- Spielstand-Format v4 (alte Spielstände werden abgelehnt).
+
+## [Unreleased] – Rundenende ohne Umwege (2026-10-04)
+
+### Geändert
+- **Shift+E beendet die Runde sofort** (keine Rückfrage mehr).
+- **Leertaste beendet die Runde**, wenn alle Einheiten fertig sind.
+
+### Behoben
+- Panel: Nach dem Wechsel von einer Einheit mit Waffe blieben Reste des Waffennamens hinter „Hand: -“ stehen.
+
 ## [Unreleased] – Beschwörungen: Stufe = Stärke (D34, 2026-10-04)
 
 ### Geändert

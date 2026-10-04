@@ -32,7 +32,7 @@
 **Was heute läuft (Emulator) — M4-Bestand:**
 - **Spielstart:** `loc` startet Szenario 1 „The Many Coloured Land“ (36×36, Wrap-around, Kartenformat v3 mit Portal). Die Zauberbücher kommen aus der Szenario-Datei (`data/scenarios/`). Eine ganze Partie gegen einen KI-Zauberer ist durchspielbar.
 - **Rundenablauf:**
-  - `Tab`/`Shift+Tab` wählt eine Einheit, `Leertaste` beendet sie, `Shift+E` (zweimal) beendet den Zug.
+  - `Tab`/`Shift+Tab` wählt eine Einheit, `Leertaste` beendet sie, `Shift+E` beendet den Zug sofort; sind alle Einheiten fertig, auch `Leertaste`.
   - Runde 1 erlaubt nur Zaubern `[PM 7]`.
   - Hat der Mensch keine Einheiten mehr, spielt die KI bis zu 40 Runden zu Ende; danach folgt die Abrechnung.
 - **Bewegung:**
@@ -95,7 +95,7 @@
 ```bash
 uv run tools/test.py                       # Host + eZ80-Selftest (vor jedem Commit)
 uv run tools/run.py                        # Spiel im GUI-Emulator (Szenario 1)
-uv run tools/run.py --dump --time 35 --list --keys "shift+e,shift+e" --screenshot   # Rauchtest
+uv run tools/run.py --dump --time 35 --list --keys "shift+e" --screenshot   # Rauchtest
 uv run tools/run.py --bench --time 20      # Redraw-Messung -> loc.log
 uv run tools/run.py --keytest              # Tastatur-Events anzeigen
 uv run tools/mockup.py --sheet             # Mockup und Kachelübersicht
@@ -216,7 +216,7 @@ Danach: M6/Chaos laut `docs/ROADMAP.md` (GDD §12), oder Politur aus §8.
 - **Hardware-Test des Nutzers (#3, #7):** Er wird mit jedem Teil wichtiger; KI-Runden und Sicht kosten auf dem Emulator schon spürbar Zeit.
   - Auf die SD-Karte nach `/loc`: Inhalt von `bin/loc-sd.zip` (siehe §7).
   - Dann `SET KEYBOARD 2`, `cd /loc`, `loc --keytest`, `loc --bench`, `loc`.
-  - **Runde 1 ohne Bewegung:** `loc` startet mit der Original-Regel `[PM 7]` — in Runde 1 ist nur Zaubern moeglich. `Shift+E` zweimal beendet den Zug; `loc --free-round1` hebt die Sperre auf. Im Tutorial ist sie ohnehin aufgehoben.
+  - **Runde 1 ohne Bewegung:** `loc` startet mit der Original-Regel `[PM 7]` — in Runde 1 ist nur Zaubern moeglich. `Shift+E` beendet den Zug; `loc --free-round1` hebt die Sperre auf. Im Tutorial ist sie ohnehin aufgehoben.
   - **Stand 2026-10-03 (Hardware, Stand `037521f`):** Upload nach `/loc` per USB, `loc --selftest` PASS und `loc --bench` sind gelaufen (Werte in `docs/AGON-QUIRKS.md`, Ablauf in `docs/TESTING.md`); lange Dateinamen auf FAT sind geklärt. Das Spiel selbst, `--keytest` und die Eingabe am Gerät stehen noch aus. Der Lumagon-Autostart ist auf der Karte abgeschaltet (Sicherung `/autoexec.lum`).
   - Zu klären: Akkorde ohne Ghosting? Codes für `<`/`>`? MOS-/VDP-Version? Ladezeiten (tiles.bin 162 KB, title.bin 75 KB)? Dauer einer KI-Runde? VDP-RAM mit Titel (S2)? Klang?
 - **Titel-Motiv:** Platzhalter-Vorschlag, wartet auf Abstimmung (siehe §7).

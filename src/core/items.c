@@ -49,12 +49,36 @@ static void remove_ground_object(World *w, uint8_t i)
 
 bool items_pick_up(World *w, uint8_t unit)
 {
-    Unit *u;
-    uint8_t kind, i;
+    uint8_t i;
     if (unit >= w->unit_count)
         return false;
+    for (i = 0; i < w->object_count; i++)
+        if (w->objects[i].x == w->units[unit].x &&
+            w->objects[i].y == w->units[unit].y &&
+            items_kind_of_tile(w->objects[i].tile) != NO_ITEM)
+            return items_pick_up_object(w, unit, i);
+    return false;
+}
+
+uint8_t items_kind_of_tile(uint16_t tile)
+{
+    uint8_t k;
+    for (k = 0; k < OBJ_COUNT; k++)
+        if (OBJECTS[k].tile == tile)
+            return k;
+    return NO_ITEM;
+}
+
+bool items_pick_up_object(World *w, uint8_t unit, uint8_t obj)
+{
+    Unit *u;
+    uint8_t kind;
+    if (unit >= w->unit_count || obj >= w->object_count)
+        return false;
     u = &w->units[unit];
-    kind = items_kind_at(w, u->x, u->y);
+    if (world_distance(w, u->x, u->y, w->objects[obj].x, w->objects[obj].y) > 1)
+        return false;                    /* own field or a neighbour */
+    kind = items_kind_of_tile(w->objects[obj].tile);
     if (kind == NO_ITEM || u->item_count >= UNIT_ITEMS)
         return false;
     if (kind == OBJ_CAULDRON_FULL)
@@ -66,12 +90,7 @@ bool items_pick_up(World *w, uint8_t unit)
         return false;
     world_spend(w, unit, ACTIONS[ACT_PICK_UP].ap);
     u->items[u->item_count++] = kind;
-    for (i = 0; i < w->object_count; i++)
-        if (w->objects[i].x == u->x && w->objects[i].y == u->y &&
-            w->objects[i].tile == OBJECTS[kind].tile) {
-            remove_ground_object(w, i);
-            break;
-        }
+    remove_ground_object(w, obj);
     return true;
 }
 
@@ -407,9 +426,13 @@ const char *items_read(World *w, uint8_t unit)
 }
 
 /* Chest loot table (own values, D7): every chest holds one treasure. */
+/* Chests hold most of the treasure and the better weapons (D35). */
 static const uint8_t CHEST_LOOT[] = {
-    OBJ_GOLD, OBJ_GOLD, OBJ_EMERALD, OBJ_EMERALD, OBJ_RUBY,
+    OBJ_GOLD, OBJ_GOLD, OBJ_GOLD, OBJ_EMERALD, OBJ_EMERALD, OBJ_RUBY,
     OBJ_WAND, OBJ_RUNE_STONE, OBJ_DIAMOND,
+    OBJ_SWORD, OBJ_AXE, OBJ_SPEAR, OBJ_BOW, OBJ_SHIELD, OBJ_KNIFE,
+    OBJ_NINJA_STAR, OBJ_VIAL_HEALING, OBJ_VIAL_STRENGTH, OBJ_SCROLL,
+    OBJ_SLAYER,                          /* rare: one entry in 20 */
 };
 
 bool items_open_chest(World *w, Rng *rng, uint8_t unit, int16_t x, int16_t y)

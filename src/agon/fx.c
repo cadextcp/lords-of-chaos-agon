@@ -333,6 +333,41 @@ static void damage_number(int16_t px, int16_t py, uint8_t value, bool crit)
     spr_hide_all();
 }
 
+/* ---------- unseen phases: only sounds ---------- */
+
+void fx_pause(uint8_t cs)
+{
+    wait_cs(cs);
+}
+
+void fx_drain_sounds(void)
+{
+    static GameEvent ev[EVENT_RING];
+    uint8_t n = events_drain(ev, EVENT_RING), i;
+    if (!fx_enabled)
+        return;
+    for (i = 0; i < n; i++) {
+        uint8_t snd;
+        switch (ev[i].type) {
+        case EV_SWING: snd = SND_SWING; break;
+        case EV_HIT: snd = ev[i].b ? SND_CRIT : SND_HIT; break;
+        case EV_MISS: snd = SND_MISS; break;
+        case EV_DEATH: snd = SND_DEATH; break;
+        case EV_SPELL: snd = spell_sound(ev[i].kind); break;
+        case EV_SMASH: snd = SND_SMASH; break;
+        case EV_PROJECTILE:
+            snd = ev[i].kind == PJ_ARROW ? SND_BOW
+                : ev[i].kind == PJ_THROWN ? SND_THROW : 0xFF;
+            break;
+        default: snd = 0xFF; break;
+        }
+        if (snd == 0xFF)
+            continue;
+        sound_play(snd);
+        wait_cs(snd == SND_DEATH || snd == SND_SUMMON ? 40 : 22);
+    }
+}
+
 /* ---------- the show ---------- */
 
 /* World -> view field of an event (may lie outside the window). */
