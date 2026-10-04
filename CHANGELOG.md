@@ -2,6 +2,12 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Kampf-Rebalance II (D29, Playtest 2026-10-04)
+
+### Geändert
+- **Eine Reaktion pro Runde (D29):** Konter (D27) und freier Schlag beim Wegziehen (D26) teilen sich eine defensive Reaktion pro Runde und Einheit (D&D-5e-Vorbild) — wer sie verbraucht hat, wird im selben Rundenverlauf unbestraft weiter angegriffen; mit der Rundenregeneration ist sie zurück. Ein KI-Goblin, das 3× angreift, sieht danach also nur noch einen Konter.
+- **Magic Bolt entschärft und stufig skaliert (D29):** jetzt **(3+Stufe)w6** statt 7w10 — D&D-Upcasting: die Buchstufe beim Wirken bestimmt die Würfel (Stufe 1: 4w6 Ø 14 … Stufe 8: 11w6 Ø 38,5). Magic Lightning **(5+Stufe)w6 + 2w6 Splash**. Ein Stufe-1-Bolt verwundet einen Goblin schwer, tötet ihn aber nicht mehr; volle Bücher schlagen deutlich härter als entladene.
+
 ## [Unreleased] – Kampf-Rebalance (D27/D28, Playtest 2026-10-04)
 
 ### Geändert

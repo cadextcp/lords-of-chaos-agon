@@ -74,7 +74,9 @@ haengt von Kampf gegen Verteidigung
 ab, Waffen und Schilde zaehlen mit.
 
 Der Angegriffene schlaegt sofort
-zurueck - das kostet ihn nichts (D27).
+zurueck - einmal pro Runde, kostenlos
+(D27/D29); weitere Angriffe laufen
+dann unbestraft ins Ziel.
 Wer sich aus dem Kampf zieht, riskiert
 einen freien Schlag des Gegners.
 Waffen wuerfeln ihren Schaden (D28):
@@ -94,7 +96,8 @@ Zauber pro Runde - es regeneriert
 langsam.
 
 Beschwoerungen rufen Kaempfer ins
-Spiel. Bolt und Blitz schlagen zu,
+Spiel. Bolt und Blitz schlagen zu
+(staerker bei hoher Buchstufe),
 Feuer, Brei, Ranken und Flut
 beherrschen das Gelaende. Shield
 schuetzt, Teleport und Auge erkunden,

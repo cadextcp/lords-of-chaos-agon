@@ -449,6 +449,7 @@ void world_new_turn(World *w)
         Unit *u = &w->units[i];
         /* airborne on a flying potion (no wings): the ground budget */
         uint8_t full = (u->flags & UF_FLYING) && u->ap_fly ? u->ap_fly : u->ap_max;
+        u->flags &= (uint8_t)~UF_REACTED;   /* new round, new reaction (D29) */
         if (u->flags & UF_WOUNDED)         /* bleeds until death (PM 17) */
             u->con = u->con > 0 ? (uint8_t)(u->con - 1) : 0;
         uint16_t sta;
