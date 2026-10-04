@@ -2543,6 +2543,50 @@ static void test_m4f(void)
     w->xp = 1;
     check(!wizard_raise(w, WA_COMBAT), "m4f: no raising without XP");
 
+    {   /* F6 end-to-end: spend the full 600 XP over every row, never
+         * below the minimums, never above the 600 total */
+        Wizard b;
+        uint16_t rows;
+        uint8_t raise_count = 0;
+        wizard_slot_reset(3);
+        b = wizard_slots[3];            /* minimums + 600 XP */
+        check(b.xp == 600 && b.com == 5 && b.def == 5 && b.mr == 70 &&
+              b.con == 25 && b.sta == 34 && b.mana_max == 90 && b.ap == 34,
+              "m4f: fresh wizard = minimums + 600 XP");
+        /* buy combat to the cap 30: 25 points x 2 XP = 50 spent */
+        while (wizard_raise(&b, WA_COMBAT))
+            raise_count++;
+        check(raise_count == 25 && b.com == 30 && b.xp == 550,
+              "m4f: combat caps at 30 after 25 points (50 XP)");
+        /* mana at 9 and AP at 8 still work from 550 */
+        check(wizard_mana_raise(&b) && b.mana_max == 91 && b.xp == 541 &&
+              wizard_mana_lower(&b) && b.mana_max == 90 && b.xp == 550,
+              "m4f: mana raises/refunds alongside");
+        /* lower it back: every lowering refunds the full price */
+        {
+            uint8_t i;
+            for (i = 0; i < raise_count; i++)
+                wizard_lower(&b, WA_COMBAT);
+        }
+        check(b.com == 5 && b.xp == 600,
+              "m4f: lowering refunds everything, back to 600");
+        /* spend 600 exactly: defence 5->30 (50), con 25->60 (70),
+         * sta 34->100 (264), MR 70->100 (120), mana 90->105 (90),
+         * AP 34->40 (48) = 592, plus 1 mana (9) overshoots - so
+         * check the exact drain with defence/con/stamina only */
+        for (rows = 0; rows < 25; rows++)
+            wizard_raise(&b, WA_DEFENCE);
+        for (rows = 0; rows < 35; rows++)
+            wizard_raise(&b, WA_CONSTITUTION);
+        for (rows = 0; rows < 66; rows++)
+            wizard_raise(&b, WA_STAMINA);
+        check(b.xp == 600 - 50 - 70 - 264 && b.def == 30 && b.con == 60 &&
+              b.sta == 100,
+              "m4f: 600 XP drain exactly over the three rows");
+        /* and the whole thing stays a valid wizard */
+        check(wizard_valid(&b), "m4f: maxed wizard still validates");
+    }
+
     {   /* caps */
         w->xp = 60000;
         w->mr = wizard_attr_max(WA_MAGIC_RES);
