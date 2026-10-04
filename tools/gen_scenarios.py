@@ -93,8 +93,8 @@ def encode(m: dict, ids: dict[str, int]) -> bytes:
             key = "SP_" + spell.upper()
             if key not in ids:
                 raise SystemExit(f"unknown spell {spell!r} (see data/spells.csv)")
-            if not 1 <= level <= 8:
-                raise SystemExit(f"spell level must be 1..8: {spell} {level}")
+            if not 1 <= level <= 10:
+                raise SystemExit(f"spell level must be 1..10: {spell} {level}")
             out.append(ids[key])
             out.append(level)
     return bytes(out)

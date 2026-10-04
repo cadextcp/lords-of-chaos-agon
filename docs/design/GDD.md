@@ -501,7 +501,7 @@ Ein langsamer Zombie (24 AP) schafft 2 Angriffe; ein Löwe (54 AP) läuft 13 Fel
 - **Charakter:** Attribute mit XP erhöhen — frische Zauberer starten mit **20 XP Schöpfungsbudget** (eigener Wert, Original-Anker F6 offen); Pfeile links/rechts senken/erhöhen.
   - Jedes Attribut hat Kosten pro Punkt und eine Obergrenze.
   - Unter den Startwert kann man nicht senken.
-- **Zauber:** Stufen mit XP erhöhen, bis maximal 8.
+- **Zauber:** Stufen mit XP erhöhen, bis maximal 10 (Anker: Das Original-Startbuch trägt Stufen bis 10, Nutzerablesung 2026-10-04).
 - **Zufalls-Zauberer:** erhalten zufällige Zauber. Ihre Stärke hängt von der Setup-Einstellung „Zufalls-Zauberer-Stufe“ ab.
 - **Werte:** Startwerte, Kosten und Obergrenzen der Zauberer-Attribute stehen nicht im Manual → §13.
 
@@ -904,7 +904,7 @@ Die Vorschläge sind als **Startwerte** übernommen (D22). Jede Frage wird vor i
 | F3 | Teleport-Ungenauigkeit | b | Abweichung bis `Distanz / 4` Felder (zufällig, auf freies Feld); massives Ziel lässt den Zauber scheitern; danach 0 AP. |
 | F4 | Ausbreitung der Flächen | d | Stärke = Zauberstufe. Am Rundenende versucht jedes Feld einmal, ein passendes Nachbarfeld zu belegen (Chance `Stärke × 10 %`); neue Felder erhalten `Stärke − 1`, alte verlieren 1. Höchstens 48 Felder je Fläche (Leistung). |
 | F5 | Was überträgt die Kampagne? | f | **Entschieden:** Attribute, Zauberstufen (voll aufgefüllt) und XP. Schätze werden beim Durchschreiten des Portals zu VP und danach zu XP. Waffen, Schilde, Tränke und Schlüssel bleiben im Szenario; der Zauberer startet unbewaffnet. |
-| F6 | Startwerte, Kosten und Obergrenzen im Wizard Designer | f | Einmal im Amiga-Designer (WinUAE) ablesen und als Anker nehmen (§13 ●), dann eigene Werte. |
+| F6 | Startwerte, Kosten und Obergrenzen im Wizard Designer | f | **Teilanker 2026-10-04 (Nutzer):** Das Original-**Startbuch** liegt bei Stufen 4–10 (Magisches Auge 4; Schnelligkeit/Stärke/Schutz/Flug/Bolt 6; Bombe/Unsichtbarkeit/Fluch/Schild/Blitz 8; Heilung 9; Flut/Range/Gooey/Enchant/Subversion/Teleport 10; keine Beschwörungen) → Buchstufen-Deckel 8→10, Stock-Buch übernommen. Offen bleiben: Attribut-Kosten und Obergrenzen im Designer. |
 | F7 | Dächer: nur Regel oder auch sichtbar? | e | **Entschieden:** sichtbar. Von außen sieht man das Dach; steht eine eigene Einheit im Gebäude, wird das Dach über dem Gebäude ausgeblendet. |
 | F8 | 5-Ladungen-Grenze beibehalten? | i | Ja, aber im Setup abschaltbar. |
 | F9 | Setup-Panel und Timer in v1.0? | i | Nur die Zufalls-Zauberer-Stufe; Spiellänge folgt aus dem Szenario, Timer nach v1.0. |

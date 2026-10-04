@@ -8,7 +8,10 @@
 #include "rng.h"
 #include "world.h"
 
-#define SPELL_MAX_LEVEL 8
+/* Book levels: casts left and power at once. Cap 10 - the original's
+ * starting book carries levels up to 10 (user anchor, 2026-10-04);
+ * the earlier cap 8 was our own placeholder. */
+#define SPELL_MAX_LEVEL 10
 
 /* Mana cost at a level (0..8): base + level * step (observation B3.5). */
 uint8_t spell_mana(uint8_t spell, uint8_t level);
