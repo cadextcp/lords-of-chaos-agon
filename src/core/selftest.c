@@ -3165,15 +3165,15 @@ static void test_m5e_balance(void)
         world.units[0].com = CREATURES[CR_DWARF].combat;
         for (k = 0; k < 400; k++) {
             rng_seed(&rng, 7000 + k);
-            bare += items_attack_damage(&world, 0, &rng);
+            bare += items_attack_damage(&world, 0, &rng, false);
             world.units[0].items[0] = OBJ_SWORD;
             world.units[0].item_count = 1;
             world.units[0].in_use = 0;
             rng_seed(&rng, 7000 + k);
-            sword += items_attack_damage(&world, 0, &rng);
+            sword += items_attack_damage(&world, 0, &rng, false);
             world.units[0].items[0] = OBJ_AXE;
             rng_seed(&rng, 7000 + k);
-            axe += items_attack_damage(&world, 0, &rng);
+            axe += items_attack_damage(&world, 0, &rng, false);
             world.units[0].item_count = 0;
             world.units[0].in_use = NO_ITEM;
         }
@@ -3211,6 +3211,7 @@ static void test_m5e_balance(void)
     {   /* D29: bolt scales with the book level - level 1 wounds, level 8
          * usually kills a goblin (con 32) outright */
         uint8_t k, kills1 = 0, kills8 = 0, hits1 = 0, hits8 = 0;
+        uint8_t kills1_without_crit = 0;
         uint32_t dmg1 = 0;
         for (k = 0; k < 100; k++) {
             Spellbook b;
@@ -3226,8 +3227,11 @@ static void test_m5e_balance(void)
             if (shot.hit) {
                 hits1++;
                 dmg1 += shot.damage;
-                if (shot.died)
+                if (shot.died) {
                     kills1++;
+                    if (!shot.crit)
+                        kills1_without_crit++;
+                }
             }
             load_house();
             world.units[1].owner = OWN_P2;
@@ -3244,7 +3248,8 @@ static void test_m5e_balance(void)
             }
         }
         check(hits1 >= 35, "m5e: the bolt connects over many seeds");
-        check(kills1 == 0, "m5e: a level-1 bolt never one-shots the goblin");
+        check(kills1 * 10 <= hits1 && !kills1_without_crit,
+              "m5e: a level-1 bolt one-shots only on a lucky crit (D30)");
         {
             uint8_t avg = (uint8_t)(dmg1 / (hits1 ? hits1 : 1));
             check(avg >= 10 && avg <= 18,
@@ -3274,6 +3279,44 @@ static void test_m5e_balance(void)
         rng_seed(&rng, 33);
         check(combat_disengage_swings(&world, &rng, 0, &fs) == 1,
               "m5e: the free swing works again next round");
+    }
+
+    {   /* D30: critical hits - rare, dice doubled (bonus not) */
+        uint16_t k, crits = 0, hits = 0;
+        uint32_t normal = 0, critical = 0;
+        CombatResult cr;
+        load_house();
+        world.units[0].items[0] = OBJ_SWORD;
+        world.units[0].item_count = 1;
+        world.units[0].in_use = 0;
+        world.units[1].owner = OWN_P2;
+        world.units[1].x = 4;
+        world.units[1].y = 4;
+        for (k = 0; k < 400; k++) {
+            rng_seed(&rng, 5000 + k);
+            world.units[0].ap = 40;
+            world.units[0].con = 30;
+            world.units[1].con = 250;      /* a punching bag that survives */
+            world.units[1].con_max = 250;
+            world.units[1].flags |= UF_REACTED;   /* its counter stays off */
+            if (combat_melee(&world, &rng, 0, 1, &cr) && cr.hit) {
+                hits++;
+                if (cr.crit) {
+                    crits++;
+                    critical += cr.damage;
+                } else
+                    normal += cr.damage;
+            }
+        }
+        check(crits >= 8 && crits <= 45,
+              "m5e: about one in twenty hits is critical (D30)");
+        {   /* crit = 4d8+1 vs normal 2d8+1: the crit adds one dice roll */
+            uint16_t avg_n = (uint16_t)(normal / (hits - crits ? hits - crits : 1));
+            uint16_t avg_c = (uint16_t)(critical / (crits ? crits : 1));
+            check(avg_c > avg_n, "m5e: criticals outdamage normal hits");
+            check(avg_c > avg_n + 6 && avg_c < avg_n + 12,
+                  "m5e: the crit adds about one extra sword roll");
+        }
     }
 }
 

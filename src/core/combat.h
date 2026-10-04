@@ -18,15 +18,21 @@
 
 typedef struct {
     bool hit;             /* attacker connected */
+    bool crit;            /* attack roll <= 5 %: damage dice doubled (D30) */
     uint8_t damage;       /* constitution lost by the defender */
     bool wound;           /* fatal wound opened (PM 17) */
     bool died;            /* defender died (already removed) */
-    bool returned;        /* defender struck back (PM 18) */
+    bool returned;        /* defender struck back (free reaction, D27/D29) */
     bool return_hit;
+    bool return_crit;
     uint8_t return_damage;
     bool return_wound;    /* the return blow opened the attacker's wound */
     bool attacker_died;   /* the return blow killed the attacker */
 } CombatResult;
+
+/* Attack rolls at or below this percentile are critical (D30): the
+ * damage dice count twice (flat bonuses do not - D&D style). */
+#define COMBAT_CRIT_PERCENT 5
 
 /* Hit chance in percent, for tests and the AI: 50 + 5 per point of
  * Combat over Defence, clamped to 10..90. */
@@ -35,9 +41,10 @@ uint8_t combat_hit_chance(uint8_t com, uint8_t def);
 /* Apply `damage` to a unit (all damage sources share it): a single blow
  * above a quarter of the Constitution opens a fatal wound (PM 17), a
  * lethal one kills through world_kill_unit with the given killer.
- * *wound (optional) tells about the wound; returns true on death. */
+ * *wound (optional) tells about the wound; crit marks a critical hit
+ * for the presentation event. Returns true on death. */
 bool combat_damage(World *w, uint8_t target, uint8_t damage, uint8_t killer_kind,
-                   uint8_t killer_owner, bool melee, bool *wound);
+                   uint8_t killer_owner, bool melee, bool *wound, bool crit);
 
 /* One melee exchange. False (nothing happens, *out zeroed) when the
  * attack is not allowed: not adjacent, same owner, a grounded attacker

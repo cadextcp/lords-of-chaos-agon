@@ -2,6 +2,11 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Kritische Treffer (D30, 2026-10-04)
+
+### Hinzugefügt
+- **Kritische Treffer (D30, D&D-orientiert):** Ein Angriffswurf unter 5 % ist kritisch — die **Schadenswürfel zählen doppelt**, der feste Kampf-Bonus nicht (Schwert 2w8 → 4w8, Stufe-1-Bolt 4w6 → 8w6). Etwa jeder zwanzigste Angriff; gilt für Nahkampf, Rückschlag, Freien Schlag, Wurf, Bogen und Bolt/Blitz; Flächen, Bomben und Möbel-Schlagen kritisieren nicht. Im Spiel: Meldung „KRIT! …“ in Rot, Overlay mit doppeltem Effekt und Crash-Sound; Krits öffnen leichter tödliche Wunden.
+
 ## [Unreleased] – Kampf-Rebalance II (D29, Playtest 2026-10-04)
 
 ### Geändert

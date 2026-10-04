@@ -90,11 +90,21 @@ void fx_drain_play(World *w, const Sight *s)
             break;
         case EV_HIT:
             sound_play(SND_HIT);
-            draw_overlay(vx, vy, T_FX_HIT);
-            snprintf(buf, sizeof buf, "-%u", e->a);
-            render_menu_text((uint8_t)(vx * 3), (uint8_t)(vy * 3),
-                             C_BRIGHT_RED, buf);
-            wait_frames(3);
+            if (e->b) {                      /* critical (D30): KRIT! */
+                sound_play(SND_SMASH);
+                draw_overlay(vx, vy, T_FX_HIT);
+                draw_overlay(vx, vy, T_FX_SLASH);
+                snprintf(buf, sizeof buf, "KRIT -%u", e->a);
+                render_menu_text((uint8_t)(vx * 3), (uint8_t)(vy * 3),
+                                 C_BRIGHT_RED, buf);
+                wait_frames(5);
+            } else {
+                draw_overlay(vx, vy, T_FX_HIT);
+                snprintf(buf, sizeof buf, "-%u", e->a);
+                render_menu_text((uint8_t)(vx * 3), (uint8_t)(vy * 3),
+                                 C_BRIGHT_RED, buf);
+                wait_frames(3);
+            }
             break;
         case EV_MISS:
             sound_play(SND_MISS);

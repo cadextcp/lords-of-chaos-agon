@@ -43,8 +43,9 @@ uint8_t items_defence(const World *w, uint8_t unit);
 /* Weapon of the object in use, WEAPON_NONE without one. */
 uint8_t items_in_use_weapon(const Unit *u);
 /* One damage roll of the unit: weapon dice plus com/5, bare hands 1d4
- * (D28). Consums RNG draws - call only when the blow connects. */
-uint8_t items_attack_damage(const World *w, uint8_t unit, Rng *rng);
+ * (D28); a critical hit doubles the dice (D30). Consumes RNG draws -
+ * call only when the blow connects. */
+uint8_t items_attack_damage(const World *w, uint8_t unit, Rng *rng, bool crit);
 /* Can the attacker wound the (possibly undead) defender (GDD 4.2)?
  * Undead attackers, the Magic Slayer and enchanted weapons do; spells
  * bypass the check entirely. */

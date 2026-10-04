@@ -39,6 +39,7 @@ uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell);
 typedef struct {
     bool allowed;       /* cast went through (range, LOS, wall) */
     bool hit;
+    bool crit;          /* attack roll <= 5: damage dice doubled (D30) */
     uint8_t damage;
     bool died;          /* the target died and is removed */
     uint8_t splash_hits;/* lightning: neighbours hit */

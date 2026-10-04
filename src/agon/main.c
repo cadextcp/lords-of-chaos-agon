@@ -397,7 +397,8 @@ static void cast_targeted(bool dump)
         return;
     }
     if (shot.hit) {
-        snprintf(msg, sizeof msg, "Zauber trifft: %u Schaden.", shot.damage);
+        snprintf(msg, sizeof msg, "%s: %u Schaden.",
+                 shot.crit ? "Kritischer Zauber" : "Zauber trifft", shot.damage);
         log_push(msg);
     } else
         snprintf(msg, sizeof msg, "Zauber verpufft.");
@@ -524,24 +525,30 @@ bump:
                 return;
             }
             if (r.died)
-                snprintf(msg, sizeof msg, "%s stirbt!", name);
+                snprintf(msg, sizeof msg, "%s%s stirbt!",
+                         r.crit ? "KRIT! " : "", name);
             else if (r.wound)
-                snprintf(msg, sizeof msg, "Treffer: %u. Toedliche Wunde!", r.damage);
+                snprintf(msg, sizeof msg, "%sTreffer: %u. Toedliche Wunde!",
+                         r.crit ? "KRIT! " : "", r.damage);
             else if (r.hit)
-                snprintf(msg, sizeof msg, "Treffer: %u Schaden.", r.damage);
+                snprintf(msg, sizeof msg, "%sTreffer: %u Schaden.",
+                         r.crit ? "KRIT! " : "", r.damage);
             else
                 snprintf(msg, sizeof msg, "Verfehlt.");
-            render_message(1, r.hit || r.died ? C_BRIGHT_YELLOW : C_GREY, msg);
+            render_message(1, r.crit ? C_BRIGHT_RED :
+                           (r.hit || r.died ? C_BRIGHT_YELLOW : C_GREY), msg);
             if (r.returned) {
                 if (r.attacker_died) {
                     snprintf(msg, sizeof msg, "Rueckschlag toetet %s!", aname);
                 } else if (r.return_hit) {
-                    snprintf(msg, sizeof msg, "Rueckschlag: %u Schaden.", r.return_damage);
+                    snprintf(msg, sizeof msg, "%sRueckschlag: %u Schaden.",
+                             r.return_crit ? "KRIT! " : "", r.return_damage);
                 } else {
                     snprintf(msg, sizeof msg, "Rueckschlag: daneben.");
                 }
-                render_message(2, r.attacker_died ? C_BRIGHT_RED :
-                               r.return_hit ? C_BRIGHT_RED : C_GREY, msg);
+                render_message(2, r.return_crit ? C_BRIGHT_RED :
+                               (r.attacker_died || r.return_hit ? C_BRIGHT_RED
+                                : C_GREY), msg);
             }
             settle();
             update_sight();

@@ -120,28 +120,39 @@ uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
  * (or reorder the unit list) before the remaining fields are rolled. */
 static bool shoot_field(World *w, Rng *rng, const Unit *caster, int16_t x,
                         int16_t y, uint8_t dice_n, uint8_t die,
-                        uint8_t *damage)
+                        uint8_t *damage, bool *crit)
 {
     uint8_t target = world_unit_at(w, x, y, UL_GROUND);
     uint8_t i;
     uint16_t d = 0;
+    uint16_t roll;
     *damage = 0;
+    if (crit)
+        *crit = false;
     if (target == NO_UNIT)
         target = world_unit_at(w, x, y, UL_AIR);
     if (target == NO_UNIT)
         return false;
-    if (rng_range(rng, 100) >= combat_hit_chance(caster->com,
-                                                 items_defence(w, target))) {
+    roll = rng_range(rng, 100);
+    if (roll >= combat_hit_chance(caster->com, items_defence(w, target))) {
         events_push(EV_MISS, x, y, caster->kind, caster->owner, 0, 0);
         return false;
     }
-    /* the spell's damage dice (D28): magic outdamages a weapon swing */
-    for (i = 0; i < dice_n; i++)
-        d = (uint16_t)(d + rng_range(rng, die) + 1);
-    if (d == 0)
-        d = 1;
-    *damage = (uint8_t)d;
-    combat_damage(w, target, *damage, caster->kind, caster->owner, false, NULL);
+    {
+        bool is_crit = roll < COMBAT_CRIT_PERCENT;
+        if (is_crit)                       /* critical: dice twice (D30) */
+            dice_n = (uint8_t)(dice_n * 2);
+        if (crit)
+            *crit = is_crit;
+        /* the spell's damage dice (D28): magic outdamages a weapon swing */
+        for (i = 0; i < dice_n; i++)
+            d = (uint16_t)(d + rng_range(rng, die) + 1);
+        if (d == 0)
+            d = 1;
+        *damage = (uint8_t)d;
+        combat_damage(w, target, *damage, caster->kind, caster->owner, false,
+                      NULL, is_crit);
+    }
     return true;
 }
 
@@ -202,7 +213,7 @@ bool spell_bolt(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
          * spell is cast at - the first charge of a full book hits hardest */
         out->hit = shoot_field(w, rng, &caster, x, y,
                                (uint8_t)(SPELLS[spell].dice_n + level),
-                               SPELLS[spell].die, &out->damage);
+                               SPELLS[spell].die, &out->damage, &out->crit);
         out->died = w->unit_count < before;
     }
     return true;
@@ -238,7 +249,7 @@ bool spell_lightning(World *w, Spellbook *b, uint8_t wiz,
         if (!world_wrap(w, &nx, &ny))
             continue;
         if (shoot_field(w, rng, &caster, nx, ny, SPELLS[SP_MAGIC_LIGHTNING].splash_n,
-                        SPELLS[SP_MAGIC_LIGHTNING].splash_die, &dmg))
+                        SPELLS[SP_MAGIC_LIGHTNING].splash_die, &dmg, NULL))
             out->splash_hits++;
         if (w->unit_count < before)
             out->died = true;
@@ -395,7 +406,7 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
                 continue;
             if (resist_roll(rng, level, t->mr, -10)) {
                 out->splash_hits++;
-                combat_damage(w, i, t->con, caster_kind, caster_owner, false, NULL);
+                combat_damage(w, i, t->con, caster_kind, caster_owner, false, NULL, false);
             }
         }
         return CAST_OK;
