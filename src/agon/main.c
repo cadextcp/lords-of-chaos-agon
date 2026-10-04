@@ -1016,6 +1016,7 @@ static void designer_loop(uint8_t slot)
     uint8_t cursor = 0, scursor = 0, stop = 0;
     bool spells = false;
     bool running = true;
+    lexicon_texts_load();   /* creature descriptions for the shop panel */
     char buf[40];
     /* the buyable spells (summons, F6 anchor), in table order */
     uint8_t shop[SPELL_COUNT];
@@ -1026,7 +1027,7 @@ static void designer_loop(uint8_t slot)
             if (SPELLS[i].design_cost)
                 shop[shop_n++] = (uint8_t)i;
     }
-#define SHOP_ROWS 14
+#define SHOP_ROWS 9
     while (running) {
         render_menu_clear();
         snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u  [z: %s]", w->name,
@@ -1051,7 +1052,7 @@ static void designer_loop(uint8_t slot)
             render_menu_text(3, (uint8_t)(4 + WA_COUNT), C_BRIGHT_WHITE, buf);
             render_menu_text(1, 13, C_GREY, "Hoch/Runter, Links/Rechts -/+, z Zauber");
         } else {
-            uint8_t row, k;
+            uint8_t row;
             if (scursor < stop)
                 stop = scursor;
             if (scursor >= stop + SHOP_ROWS)
@@ -1068,8 +1069,13 @@ static void designer_loop(uint8_t slot)
                                  cost && w->xp >= cost ? C_BRIGHT_WHITE : C_GREY,
                                  buf);
             }
-            render_menu_text(1, 22, C_GREY, "Rechts kaufen, Links erstatten,");
-            render_menu_text(1, 23, C_GREY, "Hoch/Runter waehlen, z Attribute");
+            /* selected creature: portrait, values, lexicon text */
+            if (shop_n) {
+                uint8_t k = SUMMON_KIND[shop[scursor]];
+                if (k < CR_COUNT)
+                    lexicon_creature_panel(k, 14);
+            }
+            render_menu_text(1, 27, C_GREY, "Rechts kaufen/Links erstatten, z Attribute");
         }
         while (!kbuf_poll_event(&e))
             ;
