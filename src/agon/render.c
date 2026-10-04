@@ -400,11 +400,12 @@ void render_panel(const World *w, uint8_t unit)
     snprintf(buf, sizeof buf, "%-13.13s", name_unit(u));
     text_at(TEXT_COL_PANEL, 5, C_BRIGHT_WHITE, buf);
     {   /* the object in use (GDD 8, M4j polish): weapons act only in hand */
+        /* always 13 columns: a shorter line must cover the longer one */
         if (u->in_use != NO_ITEM && u->in_use < u->item_count)
-            snprintf(buf, sizeof buf, "Hand: %-6.6s",
+            snprintf(buf, sizeof buf, "Hand: %-7.7s",
                      OBJECTS[u->items[u->in_use]].name);
         else
-            snprintf(buf, sizeof buf, "Hand: -");
+            snprintf(buf, sizeof buf, "Hand: %-7s", "-");
         text_at(TEXT_COL_PANEL, 4, C_BRIGHT_YELLOW, buf);
     }
     snprintf(buf, sizeof buf, "AP %2u  ", u->ap);

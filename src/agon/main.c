@@ -1548,6 +1548,35 @@ static void start_tutorial(void)
     turns.round1_lock = false;   /* the tutorial teaches movement at once */
 }
 
+/* Shift+E, or Space once every unit is done: the AI plays, the round
+ * hook runs (portal), the outcome is checked and the game autosaved. */
+static void end_turn(bool dump, const char *map_path)
+{
+    confirm_end = false;
+    if (!turn_humans_present(&turns, &world))
+        render_message(1, C_BRIGHT_YELLOW, "Die KI spielt zu Ende ...");
+    turn_end_phase(&turns, &world);    /* round hook: portal */
+    game_credit_kills(&game, &world);
+    view_set_portal(game.portal_open ? game.portal_x : -1, game.portal_y);
+    if (game_over(&game, &world) || !turn_humans_present(&turns, &world) ||
+        game_outcome(&game, &world, OWN_P1) != OUT_RUNNING) {
+        end_pending = true;            /* shown by the main loop */
+    } else if (game.portal_open && turns.round == game.portal_round) {
+        render_message(0, C_BRIGHT_MAGENTA, "Das Portal oeffnet sich!");
+        sound_play(SND_PORTAL);
+    } else {
+        render_message(1, C_BRIGHT_GREEN, "Neue Runde.");
+        sound_play(SND_ROUND);
+    }
+    if (!game_ended && !end_pending) { /* autosave (GDD 2.3) */
+        copy_name(saved_map, sizeof saved_map, map_path);
+        if (save_to_sd())
+            render_message(2, C_GREY, "Gespeichert.");
+    }
+    update_sight();
+    frame(dump);
+}
+
 int main(int argc, char **argv)
 {
     struct keyboard_event_t e;
@@ -2237,49 +2266,23 @@ dispatch:
                 render_message(1, C_GREY, "");
                 if (!turn_units_left(&turns, &world))
                     render_message(1, C_BRIGHT_YELLOW,
-                                   "Alle Einheiten fertig - E fuer Zugende.");
+                                   "Alle fertig - Leertaste/E: Zugende.");
                 frame(dump);
             } else if (e.vkey == VK_SPACE) {     /* unit finished */
                 confirm_end = false;
+                if (!turn_units_left(&turns, &world)) {
+                    end_turn(dump, map_path);    /* all done: Space ends */
+                    continue;
+                }
                 turn_finish_unit(&turns, &world);
                 if (turn_units_left(&turns, &world))
                     render_message(1, C_GREY, "");
                 else
                     render_message(1, C_BRIGHT_YELLOW,
-                                   "Alle Einheiten fertig - E fuer Zugende.");
+                                   "Alle fertig - Leertaste/E: Zugende.");
                 frame(dump);
-            } else if (e.ascii == 'E') {         /* Shift+E: turn end */
-                if (!confirm_end) {
-                    confirm_end = true;
-                    render_message(1, C_BRIGHT_YELLOW,
-                                   "Zug beenden? Nochmal E=ja, Esc=nein.");
-                } else {
-                    confirm_end = false;
-                    if (!turn_humans_present(&turns, &world))
-                        render_message(1, C_BRIGHT_YELLOW, "Die KI spielt zu Ende ...");
-                    turn_end_phase(&turns, &world);    /* round hook: portal */
-                    game_credit_kills(&game, &world);
-                    view_set_portal(game.portal_open ? game.portal_x : -1,
-                                    game.portal_y);
-                    if (game_over(&game, &world) ||
-                        !turn_humans_present(&turns, &world) ||
-                        game_outcome(&game, &world, OWN_P1) != OUT_RUNNING) {
-                        end_pending = true;       /* shown by the main loop */
-                    } else if (game.portal_open && turns.round == game.portal_round) {
-                        render_message(0, C_BRIGHT_MAGENTA, "Das Portal oeffnet sich!");
-                        sound_play(SND_PORTAL);
-                    } else {
-                        render_message(1, C_BRIGHT_GREEN, "Neue Runde.");
-                        sound_play(SND_ROUND);
-                    }
-                    if (!game_ended && !end_pending) {   /* autosave (GDD 2.3) */
-                        copy_name(saved_map, sizeof saved_map, map_path);
-                        if (save_to_sd())
-                            render_message(2, C_GREY, "Gespeichert.");
-                    }
-                    update_sight();
-                    frame(dump);
-                }
+            } else if (e.ascii == 'E') {         /* Shift+E: turn end at once */
+                end_turn(dump, map_path);
             } else if (e.ascii == '<') {              /* take off */
                 confirm_end = false;
                 if (world_take_off(&world, active())) {

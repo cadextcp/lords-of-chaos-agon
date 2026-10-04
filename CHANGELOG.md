@@ -2,6 +2,15 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Rundenende ohne Umwege (2026-10-04)
+
+### Geändert
+- **Shift+E beendet die Runde sofort** (keine Rückfrage mehr).
+- **Leertaste beendet die Runde**, wenn alle Einheiten fertig sind.
+
+### Behoben
+- Panel: Nach dem Wechsel von einer Einheit mit Waffe blieben Reste des Waffennamens hinter „Hand: -“ stehen.
+
 ## [Unreleased] – Beschwörungen: Stufe = Stärke (D34, 2026-10-04)
 
 ### Geändert

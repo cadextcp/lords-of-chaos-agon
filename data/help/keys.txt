@@ -13,8 +13,8 @@ Pos1/Bild-auf, Ende/Bild-ab
              Diagonale Einzelschritte
 Tab          naechste Einheit
 Shift+Tab    vorige Einheit
-Leertaste    Einheit fertig
-Shift+E      Zug beenden (zweimal)
+Leertaste    Einheit fertig / Zugende
+Shift+E      Zug sofort beenden
 Enter        Aktionsmenue
 x            Feld untersuchen (Look)
 m            Gesamtkarte
