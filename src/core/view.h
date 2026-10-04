@@ -61,6 +61,9 @@ uint8_t view_animate(uint8_t phase);
 bool view_dirty(uint8_t vx, uint8_t vy);
 /* Force one view field to repaint (fx overlays, M5c). */
 void view_mark_dirty(uint8_t vx, uint8_t vy);
+/* Leave the unit with this stable id out of the composition while the
+ * frontend animates it (NO_UNIT = none). Presentation only. */
+void view_hide_unit(uint8_t id);
 const FieldLayers *view_field(uint8_t vx, uint8_t vy);
 void view_clean(void);
 

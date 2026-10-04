@@ -163,28 +163,15 @@ decor
 ....................................
 
 units
+# wild animals, chests and finds are placed at random at
+# the start (D35, populate.c); the wizards start alone.
 6 6 wizard p1
 31 26 wizard p2
-27 5 goblin neutral
-29 7 goblin neutral
-5 24 goblin neutral
-12 9 unicorn neutral
-20 8 giant_bat neutral
-8 30 zombie neutral
-33 12 lion neutral
-22 20 crocodile neutral
-9 6 goblin neutral
 
 objects
+# only the house equipment is fixed (D35)
 5 9 obj_scroll
 7 6 obj_cauldron_empty
 7 6 obj_apple
 6 8 obj_sword
 5 8 obj_shield
-10 3 obj_bow
-10 4 obj_gold
-11 4 obj_emerald
-34 5 obj_rune_stone
-3 30 obj_wand
-30 26 obj_ruby
-19 21 obj_diamond

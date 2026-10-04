@@ -164,6 +164,24 @@ bool sight_has_los(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y
     return path_clear(w, (uint8_t)x0, (uint8_t)y0, (int8_t)dx, (int8_t)dy);
 }
 
+/* Spells reach through tall grass (D36): the same line test, with tall
+ * grass fields that hold nothing else that blocks taken out of the map. */
+bool sight_has_spell_los(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1)
+{
+    int16_t dx, dy;
+    uint8_t x, y;
+    if (!world_wrap(w, &x0, &y0) || !world_wrap(w, &x1, &y1))
+        return false;
+    build_blk(w);
+    for (y = 0; y < w->h; y++)
+        for (x = 0; x < w->w; x++)
+            if (w->floor[y][x] == FL_TALL_GRASS && !world_has_roof(w, x, y) &&
+                !world_feature_blocks_sight(w, x, y))
+                blk[y][x >> 3] &= (uint8_t)~(0x80u >> (x & 7));
+    world_delta(w, x0, y0, x1, y1, &dx, &dy);
+    return path_clear(w, (uint8_t)x0, (uint8_t)y0, (int8_t)dx, (int8_t)dy);
+}
+
 bool sight_explored(const Sight *s, const World *w, int16_t x, int16_t y)
 {
     return get_bit(s->explored, w->w, w->h, x, y);

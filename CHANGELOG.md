@@ -2,6 +2,60 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Phasenbildschirm, aufgescheuchte Tiere (D37/D38, 2026-10-04)
+
+### Geändert
+- **Drei Phasen wie im Original:** Während der KI- und der Neutralen-Phase zeigt ein Phasenbildschirm (Rankenrahmen, wer am Zug ist, Runde, Siegpunkte) statt der Karte; man hört nur Schritte, Kampf und Zauber.
+- **Aufgescheuchte Tiere:** Kampf und Zauber in der Nähe (4 Felder) scheuchen friedliche Tiere und Herden auf – pro Herde ein Wurf am Leittier: 20 % Angriff auf den Verursacher, sonst Flucht; alle Tiere der Herde gleich.
+- **Elefanten trampeln** in Panik durch kleinere Einheiten (2w6) und walzen hohes Gras platt.
+
+## [Unreleased] – Aufheben mit Auswahl, Zauber durch hohes Gras (2026-10-04)
+
+### Geändert
+- **`g` mit Auswahl:** Liegen mehrere Gegenstände auf dem eigenen Feld oder auf Nachbarfeldern, fragt ein Menü, welcher (Buchstabe) oder alle (Leertaste). Ein einzelner Gegenstand auf dem eigenen Feld wird wie bisher direkt genommen. Nachbarfelder sind jetzt erreichbar.
+- **Zauber durch hohes Gras (D36):** Hohes Gras versperrt die Sicht, aber nicht mehr den Zauber.
+
+## [Unreleased] – Zufällige Welt, Wildtiere und Herden (D35, 2026-10-04)
+
+### Geändert
+- **Jede Partie ist anders:** Zufallsstartwert aus der Uhr.
+- **Der KI-Zauberer startet allein** und beschwört seine Kreaturen selbst – kein Goblin mehr vor der Tür.
+- **Wildtiere:** 5–8 an Zufallsorten. Friedliche streifen umher und wehren sich nur gegen Angreifer; territoriale verteidigen ihr Revier (3 Felder).
+- **Herden** (Elefanten, Einhörner, Pegasi) ziehen ab Runde 4 gelegentlich über die Karte.
+- **Beute zufällig:** 5–7 Truhen (Schätze, Waffen, Tränke), 2 Truhenschlüssel, 6–9 lose Fundstücke passend zum Boden. Fest bleibt nur die Hausausstattung.
+- Spielstand-Format v4 (alte Spielstände werden abgelehnt).
+
+## [Unreleased] – Rundenende ohne Umwege (2026-10-04)
+
+### Geändert
+- **Shift+E beendet die Runde sofort** (keine Rückfrage mehr).
+- **Leertaste beendet die Runde**, wenn alle Einheiten fertig sind.
+
+### Behoben
+- Panel: Nach dem Wechsel von einer Einheit mit Waffe blieben Reste des Waffennamens hinter „Hand: -“ stehen.
+
+## [Unreleased] – Beschwörungen: Stufe = Stärke (D34, 2026-10-04)
+
+### Geändert
+- **Ein Wurf, eine Kreatur:** Die Stufe einer Beschwörung bestimmt jetzt die Stärke (+15 % Kampf/Verteidigung/Konstitution pro Stufe über 1, Deckel 8) statt der Anzahl.
+- **Beschwörungen verbrauchen sich nicht** und kosten festes Mana (Stufe-1-Preis) plus 10 AP. Andere Zauber behalten Ladungen.
+- Zauberliste und Designer zeigen bei Kreaturen „Stf“ (Stufe) statt „Anz“; die KI rechnet mit dem neuen Manapreis.
+
+## [Unreleased] – Sprite-Effekte und gleitende Schritte (2026-10-04)
+
+### Hinzugefügt
+- **Fliegende Projektile** als VDP-Sprites: Bolt-Kugel, Blitz mit Funkenschweif, Pfeil (8 Richtungen), rotierende Wurfwaffe, Bombenphiole – auch bei KI-Angriffen. Neues Core-Ereignis `EV_PROJECTILE` (Wurf-Schleife umgebaut, Würfelfolge unverändert).
+- **Zauber-Effekte am Ziel:** Beschwörungswirbel, Teleport-Funken, Schildkuppel, Fluchschädel, Trankblasen, Funkeln.
+- **Aufsteigende Schadenszahlen** als Sprites (Krit mit „!“) statt Text über der Karte.
+- **Gleitende Schritte** der eigenen Einheiten (80 ms, im Setup mit G abschaltbar; Reiter springen weiter).
+- `--fxdemo` zeigt alle Sprite-Effekte in Schleife.
+
+### Behoben
+- **Einheit lief nach kurzem Tippen von selbst bis an die Wand:** Die Gleit-/Effektpause verschluckte das Loslassen der Pfeiltaste. Loslassen wird jetzt aufgehoben und an die Akkord-Logik gegeben (QUIRK K6).
+- Bogen-/Wurfgeräusch kommt jetzt aus dem Ereignis – auch für KI-Schüsse, ohne Doppelung.
+- **Stimmbare Samples** nutzen Flag 16 (agondev-Konstante 8 ist „Abtastrate folgt“ und ließ Bytes als Text erscheinen, QUIRK A9).
+- `HOUSE_VIEW_HASH` 0x632E5581 (neue Effekt-Kacheln verschieben die IDs).
+
 ## [Unreleased] – Neues Titelbild, Zierschrift, Menü- und Endbilder, eigene Tränke (2026-10-04)
 
 ### Hinzugefügt

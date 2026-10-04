@@ -444,7 +444,7 @@ Ein langsamer Zombie (24 AP) schafft 2 Angriffe; ein Löwe (54 AP) läuft 13 Fel
 ### 7.2 Die 45 Zauber
 
 **Beschwörungen (25):** eine pro Kreatur aus §4.2. `[PM 19]`
-- **Anzahl** der Kreaturen = Stufe des Zaubers. Sie erscheinen auf freien Nachbarfeldern; ist kein Platz, verfällt das Mana.
+- **Stufe = Stärke der Kreatur (D34):** Ein Wurf beschwört **eine** Kreatur auf einem freien Nachbarfeld; jede Stufe über 1 gibt **+15 % Kampf, Verteidigung und Konstitution** (gedeckelt bei Stufe 8, Stufe 8 ≈ doppelt so stark). Beschwörungen **verbrauchen sich nicht** und kosten immer das **Stufe-1-Mana**; begrenzt sind sie durch Mana und 10 AP pro Wurf. Ist kein Platz, verfällt das Mana. (Andere Zauber: Stufe = Anzahl der Ladungen.)
 - Nur mit **CAST-G**, nicht aus der Luft.
 - **Drachen** brauchen einen Kessel mit **Drachenkraut** unter dem Zauberer. Trank und Drache entstehen gleichzeitig. `[PM 21]`
 
@@ -719,6 +719,15 @@ Wie beim Amiga werden pro Feld **mehrere Ebenen übereinander** gezeichnet (B1.2
   Show werden die Felder über `view_mark_dirty` neu gezeichnet.
 - Die KI wird sichtbar: nach jeder KI-Phase (und den unabhängigen Kreaturen)
   leert ein Callback in `turn_end_phase` den Ring und spielt ihn ab.
+- **Sprite-Effekte (Polish-Runde, ADR 0012):** Neues Ereignis `EV_PROJECTILE`
+  (Start, Zielversatz, Art) von Bolt, Blitz, Bogen, Wurf und Bombenphiole.
+  Das Frontend lässt Projektile als VDP-Sprites pixelgenau fliegen (Bolt-Kugel,
+  Blitz mit Funkenschweif, Pfeil in 8 Richtungen, rotierende Wurfwaffe);
+  Zauber spielen am Ziel ihre eigene Sprite-Folge (Beschwörungswirbel,
+  Teleport-Funken, Schildkuppel, Fluchschädel, Trankblasen, Funkeln);
+  Schadenszahlen steigen als Ziffern-Sprites auf (Krit mit „!“). Sprites
+  liegen über der Karte – nichts muss neu gezeichnet werden, nichts bleibt
+  stehen. Eigene Schritte gleiten in 80 ms von Feld zu Feld (Setup: G).
 
 ### 11.5 Hilfe, Tutorial und Lexikon [C] (M5)
 
@@ -931,6 +940,11 @@ Die Vorschläge sind als **Startwerte** übernommen (D22). Jede Frage wird vor i
 | F5 | Was überträgt die Kampagne? | f | **Entschieden:** Attribute, Zauberstufen (voll aufgefüllt) und XP. Schätze werden beim Durchschreiten des Portals zu VP und danach zu XP. Waffen, Schilde, Tränke und Schlüssel bleiben im Szenario; der Zauberer startet unbewaffnet. |
 | F6 | Startwerte, Kosten und Obergrenzen im Wizard Designer | f | **Anker 2026-10-04 (Nutzer):** Startbuch Stufen 4–10 (Buchdeckel 10); **Mindestverteilung** Kampf 5 / Abwehr 5 / Magiewiderstand 70 / Konstitution 25 / Ausdauer 34 / Mana 90 / AP 34 und **600 XP zum Verteilen**; **Kosten** Kampf 2 / Abwehr 2 / Magiewiderstand 4 / Konstitution 2 / Ausdauer 4 / Mana 9 / AP 8 pro Punkt; **Beschwörungs-Grundpreise** (Drache rot 38, grün 50, gold 62; Zwerg/Fledermaus 4; Kobold 8; Einhorn/Löwe/Gorilla/Krokodil 10; Harpyie/Pegasus/Bär/Zentaur 12; Zombie/Troll 14; Elefant 20; Greif/Geist 22; Spinne 28; Gespenst 44; Dämon 58), **jede weitere Stufe +50 % des Grundpreises, Maximum 8**. Diese Kosten sind **Erfahrung, kein Mana** (F6-Klarstellung des Nutzers). Offen: Obergrenzen der Attribute (eigene Werte bleiben). |
 | D33 | Schriftrollen lehren Zauber (Nutzerregel 2026-10-04) | Schriftrollen-Funde bringen Zauberstufen ins Buch — die Rarität einer Schriftrolle richtet sich nach dem XP-Preis des Zaubers (teuer = selten). Umsetzung folgt (items_read); die Kostenbasis steht bereits über F6. |
+| D34 | Beschwörungs-Stufe = Kreaturstärke (Nutzerregel 2026-10-04) | **Zaubersprüche haben eine Anzahl, Kreaturen ein Level.** Eine Beschwörung erzeugt pro Wurf genau eine Kreatur; ihre Stufe aus dem Zauberbuch gibt +15 % Kampf/Verteidigung/Konstitution je Stufe über 1 (Deckel 8). Beschwörungen sind unbegrenzt wirkbar, kosten festes Mana (Stufe-1-Preis) und 10 AP. Im Designer kostet jede weitere Stufe +50 % des Grundpreises (F6). Ersetzt die Original-Regel „Anzahl = Stufe“ `[PM 19]`. Anzeige: Spalte „Stf“ statt „Anz“. |
+| D35 | Zufällige Welt, Wildtiere, Herden (Nutzerregel 2026-10-04) | **Jede Partie ist anders:** Zufallsstartwert aus der Uhr (Tests/Dump: 42). **Die Gegner starten allein:** In den Kampagnen-Karten stehen nur noch die Zauberer; der KI-Zauberer beschwört seine Kreaturen selbst. **Wildtiere** (5–8, Abstand ≥ 8 zu Zauberern, nicht in Häusern/Wasser): *friedlich* (Gorilla, Fledermaus) streifen umher und wehren sich nur gegen den, der sie angegriffen hat; *territorial* (Löwe, Bär, Krokodil, Spinne, Greif) greifen jeden an, der ihrem Heimfeld auf 3 Felder nahekommt; *Herdentiere* (Elefant, Einhorn, Pegasus) sind friedlich. **Herden:** ab Runde 4 mit 15 % je Runde (höchstens eine gleichzeitig) betreten 3–4 Herdentiere an einem Kartenrand die Karte, ziehen geradeaus hinüber (Hindernissen weichen sie seitlich aus) und verlassen sie wieder. **Beute:** 5–7 Truhen an Zufallsorten (Schätze, Waffen, Tränke, selten der Slayer), 2 Truhenschlüssel und 6–9 lose Fundstücke passend zum Boden (Wald: Pilze/Misteln/Feenflügel, Sumpf: Schwefel/Salpeter, Wiese: Äpfel/Klee/Kristall). Fest bleibt nur die Hausausstattung. Modul `populate.c`. |
+| D36 | Zauber durch hohes Gras; Aufheben vom Nachbarfeld (Nutzerwunsch 2026-10-04) | Hohes Gras blockiert die Sicht, aber **nicht die Zauberlinie** (`sight_has_spell_los`); Bäume, Wände, Dächer schon. **Aufheben** erreicht das eigene Feld und die 8 Nachbarfelder (gleiche AP); bei mehreren Gegenständen fragt ein Auswahlmenü (einzeln oder alle). |
+| D37 | Aufgescheuchte Tiere, Leittier, Trampeln (Nutzerregel 2026-10-04) | Jede **aggressive Aktion** (Nahkampfschlag, Treffer, Zauber) merkt sich Ort und Verursacher. Zu Beginn der Neutralen-Phase reagieren **friedliche und Herdentiere im Umkreis von 4 Feldern**: pro Gruppe wird **einmal** gewürfelt – die Herde folgt ihrem **Leittier** (erstes Tier der Herde) –, **20 % Angriff** auf die nächste Einheit des Verursachers, sonst **Flucht** (3 Felder je Runde, geradeaus weg). Der Zustand hält 3 Runden. Wer selbst angegriffen wurde, greift ohne Wurf an. **Nur Elefanten trampeln:** In Panik laufen sie durch kleinere Einheiten hindurch (2w6 Schaden, bei Tod geht es weiter) und walzen hohes Gras zu Gras. Territoriale Tiere behalten ihr Revierverhalten. |
+| D38 | Drei Phasen pro Runde, die anderen ungesehen (Original, Nutzerwunsch 2026-10-04) | Spieler → KI-Zauberer → Unabhängige. Während der KI- und der Neutralen-Phase ersetzt ein **Phasenbildschirm** (Rankenrahmen, „Am Zug“, Runde, Siegpunkte aller Zauberer) die Karte; man **hört nur**: Schritte der bewegten Einheiten, Kampf- und Zauberklänge. Danach zeigt die Karte das Ergebnis. Automatisch, ohne Tastendruck. |
 | F7 | Dächer: nur Regel oder auch sichtbar? | e | **Entschieden:** sichtbar. Von außen sieht man das Dach; steht eine eigene Einheit im Gebäude, wird das Dach über dem Gebäude ausgeblendet. |
 | F8 | 5-Ladungen-Grenze beibehalten? | i | Ja, aber im Setup abschaltbar. |
 | F9 | Setup-Panel und Timer in v1.0? | i | Nur die Zufalls-Zauberer-Stufe; Spiellänge folgt aus dem Szenario, Timer nach v1.0. |

@@ -1,6 +1,6 @@
 # Übergabe: Stand und nächste Schritte
 
-> Stand: 2026-10-04 · **M0–M4 vollständig**, **M5 Präsentationsrunde vollständig** (#88 Endbildschirm, #90 Hilfe/Tutorial/Lexikon, #91 Ereignisse/Animation/Sound, #92 Titelbild/Musik) · CI grün · `loc.bin` 292 KB
+> Stand: 2026-10-04 · **M0–M5 vollständig**, **Polish-Runde** in 5 PRs (#113 gemergt, #114–#117 gestapelt offen) · CI grün · `loc.bin` 282 KB
 > Für die nächste Person bzw. den nächsten Agenten. Zuerst `CLAUDE.md` lesen (Regeln, Befehle), dann dieses Dokument.
 
 ---
@@ -15,10 +15,14 @@
 | **M3 Classic spielbar** | ✅ #27–#33, #41 |
 | **M4 Classic komplett (v1.0)** | ✅ 10 von 10 Teilen (#43–#52) |
 | **M5 Präsentationsrunde** | ✅ #88–#92: Endbildschirm mit Menü-Rücksprung/Kampagne, Hilfeseiten (SD), geführtes Tutorial, Lexikon (persistent), Ereignis-Ring mit Kampf-/Todesanimation, 16 Sound-Effekte mit Wellenformen/ADSR, KI sichtbar, Titelbild (Streaming) + Titelmusik (3 Kanäle) |
+| **Polish-Runde** | #113 ✅ Bildschirmreste/Titelbild-Loader · #114 VDP-Spike (ADR 0012) · #115 Audio (Samples, Musik, Jingles) · #116 Titelbild, Zierschrift, Menü-/Endbilder, Tränke · #117 Sprite-Effekte. Plan: `C:\Users\cadex\.claude\plans\schau-mal-das-spiel-soft-dongarra.md` (Nutzer-Entscheide dort) |
 | M6+ Chaos | geplant, siehe `docs/ROADMAP.md` |
 
-**Was heute läuft (Emulator):**
-- **Start:** `loc` zeigt Titelbild + Titelmusik (Taste → Menü, Musik endet beim ersten Tastendruck), dann Hauptmenü mit Szenarien 1–3, Laden, Designer, Setup, **Hilfe, Lexikon, Tutorial**.
+**Was heute läuft (Emulator, Stand Polish-Runde):**
+- **Start:** Titelbild (Schlachtgetümmel) + Titelmusik (4 Stimmen, Samples), die Musik läuft im Menü weiter; Menü mit Titelbild-Hintergrund; Überschriften in eigener 8×16-Zierschrift.
+- **Klang:** 16 eigene Samples (`tools/gen_sfx.py`, `/loc/sfx.bin`), Effekt-Sequenzer auf Kanal 0/4, Musik auf 1–3/5–9 (je zwei Kanäle pro Stimme), Jingles am Spielende; Setup schaltet Musik (M), Effekte (T), Gleiten (G). Vorhören: `uv run tools/audio_preview.py`.
+- **Effekte:** Projektile/Zauber/Schadenszahlen als VDP-Sprites, gleitende Schritte.
+- **Werkzeug:** `uv run tools/run.py --vdptest [n]` startet das separate Messprogramm `vdptest` (ADR 0012).
 - **Spielende:** Endbildschirm (Sieg/Niederlage) mit Runden/Kills/Beute/VP, Kampagne verbucht XP/Level; Enter zurück ins Menü, Esc beendet.
 - **Tutorial:** kleine Karte, 7 Schritte (Bewegen → Wechseln → Schlüssel → Truhe → Kampf → Zauber → Portal), Hinweiszeile unten; Runde-1-Sperre aufgehoben.
 - **Lexikon (Taste `i`):** entdeckte Kreaturen/Objekte, Detailseite mit Porträt und Text; persistent in `/loc/lexicon.dat`.
@@ -28,7 +32,7 @@
 **Was heute läuft (Emulator) — M4-Bestand:**
 - **Spielstart:** `loc` startet Szenario 1 „The Many Coloured Land“ (36×36, Wrap-around, Kartenformat v3 mit Portal). Die Zauberbücher kommen aus der Szenario-Datei (`data/scenarios/`). Eine ganze Partie gegen einen KI-Zauberer ist durchspielbar.
 - **Rundenablauf:**
-  - `Tab`/`Shift+Tab` wählt eine Einheit, `Leertaste` beendet sie, `Shift+E` (zweimal) beendet den Zug.
+  - `Tab`/`Shift+Tab` wählt eine Einheit, `Leertaste` beendet sie, `Shift+E` beendet den Zug sofort; sind alle Einheiten fertig, auch `Leertaste`.
   - Runde 1 erlaubt nur Zaubern `[PM 7]`.
   - Hat der Mensch keine Einheiten mehr, spielt die KI bis zu 40 Runden zu Ende; danach folgt die Abrechnung.
 - **Bewegung:**
@@ -91,7 +95,7 @@
 ```bash
 uv run tools/test.py                       # Host + eZ80-Selftest (vor jedem Commit)
 uv run tools/run.py                        # Spiel im GUI-Emulator (Szenario 1)
-uv run tools/run.py --dump --time 35 --list --keys "shift+e,shift+e" --screenshot   # Rauchtest
+uv run tools/run.py --dump --time 35 --list --keys "shift+e" --screenshot   # Rauchtest
 uv run tools/run.py --bench --time 20      # Redraw-Messung -> loc.log
 uv run tools/run.py --keytest              # Tastatur-Events anzeigen
 uv run tools/mockup.py --sheet             # Mockup und Kachelübersicht
@@ -187,6 +191,11 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 
 ## 7. Nächste Schritte
 
+**Polish-Runde (Stand 2026-10-04):** #114–#117 sind gestapelt (Merge-Commits, in Reihenfolge 114 → 115 → 116 → 117) und warten auf die Merge-Freigabe des Nutzers. Danach auf Hardware prüfen (SD-Paket `bin/loc-sd.zip` neu): `vdptest` (Log mit dem Emulator vergleichen, ADR 0012), Klang/Musik, Schrift, Sprites, Ladezeit (`sfx.bin` 110 KB zusätzlich), VDP-RAM. Offen aus dem Plan: Copper/Doppelpuffer verworfen (ADR 0012); KI-Bewegungen gleiten noch nicht (nur eigene Schritte).
+
+**Fallstricke aus der Polish-Runde:** Der eZ80-RAM ist knapp (QUIRK S6) – große Puffer nur streamen, Werkzeuge als eigene Programme (`spikes/`). Audio: VDP queued nicht (A1), Kanal 3+ erst freischalten (A8), stimmbar = Flag 16 (A9) – sonst landen Befehlsbytes als Text auf dem Schirm. Python-Patches unter Windows immer mit `encoding="utf-8"` lesen.
+
+
 **M5 Präsentationsrunde ist fertig** (alle vier PRs gemergt, CI grün): #88 Endbildschirm + Menü-Rücksprung + Kampagnenergebnis, #90 Hilfeseiten/Tutorial/Lexikon, #91 Ereignis-Ring/Kampf-/Todesanimation/Sound/KI-sichtbar, #92 Titelbild/Titelmusik. Plan war `docs/PLAN-M5.md` (4 PRs nach Nutzerentscheid).
 
 **Als Nächstes: Hardware-Abnahme von M5 durch den Nutzer** (der CLI-Emulator hat weder VDP-Bild fein noch Audio — QUIRKS E1/A4):
@@ -207,7 +216,7 @@ Danach: M6/Chaos laut `docs/ROADMAP.md` (GDD §12), oder Politur aus §8.
 - **Hardware-Test des Nutzers (#3, #7):** Er wird mit jedem Teil wichtiger; KI-Runden und Sicht kosten auf dem Emulator schon spürbar Zeit.
   - Auf die SD-Karte nach `/loc`: Inhalt von `bin/loc-sd.zip` (siehe §7).
   - Dann `SET KEYBOARD 2`, `cd /loc`, `loc --keytest`, `loc --bench`, `loc`.
-  - **Runde 1 ohne Bewegung:** `loc` startet mit der Original-Regel `[PM 7]` — in Runde 1 ist nur Zaubern moeglich. `Shift+E` zweimal beendet den Zug; `loc --free-round1` hebt die Sperre auf. Im Tutorial ist sie ohnehin aufgehoben.
+  - **Runde 1 ohne Bewegung:** `loc` startet mit der Original-Regel `[PM 7]` — in Runde 1 ist nur Zaubern moeglich. `Shift+E` beendet den Zug; `loc --free-round1` hebt die Sperre auf. Im Tutorial ist sie ohnehin aufgehoben.
   - **Stand 2026-10-03 (Hardware, Stand `037521f`):** Upload nach `/loc` per USB, `loc --selftest` PASS und `loc --bench` sind gelaufen (Werte in `docs/AGON-QUIRKS.md`, Ablauf in `docs/TESTING.md`); lange Dateinamen auf FAT sind geklärt. Das Spiel selbst, `--keytest` und die Eingabe am Gerät stehen noch aus. Der Lumagon-Autostart ist auf der Karte abgeschaltet (Sicherung `/autoexec.lum`).
   - Zu klären: Akkorde ohne Ghosting? Codes für `<`/`>`? MOS-/VDP-Version? Ladezeiten (tiles.bin 162 KB, title.bin 75 KB)? Dauer einer KI-Runde? VDP-RAM mit Titel (S2)? Klang?
 - **Titel-Motiv:** Platzhalter-Vorschlag, wartet auf Abstimmung (siehe §7).

@@ -137,6 +137,11 @@ static void draw_tile(uint16_t id, int x, int y)
     vdp_draw_bitmap(x, y);
 }
 
+uint16_t render_tile_buffer(uint16_t id)
+{
+    return (uint16_t)(TILE_BUFFER_BASE + id);
+}
+
 /* Public single-tile draw for non-map screens (lexicon portraits, M5). */
 void render_draw_tile(uint16_t id, int x, int y)
 {
@@ -395,11 +400,12 @@ void render_panel(const World *w, uint8_t unit)
     snprintf(buf, sizeof buf, "%-13.13s", name_unit(u));
     text_at(TEXT_COL_PANEL, 5, C_BRIGHT_WHITE, buf);
     {   /* the object in use (GDD 8, M4j polish): weapons act only in hand */
+        /* always 13 columns: a shorter line must cover the longer one */
         if (u->in_use != NO_ITEM && u->in_use < u->item_count)
-            snprintf(buf, sizeof buf, "Hand: %-6.6s",
+            snprintf(buf, sizeof buf, "Hand: %-7.7s",
                      OBJECTS[u->items[u->in_use]].name);
         else
-            snprintf(buf, sizeof buf, "Hand: -");
+            snprintf(buf, sizeof buf, "Hand: %-7s", "-");
         text_at(TEXT_COL_PANEL, 4, C_BRIGHT_YELLOW, buf);
     }
     snprintf(buf, sizeof buf, "AP %2u  ", u->ap);
@@ -496,7 +502,9 @@ void render_spell_list(const Spellbook *book)
     uint16_t i;
     render_menu_clear();
     /* left of the stat panel: letter, 17 name, count, mana */
-    text_at(0, 0, C_BRIGHT_YELLOW, "  Zauber           Anz Mana");
+    text_at(0, 0, C_BRIGHT_YELLOW, render_list_summons
+            ? "  Kreatur          Stf Mana"   /* summons: level (D34) */
+            : "  Zauber           Anz Mana");
     /* values end in column 25: one blank column before the panel */
     for (i = 0; i < SPELL_COUNT && letter <= 'z'; i++) {
         char line[28], name[18];
@@ -506,7 +514,7 @@ void render_spell_list(const Spellbook *book)
             continue;
         short_spell_name(name, sizeof name, SPELLS[i].name);
         snprintf(line, sizeof line, "%c %-17.17s %2u %3u", letter, name,
-                 book->level[i], spell_mana((uint8_t)i, book->level[i]));
+                 book->level[i], spell_cast_mana((uint8_t)i, book->level[i]));
         text_at(0, (uint8_t)(1 + row), C_BRIGHT_WHITE, line);
         row++;
         letter++;
@@ -693,6 +701,12 @@ void render_heading_centred(int y, uint8_t colour, const char *text)
 {
     int n = (int)strlen(text);
     render_heading((320 - n * 8) / 2, y, colour, text);
+}
+
+void render_dot(int x, int y, uint8_t colour)
+{
+    vdp_gcol(0, colour);
+    vdp_filled_rectangle(x - 1, y - 1, x + 1, y + 1);
 }
 
 void render_frame(int x0, int y0, int x1, int y1, uint8_t colour)

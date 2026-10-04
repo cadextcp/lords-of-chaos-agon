@@ -6,6 +6,9 @@
 
 #include "../core/gen/sfx.h"
 
+extern bool fx_glide_on;                 /* fx.c (fx.h pulls in the core's
+                                            Effect type, which clashes) */
+
 /* Two effect channels so that e.g. a hit and a crit clang overlap;
  * music takes 1-3 and 5 (music.c). */
 #define FX_VOICES 2
@@ -253,6 +256,7 @@ void sound_settings_load(void)
     if (mos_fread(fh, (char *)b, 6) == 6 && memcmp(b, "LOCP", 4) == 0) {
         music_on = (b[4] & 1) != 0;
         sound_on = (b[4] & 2) != 0;
+        fx_glide_on = (b[4] & 4) == 0;   /* bit set = gliding off */
     }
     mos_fclose(fh);
 }
@@ -260,7 +264,8 @@ void sound_settings_load(void)
 void sound_settings_save(void)
 {
     uint8_t fh, b[6] = {'L', 'O', 'C', 'P', 0, 1};
-    b[4] = (uint8_t)((music_on ? 1 : 0) | (sound_on ? 2 : 0));
+    b[4] = (uint8_t)((music_on ? 1 : 0) | (sound_on ? 2 : 0) |
+                     (fx_glide_on ? 0 : 4));
     fh = mos_fopen("settings.dat", FA_WRITE | FA_CREATE_ALWAYS);
     if (!fh)
         return;
