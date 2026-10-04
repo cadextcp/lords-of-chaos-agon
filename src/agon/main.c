@@ -1018,15 +1018,16 @@ static void designer_loop(uint8_t slot)
     bool running = true;
     lexicon_texts_load();   /* creature descriptions for the shop panel */
     char buf[40];
-    /* the buyable spells (summons, F6 anchor), in table order */
+    /* the whole grimoire: buyable summons (F6) and the spellbook
+     * entries with their detail panel - in table order */
     uint8_t shop[SPELL_COUNT];
     uint8_t shop_n = 0;
     {
         uint16_t i;
         for (i = 0; i < SPELL_COUNT; i++)
-            if (SPELLS[i].design_cost)
-                shop[shop_n++] = (uint8_t)i;
+            shop[shop_n++] = (uint8_t)i;
     }
+    spells_texts_load();
 #define SHOP_ROWS 9
     while (running) {
         render_menu_clear();
@@ -1062,18 +1063,27 @@ static void designer_loop(uint8_t slot)
             for (row = 0; row < SHOP_ROWS && stop + row < shop_n; row++) {
                 uint8_t s = shop[stop + row];
                 uint16_t cost = wizard_spell_next_cost(w, s);
-                snprintf(buf, sizeof buf, "%c %-15.15s %2u %5u",
-                         stop + row == scursor ? '>' : ' ', SPELLS[s].name,
-                         w->book.level[s], cost);
+                if (cost)
+                    snprintf(buf, sizeof buf, "%c %-15.15s %2u %5u",
+                             stop + row == scursor ? '>' : ' ', SPELLS[s].name,
+                             w->book.level[s], cost);
+                else
+                    snprintf(buf, sizeof buf, "%c %-15.15s %2u   Buch",
+                             stop + row == scursor ? '>' : ' ', SPELLS[s].name,
+                             w->book.level[s]);
                 render_menu_text(2, (uint8_t)(4 + row),
                                  cost && w->xp >= cost ? C_BRIGHT_WHITE : C_GREY,
                                  buf);
             }
-            /* selected creature: portrait, values, lexicon text */
+            /* selected entry: creature panel for summons, spell panel
+             * with mana/dice/description for everything else */
             if (shop_n) {
-                uint8_t k = SUMMON_KIND[shop[scursor]];
-                if (k < CR_COUNT)
+                uint8_t sel = shop[scursor];
+                uint8_t k = SUMMON_KIND[sel];
+                if (k < CR_COUNT && SPELLS[sel].design_cost)
                     lexicon_creature_panel(k, 14);
+                else
+                    spell_panel(sel, 14);
             }
             render_menu_text(1, 27, C_GREY, "Rechts kaufen/Links erstatten, z Attribute");
         }

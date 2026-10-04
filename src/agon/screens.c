@@ -450,6 +450,81 @@ static void lexicon_draw_detail(uint16_t entry)
     centred(29, C_GREY, "Esc zur\201ck");
 }
 
+/* ---------- spell descriptions (designer shop, M5) ---------- */
+
+#define SPELLS_MAX 4600
+static uint8_t spells_buf[SPELLS_MAX];
+static uint24_t spells_len;
+static uint8_t spell_count;              /* pages = spells, csv order */
+static uint16_t spell_page[HELP_PAGES_MAX];
+
+bool spells_texts_load(void)
+{
+    uint8_t fh;
+    uint24_t len = 0;
+    uint8_t pages;
+    if (spells_len)
+        return true;
+    fh = mos_fopen("help/spells.hlp", FA_READ);
+    if (fh) {
+        len = mos_fread(fh, (char *)spells_buf, (uint24_t)sizeof spells_buf);
+        mos_fclose(fh);
+    }
+    if (len == 0)
+        return false;
+    pages = help_parse(spells_buf, len, spell_page);
+    if (pages < SPELL_COUNT) {           /* one page per spell, csv order */
+        spells_len = 0;
+        return false;
+    }
+    spells_len = len;
+    spell_count = pages;
+    return true;
+}
+
+/* Category + mana + damage dice + description of one spell. */
+void spell_panel(uint8_t spell, uint8_t top)
+{
+    static const char *const CAT[4] = {"Beschwoerung", "Trank", "Flaeche",
+                                       "Zauber"};
+    const SpellDef *s;
+    char buf[40];
+    uint16_t off;
+    uint8_t lines, i, row = (uint8_t)(top + 3);
+
+    if (spell >= SPELL_COUNT)
+        return;
+    s = &SPELLS[spell];
+    render_frame(0, (int)(top * 8) - 2, 215, (int)((top + 11) * 8),
+                 C_BRIGHT_BLUE);
+    snprintf(buf, sizeof buf, "%.16s (%s)", s->name, CAT[s->category]);
+    render_menu_text(1, top, C_BRIGHT_YELLOW, buf);
+    snprintf(buf, sizeof buf, "Mana L1:%u  +%u/Stufe", s->mana_base,
+             s->mana_step);
+    render_menu_text(1, (uint8_t)(top + 1), C_BRIGHT_WHITE, buf);
+    if (spell == SP_MAGIC_BOLT)
+        snprintf(buf, sizeof buf, "Schaden (3+St)w6");
+    else if (spell == SP_MAGIC_LIGHTNING)
+        snprintf(buf, sizeof buf, "Schaden (5+St)w6 +2w6");
+    else if (s->dice_n)
+        snprintf(buf, sizeof buf, "Schaden %uw%u", s->dice_n, s->die);
+    else
+        snprintf(buf, sizeof buf, "kein Direktschaden");
+    render_menu_text(1, (uint8_t)(top + 2), C_BRIGHT_CYAN, buf);
+    if (!spells_len || spell >= spell_count)
+        return;
+    off = spell_page[spell];
+    off = (uint16_t)(off + 1 + spells_buf[off]);   /* skip the title */
+    lines = spells_buf[off++];
+    for (i = 0; i < lines && row < top + 11; i++) {
+        uint8_t len = spells_buf[off++];
+        memcpy(buf, spells_buf + off, len);
+        buf[len] = 0;
+        off = (uint16_t)(off + len);
+        render_menu_text(1, row++, C_BRIGHT_WHITE, buf);
+    }
+}
+
 bool lexicon_texts_load(void)
 {
     uint8_t fh;

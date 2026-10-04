@@ -127,6 +127,8 @@ bool wizard_spell_lower(Wizard *w, uint8_t spell)
     uint16_t refund;
     if (spell >= SPELL_COUNT || w->book.level[spell] == 0)
         return false;
+    if (!SPELLS[spell].design_cost)
+        return false;   /* not buyable: no refund for starting-book spells */
     w->book.level[spell]--;
     /* the level just given up cost base at level 1, half above */
     refund = w->book.level[spell] == 0 ? SPELLS[spell].design_cost
