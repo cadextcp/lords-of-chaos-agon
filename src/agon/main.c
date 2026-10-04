@@ -1004,130 +1004,189 @@ static void draw_menu(uint8_t cursor)
     render_menu_text(2, 22, C_GREY, "Pfeile + Enter");
 }
 
-/* One designer screen: two pages (z toggles) - attributes and the
- * spell shop. Links/Rechts lower/raise, the XP total lives in the
- * header. */
-static void designer_loop(uint8_t slot)
+/* The wizard designer: the chooser first (Attribute / Zauber /
+ * Kreaturen), every page edits in place - Left/Right spends and
+ * refunds XP, Esc returns to the chooser, Esc there leaves. */
+#define PG_ATTRS 0
+#define PG_SPELLS 1
+#define PG_CREATURES 2
+
+static void designer_attrs(Wizard *w)
 {
     struct keyboard_event_t e;
     static const char *const ATTRS[WA_COUNT] = {
         "Kampf", "Verteidigung", "Magieresistenz", "Konstitution", "Ausdauer"};
-    Wizard *w = &wizard_slots[slot];
-    uint8_t cursor = 0, scursor = 0, stop = 0;
-    bool spells = false;
+    uint8_t cursor = 0;
     bool running = true;
-    lexicon_texts_load();   /* creature descriptions for the shop panel */
     char buf[40];
-    /* the whole grimoire: buyable summons (F6) and the spellbook
-     * entries with their detail panel - in table order */
-    uint8_t shop[SPELL_COUNT];
-    uint8_t shop_n = 0;
-    {
-        uint16_t i;
-        for (i = 0; i < SPELL_COUNT; i++)
-            shop[shop_n++] = (uint8_t)i;
-    }
-    spells_texts_load();
-#define SHOP_ROWS 9
     while (running) {
+        uint8_t i;
         render_menu_clear();
-        snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u  [z: %s]", w->name,
-                 w->level, w->xp, spells ? "Attribute" : "Zauber");
+        snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u   ATTRIBUTE", w->name,
+                 w->level, w->xp);
         render_menu_text(1, 1, C_BRIGHT_YELLOW, buf);
-        if (!spells) {
-            uint8_t i;
-            for (i = 0; i < WA_COUNT; i++) {
-                snprintf(buf, sizeof buf, "%c %-14.14s %3u  %u XP",
-                         i == cursor ? '>' : ' ', ATTRS[i],
-                         wizard_attr(w, (WizardAttr)i),
-                         wizard_attr_cost((WizardAttr)i, 0));
-                render_menu_text(3, (uint8_t)(3 + i), C_BRIGHT_WHITE, buf);
-            }
+        for (i = 0; i < WA_COUNT; i++) {
             snprintf(buf, sizeof buf, "%c %-14.14s %3u  %u XP",
-                     cursor == WA_COUNT ? '>' : ' ', "Mana", w->mana_max,
-                     wizard_mana_cost());
-            render_menu_text(3, (uint8_t)(3 + WA_COUNT), C_BRIGHT_WHITE, buf);
-            snprintf(buf, sizeof buf, "%c %-14.14s %3u  %u XP",
-                     cursor == WA_COUNT + 1 ? '>' : ' ', "Aktionspunkte", w->ap,
-                     wizard_ap_cost());
-            render_menu_text(3, (uint8_t)(4 + WA_COUNT), C_BRIGHT_WHITE, buf);
-            render_menu_text(1, 13, C_GREY, "Hoch/Runter, Links/Rechts -/+, z Zauber");
-        } else {
-            uint8_t row;
-            if (scursor < stop)
-                stop = scursor;
-            if (scursor >= stop + SHOP_ROWS)
-                stop = (uint8_t)(scursor - SHOP_ROWS + 1);
-            snprintf(buf, sizeof buf, "%-16.16s St Naechste", "Beschwoerung");
-            render_menu_text(3, 3, C_BRIGHT_YELLOW, buf);
-            for (row = 0; row < SHOP_ROWS && stop + row < shop_n; row++) {
-                uint8_t s = shop[stop + row];
-                uint16_t cost = wizard_spell_next_cost(w, s);
-                if (cost)
-                    snprintf(buf, sizeof buf, "%c %-15.15s %2u %5u",
-                             stop + row == scursor ? '>' : ' ', SPELLS[s].name,
-                             w->book.level[s], cost);
-                else
-                    snprintf(buf, sizeof buf, "%c %-15.15s %2u   Buch",
-                             stop + row == scursor ? '>' : ' ', SPELLS[s].name,
-                             w->book.level[s]);
-                render_menu_text(2, (uint8_t)(4 + row),
-                                 cost && w->xp >= cost ? C_BRIGHT_WHITE : C_GREY,
-                                 buf);
-            }
-            /* selected entry: creature panel for summons, spell panel
-             * with mana/dice/description for everything else */
-            if (shop_n) {
-                uint8_t sel = shop[scursor];
-                uint8_t k = SUMMON_KIND[sel];
-                if (k < CR_COUNT && SPELLS[sel].design_cost)
-                    lexicon_creature_panel(k, 14);
-                else
-                    spell_panel(sel, 14);
-            }
-            render_menu_text(1, 27, C_GREY, "Rechts kaufen/Links erstatten, z Attribute");
+                     i == cursor ? '>' : ' ', ATTRS[i],
+                     wizard_attr(w, (WizardAttr)i),
+                     wizard_attr_cost((WizardAttr)i, 0));
+            render_menu_text(3, (uint8_t)(3 + i), C_BRIGHT_WHITE, buf);
         }
+        snprintf(buf, sizeof buf, "%c %-14.14s %3u  %u XP",
+                 cursor == WA_COUNT ? '>' : ' ', "Mana", w->mana_max,
+                 wizard_mana_cost());
+        render_menu_text(3, (uint8_t)(3 + WA_COUNT), C_BRIGHT_WHITE, buf);
+        snprintf(buf, sizeof buf, "%c %-14.14s %3u  %u XP",
+                 cursor == WA_COUNT + 1 ? '>' : ' ', "Aktionspunkte", w->ap,
+                 wizard_ap_cost());
+        render_menu_text(3, (uint8_t)(4 + WA_COUNT), C_BRIGHT_WHITE, buf);
+        render_menu_text(1, 13, C_GREY, "Links/Rechts senken/erhoehen, Esc zurueck");
         while (!kbuf_poll_event(&e))
             ;
         if (!e.isdown)
             continue;
         if (e.vkey == VK_ESC) {
             running = false;
-        } else if (e.ascii == 'z' || e.ascii == 'Z') {
-            spells = !spells;
         } else if (e.vkey == VK_UP) {
-            if (!spells)
-                cursor = cursor ? (uint8_t)(cursor - 1) : (uint8_t)(WA_COUNT + 1);
-            else
-                scursor = scursor ? (uint8_t)(scursor - 1) : (uint8_t)(shop_n - 1);
+            cursor = cursor ? (uint8_t)(cursor - 1) : (uint8_t)(WA_COUNT + 1);
         } else if (e.vkey == VK_DOWN) {
-            if (!spells)
-                cursor = (uint8_t)((cursor + 1) % (WA_COUNT + 2));
-            else
-                scursor = (uint8_t)((scursor + 1) % shop_n);
+            cursor = (uint8_t)((cursor + 1) % (WA_COUNT + 2));
         } else if (e.vkey == VK_RIGHT || e.ascii == '+') {
-            if (!spells) {
-                if (cursor == WA_COUNT)
-                    wizard_mana_raise(w);
-                else if (cursor == WA_COUNT + 1)
-                    wizard_ap_raise(w);
-                else
-                    wizard_raise(w, (WizardAttr)cursor);
-            } else
-                wizard_spell_raise(w, shop[scursor]);
+            if (cursor == WA_COUNT)
+                wizard_mana_raise(w);
+            else if (cursor == WA_COUNT + 1)
+                wizard_ap_raise(w);
+            else
+                wizard_raise(w, (WizardAttr)cursor);
         } else if (e.vkey == VK_LEFT || e.ascii == '-') {
-            if (!spells) {
-                if (cursor == WA_COUNT)
-                    wizard_mana_lower(w);
-                else if (cursor == WA_COUNT + 1)
-                    wizard_ap_lower(w);
-                else
-                    wizard_lower(w, (WizardAttr)cursor);
-            } else
-                wizard_spell_lower(w, shop[scursor]);
+            if (cursor == WA_COUNT)
+                wizard_mana_lower(w);
+            else if (cursor == WA_COUNT + 1)
+                wizard_ap_lower(w);
+            else
+                wizard_lower(w, (WizardAttr)cursor);
+        }
+    }
+}
+
+/* The spell list page: the whole grimoire (PG_SPELLS) or only the
+ * buyable summons (PG_CREATURES). Buying with Right, refunds with
+ * Left; the panel below shows creature or spell details. */
+static void designer_shop(Wizard *w, uint8_t page)
+{
+    struct keyboard_event_t e;
+    uint8_t scursor = 0, stop = 0;
+    bool running = true;
+    char buf[40];
+    uint8_t shop[SPELL_COUNT];
+    uint8_t shop_n = 0;
+    {
+        uint16_t i;
+        for (i = 0; i < SPELL_COUNT; i++)
+            if (page == PG_SPELLS || SPELLS[i].design_cost)
+                shop[shop_n++] = (uint8_t)i;
+    }
+#define SHOP_ROWS 9
+    while (running) {
+        uint8_t row;
+        if (scursor < stop)
+            stop = scursor;
+        if (scursor >= stop + SHOP_ROWS)
+            stop = (uint8_t)(scursor - SHOP_ROWS + 1);
+        render_menu_clear();
+        snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u   %s", w->name, w->level,
+                 w->xp, page == PG_CREATURES ? "KREATUREN" : "ZAUBER");
+        render_menu_text(1, 1, C_BRIGHT_YELLOW, buf);
+        snprintf(buf, sizeof buf, "%-16.16s St Naechste",
+                 page == PG_CREATURES ? "Beschwoerung" : "Spruch");
+        render_menu_text(2, 3, C_BRIGHT_YELLOW, buf);
+        for (row = 0; row < SHOP_ROWS && stop + row < shop_n; row++) {
+            uint8_t s = shop[stop + row];
+            uint16_t cost = wizard_spell_next_cost(w, s);
+            if (cost)
+                snprintf(buf, sizeof buf, "%c %-15.15s %2u %5u",
+                         stop + row == scursor ? '>' : ' ', SPELLS[s].name,
+                         w->book.level[s], cost);
+            else
+                snprintf(buf, sizeof buf, "%c %-15.15s %2u   Buch",
+                         stop + row == scursor ? '>' : ' ', SPELLS[s].name,
+                         w->book.level[s]);
+            render_menu_text(2, (uint8_t)(4 + row),
+                             cost && w->xp >= cost ? C_BRIGHT_WHITE : C_GREY,
+                             buf);
+        }
+        if (shop_n) {
+            uint8_t sel = shop[scursor];
+            uint8_t k = SUMMON_KIND[sel];
+            if (k < CR_COUNT && SPELLS[sel].design_cost)
+                lexicon_creature_panel(k, 14);
+            else
+                spell_panel(sel, 14);
+        }
+        render_menu_text(1, 27, C_GREY,
+                         "Rechts kaufen/Links erstatten, Esc zurueck");
+        while (!kbuf_poll_event(&e))
+            ;
+        if (!e.isdown)
+            continue;
+        if (e.vkey == VK_ESC) {
+            running = false;
+        } else if (e.vkey == VK_UP) {
+            scursor = scursor ? (uint8_t)(scursor - 1) : (uint8_t)(shop_n - 1);
+        } else if (e.vkey == VK_DOWN) {
+            scursor = (uint8_t)((scursor + 1) % shop_n);
+        } else if (e.vkey == VK_RIGHT || e.ascii == '+') {
+            wizard_spell_raise(w, shop[scursor]);
+        } else if (e.vkey == VK_LEFT || e.ascii == '-') {
+            wizard_spell_lower(w, shop[scursor]);
         }
     }
 #undef SHOP_ROWS
+}
+
+static void designer_loop(uint8_t slot)
+{
+    struct keyboard_event_t e;
+    Wizard *w = &wizard_slots[slot];
+    uint8_t cursor = 0;
+    bool running = true;
+    char buf[40];
+    lexicon_texts_load();   /* creature descriptions for the shop panel */
+    spells_texts_load();
+    while (running) {
+        static const char *const PAGES[3] = {"Attribute verteilen",
+                                             "Zauber erlernen",
+                                             "Kreaturen beschwoeren"};
+        uint8_t i;
+        render_menu_clear();
+        snprintf(buf, sizeof buf, "%s  Stufe %u  XP %u", w->name, w->level,
+                 w->xp);
+        render_menu_text(2, 1, C_BRIGHT_YELLOW, buf);
+        render_menu_text(4, 4, C_GREY, "Zauberer gestalten:");
+        for (i = 0; i < 3; i++) {
+            snprintf(buf, sizeof buf, "%c %s", i == cursor ? '>' : ' ',
+                     PAGES[i]);
+            render_menu_text(5, (uint8_t)(7 + i * 2),
+                             i == cursor ? C_BRIGHT_WHITE : C_GREY, buf);
+        }
+        render_menu_text(4, 22, C_GREY, "Enter waehlt, Esc verlaesst den Designer.");
+        while (!kbuf_poll_event(&e))
+            ;
+        if (!e.isdown)
+            continue;
+        if (e.vkey == VK_ESC) {
+            running = false;
+        } else if (e.vkey == VK_UP) {
+            cursor = cursor ? (uint8_t)(cursor - 1) : 2;
+        } else if (e.vkey == VK_DOWN) {
+            cursor = (uint8_t)((cursor + 1) % 3);
+        } else if (e.ascii == 13 || e.vkey == VK_SPACE) {
+            if (cursor == PG_ATTRS)
+                designer_attrs(w);
+            else
+                designer_shop(w, cursor);
+        }
+    }
 }
 
 /* The menu: returns the chosen map path or NULL to quit. Slot 0 is the
