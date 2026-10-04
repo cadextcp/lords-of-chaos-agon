@@ -49,12 +49,36 @@ static void remove_ground_object(World *w, uint8_t i)
 
 bool items_pick_up(World *w, uint8_t unit)
 {
-    Unit *u;
-    uint8_t kind, i;
+    uint8_t i;
     if (unit >= w->unit_count)
         return false;
+    for (i = 0; i < w->object_count; i++)
+        if (w->objects[i].x == w->units[unit].x &&
+            w->objects[i].y == w->units[unit].y &&
+            items_kind_of_tile(w->objects[i].tile) != NO_ITEM)
+            return items_pick_up_object(w, unit, i);
+    return false;
+}
+
+uint8_t items_kind_of_tile(uint16_t tile)
+{
+    uint8_t k;
+    for (k = 0; k < OBJ_COUNT; k++)
+        if (OBJECTS[k].tile == tile)
+            return k;
+    return NO_ITEM;
+}
+
+bool items_pick_up_object(World *w, uint8_t unit, uint8_t obj)
+{
+    Unit *u;
+    uint8_t kind;
+    if (unit >= w->unit_count || obj >= w->object_count)
+        return false;
     u = &w->units[unit];
-    kind = items_kind_at(w, u->x, u->y);
+    if (world_distance(w, u->x, u->y, w->objects[obj].x, w->objects[obj].y) > 1)
+        return false;                    /* own field or a neighbour */
+    kind = items_kind_of_tile(w->objects[obj].tile);
     if (kind == NO_ITEM || u->item_count >= UNIT_ITEMS)
         return false;
     if (kind == OBJ_CAULDRON_FULL)
@@ -66,12 +90,7 @@ bool items_pick_up(World *w, uint8_t unit)
         return false;
     world_spend(w, unit, ACTIONS[ACT_PICK_UP].ap);
     u->items[u->item_count++] = kind;
-    for (i = 0; i < w->object_count; i++)
-        if (w->objects[i].x == u->x && w->objects[i].y == u->y &&
-            w->objects[i].tile == OBJECTS[kind].tile) {
-            remove_ground_object(w, i);
-            break;
-        }
+    remove_ground_object(w, obj);
     return true;
 }
 
@@ -175,16 +194,27 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
     u->item_count--;
     u->in_use = NO_ITEM;
 
+    /* fly first (no dice yet), then resolve the hit: the projectile
+     * event must come before its hit or miss */
     x = u->x;
     y = u->y;
-    for (dist = 0; dist < 6; dist++) {
-        int16_t nx = (int16_t)(x + dx), ny = (int16_t)(y + dy);
-        uint8_t target;
-        if (!world_wrap(w, &nx, &ny) || world_blocks(w, nx, ny))
-            break;
-        target = world_unit_at(w, nx, ny, UL_GROUND);
-        if (target == NO_UNIT)
-            target = world_unit_at(w, nx, ny, UL_AIR);
+    {
+        uint8_t target = NO_UNIT, steps = 0;
+        for (dist = 0; dist < 6; dist++) {
+            int16_t nx = (int16_t)(x + dx), ny = (int16_t)(y + dy);
+            if (!world_wrap(w, &nx, &ny) || world_blocks(w, nx, ny))
+                break;
+            target = world_unit_at(w, nx, ny, UL_GROUND);
+            if (target == NO_UNIT)
+                target = world_unit_at(w, nx, ny, UL_AIR);
+            steps++;
+            if (target != NO_UNIT)
+                break;
+            x = nx;
+            y = ny;
+        }
+        events_push(EV_PROJECTILE, u->x, u->y, PJ_THROWN, u->owner,
+                    (uint8_t)(int8_t)(dx * steps), (uint8_t)(int8_t)(dy * steps));
         if (target != NO_UNIT) {        /* thrown weapons hit flyers too */
             if (items_can_harm_undead(w, unit, target)) {
                 uint16_t roll = rng_range(rng, 100);
@@ -198,15 +228,9 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
                 else
                     events_push(EV_MISS, u->x, u->y, u->kind, u->owner, 0, 0);
             }
-            x = (int16_t)(nx - dx);     /* lands in front of the target */
-            y = (int16_t)(ny - dy);
-            world_wrap(w, &x, &y);
-            goto land;
+            /* it lands in front of the target: x/y stopped there */
         }
-        x = nx;
-        y = ny;
     }
-land:
     if (w->object_count < MAX_OBJECTS) {
         w->objects[w->object_count].x = (uint8_t)x;
         w->objects[w->object_count].y = (uint8_t)y;
@@ -250,6 +274,8 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
     if (target == NO_UNIT)
         return false;
     world_spend(w, unit, ACTIONS[ACT_FIRE].ap);
+    events_push(EV_PROJECTILE, u->x, u->y, PJ_ARROW, u->owner,
+                (uint8_t)(int8_t)dx, (uint8_t)(int8_t)dy);
     if (items_can_harm_undead(w, unit, target)) {
         uint16_t roll = rng_range(rng, 100);
         if (roll < combat_hit_chance(items_combat(w, unit),
@@ -400,9 +426,13 @@ const char *items_read(World *w, uint8_t unit)
 }
 
 /* Chest loot table (own values, D7): every chest holds one treasure. */
+/* Chests hold most of the treasure and the better weapons (D35). */
 static const uint8_t CHEST_LOOT[] = {
-    OBJ_GOLD, OBJ_GOLD, OBJ_EMERALD, OBJ_EMERALD, OBJ_RUBY,
+    OBJ_GOLD, OBJ_GOLD, OBJ_GOLD, OBJ_EMERALD, OBJ_EMERALD, OBJ_RUBY,
     OBJ_WAND, OBJ_RUNE_STONE, OBJ_DIAMOND,
+    OBJ_SWORD, OBJ_AXE, OBJ_SPEAR, OBJ_BOW, OBJ_SHIELD, OBJ_KNIFE,
+    OBJ_NINJA_STAR, OBJ_VIAL_HEALING, OBJ_VIAL_STRENGTH, OBJ_SCROLL,
+    OBJ_SLAYER,                          /* rare: one entry in 20 */
 };
 
 bool items_open_chest(World *w, Rng *rng, uint8_t unit, int16_t x, int16_t y)

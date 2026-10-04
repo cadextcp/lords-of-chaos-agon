@@ -32,6 +32,8 @@ bool sight_explored(const Sight *s, const World *w, int16_t x, int16_t y);
 bool sight_visible(const Sight *s, const World *w, int16_t x, int16_t y);
 /* Clear ground line between two fields (endpoints exclusive, GDD 3.4),
  * honouring wrap-around. For targeting (M3c). */
+/* Like sight_has_los, but tall grass does not block (spells, D36). */
+bool sight_has_spell_los(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1);
 bool sight_has_los(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1);
 /* Magic Eye (M4b): mark the fields around (x, y) visible and explored,
  * ignoring walls, like an airborne observer. */

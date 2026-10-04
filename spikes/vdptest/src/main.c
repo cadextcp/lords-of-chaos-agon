@@ -212,6 +212,94 @@ static void test_audio(void)
     snprintf(line, sizeof line, "A5 extra channels 4/5: %u %u", a, b);
     out(C_BRIGHT_WHITE, line);
     pause_cs(30);
+
+    /* interrupting: a long note, then reset the channel and play again */
+    a = note(0, 50, 300, 2000);
+    vdp_audio_reset_channel(0);
+    b = note(0, 50, 400, 200);
+    snprintf(line, sizeof line, "A6 long note, reset, new: %u %u", a, b);
+    out(C_BRIGHT_WHITE, line);
+    pause_cs(30);
+
+    /* tunable sample: the same buffer at three pitches (instrument) */
+    vdp_audio_create_sample_from_buffer(2, SAMPLE_BUFFER,
+        VDP_AUDIO_SAMPLE_FORMAT_8BIT_SIGNED | 16);   /* tunable = bit 4 (A9) */
+    vdp_audio_set_buffer_frequency(2, SAMPLE_BUFFER, 262);
+    vdp_audio_set_sample(2, SAMPLE_BUFFER);
+    a = note(2, 80, 262, 150);
+    pause_cs(20);
+    b = note(2, 80, 392, 150);
+    pause_cs(20);
+    c = note(2, 80, 523, 150);
+    snprintf(line, sizeof line, "A7 tunable sample C/G/C': %u %u %u", a, b, c);
+    out(C_BRIGHT_WHITE, line);
+    pause_cs(30);
+
+    /* do enabled extra channels survive a reset? */
+    vdp_audio_enable_channel(9);
+    a = note(9, 50, 500, 100);
+    pause_cs(15);
+    vdp_audio_reset_channel(9);
+    b = note(9, 50, 500, 100);
+    pause_cs(15);
+    vdp_audio_reset_channel(4);
+    c = note(4, 50, 500, 100);
+    snprintf(line, sizeof line, "A8 ch9, reset ch9, reset ch4: %u %u %u", a, b, c);
+    out(C_BRIGHT_WHITE, line);
+    pause_cs(30);
+
+    /* samples: is the note length honoured, and does a reset free a
+     * channel that plays a sample? (the sample is 500 ms long) */
+    vdp_audio_set_sample(1, SAMPLE_BUFFER);
+    a = note(1, 80, 0, 100);              /* 100 ms of a 500 ms sample */
+    {
+        uint32_t t = getsysvar_time() + 20;   /* 200 ms later */
+        while ((int32_t)(getsysvar_time() - t) < 0)
+            ;
+    }
+    b = note(1, 80, 0, 500);              /* 1 = length honoured */
+    {
+        uint32_t t = getsysvar_time() + 5;
+        while ((int32_t)(getsysvar_time() - t) < 0)
+            ;
+    }
+    vdp_audio_reset_channel(1);           /* mid-sample */
+    vdp_audio_set_sample(1, SAMPLE_BUFFER);
+    c = note(1, 80, 0, 500);              /* right after the reset */
+    snprintf(line, sizeof line, "A9 smp len kept/reset now: %u %u %u", a, b, c);
+    out(C_BRIGHT_WHITE, line);
+    {
+        uint32_t t = getsysvar_time() + 5;
+        while ((int32_t)(getsysvar_time() - t) < 0)
+            ;
+    }
+    vdp_audio_reset_channel(1);
+    {
+        uint32_t t = getsysvar_time() + 2;    /* one clock step */
+        while ((int32_t)(getsysvar_time() - t) < 0)
+            ;
+    }
+    vdp_audio_set_sample(1, SAMPLE_BUFFER);
+    a = note(1, 80, 0, 500);
+    snprintf(line, sizeof line, "A10 reset, 20 ms, play: %u", a);
+    out(C_BRIGHT_WHITE, line);
+    pause_cs(60);
+
+    /* how far can a tunable sample (base 262 Hz) be pitched up? */
+    {
+        static const uint16_t HZ[6] = {500, 520, 524, 600, 786, 1048};
+        char *p = line;
+        p += snprintf(p, 20, "A11 x");
+        for (i = 0; i < 6; i++) {
+            vdp_audio_reset_channel(2);
+            vdp_audio_set_sample(2, SAMPLE_BUFFER);
+            a = note(2, 60, HZ[i], 60);
+            p += snprintf(p, 8, " %u:%u", HZ[i] / 10, a);
+            pause_cs(10);
+        }
+        out(C_BRIGHT_WHITE, line);
+    }
+    pause_cs(60);
     out(C_GREY, "(1 = queued, 0 = rejected, 9 = silent)");
     pause_cs(150);
 }
@@ -405,6 +493,70 @@ static void test_double_buffer(void)
     pause_cs(300);
 }
 
+/* ---------- 6: which wrapper leaks bytes as text? ---------- */
+
+static void probe(uint8_t r, const char *label)
+{
+    vdp_cursor_tab(0, r);
+    vdp_set_text_colour(C_GREY);
+    printf("%-12s|", label);
+}
+
+static void test_leaks(void)
+{
+    heading("6 LEAKS (text after | = leak)");
+    probe(2, "reset");
+    vdp_audio_reset_channel(1);
+    probe(3, "waveform");
+    vdp_audio_set_waveform(1, VDP_AUDIO_WAVEFORM_TRIANGLE);
+    probe(4, "adsr");
+    vdp_audio_volume_envelope_ADSR(1, 4, 120, 90, 80);
+    probe(5, "env off");
+    vdp_audio_volume_envelope_disable(1);
+    probe(6, "play_note");
+    vdp_audio_play_note(1, 40, 440, 50);
+    probe(7, "set_sample");
+    vdp_audio_set_sample(1, SAMPLE_BUFFER);
+    probe(8, "smp_from_buf");
+    vdp_audio_create_sample_from_buffer(0, SAMPLE_BUFFER,
+                                        VDP_AUDIO_SAMPLE_FORMAT_8BIT_SIGNED);
+    probe(9, "buf_freq");
+    vdp_audio_set_buffer_frequency(0, SAMPLE_BUFFER, 262);
+    probe(10, "enable ch");
+    vdp_audio_enable_channel(7);
+    probe(11, "font_select");
+    vdp_font_select(0xFFFF, 0);
+    probe(12, "wr_gfx/txt");
+    vdp_write_at_graphics_cursor();
+    vdp_write_at_text_cursor();
+    probe(13, "move_to");
+    vdp_move_to(10, 10);
+    probe(14, "consolidate");
+    vdp_adv_consolidate(SAMPLE_BUFFER);
+    probe(15, "ch 9 note");
+    vdp_audio_play_note(9, 40, 440, 50);
+    probe(16, "ch 12 reset");
+    vdp_audio_reset_channel(12);
+    probe(17, "adsr 8/120/200/300");
+    vdp_audio_volume_envelope_ADSR(2, 8, 120, 200, 300);
+    probe(18, "adsr 40/120/160/300");
+    vdp_audio_volume_envelope_ADSR(3, 40, 120, 160, 300);
+    probe(19, "adsr 4/120/90/80");
+    vdp_audio_volume_envelope_ADSR(3, 4, 120, 90, 80);
+    probe(20, "adsr 0/0/255/0");
+    vdp_audio_volume_envelope_ADSR(3, 0, 0, 255, 0);
+    probe(21, "adsr 8/80/200/60");
+    vdp_audio_volume_envelope_ADSR(2, 8, 80, 200, 60);
+    probe(22, "tune fmt 8+frq");
+    vdp_audio_create_sample_from_buffer(0, SAMPLE_BUFFER, 8);
+    vdp_audio_set_buffer_frequency(0, SAMPLE_BUFFER, 100);   /* 'd' */
+    probe(23, "tune fmt 16+frq");
+    vdp_audio_create_sample_from_buffer(0, SAMPLE_BUFFER, 16);
+    vdp_audio_set_buffer_frequency(0, SAMPLE_BUFFER, 100);
+    probe(24, "end");
+    pause_cs(300);
+}
+
 int main(int argc, char **argv)
 {
     int which = argc > 1 ? argv[1][0] - '0' : 0;
@@ -425,6 +577,8 @@ int main(int argc, char **argv)
         test_palette();
     if (which == 0 || which == 4)
         test_sprites();
+    if (which == 6)
+        test_leaks();
     if (which == 0 || which == 5)
         test_double_buffer();
     log_line("VDPTEST END");

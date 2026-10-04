@@ -19,8 +19,18 @@ typedef enum {
     EV_MISS,     /* an attack whiffed at (x, y) */
     EV_DEATH,    /* unit kind/owner died at (x, y); a = 1: bled out */
     EV_SPELL,    /* spell a cast at (x, y) */
-    EV_SMASH     /* terrain at (x, y) smashed to pieces */
+    EV_SMASH,    /* terrain at (x, y) smashed to pieces */
+    EV_PROJECTILE /* something flies from (x, y) to (x + (int8_t)a,
+                    y + (int8_t)b), the shortest way on wrapping maps;
+                    kind = ProjectileKind. Comes before its hit/miss. */
 } EventKind;
+
+typedef enum {
+    PJ_BOLT,       /* magic bolt */
+    PJ_LIGHTNING,  /* magic lightning */
+    PJ_ARROW,      /* bow */
+    PJ_THROWN      /* a thrown object */
+} ProjectileKind;
 
 typedef struct {
     uint8_t type;     /* EventKind */

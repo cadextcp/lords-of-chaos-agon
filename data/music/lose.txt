@@ -1,0 +1,14 @@
+# Defeat jingle (game over) - own composition, plays once.
+tempo 72
+
+channel pluck 100
+fallback sawtooth
+e5:2 d5:2 c5:2 b4:2 a4:8
+
+channel triangle 80
+env 10 120 200 300
+a2:4 f2:4 e2:4 a1:4
+
+channel sine 40
+env 40 120 160 300
+c4:4 a3:4 gs3:4 a3:4

@@ -101,12 +101,14 @@ def main() -> int:
           "typedef struct { uint8_t ap, stamina; } ActionDef;",
           "extern const ActionDef ACTIONS[ACT_COUNT];", "",
           "enum { CF_MOUNT = 1, CF_RIDE = 2, CF_UNDEAD = 4, CF_WEAPONS = 8, CF_USE = 16 };",
+          "enum { WILD_NONE, WILD_PEACEFUL, WILD_TERRITORIAL, WILD_HERD };",
           "typedef struct {",
           "    const char *name;",
           "    uint8_t ap, ap_fly, stamina, con, combat, defence, magic_res;",
           "    uint8_t carry, potion, vp, mana;",
           "    uint8_t flags;    /* CF_* */",
           "    uint8_t native;   /* NATIVE_* terrain type */",
+          "    uint8_t wild;     /* WILD_* behaviour as a wild animal (D35) */",
           "} CreatureDef;",
           "extern const CreatureDef CREATURES[CR_COUNT];",
           "/* Tile of the p1 variant; + Owner gives the owner colour (GDD 11.2). */",
@@ -187,8 +189,10 @@ def main() -> int:
                               ("NATIVE_ROCK", "rock")) if yes(r, k)]
         nums = ", ".join(r[k] for k in ("ap_ground", "ap_fly", "stamina", "constitution", "combat",
                                         "defence", "magic_res", "carry", "potion", "vp", "mana"))
+        wild = {"-": "WILD_NONE", "peaceful": "WILD_PEACEFUL",
+                "territorial": "WILD_TERRITORIAL", "herd": "WILD_HERD"}[r["wild"]]
         c.append(f"    [CR_{r['id'].upper()}] = {{{cstr(r['name'])}, {nums}, "
-                 f"{' | '.join(fl) or '0'}, {' | '.join(nat) or '0'}}},")
+                 f"{' | '.join(fl) or '0'}, {' | '.join(nat) or '0'}, {wild}}},")
     c += ["};", "", "const uint16_t CREATURE_TILE[CR_COUNT] = {"]
     c += [f"    [CR_{r['id'].upper()}] = T_{r['id'].upper()}_P1," for r in creatures]
     c += ["};", ""]
