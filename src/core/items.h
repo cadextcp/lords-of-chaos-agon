@@ -64,8 +64,9 @@ bool items_can_harm_undead(const World *w, uint8_t attacker, uint8_t defender);
 bool items_eat(World *w, uint8_t unit);
 /* READ the scroll in use (GDD 8): a hint line, ACT_READ, scroll gone. */
 const char *items_read(World *w, uint8_t unit);
-/* Open the chest at (x, y): a carried chest key unlocks it (key
- * vanishes, GDD 8), otherwise it is pried open at triple the AP.
+/* Open the chest at (x, y): a free chest (C1) just opens; a locked one
+ * is unlocked by a carried chest key (key vanishes, GDD 8), otherwise
+ * it is pried open at triple the AP.
  * The chest drops a random treasure and disappears. */
 bool items_open_chest(World *w, Rng *rng, uint8_t unit, int16_t x, int16_t y);
 

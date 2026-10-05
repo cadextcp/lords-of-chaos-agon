@@ -118,7 +118,7 @@ void populate_scenario(World *w, Rng *rng)
     n = (uint8_t)(POP_CHESTS_MIN + rng_range(rng, 3));
     for (i = 0; i < n; i++)
         if (random_field(w, rng, POP_CHEST_GAP, &x, &y)) {
-            w->feature[y][x] = FE_CHEST;
+            w->feature[y][x] = rng_range(rng, 2) ? FE_CHEST : FE_CHEST_FREE;
             world_map_changed(w);
         }
 

@@ -32,6 +32,8 @@ t  werfen            f  Bogen
 c  Zauber wirken
 b  aufsteigen / absteigen (Reittier)
 <  abheben           >  landen
+a+Pfeil  Tuer zu-/auf-/abschliessen,
+         Truhe oeffnen (Schluessel!)
 Anrempeln: Tuer oeffnen, Truhe,
   Gegner und Terrain angreifen
 

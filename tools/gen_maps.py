@@ -44,7 +44,7 @@ FLOOR = {"s": "FL_STONE", "w": "FL_WOOD", "g": "FL_GRASS", "p": "FL_PATH",
 FEATURE = {".": "FE_NONE", "#": "FE_WALL", "D": "FE_DOOR_CLOSED", "d": "FE_DOOR_OPEN",
            "B": "FE_BED", "S": "FE_BOOKSHELF", "K": "FE_CANDLE", "C": "FE_CAULDRON",
            "T": "FE_TABLE", "h": "FE_CHAIR", "M": "FE_DRAWERS", "X": "FE_CHEST",
-           "t": "FE_TREE", "R": "FE_ROCK"}
+           "t": "FE_TREE", "R": "FE_ROCK", "L": "FE_DOOR_LOCKED", "x": "FE_CHEST_FREE"}
 DECOR = {".": "DE_NONE", "r": "DE_RUG", "*": "DE_PENTACLE"}
 ROOF = {".": "0", "R": "1"}                # R = roof tile (blocks sight+landing)
 OWNERS = {"p1": "OWN_P1", "p2": "OWN_P2", "p3": "OWN_P3", "p4": "OWN_P4",
