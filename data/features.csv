@@ -17,3 +17,5 @@ drawers,6
 chest,6
 tree,8
 rock,12
+door_locked,8
+chest_free,6

@@ -28,7 +28,7 @@ static const uint16_t FEATURE_TILE[FE_COUNT] = {
     [FE_BED] = T_BED, [FE_BOOKSHELF] = T_BOOKSHELF, [FE_CANDLE] = T_CANDLE_0,
     [FE_CAULDRON] = T_CAULDRON, [FE_TABLE] = T_TABLE, [FE_CHAIR] = T_CHAIR,
     [FE_DRAWERS] = T_DRAWERS, [FE_CHEST] = T_CHEST, [FE_TREE] = T_TREE,
-    [FE_ROCK] = T_ROCK,
+    [FE_ROCK] = T_ROCK, [FE_CHEST_FREE] = T_CHEST,
 };
 
 /* Animated tiles: frame 0 <-> frame 1 (candles, water). */
@@ -208,7 +208,7 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
 
     if (fe == FE_WALL) {
         push(out, (uint16_t)(T_WALL_00 + wall_mask(w, wx, wy)));
-    } else if (fe == FE_DOOR_CLOSED || fe == FE_DOOR_OPEN) {
+    } else if (fe == FE_DOOR_CLOSED || fe == FE_DOOR_OPEN || fe == FE_DOOR_LOCKED) {
         bool vertical = world_is_wall_line(w, wx, (int16_t)(wy - 1)) ||
                         world_is_wall_line(w, wx, (int16_t)(wy + 1));
         push(out, vertical ? (fe == FE_DOOR_OPEN ? T_DOOR_V_OPEN : T_DOOR_V_CLOSED)
@@ -277,7 +277,8 @@ static bool roof_covered(const World *w, int16_t wx, int16_t wy, bool *wall)
     *wall = fe == FE_WALL;
     if (world_has_roof(w, wx, wy))
         return true;
-    if (fe != FE_WALL && fe != FE_DOOR_CLOSED && fe != FE_DOOR_OPEN)
+    if (fe != FE_WALL && fe != FE_DOOR_CLOSED && fe != FE_DOOR_OPEN &&
+        fe != FE_DOOR_LOCKED)
         return false;
     for (i = 0; i < 4; i++)
         if (world_has_roof(w, (int16_t)(wx + N[i][0]), (int16_t)(wy + N[i][1])))

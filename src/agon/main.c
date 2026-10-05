@@ -709,11 +709,75 @@ static void log_push(const char *line)
 }
 
 /* Move the active unit in direction mask m (chord.h); messages on failure. */
+/* `a` + direction (GDD 5.1, C2): close an open door, lock a closed one
+ * (carried key), unlock a locked one, open a chest. */
+static bool apply_pending;
+
+static void do_apply(int8_t dx, int8_t dy, bool dump)
+{
+    uint8_t me = active();
+    int16_t x = (int16_t)(world.units[me].x + dx);
+    int16_t y = (int16_t)(world.units[me].y + dy);
+    uint8_t fe = world_feature(&world, x, y);
+    if (!turn_may_move(&turns)) {
+        render_message(1, C_BRIGHT_RED, "Runde 1: nur Zaubern (PM 7).");
+        return;
+    }
+    switch (fe) {
+    case FE_DOOR_OPEN:
+        if (world_close_door(&world, me, x, y)) {
+            sound_play(SND_DOOR);
+            render_message(1, C_BRIGHT_GREEN, "Tuer geschlossen.");
+        } else if (world_unit_at(&world, x, y, UL_GROUND) != NO_UNIT ||
+                   world_unit_at(&world, x, y, UL_AIR) != NO_UNIT)
+            render_message(1, C_BRIGHT_RED, "Jemand steht in der Tuer.");
+        else
+            render_message(1, C_BRIGHT_RED, "Zu wenig AP oder keine Haende.");
+        break;
+    case FE_DOOR_CLOSED:
+        if (world_lock_door(&world, me, x, y)) {
+            sound_play(SND_DOOR);
+            render_message(1, C_BRIGHT_GREEN, "Tuer abgeschlossen.");
+        } else if (!world_has_key(&world, me))
+            render_message(1, C_BRIGHT_RED, "Kein Schluessel zum Abschliessen.");
+        else
+            render_message(1, C_BRIGHT_RED, "Zu wenig AP oder keine Haende.");
+        break;
+    case FE_DOOR_LOCKED:
+        if (world_unlock_door(&world, me, x, y)) {
+            sound_play(SND_DOOR);
+            render_message(1, C_BRIGHT_GREEN, "Tuer aufgeschlossen.");
+        } else if (!world_has_key(&world, me))
+            render_message(1, C_BRIGHT_RED, "Abgeschlossen: Schluessel oder Gewalt.");
+        else
+            render_message(1, C_BRIGHT_RED, "Zu wenig AP oder keine Haende.");
+        break;
+    case FE_CHEST:
+    case FE_CHEST_FREE:
+        if (items_open_chest(&world, &turns.rng, me, x, y)) {
+            sound_play(SND_CHEST);
+            render_message(1, C_BRIGHT_YELLOW, "Truhe geoeffnet!");
+        } else
+            render_message(1, C_BRIGHT_RED, "Truhe laesst sich nicht oeffnen.");
+        break;
+    default:
+        render_message(1, C_BRIGHT_RED, "Dort gibt es nichts zu benutzen.");
+        break;
+    }
+    update_sight();
+    frame(dump);
+}
+
 static void step(uint8_t m, bool dump)
 {
     int8_t dx, dy;
     if (!chord_to_step(m, &dx, &dy))
         return;
+    if (apply_pending) {
+        apply_pending = false;
+        do_apply(dx, dy, dump);
+        return;
+    }
     if (look_mode || targeting) {       /* free cursor, no costs */
         int16_t *cx = targeting ? &target_x : &look_x;
         int16_t *cy = targeting ? &target_y : &look_y;
@@ -846,7 +910,15 @@ bump:
         case BUMP_TERRAIN: {
             bool destroyed;
             char msg[48];
-            if (world_feature(&world, nx, ny) == FE_CHEST) {
+            if (world_feature(&world, nx, ny) == FE_DOOR_LOCKED &&
+                world_unlock_door(&world, active(), nx, ny)) {
+                sound_play(SND_DOOR);
+                render_message(1, C_BRIGHT_GREEN, "Tuer aufgeschlossen.");
+                frame(dump);
+                return;
+            }
+            if (world_feature(&world, nx, ny) == FE_CHEST ||
+                world_feature(&world, nx, ny) == FE_CHEST_FREE) {
                 if (items_open_chest(&world, &turns.rng, active(), nx, ny)) {
                     sound_play(SND_CHEST);
                     render_message(1, C_BRIGHT_YELLOW, "Truhe geoeffnet!");
@@ -2440,6 +2512,10 @@ dispatch:
                 } else {
                     render_message(1, C_BRIGHT_RED, "Nur Zauberer zaubern.");
                 }
+            } else if (e.ascii == 'a') {            /* apply: door/chest + direction */
+                confirm_end = false;
+                apply_pending = true;
+                render_message(1, C_BRIGHT_CYAN, "Benutzen: Richtung?");
             } else if (e.ascii == 'g') {            /* pick up (choice) */
                 confirm_end = false;
                 pick_start(dump);
@@ -2620,7 +2696,10 @@ dispatch:
                 update_sight();
                 frame(dump);
             } else if (e.vkey == VK_ESC) {
-                if (confirm_end) {
+                if (apply_pending) {
+                    apply_pending = false;
+                    render_message(1, C_GREY, "");
+                } else if (confirm_end) {
                     confirm_end = false;
                     render_message(1, C_GREY, "");
                 } else {                         /* B3: never quit on one key */

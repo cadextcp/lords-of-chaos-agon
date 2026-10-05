@@ -1135,7 +1135,7 @@ static uint8_t count_chests(void)
     uint8_t x, y, n = 0;
     for (y = 0; y < world.h; y++)
         for (x = 0; x < world.w; x++)
-            if (world.feature[y][x] == FE_CHEST)
+            if (world.feature[y][x] == FE_CHEST || world.feature[y][x] == FE_CHEST_FREE)
                 n++;
     return n;
 }
@@ -3746,6 +3746,77 @@ static void test_m5c_events(void)
 
 /* ---------- M5e: combat rebalance (D27 free counter, D28 dice) ---------- */
 
+static void test_c1_c2(void)
+{
+    Rng rng;
+    bool destroyed = false;
+    uint8_t objects_before;
+
+    /* C2: doors close, lock and unlock */
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 2;
+    world.units[0].ap = 40;
+    world.feature[5][6] = FE_DOOR_OPEN;
+    world_map_changed(&world);
+    check(world_close_door(&world, 0, 6, 5) &&
+          world.feature[5][6] == FE_DOOR_CLOSED &&
+          world.units[0].ap == 40 - ACTIONS[ACT_OPEN_DOOR].ap,
+          "c2: an open door closes for the door cost");
+    check(!world_lock_door(&world, 0, 6, 5),
+          "c2: locking needs a key");
+    world.units[0].items[0] = OBJ_CHEST_KEY;
+    world.units[0].item_count = 1;
+    check(world_lock_door(&world, 0, 6, 5) &&
+          world.feature[5][6] == FE_DOOR_LOCKED &&
+          world.units[0].item_count == 1,
+          "c2: the key locks the door and is kept");
+    check(world_bump_kind(&world, 0, 0, -1) == BUMP_TERRAIN &&
+          world_blocks_sight(&world, 6, 5),
+          "c2: a locked door blocks walking and sight");
+    check(!world_open_door(&world, 0, 6, 5),
+          "c2: bumping does not open a locked door");
+    check(world_unlock_door(&world, 0, 6, 5) &&
+          world.feature[5][6] == FE_DOOR_CLOSED,
+          "c2: the key unlocks it again");
+    world.feature[5][6] = FE_DOOR_OPEN;
+    world.units[1].x = 6;
+    world.units[1].y = 5;
+    check(!world_close_door(&world, 0, 6, 5),
+          "c2: nobody can close a door with someone in the doorway");
+
+    /* C2: an enemy without a key has to smash the locked door */
+    world.units[1].x = 20;
+    world.units[1].y = 20;
+    world.feature[5][6] = FE_DOOR_LOCKED;
+    world_map_changed(&world);
+    world.units[0].item_count = 0;
+    world.units[0].ap = 62;
+    rng_seed(&rng, 5);
+    {
+        uint8_t n;
+        for (n = 0; n < 12 && world.feature[5][6] == FE_DOOR_LOCKED; n++) {
+            world.units[0].ap = 62;
+            combat_terrain(&world, &rng, 0, 6, 5, &destroyed);
+        }
+    }
+    check(world.feature[5][6] == FE_NONE && destroyed,
+          "c2: a locked door breaks under repeated blows");
+
+    /* C1: free chest opens without a key at the plain cost */
+    world.units[0].x = 4;
+    world.units[0].y = 8;
+    world.units[0].ap = 40;
+    world.feature[8][3] = FE_CHEST_FREE;
+    world_map_changed(&world);
+    objects_before = world.object_count;
+    rng_seed(&rng, 9);
+    check(items_open_chest(&world, &rng, 0, 3, 8) &&
+          world.feature[8][3] == FE_NONE &&
+          world.object_count == objects_before + 1 &&
+          world.units[0].ap == 40 - ACTIONS[ACT_OPEN_CHEST].ap,
+          "c1: a free chest opens at single AP, no key");
+}
+
 static void test_m5e_balance(void)
 {
     Rng rng;
@@ -4064,6 +4135,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m5b_lexicon();
     test_m5c_events();
     test_m5e_balance();
+    test_c1_c2();
     load_house();   /* leave a clean state */
     return fails;
 }

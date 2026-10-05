@@ -177,7 +177,13 @@ static bool ai_clear_feature(World *w, Rng *rng, uint8_t unit,
     uint8_t fe = world_feature(w, x, y);
     if (fe == FE_DOOR_CLOSED)
         return world_open_door(w, unit, x, y);
-    if (fe == FE_CHEST)
+    if (fe == FE_DOOR_LOCKED) {          /* C2: key, else smash it */
+        bool destroyed = false;
+        if (world_unlock_door(w, unit, x, y))
+            return true;
+        return combat_terrain(w, rng, unit, x, y, &destroyed) > 0 && destroyed;
+    }
+    if (fe == FE_CHEST || fe == FE_CHEST_FREE)
         return items_open_chest(w, rng, unit, x, y);
     return false;
 }
@@ -673,7 +679,9 @@ static void wizard_actions(Turns *t, World *w, AiCtx *ctx, uint8_t owner)
         uint8_t d;
         for (d = 0; d < 8; d++)
             if (world_feature(w, (int16_t)(w->units[wiz].x + DX2[d]),
-                              (int16_t)(w->units[wiz].y + DY2[d])) == FE_CHEST) {
+                              (int16_t)(w->units[wiz].y + DY2[d])) == FE_CHEST ||
+                world_feature(w, (int16_t)(w->units[wiz].x + DX2[d]),
+                              (int16_t)(w->units[wiz].y + DY2[d])) == FE_CHEST_FREE) {
                                 ai_clear_feature(w, &t->rng, wiz,
                                  (int16_t)(w->units[wiz].x + DX2[d]),
                                  (int16_t)(w->units[wiz].y + DY2[d]));

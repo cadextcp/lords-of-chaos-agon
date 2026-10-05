@@ -17,7 +17,8 @@ static const bool FEATURE_BLOCKS[FE_COUNT] = {
     [FE_DOOR_OPEN] = false, [FE_BED] = true, [FE_BOOKSHELF] = true,
     [FE_CANDLE] = false, [FE_CAULDRON] = false, [FE_TABLE] = true,
     [FE_CHAIR] = false, [FE_DRAWERS] = true, [FE_CHEST] = true,
-    [FE_TREE] = true, [FE_ROCK] = true,
+    [FE_TREE] = true, [FE_ROCK] = true, [FE_DOOR_LOCKED] = true,
+    [FE_CHEST_FREE] = true,
 };
 
 /* Tall features that block ground sight (GDD 3.4). A table rather than an
@@ -25,7 +26,7 @@ static const bool FEATURE_BLOCKS[FE_COUNT] = {
  * legalize (AGON-QUIRKS T7). */
 static const bool FEATURE_SIGHT[FE_COUNT] = {
     [FE_WALL] = true, [FE_DOOR_CLOSED] = true, [FE_BOOKSHELF] = true,
-    [FE_TREE] = true, [FE_ROCK] = true,
+    [FE_TREE] = true, [FE_ROCK] = true, [FE_DOOR_LOCKED] = true,
 };
 
 
@@ -218,7 +219,11 @@ uint8_t world_floor(const World *w, int16_t x, int16_t y)
 bool world_is_wall_line(const World *w, int16_t x, int16_t y)
 {
     uint8_t f = world_feature(w, x, y);
-    return f == FE_WALL || f == FE_DOOR_CLOSED || f == FE_DOOR_OPEN;
+    static const bool WALL_LINE[FE_COUNT] = {   /* table, not ||: AGON-QUIRKS T7 */
+        [FE_WALL] = true, [FE_DOOR_CLOSED] = true, [FE_DOOR_OPEN] = true,
+        [FE_DOOR_LOCKED] = true,
+    };
+    return f < FE_COUNT && WALL_LINE[f];
 }
 
 
@@ -667,13 +672,71 @@ bool world_open_door(World *w, uint8_t unit, int16_t x, int16_t y)
     return true;
 }
 
+bool world_has_key(const World *w, uint8_t unit)
+{
+    const Unit *u;
+    uint8_t i;
+    if (unit >= w->unit_count)
+        return false;
+    u = &w->units[unit];
+    for (i = 0; i < u->item_count; i++)
+        if (u->items[i] == OBJ_CHEST_KEY)
+            return true;
+    return false;
+}
+
+/* Shared by close / lock / unlock: unit has hands and the AP, the field
+ * holds `from`; it becomes `to`. */
+static bool door_change(World *w, uint8_t unit, int16_t x, int16_t y,
+                        uint8_t from, uint8_t to, uint8_t action)
+{
+    if (unit >= w->unit_count)
+        return false;
+    if (!world_wrap(w, &x, &y) || w->feature[y][x] != from)
+        return false;
+    if (!(CREATURES[w->units[unit].kind].flags & CF_USE))
+        return false;
+    if (w->units[unit].ap < ACTIONS[action].ap)
+        return false;
+    world_spend(w, unit, ACTIONS[action].ap);
+    w->feature[y][x] = to;
+    world_map_changed(w);
+    return true;
+}
+
+bool world_close_door(World *w, uint8_t unit, int16_t x, int16_t y)
+{
+    int16_t cx = x, cy = y;
+    if (!world_wrap(w, &cx, &cy) ||
+        world_unit_at(w, cx, cy, UL_GROUND) != NO_UNIT ||
+        world_unit_at(w, cx, cy, UL_AIR) != NO_UNIT)
+        return false;                    /* somebody stands in the doorway */
+    return door_change(w, unit, x, y, FE_DOOR_OPEN, FE_DOOR_CLOSED,
+                       ACT_OPEN_DOOR);
+}
+
+bool world_lock_door(World *w, uint8_t unit, int16_t x, int16_t y)
+{
+    return world_has_key(w, unit) &&
+           door_change(w, unit, x, y, FE_DOOR_CLOSED, FE_DOOR_LOCKED,
+                       ACT_UNLOCK);
+}
+
+bool world_unlock_door(World *w, uint8_t unit, int16_t x, int16_t y)
+{
+    return world_has_key(w, unit) &&
+           door_change(w, unit, x, y, FE_DOOR_LOCKED, FE_DOOR_CLOSED,
+                       ACT_UNLOCK);
+}
+
 char world_char(const World *w, int16_t x, int16_t y)
 {
     static const char FEATURE_CHARS[FE_COUNT] = {
         [FE_NONE] = ' ', [FE_WALL] = '#', [FE_DOOR_CLOSED] = 'D', [FE_DOOR_OPEN] = 'd',
         [FE_BED] = 'B', [FE_BOOKSHELF] = 'S', [FE_CANDLE] = 'K', [FE_CAULDRON] = 'C',
         [FE_TABLE] = 'T', [FE_CHAIR] = 'h', [FE_DRAWERS] = 'M', [FE_CHEST] = 'X',
-        [FE_TREE] = 't', [FE_ROCK] = 'R'};
+        [FE_TREE] = 't', [FE_ROCK] = 'R', [FE_DOOR_LOCKED] = 'L',
+        [FE_CHEST_FREE] = 'x'};
     static const char FLOOR_CHARS[FL_COUNT] = {
         [FL_STONE] = '.', [FL_WOOD] = ',', [FL_GRASS] = '"', [FL_PATH] = ':',
         [FL_TALL_GRASS] = ';', [FL_FOREST] = 'f', [FL_MAGIC_WOOD] = 'm',

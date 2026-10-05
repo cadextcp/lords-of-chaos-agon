@@ -16,7 +16,8 @@ static const char *const FEATURE_NAMES[FE_COUNT] = {
     [FE_DOOR_OPEN] = "Tuer (offen)", [FE_BED] = "Bett", [FE_BOOKSHELF] = "Regal",
     [FE_CANDLE] = "Kerzenstaender", [FE_CAULDRON] = "Kessel", [FE_TABLE] = "Tisch",
     [FE_CHAIR] = "Stuhl", [FE_DRAWERS] = "Kommode", [FE_CHEST] = "Truhe",
-    [FE_TREE] = "Baum", [FE_ROCK] = "Fels",
+    [FE_TREE] = "Baum", [FE_ROCK] = "Fels", [FE_DOOR_LOCKED] = "Tuer (abgeschl.)",
+    [FE_CHEST_FREE] = "Truhe (offen)",
 };
 
 const char *name_unit(const Unit *u)

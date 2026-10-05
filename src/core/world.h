@@ -26,7 +26,8 @@ typedef enum { DE_NONE, DE_RUG, DE_PENTACLE } Decor;
 typedef enum {
     FE_NONE, FE_WALL, FE_DOOR_CLOSED, FE_DOOR_OPEN, FE_BED, FE_BOOKSHELF,
     FE_CANDLE, FE_CAULDRON, FE_TABLE, FE_CHAIR, FE_DRAWERS, FE_CHEST, FE_TREE,
-    FE_ROCK, FE_COUNT
+    FE_ROCK, FE_DOOR_LOCKED /* C2 */, FE_CHEST_FREE /* C1: opens without a key */,
+    FE_COUNT
 } Feature;
 
 /* Status flags shown as panel icons (PM 11). */
@@ -245,6 +246,17 @@ BumpKind world_bump_kind(const World *w, uint8_t unit, int8_t dx, int8_t dy);
 /* Bump-open a closed door (GDD 5.1): creatures with hands (CF_USE) pay
  * the action cost, the door opens and the view cache is invalidated. */
 bool world_open_door(World *w, uint8_t unit, int16_t x, int16_t y);
+
+/* Close an open door (C2, ACT_OPEN_DOOR): hands needed, nobody standing in
+ * the doorway. */
+bool world_close_door(World *w, uint8_t unit, int16_t x, int16_t y);
+/* Lock a closed door / unlock a locked one (C2, ACT_UNLOCK): needs a chest
+ * key among the carried objects; the key is not used up. A locked door
+ * only gives way to blows (FEATURE_TOUGH) or the key. */
+bool world_lock_door(World *w, uint8_t unit, int16_t x, int16_t y);
+bool world_unlock_door(World *w, uint8_t unit, int16_t x, int16_t y);
+/* Does the unit carry a chest key? */
+bool world_has_key(const World *w, uint8_t unit);
 
 /* Character for dumps (floor/feature/unit at a glance). */
 char world_char(const World *w, int16_t x, int16_t y);

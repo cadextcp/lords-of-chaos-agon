@@ -144,7 +144,7 @@ def main() -> int:
           "const uint8_t FEATURE_TOUGH[FE_COUNT] = {"]
     feat_ids = ["none", "wall", "door_closed", "door_open", "bed", "bookshelf",
                 "candle", "cauldron", "table", "chair", "drawers", "chest",
-                "tree", "rock"]
+                "tree", "rock", "door_locked", "chest_free"]
     assert set(feat_ids) == set(features), sorted(set(feat_ids) ^ set(features))
     c += [f"    [{i}] = {int(features[f]['toughness'])},   /* {f} */"
           for i, f in enumerate(feat_ids)]

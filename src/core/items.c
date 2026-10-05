@@ -451,15 +451,19 @@ bool items_open_chest(World *w, Rng *rng, uint8_t unit, int16_t x, int16_t y)
     uint8_t i, ap, kind;
     if (unit >= w->unit_count || !world_wrap(w, &x, &y))
         return false;
-    if (w->feature[y][x] != FE_CHEST)
+    if (w->feature[y][x] != FE_CHEST && w->feature[y][x] != FE_CHEST_FREE)
         return false;
     u = &w->units[unit];
     kind = NO_ITEM;
-    for (i = 0; i < u->item_count; i++)     /* a key unlocks cheaply */
-        if (u->items[i] == OBJ_CHEST_KEY)
-            kind = i;
-    ap = kind != NO_ITEM ? ACTIONS[ACT_UNLOCK].ap
-                         : (uint8_t)(ACTIONS[ACT_OPEN_CHEST].ap * 3);
+    if (w->feature[y][x] == FE_CHEST)       /* locked (C1): a key opens cheaply */
+        for (i = 0; i < u->item_count; i++)
+            if (u->items[i] == OBJ_CHEST_KEY)
+                kind = i;
+    if (w->feature[y][x] == FE_CHEST_FREE)
+        ap = ACTIONS[ACT_OPEN_CHEST].ap;    /* no lock: just lift the lid */
+    else
+        ap = kind != NO_ITEM ? ACTIONS[ACT_UNLOCK].ap
+                             : (uint8_t)(ACTIONS[ACT_OPEN_CHEST].ap * 3);
     if (u->ap < ap)
         return false;
     if (!(CREATURES[u->kind].flags & CF_USE))
