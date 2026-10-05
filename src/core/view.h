@@ -31,6 +31,8 @@ typedef struct {
     uint16_t air;                   /* bit i: layer i is an airborne unit */
     uint16_t ride;                  /* bit i: layer i is a rider behind its mount (drawn higher) */
     uint16_t foe;                   /* bit i: layer i belongs to an enemy wizard (B4) */
+    uint8_t wade;                   /* layer index + 1 of a unit in deep water, drawn lower (C4); 0 = none.
+                                       A byte, not a mask: scache holds one FieldLayers per map field. */
     uint16_t id[VIEW_MAX_LAYERS];   /* TileId, bottom to top */
 } FieldLayers;
 

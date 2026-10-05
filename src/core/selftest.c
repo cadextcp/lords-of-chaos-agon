@@ -3834,6 +3834,19 @@ static void test_c5_drowning(void)
         world_new_turn(&world);
     check(world.unit_count == 1 && world.units[0].x == 22,
           "c5: the swimmer drowns once stamina is gone");
+    {   /* C4: a figure in deep water is flagged to be drawn waist-deep */
+        FieldLayers f;
+        world.unit_count = 0;
+        world_spawn_unit(&world, OWN_P1, CR_GOBLIN, 20, 19);
+        view_compose(&world, 20, 19, &f);
+        check(f.wade != 0, "c4: a wader is drawn lower");
+        world.floor[19][20] = FL_STONE;
+        world_map_changed(&world);
+        view_compose(&world, 20, 19, &f);
+        check(f.wade == 0, "c4: on dry land the figure stands normally");
+        world.floor[19][20] = FL_WATER;
+        world_map_changed(&world);
+    }
     world.unit_count = 0;
     world_spawn_unit(&world, OWN_P1, CR_GOBLIN, 20, 19);
     world.units[0].flags |= UF_FLYING;

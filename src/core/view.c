@@ -187,6 +187,7 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
     out->air = 0;
     out->ride = 0;
     out->foe = 0;
+    out->wade = 0;
     fl = w->floor[wy][wx];
     fe = w->feature[wy][wx];
     push(out, FLOOR_TILE[fl]);
@@ -335,8 +336,12 @@ static void push_unit(const World *w, const Unit *un, FieldLayers *out, bool air
     }
     if (air)
         push_air(out, (uint16_t)(CREATURE_TILE[un->kind] + un->owner));
-    else
+    else {
+        if (out->n < VIEW_MAX_LAYERS && FLOOR_DROWN[w->floor[un->y][un->x]] &&
+            ride_rider_kind(un) >= CR_COUNT)
+            out->wade = (uint8_t)(out->n + 1);   /* waist-deep (C4) */
         push(out, (uint16_t)(CREATURE_TILE[un->kind] + un->owner));
+    }
     /* Mark what belongs to an enemy wizard so the renderer can frame it
      * (B4). Wild animals stay unmarked - they are nobody's troops. */
     if (sight_map && un->owner != sight_map->owner && un->owner != OWN_NEUTRAL)
@@ -367,6 +372,7 @@ static void apply_sight(const World *w, int16_t wx, int16_t wy, FieldLayers *out
         out->air = 0;
         out->ride = 0;
         out->foe = 0;
+        out->wade = 0;
         push(out, T_UNEXPLORED);
     } else if (!sight_visible(sight_map, w, wx, wy) && !has_roof_layer(out)) {
         push(out, T_OVERLAY_REMEMBERED);
@@ -575,6 +581,7 @@ uint8_t view_update(const World *w)
             had_air[vy][vx] = (fields[vy][vx].air | fields[vy][vx].ride) != 0;
             if (!valid || f.n != fields[vy][vx].n || f.air != fields[vy][vx].air ||
                 f.ride != fields[vy][vx].ride || f.foe != fields[vy][vx].foe ||
+                f.wade != fields[vy][vx].wade ||
                 memcmp(f.id, fields[vy][vx].id, f.n * sizeof f.id[0]) != 0) {
                 fields[vy][vx] = f;
                 dirty[vy][vx] = 1;

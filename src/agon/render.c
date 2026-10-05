@@ -327,6 +327,10 @@ static void ride_offset(uint16_t mount_tile, int *dx, int *dy)
 /* Enemy units get a thin red frame (B4). Collected during the pass and
  * drawn after the batch: rectangles are not bitmaps, so they must not be
  * mixed into the buffered stream, and drawn last they sit on top. */
+/* Figures in deep water sit lower (C4): the bottom WADE_DROP pixels spill
+ * into the field below, and that field is repainted over them - fields
+ * draw top-down - so only the upper body shows. */
+#define WADE_DROP 8
 #define FOE_MAX 24
 static uint8_t foe_x[FOE_MAX], foe_y[FOE_MAX];
 
@@ -345,6 +349,10 @@ uint8_t render_fields(void)
                 int y = vy * TILE_PX;
                 if (f->air & (1u << i))         /* flyer, slightly higher */
                     y -= 3;
+                if (f->wade == i + 1 && vy + 1 < VIEW_H) {
+                    y += WADE_DROP;             /* waist-deep: the legs spill  */
+                    view_mark_dirty(vx, (uint8_t)(vy + 1));   /* into the field */
+                }                               /* below, which covers them */
                 if ((f->ride & (1u << i)) && i + 1 < f->n) {
                     int dx, dy, my = y;         /* rider behind the mount */
                     ride_offset(f->id[i + 1], &dx, &dy);
