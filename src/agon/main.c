@@ -2230,8 +2230,12 @@ dispatch:
             }
             if (input_arrow(e.vkey)) {           /* movement by vkey */
                 if (!spell_list) {
+                    /* An open overlay swallows the step, never the key: the
+                     * chord still has to see every release, or a tapped
+                     * arrow stays "held" and the unit walks on by itself
+                     * (AGON-QUIRKS K6). */
                     m = chord_key(&chord, input_arrow(e.vkey), e.isdown != 0, now);
-                    if (m)
+                    if (m && !overlay_open)
                         step(m, dump);
                 }
                 continue;
@@ -2239,7 +2243,7 @@ dispatch:
             if (!e.isdown)
                 continue;
             if (input_diagonal(e.vkey)) {
-                if (!spell_list)
+                if (!spell_list && !overlay_open)
                     step(input_diagonal(e.vkey), dump);
             } else if (overlay_open) {
                 if (e.vkey == VK_ESC) {
@@ -2482,7 +2486,10 @@ dispatch:
                     sound_play(SND_FLY);
                     render_message(1, C_BRIGHT_GREEN, "Steigt auf.");
                 }
-                else if (world.units[active()].ap_fly == 0)
+                else if (world.units[active()].flags & UF_FLYING)
+                    render_message(1, C_BRIGHT_RED, "Du fliegst schon.");
+                else if (world.units[active()].ap_fly == 0 &&
+                         !effect_active(&world.units[active()], EFF_FLYING))
                     render_message(1, C_BRIGHT_RED, "Diese Kreatur fliegt nicht.");
                 else if (world.units[active()].ap < ACTIONS[ACT_TAKE_OFF].ap)
                     render_message(1, C_BRIGHT_RED, "Zu wenig AP zum Aufsteigen.");
