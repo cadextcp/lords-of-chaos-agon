@@ -477,7 +477,12 @@ static void on_phase(Turns *t, World *w, uint8_t owner, void *ctx)
     (void)ctx;
     if (owner_in_view(w, owner)) {       /* visible: no curtain (C8, D45) */
         char line[40];
-        phase_screen_on = false;
+        if (phase_screen_on) {           /* the curtain still covers the map:
+                                            only dirty fields would repaint
+                                            over it - rebuild the whole map */
+            phase_screen_on = false;
+            game_redraw(false);          /* on_phase is never wired in dumps */
+        }
         snprintf(line, sizeof line, "%s ist am Zug.",
                  owner == OWN_NEUTRAL ? "Die Unabhaengigen" : name_owner(owner));
         render_message(0, C_BRIGHT_CYAN, line);
