@@ -2,6 +2,18 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Playtest-Runde B: Bedienung und Anzeige (2026-10-05)
+
+### Geändert
+- **Balken zeigen jetzt Stärke *und* Zustand (B5):** Die Höhe eines Balkens misst den Maximalwert der Figur am **besten Maximalwert unter den eigenen Figuren**. Wer halb so viele Maximal-AP hat wie der Beste, bekommt einen halb hohen Balken; Verbrauch leert ihn, verkleinert ihn aber nicht. Buffs sitzen als pulsierendes Zusatzkontingent obendrauf. Kampf und Verteidigung messen sich nicht mehr an einer festen 50, sondern an den eigenen Besten.
+- **Buchstaben statt Symbolen unter den Balken (B6):** `AP`, `AUS`, `LEB`, `KAM`, `VER`, `MAN`, senkrecht gestapelt. Dafür sind die Balken 24 px kürzer — „Am Boden:" beginnt in Textzeile 23 und kann nicht weichen.
+- **Feindliche Einheiten bekommen einen dünnen roten Rahmen (B4).** Wildtiere bleiben unmarkiert, sie gehören niemandem. Die Rahmen werden nach dem gebündelten Kachelstrom gezeichnet, damit Rechtecke den Bitmap-Puffer nicht durchbrechen.
+- **`Esc` beendet nicht mehr sofort (B3):** Rückfrage mit `J` speichern und beenden, `B` ohne speichern, `N` weiter.
+- **`m` schließt die Gesamtkarte wieder (B1).**
+
+### Hinweis
+- **B2 erledigt sich mit dem A2-Fix:** Die ganze 36×36-Welt passt mit 177×191 px auf den Schirm, es gibt nichts zu verschieben. Die Pfeiltasten richten in der Karte nur keinen Schaden mehr an.
+
 ## [Unreleased] – Playtest-Runde A: Magie, Dächer, freier Schlag (2026-10-05)
 
 Rückmeldungen und Einordnung: `docs/PLAYTEST-2026-10-05.md`.

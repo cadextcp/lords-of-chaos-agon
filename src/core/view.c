@@ -186,6 +186,7 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
     out->n = 0;
     out->air = 0;
     out->ride = 0;
+    out->foe = 0;
     fl = w->floor[wy][wx];
     fe = w->feature[wy][wx];
     push(out, FLOOR_TILE[fl]);
@@ -271,6 +272,8 @@ static void apply_roof_rule(const World *w, int16_t wx, int16_t wy,
                                   ((out->air >> (k + 1)) << k));
             out->ride = (uint16_t)((out->ride & low) |
                                    ((out->ride >> (k + 1)) << k));
+            out->foe = (uint16_t)((out->foe & low) |
+                                  ((out->foe >> (k + 1)) << k));
         }
     }
     out->n = k;
@@ -289,6 +292,7 @@ void view_hide_unit(uint8_t id)
  * viewer currently sees their field; invisible enemies never. */
 static void push_unit(const World *w, const Unit *un, FieldLayers *out, bool air)
 {
+    uint8_t first = out->n;
     if (hidden_unit_id != NO_UNIT && un->id == hidden_unit_id)
         return;
     if (sight_map && un->owner != sight_map->owner &&
@@ -308,6 +312,11 @@ static void push_unit(const World *w, const Unit *un, FieldLayers *out, bool air
         push_air(out, (uint16_t)(CREATURE_TILE[un->kind] + un->owner));
     else
         push(out, (uint16_t)(CREATURE_TILE[un->kind] + un->owner));
+    /* Mark what belongs to an enemy wizard so the renderer can frame it
+     * (B4). Wild animals stay unmarked - they are nobody's troops. */
+    if (sight_map && un->owner != sight_map->owner && un->owner != OWN_NEUTRAL)
+        while (first < out->n)
+            out->foe |= (uint16_t)(1u << first++);
 }
 
 /* Hidden map (GDD 11.2): unexplored fields are a black tile, explored but
@@ -320,6 +329,7 @@ static void apply_sight(const World *w, int16_t wx, int16_t wy, FieldLayers *out
         out->n = 0;
         out->air = 0;
         out->ride = 0;
+        out->foe = 0;
         push(out, T_UNEXPLORED);
     } else if (!sight_visible(sight_map, w, wx, wy)) {
         push(out, T_OVERLAY_REMEMBERED);
@@ -527,7 +537,7 @@ uint8_t view_update(const World *w)
             }
             had_air[vy][vx] = (fields[vy][vx].air | fields[vy][vx].ride) != 0;
             if (!valid || f.n != fields[vy][vx].n || f.air != fields[vy][vx].air ||
-                f.ride != fields[vy][vx].ride ||
+                f.ride != fields[vy][vx].ride || f.foe != fields[vy][vx].foe ||
                 memcmp(f.id, fields[vy][vx].id, f.n * sizeof f.id[0]) != 0) {
                 fields[vy][vx] = f;
                 dirty[vy][vx] = 1;

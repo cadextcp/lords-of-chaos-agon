@@ -109,6 +109,21 @@ USB-Konsole (`scripts/agonctl.py` im Lumagon-Repo) reicht ein `y` ohne CR. Zu be
 - Der VDP-Teil dauert nur etwa 17 s (1.077.840 Bytes, 520 kbit/s) — die Dateien vorher per
   `agonload.py` hochzuladen ist der langsame Schritt.
 
+**Messwerte nach dem Plattform-Audit** (2026-10-05, Stand `e9f33cb`, Szenario 1, 9×9-Fenster).
+Selftest auf dem Gerät: `=== TEST PASS ===` mit Shadowcasting und den LOS-Caches.
+
+| Messung | vor dem Audit | nach dem Audit |
+|---|---|---|
+| Fenster komponieren (81 Felder) | 90 ms | **38 ms** |
+| Voller Redraw (81 Felder) | 152 ms je Frame | **100 ms je Frame** |
+| Nur Kerzenanimation | 6 ms | 6 ms |
+
+Das Komponieren profitiert von der `anim_pair`-Tabelle (B6), der Redraw vom gebündelten
+Zeichenstrom und den gesparten `select_bitmap` (B4/B5). **Noch offen:** Sicht, Flächen-Ticks
+und KI-Phase — der Messlauf wurde abgeschnitten, und `loc --bench` wartet am Ende auf Esc,
+das über USB nicht ankommt (H5). Erwartung: Sicht deutlich unter 100 ms (Shadowcasting),
+KI-Phase überwiegend durch den `blk`-Cache erledigt.
+
 **Messwerte `loc --bench` auf dem echten Agon Light 2** (2026-10-03, Stand `037521f`, Szenario 1, 9×9-Fenster):
 
 | Messung | Zeit |

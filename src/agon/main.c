@@ -73,6 +73,7 @@ static Game game;                  /* portal and victory points (M3e) */
 static Sight p1_sight;             /* hidden map of the human player */
 static bool cursor_on = true;
 static bool confirm_end = false;   /* Shift+E asks before ending the turn */
+static bool quit_ask = false;      /* Esc asks before leaving the game (B3) */
 static bool look_mode = false;     /* x: examine any field (GDD 5.1) */
 static bool overlay_open;          /* big map / log / help / context */
 static bool pickup_menu;           /* g: choose what to pick up */
@@ -2105,6 +2106,22 @@ menu_start:
             if (game_ended && !(e.isdown && e.vkey == VK_ESC))
                 continue;                        /* game over: Esc only */
 dispatch:
+            if (quit_ask && e.isdown) {          /* Esc asked, now the answer */
+                if (e.ascii == 'j' || e.ascii == 'J') {
+                    quit_ask = false;
+                    copy_name(saved_map, sizeof saved_map, map_path);
+                    save_to_sd();
+                    running = false;
+                } else if (e.ascii == 'b' || e.ascii == 'B') {
+                    quit_ask = false;
+                    running = false;
+                } else if (e.ascii == 'n' || e.ascii == 'N' || e.vkey == VK_ESC) {
+                    quit_ask = false;
+                    render_message(1, C_GREY, "");
+                    render_message(2, C_GREY, "");
+                }
+                continue;
+            }
             if (cast_menu && e.isdown) {         /* c, step 1: what to cast */
                 uint16_t k;
                 uint8_t have_spells = 0, have_summons = 0, n_spells = 0,
@@ -2271,7 +2288,9 @@ dispatch:
                     } else
                         draw_help();
                 } else if (e.ascii == 'm') {
-                    draw_big_map();
+                    overlay_open = false;        /* m closes it again (B1) */
+                    overlay_is_context = false;
+                    game_redraw(dump);
                 } else if (e.ascii == 'l') {
                     draw_log();
                 }
@@ -2518,8 +2537,11 @@ dispatch:
                 if (confirm_end) {
                     confirm_end = false;
                     render_message(1, C_GREY, "");
-                } else {
-                    running = false;
+                } else {                         /* B3: never quit on one key */
+                    quit_ask = true;
+                    render_message(1, C_BRIGHT_YELLOW, "Spiel wirklich beenden?");
+                    render_message(2, C_GREY,
+                                   "J speichern und beenden, B ohne, N weiter");
                 }
             }
         }

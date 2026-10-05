@@ -323,9 +323,15 @@ static void ride_offset(uint16_t mount_tile, int *dx, int *dy)
     }
 }
 
+/* Enemy units get a thin red frame (B4). Collected during the pass and
+ * drawn after the batch: rectangles are not bitmaps, so they must not be
+ * mixed into the buffered stream, and drawn last they sit on top. */
+#define FOE_MAX 24
+static uint8_t foe_x[FOE_MAX], foe_y[FOE_MAX];
+
 uint8_t render_fields(void)
 {
-    uint8_t vx, vy, i, n = 0;
+    uint8_t vx, vy, i, n = 0, foes = 0;
     batch_begin();
     for (vy = 0; vy < VIEW_H; vy++) {
         for (vx = 0; vx < VIEW_W; vx++) {
@@ -355,11 +361,21 @@ uint8_t render_fields(void)
                 if (y < 0)
                     y = 0;
                 draw_tile(f->id[i], x, y);
+                if ((f->foe & (1u << i)) && foes < FOE_MAX) {
+                    foe_x[foes] = vx;
+                    foe_y[foes] = vy;
+                    foes++;
+                }
             }
             n++;
         }
     }
     batch_end();                 /* the frame goes out before anything else */
+    for (i = 0; i < foes; i++) {
+        int fx = foe_x[i] * TILE_PX, fy = foe_y[i] * TILE_PX;
+        vdp_gcol(0, C_BRIGHT_RED);
+        vdp_rectangle(fx, fy, fx + TILE_PX - 1, fy + TILE_PX - 1);
+    }
     view_clean();
     if (n)
         vdp_refresh_sprites();   /* keep the cursor on top of new tiles */
@@ -377,18 +393,21 @@ static void text_at(uint8_t col, uint8_t row, uint8_t colour, const char *s)
     mos_putstring(s);
 }
 
-/* Fill colour, bar outline colour and icon per bar (Amiga order, B2.4). */
+/* Fill colour and outline colour per bar (Amiga order, B2.4). The icons
+ * gave way to stacked letters (B6). */
 static const uint8_t BAR_FILL[6] = {C_BRIGHT_GREEN, C_BRIGHT_YELLOW, C_BRIGHT_RED,
                                     C_WHITE, C_BRIGHT_BLUE, C_BRIGHT_MAGENTA};
 static const uint8_t BAR_EDGE[6] = {C_GREEN, C_YELLOW, C_RED, C_GREY, C_BLUE, C_MAGENTA};
-static const uint16_t BAR_ICON[6] = {T_ICON_BOOT, T_ICON_BOLT, T_ICON_HEART,
-                                    T_ICON_SWORD, T_ICON_SHIELD, T_ICON_STAR};
+static const char *const BAR_LABEL[6] = {"AP", "AUS", "LEB", "KAM", "VER", "MAN"};
 /* Status icons (PM 11) in UF_* bit order. */
 static const uint16_t STATUS_ICON[5] = {T_ICON_ST_UNDEAD, T_ICON_ST_FLY, T_ICON_ST_MOUNT,
                                        T_ICON_ST_WOUND, T_ICON_ST_INVISIBLE};
-#define COMBAT_SCALE 50   /* combat/defence bar full at 50 (creature table max) */
+/* The bars were shortened by 24 px to make room for three stacked letters
+ * under each one; "Am Boden:" starts at text row 23 and cannot move. */
 #define BAR_TOP 58
-#define BAR_BOTTOM 168
+#define BAR_BOTTOM 144
+#define BAR_LABEL_ROW 19          /* rows 19..21, one letter each */
+#define BAR_BUFF_SPACE 10         /* reserved above the bar for a buff */
 
 static void black(int x0, int y0, int x1, int y1)
 {
@@ -396,25 +415,93 @@ static void black(int x0, int y0, int x1, int y1)
     vdp_filled_rectangle(x0, y0, x1, y1);
 }
 
-static void bar(uint8_t i, uint8_t value, uint8_t max)
+/* The yardstick every bar is drawn against (B5): the best maximum among
+ * the player's own figures. A figure with half the best maximum gets a
+ * half-high bar, and spending only empties it - so one glance shows how
+ * strong a creature is and how battered. */
+static void panel_caps(const World *w, uint8_t owner, uint8_t *cap)
+{
+    uint8_t i;
+    for (i = 0; i < 6; i++)
+        cap[i] = 1;
+    for (i = 0; i < w->unit_count; i++) {
+        const Unit *u = &w->units[i];
+        uint8_t apm;
+        if (u->owner != owner)
+            continue;
+        apm = u->ap_max > u->ap_fly ? u->ap_max : u->ap_fly;
+        if (apm > cap[0]) cap[0] = apm;
+        if (u->sta_max > cap[1]) cap[1] = u->sta_max;
+        if (u->con_max > cap[2]) cap[2] = u->con_max;
+        if (u->com > cap[3]) cap[3] = u->com;
+        if (u->def > cap[4]) cap[4] = u->def;
+        if (u->mana_max > cap[5]) cap[5] = u->mana_max;
+    }
+}
+
+/* What a timed effect adds to a bar, shown as the extra segment on top. */
+static uint8_t panel_bonus(const Unit *u, uint8_t i)
+{
+    uint8_t k, sum = 0;
+    for (k = 0; k < UNIT_EFFECTS; k++) {
+        uint8_t kind = u->effects[k].kind;
+        if (u->effects[k].rounds == 0)
+            continue;
+        if ((i == 0 && kind == EFF_SPEED) ||
+            (i == 3 && (kind == EFF_STRENGTH || kind == EFF_MAGIC_WEAPON)) ||
+            (i == 4 && (kind == EFF_SHIELD || kind == EFF_PROTECT)))
+            sum = (uint8_t)(sum + effect_power(u, kind));
+    }
+    return sum;
+}
+
+static void bar(uint8_t i, uint8_t value, uint8_t max, uint8_t cap,
+                uint8_t bonus)
 {
     int x = PANEL_X + 8 + i * 16;
-    int h;
-    if (max == 0) {                 /* e.g. mana of a non-wizard: no bar */
-        black(x, BAR_TOP, x + 7, BAR_BOTTOM + 12);
+    int span = BAR_BOTTOM - BAR_TOP - BAR_BUFF_SPACE - 2;
+    int outline, fill, top, extra;
+    black(x, BAR_TOP, x + 7, BAR_BOTTOM);
+    if (max == 0 || cap == 0)       /* e.g. mana of a non-wizard: no bar */
         return;
-    }
     if (value > max)
         value = max;
-    h = (BAR_BOTTOM - BAR_TOP - 2) * value / max;
+    outline = max >= cap ? span : span * max / cap;
+    if (outline < 3)
+        outline = 3;                /* a weakling still gets a visible bar */
+    top = BAR_BOTTOM - outline;
     vdp_gcol(0, BAR_EDGE[i]);
-    vdp_rectangle(x, BAR_TOP, x + 7, BAR_BOTTOM);
-    black(x + 1, BAR_TOP + 1, x + 6, BAR_BOTTOM - 1);
-    if (h > 0) {
+    vdp_rectangle(x, top, x + 7, BAR_BOTTOM);
+    fill = (outline - 2) * value / max;
+    if (fill > 0) {
         vdp_gcol(0, BAR_FILL[i]);
-        vdp_filled_rectangle(x + 1, BAR_BOTTOM - 1 - h, x + 6, BAR_BOTTOM - 1);
+        vdp_filled_rectangle(x + 1, BAR_BOTTOM - 1 - fill, x + 6, BAR_BOTTOM - 1);
     }
-    draw_tile(BAR_ICON[i], x, BAR_BOTTOM + 4);
+    if (bonus) {                    /* buff as an extra contingent on top */
+        extra = span * bonus / cap;
+        if (extra < 2)
+            extra = 2;
+        if (extra > BAR_BUFF_SPACE)
+            extra = BAR_BUFF_SPACE;
+        /* slow pulse so a buff catches the eye without flickering */
+        vdp_gcol(0, (getsysvar_time() >> 5) & 1 ? BAR_FILL[i] : C_WHITE);
+        vdp_filled_rectangle(x + 1, top - extra, x + 6, top - 1);
+    }
+}
+
+/* The letters that replaced the icons (B6), stacked under the bar. */
+static void bar_label(uint8_t i)
+{
+    const char *s = BAR_LABEL[i];
+    uint8_t col = (uint8_t)((PANEL_X + 8 + i * 16) / 8), k;
+    char one[2];
+    one[1] = 0;
+    for (k = 0; k < 3; k++) {
+        one[0] = s[k] ? s[k] : ' ';
+        text_at(col, (uint8_t)(BAR_LABEL_ROW + k), BAR_EDGE[i], one);
+        if (!s[k])
+            break;
+    }
 }
 
 /* Panel (GDD 11.1), 104 px = text columns 27..39:
@@ -492,12 +579,19 @@ void render_panel(const World *w, uint8_t unit)
         snprintf(buf, sizeof buf, "     ");
     text_at(34, 6, C_BRIGHT_MAGENTA, buf);
 
-    bar(0, u->ap, (u->flags & UF_FLYING) ? u->ap_fly : u->ap_max);
-    bar(1, u->sta, u->sta_max);
-    bar(2, u->con, u->con_max);
-    bar(3, u->com, COMBAT_SCALE);
-    bar(4, u->def, COMBAT_SCALE);
-    bar(5, u->mana, u->mana_max);
+    {
+        uint8_t cap[6];
+        panel_caps(w, u->owner, cap);
+        bar(0, u->ap, (u->flags & UF_FLYING) ? u->ap_fly : u->ap_max, cap[0],
+            panel_bonus(u, 0));
+        bar(1, u->sta, u->sta_max, cap[1], 0);
+        bar(2, u->con, u->con_max, cap[2], 0);
+        bar(3, u->com, u->com, cap[3], panel_bonus(u, 3));
+        bar(4, u->def, u->def, cap[4], panel_bonus(u, 4));
+        bar(5, u->mana, u->mana_max, cap[5], 0);
+        for (i = 0; i < 6; i++)
+            bar_label(i);
+    }
 
     text_at(TEXT_COL_PANEL, 23, C_GREY, "Am Boden:");
     n = ground_names(w, u->x, u->y, ground);
@@ -542,8 +636,10 @@ void render_panel_at(const World *w, const Sight *s, int16_t x, int16_t y)
     snprintf(buf, sizeof buf, "%-13.13s", desc);
     text_at(TEXT_COL_PANEL, 5, C_BRIGHT_WHITE, buf);
     text_at(TEXT_COL_PANEL, 6, C_GREY, "             ");
-    for (i = 0; i < 6; i++)
-        bar(i, 0, 1);
+    for (i = 0; i < 6; i++) {
+        bar(i, 0, 0, 1, 0);
+        bar_label(i);
+    }
     text_at(TEXT_COL_PANEL, 23, C_GREY, "Am Boden:");
     n = ground_names(w, wx, wy, ground);
     for (i = 0; i < GROUND_MAX; i++) {
