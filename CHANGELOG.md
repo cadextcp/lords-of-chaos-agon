@@ -2,6 +2,17 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Dächer blockieren die Sicht (D44, 2026-10-05)
+
+Entscheidungsvorlage: `docs/design/VORLAGE-daecher-und-sicht.md`.
+
+### Geändert
+- **Ein überdachtes Feld ist von außen nicht mehr einsehbar.** Wer selbst darunter steht, sieht normal; durch eine offene Tür reicht die Sichtlinie hinein. Die Blockierkarte gibt es dafür in zwei Fassungen (mit und ohne Dächer), gewählt nach dem Standort des Betrachters.
+- **Das Dach wird zuletzt gezeichnet statt mit den statischen Ebenen.** Vorher lag es unter den Einheiten; da der Renderer von unten nach oben zeichnet, stand eine Figur unter geschlossenem Dach optisch *darauf*. Das fiel erst mit D41 auf, weil das Dach seither meist geschlossen ist.
+
+### Behoben
+- **Zwei Sichtregeln im Code liefen auseinander:** `world_blocks_sight()` zählte das Dach seit M2d mit, die Bitmap aus `world_sight_byte()` — über die `sight.c` tatsächlich läuft — nicht. Die Absicht ging beim Bitmap-Umbau (ADR 0009, Stufe 3) verloren und ist jetzt wiederhergestellt.
+
 ## [Unreleased] – Playtest-Runde C (Teil 1): Waffen und Geister (2026-10-05)
 
 ### Geändert

@@ -201,8 +201,6 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
         }
     }
 
-    if (world_has_roof(w, wx, wy))
-        push(out, T_ROOF);               /* F7 hidden-state: see overlay */
     if (w->decor[wy][wx] == DE_RUG)
         push(out, T_DECOR_RUG);
     else if (w->decor[wy][wx] == DE_PENTACLE)
@@ -255,29 +253,20 @@ static bool roof_lifted(const World *w, int16_t wx, int16_t wy)
     return sight_has_los(w, roof_vx, roof_vy, wx, wy);
 }
 
+/* The roof goes on LAST, not with the static layers (D44): drawn early it
+ * sat below the units, and the renderer paints bottom-up - a figure under
+ * a closed roof appeared to stand on it. Pushed here it covers whatever is
+ * underneath, and the sight overlay and cursor still come after. */
 static void apply_roof_rule(const World *w, int16_t wx, int16_t wy,
                             FieldLayers *out)
 {
-    uint8_t j, k = 0;
     if (!world_wrap(w, &wx, &wy) || !world_has_roof(w, wx, wy))
         return;
-    if (!roof_lifted(w, wx, wy))
+    if (roof_lifted(w, wx, wy))
         return;
-    for (j = 0; j < out->n; j++) {
-        if (out->id[j] != T_ROOF) {
-            out->id[k++] = out->id[j];
-        } else {                         /* keep the layer masks in step */
-            uint16_t low = (uint16_t)((1u << k) - 1u);
-            out->air = (uint16_t)((out->air & low) |
-                                  ((out->air >> (k + 1)) << k));
-            out->ride = (uint16_t)((out->ride & low) |
-                                   ((out->ride >> (k + 1)) << k));
-            out->foe = (uint16_t)((out->foe & low) |
-                                  ((out->foe >> (k + 1)) << k));
-        }
-    }
-    out->n = k;
+    push(out, T_ROOF);
 }
+
 
 /* A unit the frontend animates itself (gliding sprite): left out of the
  * composition meanwhile. NO_UNIT = none. Presentation only. */

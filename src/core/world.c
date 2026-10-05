@@ -221,38 +221,38 @@ bool world_is_wall_line(const World *w, int16_t x, int16_t y)
     return f == FE_WALL || f == FE_DOOR_CLOSED || f == FE_DOOR_OPEN;
 }
 
-/* Blocking at already-normalised in-map coordinates: no wrapping, no
- * bounds check - the fast path for sight rays (M2d), which normalise
- * incrementally instead of paying a division per field (AGON-QUIRKS T2). */
-bool world_blocks_sight_at(const World *w, uint8_t x, uint8_t y)
-{
-    return FLOOR_SIGHT[w->floor[y][x]] || FEATURE_SIGHT[w->feature[y][x]] ||
-           world_has_roof(w, x, y);
-}
 
+/* Roofs count here, and since D44 they count in world_sight_byte() too.
+ * Until then the two disagreed: this one saw the roof, the bitmap that
+ * sight.c actually walks did not. */
 bool world_blocks_sight(const World *w, int16_t x, int16_t y)
 {
     if (!world_wrap(w, &x, &y))
         return false;
-    return world_blocks_sight_at(w, (uint8_t)x, (uint8_t)y);
+    return FLOOR_SIGHT[w->floor[y][x]] || FEATURE_SIGHT[w->feature[y][x]] ||
+           world_has_roof(w, x, y);
 }
 
-/* Eight blocking flags of one row packed into a byte (x -> MSB); fields
- * beyond the map read as clear. Lets callers build bitmaps a byte at a
- * time instead of paying per-field indexing (sight.c, M2d). */
 bool world_feature_blocks_sight(const World *w, uint8_t x, uint8_t y)
 {
     return FEATURE_SIGHT[w->feature[y][x]];
 }
 
-uint8_t world_sight_byte(const World *w, uint8_t y, uint8_t x)
+/* Eight sight-blocking bits of one row, MSB first. `with_roof` adds the
+ * roof to what blocks (D44): a viewer out in the open cannot see under a
+ * roof, a viewer standing under one is given the roof-free variant so it
+ * does not blind itself. world_blocks_sight_at() had counted the roof
+ * since M2d, but the bitmap that replaced it (ADR 0009, step 3) dropped
+ * it and left that function unused. */
+uint8_t world_sight_byte(const World *w, uint8_t y, uint8_t x, bool with_roof)
 {
     const uint8_t *fl = w->floor[y], *fe = w->feature[y];
     uint8_t bits = 0, i;
     for (i = 0; i < 8; i++) {
         uint8_t xi = (uint8_t)(x + i);
         bits <<= 1;
-        if (xi < w->w && (FLOOR_SIGHT[fl[xi]] || FEATURE_SIGHT[fe[xi]]))
+        if (xi < w->w && (FLOOR_SIGHT[fl[xi]] || FEATURE_SIGHT[fe[xi]] ||
+                          (with_roof && world_has_roof(w, xi, y))))
             bits |= 1;
     }
     return bits;

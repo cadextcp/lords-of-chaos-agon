@@ -590,6 +590,35 @@ static void test_sight(void)
         sight_compute(&world, &s);
         check(count_visible(&s, &world) == 9,
               "sight: walled in sees its own field and the walls, nothing else");
+
+        /* D44: the roof alone has to block - no walls anywhere in this
+         * setup, so nothing else can explain the result. */
+        {
+            uint16_t cell;
+            for (y = 0; y < world.h; y++)
+                for (x = 0; x < world.w; x++)
+                    world.feature[y][x] = FE_NONE;
+            memset(world.roof, 0, sizeof world.roof);
+            for (y = 17; y <= 19; y++)
+                for (x = 17; x <= 19; x++) {
+                    cell = (uint16_t)((uint16_t)y * world.w + x);
+                    world.roof[cell >> 3] |= (uint8_t)(0x80u >> (cell & 7));
+                }
+            world_map_changed(&world);
+            world.units[0].x = 12;                /* out in the open */
+            world.units[0].y = 18;
+            sight_init(&s, OWN_P1);
+            sight_compute(&world, &s);
+            check(!sight_visible(&s, &world, 18, 18),
+                  "d44: a roof hides its inside from a viewer in the open");
+            world.units[0].x = 18;                /* now underneath it */
+            world.units[0].y = 18;
+            sight_init(&s, OWN_P1);
+            sight_compute(&world, &s);
+            check(sight_visible(&s, &world, 17, 19) &&
+                  sight_visible(&s, &world, 12, 18),
+                  "d44: from under the roof it sees its room and out again");
+        }
     }
 }
 
@@ -2842,10 +2871,9 @@ static void test_m4e(void)
             view_compose(&world, 5, 5, &f);
             check(has_layer(&f, T_ROOF),
                   "d41: a second own unit inside does not open the house");
-            {   /* Characterisation, not a wish: with the roof down the figure
-                 * still sits ABOVE it in the layer list, so it is drawn on the
-                 * roof. See docs/design/VORLAGE-daecher-und-sicht.md, point 3 -
-                 * when that is decided, this check has to flip. */
+            {   /* D44: the roof is laid last, so it covers the figure instead
+                 * of the figure standing on it. This check used to assert the
+                 * opposite as a characterisation of the old layer order. */
                 uint8_t li, roof_i = 0xFF, unit_i = 0xFF;
                 for (li = 0; li < f.n; li++) {
                     if (f.id[li] == T_ROOF)
@@ -2853,8 +2881,8 @@ static void test_m4e(void)
                     if (f.id[li] == T_WIZARD_P1)
                         unit_i = li;
                 }
-                check(roof_i != 0xFF && unit_i != 0xFF && unit_i > roof_i,
-                      "open: a figure under a closed roof is drawn on top of it");
+                check(roof_i != 0xFF && unit_i != 0xFF && roof_i > unit_i,
+                      "d44: a closed roof covers the figure under it");
             }
             world.unit_count = 0;
         }

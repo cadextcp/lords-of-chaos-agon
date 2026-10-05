@@ -11,49 +11,61 @@
  * rebuild all 1440 bits, and the AI asks one per candidate in a loop.
  * Invariant: whoever writes floor/feature/roof calls world_map_changed().
  * The game code does; the selftest has to as well. */
-static uint8_t blk[MAP_MAX_H][SIGHT_COLS];         /* terrain blocks sight */
-static uint8_t blk_spell[MAP_MAX_H][SIGHT_COLS];   /* same, tall grass out (D36) */
-static const World *blk_world;                     /* world both were built from */
-static uint8_t blk_gen;                            /* its generation back then */
-static bool blk_spell_ready;                       /* blk_spell current as well */
+static uint8_t blk[2][MAP_MAX_H][SIGHT_COLS];        /* [0] roofs see-through */
+static uint8_t blk_spell[2][MAP_MAX_H][SIGHT_COLS];  /* same, tall grass out (D36) */
+static const World *blk_world;                       /* world all four came from */
+static uint8_t blk_gen;                              /* its generation back then */
+static bool blk_spell_ready;                         /* the spell pair is current */
 
 /* Which bitmap path_clear() consults; set by every entry point below. */
-static const uint8_t (*blk_cur)[SIGHT_COLS] = blk;
+static const uint8_t (*blk_cur)[SIGHT_COLS] = blk[0];
 
 static bool blocked(int16_t x, int16_t y)
 {
     return (blk_cur[y][(uint8_t)(x >> 3)] & (uint8_t)(0x80u >> (x & 7))) != 0;
 }
 
+/* A viewer standing under a roof must not be blinded by its own roof, so
+ * it looks at the roof-free bitmap (D44). The simplification: from inside
+ * one building it can also see into another. Walls almost always settle
+ * that anyway, and the alternative needs the roof connectivity that D41
+ * deliberately threw away. */
+static uint8_t roof_set(const World *w, int16_t x, int16_t y)
+{
+    return world_has_roof(w, x, y) ? 0u : 1u;
+}
+
 static void ensure_blk(const World *w)
 {
-    uint8_t y8, b, bytes;
+    uint8_t y8, b, bytes, r;
     if (blk_world == w && blk_gen == w->generation)
         return;
     bytes = (uint8_t)((w->w + 7) >> 3);
     memset(blk, 0, sizeof blk);
-    for (y8 = 0; y8 < w->h; y8++)
-        for (b = 0; b < bytes; b++)
-            blk[y8][b] = world_sight_byte(w, y8, (uint8_t)(b << 3));
+    for (r = 0; r < 2; r++)
+        for (y8 = 0; y8 < w->h; y8++)
+            for (b = 0; b < bytes; b++)
+                blk[r][y8][b] = world_sight_byte(w, y8, (uint8_t)(b << 3), r != 0);
     blk_world = w;
     blk_gen = w->generation;
     blk_spell_ready = false;
 }
 
-/* Spells reach through tall grass (D36): the same bitmap with tall grass
+/* Spells reach through tall grass (D36): the same bitmaps with tall grass
  * fields taken out that hold nothing else which blocks. */
 static void ensure_blk_spell(const World *w)
 {
-    uint8_t x, y;
+    uint8_t x, y, r;
     ensure_blk(w);
     if (blk_spell_ready)
         return;
     memcpy(blk_spell, blk, sizeof blk_spell);
-    for (y = 0; y < w->h; y++)
-        for (x = 0; x < w->w; x++)
-            if (w->floor[y][x] == FL_TALL_GRASS && !world_has_roof(w, x, y) &&
-                !world_feature_blocks_sight(w, x, y))
-                blk_spell[y][x >> 3] &= (uint8_t)~(0x80u >> (x & 7));
+    for (r = 0; r < 2; r++)
+        for (y = 0; y < w->h; y++)
+            for (x = 0; x < w->w; x++)
+                if (w->floor[y][x] == FL_TALL_GRASS && !world_has_roof(w, x, y) &&
+                    !world_feature_blocks_sight(w, x, y))
+                    blk_spell[r][y][x >> 3] &= (uint8_t)~(0x80u >> (x & 7));
     blk_spell_ready = true;
 }
 
@@ -240,7 +252,6 @@ void sight_compute(const World *w, Sight *s)
 
     memset(s->visible, 0, sizeof s->visible);
     ensure_blk(w);
-    blk_cur = blk;
     c.w = w;
     c.s = s;
 
@@ -257,6 +268,7 @@ void sight_compute(const World *w, Sight *s)
         c.ux = (uint8_t)u->x;
         c.uy = (uint8_t)u->y;
         c.radius = SIGHT_GROUND;
+        blk_cur = blk[roof_set(w, u->x, u->y)];
         for (oct = 0; oct < 8; oct++)
             cast_octant(&c, 1, 0, 1, 1, 1, oct);
     }
@@ -268,7 +280,7 @@ bool sight_has_los(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y
     if (!world_wrap(w, &x0, &y0) || !world_wrap(w, &x1, &y1))
         return false;
     ensure_blk(w);                      /* independent of sight_compute */
-    blk_cur = blk;
+    blk_cur = blk[roof_set(w, x0, y0)];
     dx = (int16_t)(x1 - x0);
     dy = (int16_t)(y1 - y0);
     if (w->wrap) {
@@ -288,7 +300,7 @@ bool sight_has_spell_los(const World *w, int16_t x0, int16_t y0, int16_t x1, int
     if (!world_wrap(w, &x0, &y0) || !world_wrap(w, &x1, &y1))
         return false;
     ensure_blk_spell(w);
-    blk_cur = blk_spell;
+    blk_cur = blk_spell[roof_set(w, x0, y0)];
     world_delta(w, x0, y0, x1, y1, &dx, &dy);
     return path_clear(w, (uint8_t)x0, (uint8_t)y0, (int8_t)dx, (int8_t)dy);
 }

@@ -3,7 +3,10 @@
 - **Stand:** 2026-10-05, nach D41 (Dächer heben nur für die aktive Figur)
 - **Anlass:** Playtest A4 — „mein Troll wurde im Laufen von etwas getroffen, ich weiß
   aber nicht von was … trotzdem wundert mich, dass ich ihn nicht sehe"
-- **Status:** Vorschlag, noch nicht entschieden
+- **Status:** entschieden am 2026-10-05 — **Weg 2**, umgesetzt als D44.
+- **Korrektur zur ersten Fassung:** `world_blocks_sight_at()` war nicht tot,
+  sondern wurde von `world_blocks_sight()` gerufen. Der Befund bleibt: die
+  Bitmap, über die `sight.c` läuft, ließ das Dach weg, diese Funktion nicht.
 
 ## Der Kern
 
