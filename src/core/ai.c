@@ -681,14 +681,23 @@ static void wizard_actions(Turns *t, World *w, AiCtx *ctx, uint8_t owner)
             }
     }
 
-    {   /* M4h: walk to the nearest treasure in sight and take it */
+    {   /* M4h: walk to the nearest treasure in sight and take it.
+         * Only while there is no way out yet - once the portal stands open,
+         * escaping beats collecting, and the AP go there (C9). */
         int16_t tx, ty;
         uint8_t steps;
-        if (nearest_treasure(w, wiz, &tx, &ty)) {
-            for (steps = 0; steps < 2; steps++)
-                if (w->units[wiz].ap >= 4 &&
-                    ai_step_toward(w, &t->rng, wiz, tx, ty))
+        if (ctx->game->portal_x < 0 && nearest_treasure(w, wiz, &tx, &ty)) {
+            /* Walk, do not shuffle: this used to break on the FIRST
+             * successful step, so the wizard crept one field a round
+             * towards loot while holding ten steps' worth of AP. The
+             * portal walk below always did it right. */
+            for (steps = 0; steps < 8; steps++) {
+                if (w->units[wiz].ap < 4 ||
+                    (w->units[wiz].x == tx && w->units[wiz].y == ty))
                     break;
+                if (!ai_step_toward(w, &t->rng, wiz, tx, ty))
+                    break;
+            }
             if (w->units[wiz].x != tx || w->units[wiz].y != ty) {
                 /* stuck: open a door/chest between wizard and treasure */
                 int8_t dx = tx > w->units[wiz].x ? 1 : (tx < w->units[wiz].x ? -1 : 0);

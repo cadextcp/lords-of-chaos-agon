@@ -400,12 +400,32 @@ static void game_redraw(bool dump)
 /* Sight changes with every own move and at the round boundary (enemy
  * movement enters or leaves view); recomputing is cheap enough to do
  * exactly then, not per frame. */
+/* Where an enemy wizard was last actually seen (C9). Hidden movement stays
+ * intact: this only remembers what the player's own units caught sight of,
+ * so the map marker is memory, not knowledge the player has not earned. */
+static int16_t foe_wiz_x = -1, foe_wiz_y;
+static uint16_t foe_wiz_round;
+
 static void update_sight(void)
 {
     sight_compute(&world, &p1_sight);
     if (game.eye_rounds > 0)
         sight_add_eye(&p1_sight, &world, game.eye_x, game.eye_y);
     lexicon_watch(&lex, &world, &p1_sight);   /* discoveries (M5) */
+    {
+        uint8_t i;
+        for (i = 0; i < world.unit_count; i++) {
+            const Unit *u = &world.units[i];
+            if (u->kind != CR_WIZARD || u->owner == OWN_P1 ||
+                (u->flags & UF_INVISIBLE))
+                continue;
+            if (sight_visible(&p1_sight, &world, u->x, u->y)) {
+                foe_wiz_x = u->x;
+                foe_wiz_y = u->y;
+                foe_wiz_round = turns.round;
+            }
+        }
+    }
 }
 
 /* After any action that may kill: credit the logged kills (M3e) and
@@ -435,12 +455,34 @@ static bool phase_screen_on;           /* the map is hidden right now */
 static uint8_t snap_owner;
 static uint8_t snap_n, snap_id[MAX_UNITS], snap_x[MAX_UNITS], snap_y[MAX_UNITS];
 
+/* C8: the phase screen is for what you cannot see. Does the moving side
+ * have anything in view right now? Then the map stays up and its turn is
+ * played out in the open instead - watching a creature you can plainly see
+ * being moved behind a curtain was the complaint. */
+static bool owner_in_view(const World *w, uint8_t owner)
+{
+    uint8_t i;
+    for (i = 0; i < w->unit_count; i++)
+        if (w->units[i].owner == owner && !(w->units[i].flags & UF_INVISIBLE) &&
+            sight_visible(&p1_sight, w, w->units[i].x, w->units[i].y))
+            return true;
+    return false;
+}
+
 static void on_phase(Turns *t, World *w, uint8_t owner, void *ctx)
 {
     const char *names[OWN_NEUTRAL];
     uint16_t vp[OWN_NEUTRAL];
     uint8_t i, n = 0, o;
     (void)ctx;
+    if (owner_in_view(w, owner)) {       /* visible: no curtain (C8, D45) */
+        char line[40];
+        phase_screen_on = false;
+        snprintf(line, sizeof line, "%s ist am Zug.",
+                 owner == OWN_NEUTRAL ? "Die Unabhaengigen" : name_owner(owner));
+        render_message(0, C_BRIGHT_CYAN, line);
+        return;
+    }
     for (o = OWN_P1; o < OWN_NEUTRAL; o++) {
         bool present = o == OWN_P1;
         for (i = 0; i < w->unit_count && !present; i++)
@@ -1182,6 +1224,16 @@ static void draw_big_map(void)
             vdp_gcol(0, colour);
             vdp_filled_rectangle(px, py, (int)(px + 3), (int)(py + 3));
         }
+    if (foe_wiz_x >= 0) {                /* C9: where he was last seen */
+        int px = 2 + foe_wiz_x * 5, py = 16 + foe_wiz_y * 5;
+        vdp_gcol(0, C_BRIGHT_YELLOW);
+        vdp_rectangle(px - 1, py - 1, px + 4, py + 4);
+        snprintf(head, sizeof head, "Gegner zuletzt Runde %u gesehen",
+                 foe_wiz_round);
+        render_menu_text(2, 26, C_BRIGHT_YELLOW, head);
+    } else {
+        render_menu_text(2, 26, C_GREY, "Gegnerischer Zauberer noch ungesehen.");
+    }
 }
 
 static void draw_log(void)

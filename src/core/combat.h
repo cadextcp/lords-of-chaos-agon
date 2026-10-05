@@ -67,8 +67,11 @@ bool combat_free_swing(World *w, Rng *rng, uint8_t att, uint8_t def,
 /* After `unit` moved out of melee contact (an enemy was adjacent
  * before AND an enemy is adjacent now): one adjacent living enemy gets
  * a free swing. Returns the number of swings (0/1), out filled.
- * `seen` is the field of view of the moving side: an enemy it cannot see
- * does not get the swing (playtest 2026-10-05). NULL lifts that test. */
+ * An enemy the moving side cannot see does not get the swing (playtest
+ * 2026-10-05). `seen` is that side's field of view; without one - the AI
+ * keeps no per-turn map - a direct line of sight between the two decides
+ * instead. Since D44 that line counts roofs, so a creature inside a closed
+ * house no longer swings at someone walking past outside. */
 uint8_t combat_disengage_swings(World *w, Rng *rng, uint8_t unit,
                                 const Sight *seen, CombatResult *out);
 

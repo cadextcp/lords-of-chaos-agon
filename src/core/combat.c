@@ -189,7 +189,9 @@ uint8_t combat_disengage_swings(World *w, Rng *rng, uint8_t unit,
         const Unit *e = &w->units[i];
         if (e->owner == w->units[unit].owner || (e->flags & UF_INVISIBLE))
             continue;
-        if (seen && !sight_visible(seen, w, e->x, e->y))
+        if (seen ? !sight_visible(seen, w, e->x, e->y)
+                 : !sight_has_los(w, w->units[unit].x, w->units[unit].y,
+                                  e->x, e->y))
             continue;                  /* unseen: no swing out of nowhere */
         if (!adjacent(w, e, &w->units[unit]))
             continue;

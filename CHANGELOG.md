@@ -2,6 +2,19 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – KI: Sicht, sichtbare Phasen, erkennbare Ziele (2026-10-05)
+
+### Geändert
+- **Phasenbildschirm nur noch für Unsichtbares (D45, C8).** Steht beim Beginn einer fremden Phase etwas dieser Seite in deiner Sicht, bleibt die Karte stehen und der Zug wird offen gespielt. D38 bleibt im Kern erhalten — verdeckt wird nur, was du ohnehin nicht sehen könntest.
+- **Freier Schlag ist jetzt für beide Seiten an die Sicht gebunden.** Ohne Sichtkarte — die KI führt pro Zug keine — entscheidet die direkte Sichtlinie. Mit D44 zählt die das Dach mit, also schlägt niemand mehr aus einem geschlossenen Haus nach einem Vorbeigehenden.
+- **Die KI geht zum Portal, bevor sie sammelt.** Steht der Ausgang offen, gehen die AP dorthin statt zum nächsten Schatz.
+
+### Behoben
+- **Der KI-Zauberer kroch zu Schätzen.** Die Gehschleife brach beim *ersten erfolgreichen* Schritt ab — ein Feld pro Runde, bei 40 AP (zehn Schritten). Die Portalschleife machte es immer richtig. Das ist der Hauptgrund, warum in seinem Verhalten keine Logik zu erkennen war; die Logik (Nahkampf → Bolt → Truhe → Schatz → Beschwören → Portal) war längst da.
+
+### Neu
+- **Indikator für den gegnerischen Zauberer (C9):** Die Gesamtkarte markiert gelb, wo du ihn zuletzt **wirklich gesehen** hast, mit der Runde dazu. Verdeckte Bewegung bleibt unangetastet — angezeigt wird nur eigenes Wissen.
+
 ## [Unreleased] – Dächer blockieren die Sicht (D44, 2026-10-05)
 
 Entscheidungsvorlage: `docs/design/VORLAGE-daecher-und-sicht.md`.
