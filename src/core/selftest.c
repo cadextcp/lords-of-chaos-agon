@@ -224,8 +224,9 @@ static void test_dirty_and_move(void)
               "d43: the ghost walks through the wall");
         world.units[g].x = 1;
         world.units[g].y = 5;
-        world.units[0].x = 0;            /* a body still stops it */
+        world.units[0].x = 0;            /* a foreign body still stops it */
         world.units[0].y = 5;
+        world.units[0].owner = OWN_P2;
         check(!world_move_unit(&world, g, -1, 0),
               "d43: another unit still blocks the ghost");
     }
@@ -3856,6 +3857,48 @@ static void test_c5_drowning(void)
           "c5: a flier over water does not tire");
 }
 
+static void test_c3_overlap(void)
+{
+    FieldLayers f;
+    uint8_t a, b;
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 0;
+    a = world_spawn_unit(&world, OWN_P1, CR_GOBLIN, 20, 19);
+    b = world_spawn_unit(&world, OWN_P1, CR_GOBLIN, 21, 19);
+    world.units[a].ap = world.units[b].ap = 40;
+    check(world_bump_kind(&world, a, 1, 0) == BUMP_OK &&
+          world_move_unit(&world, a, 1, 0) &&
+          world.units[a].x == 21 && world.units[b].x == 21,
+          "c3: own units may share a field");
+    world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 23, 19);
+    world.units[2].ap = 40;
+    world.units[b].x = 22;
+    check(world_bump_kind(&world, b, 1, 0) == BUMP_UNIT &&
+          !world_move_unit(&world, b, 1, 0),
+          "c3: an enemy on the field still blocks");
+    check(world_bump_kind(&world, 2, -1, 0) == BUMP_UNIT &&
+          !world_move_unit(&world, 2, -1, 0),
+          "c3: nobody else may step onto own units");
+    world.unit_count = 0;
+    world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, 20, 19);
+    world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, 21, 19);
+    check(!world_move_unit(&world, 0, 1, 0),
+          "c3: wild creatures do not stack");
+    /* the active unit is the one drawn */
+    world.unit_count = 0;
+    a = world_spawn_unit(&world, OWN_P1, CR_GOBLIN, 20, 19);
+    b = world_spawn_unit(&world, OWN_P1, CR_TROLL, 20, 19);
+    view_set_active_unit(world.units[b].id);
+    view_compose(&world, 20, 19, &f);
+    check(f.id[f.n - 1] == CREATURE_TILE[CR_TROLL] + OWN_P1,
+          "c3: the active unit is drawn on top of the stack");
+    view_set_active_unit(world.units[a].id);
+    view_compose(&world, 20, 19, &f);
+    check(f.id[f.n - 1] == CREATURE_TILE[CR_GOBLIN] + OWN_P1,
+          "c3: and switches with the active unit");
+    view_set_active_unit(NO_UNIT);
+}
+
 static void test_m5e_balance(void)
 {
     Rng rng;
@@ -4176,6 +4219,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m5e_balance();
     test_c1_c2();
     test_c5_drowning();
+    test_c3_overlap();
     load_house();   /* leave a clean state */
     return fails;
 }

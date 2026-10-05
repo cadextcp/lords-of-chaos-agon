@@ -353,6 +353,7 @@ static void frame(bool dump)
         char buf[24];
         /* Roofs lift for the active figure's eyes, not for the cursor (D41). */
         view_set_roof_viewer(world.units[active()].x, world.units[active()].y);
+        view_set_active_unit(world.units[active()].id);
         view_follow(&world, cx, cy);
         view_update(&world);
         render_fields();
@@ -372,6 +373,7 @@ static void frame(bool dump)
     {
         const Unit *u = &world.units[active()];
         view_set_roof_viewer(u->x, u->y);
+        view_set_active_unit(u->id);
         view_follow(&world, u->x, u->y);
         view_update(&world);
         render_fields();

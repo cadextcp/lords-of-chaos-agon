@@ -65,6 +65,7 @@ Gesammeltes Plattformwissen. Teile stammen aus dem ersten Versuch (BBC BASIC, `L
 | T5 | **Das agondev-Makefile verfolgt keine Header-Abhängigkeiten.** Ein geänderter Header (z. B. das generierte `gen/tiles.h`) lässt alte `.o` stehen. `tools/build.py` baut deshalb standardmäßig clean (`--incremental` zum Überspringen). | ✅ (M1) |
 | T6 | `getsysvar_time()` zählt Zentisekunden in 2er-Schritten (VBLANK, 50 Hz). Für Benchmarks über mehrere Frames mitteln. | ✅ (M1) |
 | T7 | **Compiler-Bug (agondev v0.22):** Eine Kette `x == A \|\| x == B \|\| …` über Enum-Werte kann zu einem Bit-Test mit ungewöhnlicher Breite (`i14`) optimiert werden. Das Backend bricht dann mit „unable to legalize instruction“ ab. Abhilfe: Lookup-Tabelle (`FEATURE_SIGHT` in `world.c`). | ✅ (M2a) |
+| T8 | **Verdacht, nicht isoliert:** Ein Zeiger, der per `?:` zwischen zwei Array-Elementen gewählt und danach beschrieben wird (`uint8_t *slot = cond ? &a[y][x] : &b[y][x]; *slot = …`), ließ `view.c` (`build_overlay`) auf dem eZ80 etwas anderes berechnen als auf dem Host (Selftest „water animates like reference" scheiterte nur im Emulator). Mit einem schlichten `if/else` verschwand der Fehler. Bis zur Klärung: keine bedingten Zeiger auf Array-Elemente. | ⚠️ (C3) |
 | T4 | Assembler-Funktionen: Das erste Argument liegt bei `(iy+3)` nach `ld iy,0 / add iy,sp`, weil die Rücksprungadresse 3 Byte groß ist. Symbole werden mit `_` exportiert. | ✅ (M0) |
 
 ## Tastatur (kbuf, `agon/keyboard.h`)

@@ -23,6 +23,11 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ### Neu
 - **Figuren im tiefen Wasser stehen bis zur Hüfte darin:** 8 Pixel tiefer gezeichnet, die Beine verschwinden unter dem Feld darunter. Im Emulator geprüft.
 
+## [Unreleased] – Überlagern (C3, D50) (2026-10-05)
+
+### Neu
+- **Eigene Figuren dürfen auf demselben Feld stehen** (Boden und Luft getrennt), wie im Original. Gezeichnet wird die aktive Einheit. Gegner und wilde Tiere blockieren wie bisher.
+
 ## [Unreleased] – Messen und Fernsteuern vom PC (2026-10-05)
 
 ### Gemessen

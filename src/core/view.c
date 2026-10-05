@@ -236,6 +236,30 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
  * two buffers worth 3.9 KB of eZ80 RAM. */
 static int16_t roof_vx = -1, roof_vy;
 
+static uint8_t active_unit_id = NO_UNIT;
+
+void view_set_active_unit(uint8_t id)
+{
+    active_unit_id = id;
+}
+
+/* The unit drawn on a field: with several (C3) the active one, else the
+ * first. build_overlay() applies the same rule. */
+static uint8_t unit_for_view(const World *w, int16_t x, int16_t y, UnitLayer layer)
+{
+    uint8_t first = world_unit_at(w, x, y, layer), i;
+    if (first == NO_UNIT || w->units[first].id == active_unit_id)
+        return first;
+    if (!world_wrap(w, &x, &y))
+        return first;
+    for (i = (uint8_t)(first + 1); i < w->unit_count; i++)
+        if (w->units[i].id == active_unit_id && w->units[i].x == x &&
+            w->units[i].y == y &&
+            ((w->units[i].flags & UF_FLYING) != 0) == (layer == UL_AIR))
+            return i;
+    return first;
+}
+
 void view_set_roof_viewer(int16_t x, int16_t y)
 {
     roof_vx = x;
@@ -407,10 +431,10 @@ static void compose_dynamic(const World *w, int16_t wx, int16_t wy, FieldLayers 
     if (portal_x == wx && portal_y == wy)
         push(out, phase ? T_PORTAL_1 : T_PORTAL_0);
 
-    u = world_unit_at(w, wx, wy, UL_GROUND);
+    u = unit_for_view(w, wx, wy, UL_GROUND);
     if (u != NO_UNIT)
         push_unit(w, &w->units[u], out, false);
-    u = world_unit_at(w, wx, wy, UL_AIR);
+    u = unit_for_view(w, wx, wy, UL_AIR);
     if (u != NO_UNIT) {
         push(out, T_AIR_SHADOW);      /* ground shadow below the flyer */
         push_unit(w, &w->units[u], out, true);
@@ -504,10 +528,14 @@ static void build_overlay(const World *w)
     for (i = 0; i < w->unit_count; i++) {
         const Unit *un = &w->units[i];
         if (to_view(w, un->x, un->y, &vx, &vy)) {
-            if (un->flags & UF_FLYING)
-                over_air[vy][vx] = (uint8_t)(i + 1);
-            else
-                over_unit[vy][vx] = (uint8_t)(i + 1);
+            /* the active unit is the one on top where own units share (C3) */
+            if (un->flags & UF_FLYING) {
+                if (over_air[vy][vx] == 0 || un->id == active_unit_id)
+                    over_air[vy][vx] = (uint8_t)(i + 1);
+            } else {
+                if (over_unit[vy][vx] == 0 || un->id == active_unit_id)
+                    over_unit[vy][vx] = (uint8_t)(i + 1);
+            }
         }
     }
 }
