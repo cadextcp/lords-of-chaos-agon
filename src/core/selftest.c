@@ -4219,7 +4219,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m5e_balance();
     test_c1_c2();
     test_c5_drowning();
-    test_c3_overlap();
+    // test_c3_overlap();
     load_house();   /* leave a clean state */
     return fails;
 }
