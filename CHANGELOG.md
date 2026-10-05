@@ -18,6 +18,11 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ### Neu
 - **Wasser kostet Kraft:** Wer eine Runde in tiefem Wasser endet, verliert die halbe Ausdauer; bei 0 schwindet pro Runde ein Fünftel der Con, bei 0 ertrinkt die Figur. Flieger und Wasserwesen sind ausgenommen.
 
+## [Unreleased] – Waten (C4, D49) (2026-10-05)
+
+### Neu
+- **Figuren im tiefen Wasser stehen bis zur Hüfte darin:** 8 Pixel tiefer gezeichnet, die Beine verschwinden unter dem Feld darunter. Im Emulator geprüft.
+
 ## [Unreleased] – Messen und Fernsteuern vom PC (2026-10-05)
 
 ### Gemessen
