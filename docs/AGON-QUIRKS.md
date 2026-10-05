@@ -84,9 +84,30 @@ Gesammeltes Plattformwissen. Teile stammen aus dem ersten Versuch (BBC BASIC, `L
 |---|---|---|
 | H1 | Tastatur **Cherry G84-4100**, deutsches Layout, ohne Ziffernblock: Pfeil-Akkorde, Sondertasten und Auto-Repeat prüft Spike M1 (GDD §5.2). | ❓ (M1) |
 | H3 | Lange Dateinamen (`maps/many_coloured_land.map`, `scenarios/ragarils_domain.scn`) funktionieren auch auf der echten FAT-SD-Karte (2026-10-03: Upload und Umbenennen auf die Karte, `loc --bench` lädt die Karte von dort). | ✅ (Hardware) |
-| H2 | MOS- bzw. VDP-Version auf dem echten Agon: laut Lumagon-Repo ein Agon Light 2 mit Platform MOS 3 („Arthur"), der Emulator-Pin läuft mit Console8 MOS 2.3.3. Der Abgleich der Versionen ist offen. | ❓ |
+| H2 | **Der echte Agon Light 2 läuft auf Platform MOS 3 („Arthur") und VDP 2.16.0** (Firmware-Update 2026-10-05 per USB, siehe unten). Der Emulator-Pin läuft dagegen mit Console8 MOS 2.3.3 — die beiden Zweige bleiben also bewusst auseinander, und was auf dem Emulator läuft, ist für MOS 3 nicht automatisch belegt (MOS 3 hat eigene Befehle: `Do`, `Obey`, `IfThere`, `SetMacro`, `PrintF`, Systemvariablen über `show`). **Die Versionsnummer lässt sich über USB nicht auslesen:** MOS 3 hat keinen `version`-Befehl, `credits` nennt nur FabGL/FatFS/umm_malloc, und das Boot-Banner geht auf den Bildschirm, bevor `autoexec.txt` den Konsolenmodus einschaltet. Nur am Monitor ablesbar. | ✅ (Hardware) |
 | H4 | **`loc --selftest` läuft auf dem echten eZ80 durch** (2026-10-03, Stand `037521f`): `=== TEST PASS ===`. Auf der Hardware erscheint nur das Gesamtergebnis (der Selftest läuft nicht ausführlich). `emu_exit` (`out (0), a`) ist auf dem echten Agon harmlos; danach steht der MOS-Prompt wieder da. | ✅ (Hardware) |
 | H5 | **Das Spiel lässt sich über die USB-Konsole nicht beenden.** Dort getippte Zeichen kommen als Tastendrücke ohne VKey an; `VK_ESC` (7D) gibt es nur von der echten Tastatur am Agon. `Esc` im Spiel, dann schreibt `log_close()` auch `loc.log`; bis dahin ist die Datei leer. Zum Auslesen von `loc.log` also am Gerät Esc drücken, danach `TYPE /loc/loc.log` über USB. | ✅ (Hardware) |
+
+**Firmware-Update über USB** (2026-10-05, MOS 3.0.2 + VDP 2.16.0): Die beiden Dateien liegen
+auf der Karte (`/loc/mos302.bin`, `/loc/vdp2160.bin`), geflasht wird mit `/mos/flash.bin` v1.9 am
+MOS-Prompt:
+
+```
+flash vdp /loc/vdp2160.bin mos /loc/mos302.bin
+```
+
+Das Werkzeug prüft erst die CRC beider Dateien und fragt dann `Flash firmware (y/n)?`. Über die
+USB-Konsole (`scripts/agonctl.py` im Lumagon-Repo) reicht ein `y` ohne CR. Zu beachten:
+
+- **Der VDP startet mitten im Vorgang neu** und verliert dabei den Konsolenmodus. Nach dem
+  VDP-Teil (`checksum ok!`, `Rebooting in 3...`) kommt über USB erst wieder etwas an, wenn MOS
+  geflasht ist, neu gestartet hat und `autoexec.txt` den Konsolenmodus erneut einschaltet. Der
+  MOS-Teil selbst ist über USB also nicht zu sehen — dass der Prompt samt Konsolenmodus
+  zurückkommt, ist der Beleg, dass er gelaufen ist.
+- **DTR und RTS müssen aus bleiben**, sonst setzt der USB-Seriell-Wandler den ESP32 zurück
+  (`agonctl.py` und `agonmon.py` machen das schon). Während des Flashens nichts tippen.
+- Der VDP-Teil dauert nur etwa 17 s (1.077.840 Bytes, 520 kbit/s) — die Dateien vorher per
+  `agonload.py` hochzuladen ist der langsame Schritt.
 
 **Messwerte `loc --bench` auf dem echten Agon Light 2** (2026-10-03, Stand `037521f`, Szenario 1, 9×9-Fenster):
 

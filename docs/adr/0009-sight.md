@@ -29,3 +29,59 @@
 - Falls M3 (KI) oder das Hardware-Erlebnis es verlangt, sind die nächsten Stufen: Perimeter-Strahlen mit Markierung im Vorbeigehen (~5× weniger Strahlen) oder Shadowcasting. Die Selftests vergleichen den schnellen Pfad gegen die Referenzkomposition, sodass ein Umbau abgesichert ist.
 - Die schwarze Kachel verschiebt alle Tile-IDs hinter „tree“; `HOUSE_VIEW_HASH` bewusst auf `0xA470BF45` aktualisiert.
 - Dächer/überdachte Felder und die Luftregeln (verdecktes Terrain, Objekte unsichtbar) folgen mit M2e.
+
+## Nachtrag 2026-10-05: Shadowcasting (D39, Plattform-Audit)
+
+Die Hardware hat die oben vorgesehene nächste Stufe eingefordert: auf dem
+echten Agon Light 2 kostete `sight_compute` **298 ms für zwei Einheiten**
+(`docs/AGON-QUIRKS.md`), also knapp doppelt so viel wie der Emulator-Proxy,
+und das bei jedem eigenen Schritt.
+
+**Umgestellt auf rekursives Shadowcasting** über acht Oktanten
+(`src/core/sight.c`). Statt pro Zielfeld einen Bresenham-Strahl zu werfen
+(O(r³) je Einheit), wird jedes Feld einmal besucht (O(r²)).
+
+- **Steigungen bleiben exakte Brüche** und werden durch Kreuzmultiplikation
+  verglichen — keine Division, keine Gleitkommazahlen (ADR 0003). Mit
+  `col <= row <= 11` bleibt jedes Produkt weit im `int16_t`.
+- **Chebyshev-Reichweite fällt aus der Zerlegung heraus:** erreichbare
+  Felder erfüllen `max(|dx|, |dy|) <= radius`, die acht Oktanten decken
+  genau das Quadrat ab.
+- **Wrap** wie bisher: gerechnet wird in relativen Offsets, erst der
+  Feldzugriff normalisiert (`world_wrap`).
+- **Flieger** sehen unverändert über alles hinweg (`mark_square`), das
+  Magische Auge benutzt jetzt dieselbe Funktion.
+- `path_clear` bleibt — die Einzellinien-Abfragen (`sight_has_los`,
+  `sight_has_spell_los`) sind mit einem Strahl richtig und billig.
+
+### Warum die alte Referenz nicht mehr taugt
+
+Shadowcasting deckt in verwinkeltem Gelände andere Felder auf als
+Einzelstrahlen, kann also nicht gegen die alte Fassung auf Gleichheit
+geprüft werden. Die Zusicherungen im Selftest sind deshalb auf
+**Eigenschaften** umgestellt, die beide Algorithmen erfüllen müssen — und
+zwei neue greifen genau den typischen Shadowcasting-Fehler ab:
+
+| Zusicherung | fängt ab |
+|---|---|
+| freies Gelände ⇒ **exakt** (2·9+1)² = 361 sichtbare Felder | Lücken zwischen zwei Oktanten, Überreichweite |
+| alle vier Diagonalecken des Quadrats sichtbar | fehlender Oktant |
+| eingemauert ⇒ **exakt** 9 Felder | Schatten wirkt nicht |
+| Wand sichtbar, Feld dahinter nicht | Endpunkt-Regel (GDD 3.4) |
+| Reichweite 9 am Boden, auch über die Wrap-Naht | Reichweitengrenze |
+
+### Blocking-Bitmap jetzt zwischengespeichert (Audit B1/B2)
+
+Unabhängig vom Algorithmus baute **jede** LOS-Abfrage die Blockier-Bitmap
+der ganzen Karte neu (1440 Durchläufe), und die KI fragt eine pro Kandidat
+in einer Schleife. Beide Bitmaps (`blk` und das Zauber-Pendant ohne hohes
+Gras, D36) hängen jetzt an `World.generation`, wie der View-Cache.
+
+Das macht `world_map_changed()` zur **Pflicht**: ein Geländeschreibzugriff
+ohne diesen Aufruf lässt Sicht und View auf veraltetem Gelände rechnen.
+Der Spielcode hielt die Invariante bereits überall ein; der Selftest
+schrieb `feature[][]` direkt und wurde nachgezogen — dort hatte ein
+Tür-Test dadurch still seine Aussage verloren.
+
+**Offen:** Messwerte auf echter Hardware. Erwartung: Sicht deutlich unter
+100 ms, KI-Phase (160 ms) überwiegend durch B1 erledigt.

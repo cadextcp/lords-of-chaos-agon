@@ -2,16 +2,59 @@
 
 #include <string.h>
 
-/* Blocking bitmap of the whole map, one bit per field, rebuilt at the
- * start of every sight_compute(): rays then cost one 8-bit load instead
- * of two indexed table reads with a row multiply (AGON-QUIRKS T2). */
-static uint8_t blk[MAP_MAX_H][SIGHT_COLS];
+/* Blocking bitmap of the whole map, one bit per field: a ray step then
+ * costs one 8-bit load instead of two indexed table reads with a row
+ * multiply (AGON-QUIRKS T2).
+ *
+ * Both bitmaps depend only on floor, feature and roof, so they are built
+ * once per map generation, not once per query. Every LOS test used to
+ * rebuild all 1440 bits, and the AI asks one per candidate in a loop.
+ * Invariant: whoever writes floor/feature/roof calls world_map_changed().
+ * The game code does; the selftest has to as well. */
+static uint8_t blk[MAP_MAX_H][SIGHT_COLS];         /* terrain blocks sight */
+static uint8_t blk_spell[MAP_MAX_H][SIGHT_COLS];   /* same, tall grass out (D36) */
+static const World *blk_world;                     /* world both were built from */
+static uint8_t blk_gen;                            /* its generation back then */
+static bool blk_spell_ready;                       /* blk_spell current as well */
 
-static void build_blk(const World *w);
+/* Which bitmap path_clear() consults; set by every entry point below. */
+static const uint8_t (*blk_cur)[SIGHT_COLS] = blk;
 
 static bool blocked(int16_t x, int16_t y)
 {
-    return (blk[y][(uint8_t)(x >> 3)] & (uint8_t)(0x80u >> (x & 7))) != 0;
+    return (blk_cur[y][(uint8_t)(x >> 3)] & (uint8_t)(0x80u >> (x & 7))) != 0;
+}
+
+static void ensure_blk(const World *w)
+{
+    uint8_t y8, b, bytes;
+    if (blk_world == w && blk_gen == w->generation)
+        return;
+    bytes = (uint8_t)((w->w + 7) >> 3);
+    memset(blk, 0, sizeof blk);
+    for (y8 = 0; y8 < w->h; y8++)
+        for (b = 0; b < bytes; b++)
+            blk[y8][b] = world_sight_byte(w, y8, (uint8_t)(b << 3));
+    blk_world = w;
+    blk_gen = w->generation;
+    blk_spell_ready = false;
+}
+
+/* Spells reach through tall grass (D36): the same bitmap with tall grass
+ * fields taken out that hold nothing else which blocks. */
+static void ensure_blk_spell(const World *w)
+{
+    uint8_t x, y;
+    ensure_blk(w);
+    if (blk_spell_ready)
+        return;
+    memcpy(blk_spell, blk, sizeof blk_spell);
+    for (y = 0; y < w->h; y++)
+        for (x = 0; x < w->w; x++)
+            if (w->floor[y][x] == FL_TALL_GRASS && !world_has_roof(w, x, y) &&
+                !world_feature_blocks_sight(w, x, y))
+                blk_spell[y][x >> 3] &= (uint8_t)~(0x80u >> (x & 7));
+    blk_spell_ready = true;
 }
 
 static void set_bit(uint8_t map[MAP_MAX_H][SIGHT_COLS], uint8_t w, uint8_t h,
@@ -80,71 +123,143 @@ static bool path_clear(const World *w, uint8_t sx, uint8_t sy, int8_t dx, int8_t
     return true;
 }
 
+/* --- Recursive shadowcasting (D39, ADR 0009) --------------------------
+ *
+ * Replaces one Bresenham ray per target field (O(r^3) per unit) with eight
+ * octant scans that visit every field once (O(r^2)). Slopes stay exact
+ * fractions and are compared by cross multiplication - no division, no
+ * floating point (ADR 0003). With col <= row <= 11 every product stays far
+ * inside int16_t.
+ *
+ * The eight octants overlap on the axes and diagonals. Visibility is OR-ed,
+ * so an overlap can only reveal a field, never hide one; that is the usual
+ * trade-off of this algorithm and keeps the field of view symmetric around
+ * the source.
+ *
+ * Reachable fields satisfy max(|dx|, |dy|) <= radius, so the Chebyshev
+ * range of GDD 3.4 falls out of the octant decomposition itself. */
+typedef struct {
+    const World *w;
+    Sight *s;
+    uint8_t ux, uy;        /* source field, already on the map */
+    uint8_t radius;
+} Cast;
+
+/* (col, row) of an octant -> field offset: dx = a*col + b*row,
+ * dy = c*col + d*row. The eight rows cover the whole square. */
+static const int8_t OCT[8][4] = {
+    { 1,  0,  0, -1}, { 0,  1, -1,  0}, { 0,  1,  1,  0}, { 1,  0,  0,  1},
+    {-1,  0,  0,  1}, { 0, -1,  1,  0}, { 0, -1, -1,  0}, {-1,  0,  0, -1},
+};
+
+/* a/b < c/d for positive denominators. */
+static bool slope_lt(int16_t an, int16_t ad, int16_t cn, int16_t cd)
+{
+    return (int16_t)(an * cd) < (int16_t)(cn * ad);
+}
+
+/* Absolute field for an offset. False when it falls off a non-wrapping
+ * map; such a field also blocks, exactly as a ray leaving the map did. */
+static bool cast_cell(const Cast *c, int8_t dx, int8_t dy, int16_t *ax,
+                      int16_t *ay)
+{
+    int16_t x = (int16_t)(c->ux + dx), y = (int16_t)(c->uy + dy);
+    if (!world_wrap(c->w, &x, &y))
+        return false;
+    *ax = x;
+    *ay = y;
+    return true;
+}
+
+static void cast_octant(Cast *c, uint8_t row, int16_t lo_n, int16_t lo_d,
+                        int16_t hi_n, int16_t hi_d, uint8_t oct)
+{
+    const int8_t *m = OCT[oct];
+    uint8_t col;
+    int8_t prev = -1;                    /* -1 none yet, 0 clear, 1 blocked */
+
+    if (row > c->radius || slope_lt(hi_n, hi_d, lo_n, lo_d))
+        return;
+    for (col = 0; col <= row; col++) {
+        int16_t den = (int16_t)(2 * row);          /* both cell edges share it */
+        int16_t cl_n = (int16_t)(2 * col - 1);     /* low edge of the field */
+        int16_t ch_n = (int16_t)(2 * col + 1);     /* high edge */
+        int16_t ax = 0, ay = 0;
+        bool wall;
+        if (slope_lt(ch_n, den, lo_n, lo_d))
+            continue;                              /* entirely before window */
+        if (slope_lt(hi_n, hi_d, cl_n, den))
+            break;                                 /* entirely past window */
+        {
+            int8_t dx = (int8_t)(m[0] * (int8_t)col + m[1] * (int8_t)row);
+            int8_t dy = (int8_t)(m[2] * (int8_t)col + m[3] * (int8_t)row);
+            if (cast_cell(c, dx, dy, &ax, &ay)) {
+                set_bit(c->s->visible, c->w->w, c->w->h, ax, ay);
+                set_bit(c->s->explored, c->w->w, c->w->h, ax, ay);
+                wall = blocked(ax, ay);
+            } else {
+                wall = true;
+            }
+        }
+        if (wall) {
+            if (prev == 0)                         /* clear -> blocked */
+                cast_octant(c, (uint8_t)(row + 1), lo_n, lo_d, cl_n, den, oct);
+            prev = 1;
+        } else {
+            if (prev == 1) {                       /* blocked -> clear */
+                lo_n = cl_n;
+                lo_d = den;
+            }
+            prev = 0;
+        }
+    }
+    if (prev == 0)
+        cast_octant(c, (uint8_t)(row + 1), lo_n, lo_d, hi_n, hi_d, oct);
+}
+
+/* Everything within Chebyshev `radius`, ignoring terrain: airborne sources
+ * look over it all (GDD 3.4), and so does the Magic Eye. */
+static void mark_square(Sight *s, const World *w, int16_t x, int16_t y,
+                        uint8_t radius)
+{
+    int16_t dx, dy;
+    for (dy = -(int16_t)radius; dy <= (int16_t)radius; dy++)
+        for (dx = -(int16_t)radius; dx <= (int16_t)radius; dx++) {
+            int16_t wx = (int16_t)(x + dx), wy = (int16_t)(y + dy);
+            if (!world_wrap(w, &wx, &wy))
+                continue;
+            set_bit(s->visible, w->w, w->h, wx, wy);
+            set_bit(s->explored, w->w, w->h, wx, wy);
+        }
+}
+
 void sight_compute(const World *w, Sight *s)
 {
-    uint8_t i, range;
-    int16_t x, y, ux, uy;
+    uint8_t i, oct;
+    Cast c;
 
     memset(s->visible, 0, sizeof s->visible);
-    build_blk(w);
+    ensure_blk(w);
+    blk_cur = blk;
+    c.w = w;
+    c.s = s;
 
     for (i = 0; i < w->unit_count; i++) {
         const Unit *u = &w->units[i];
         if (u->owner != s->owner)
             continue;
-        ux = u->x;
-        uy = u->y;
-        range = (u->flags & UF_FLYING) ? SIGHT_AIR : SIGHT_GROUND;
-        set_bit(s->visible, w->w, w->h, ux, uy);
-        set_bit(s->explored, w->w, w->h, ux, uy);
-        for (y = (int16_t)(uy - range); y <= (int16_t)(uy + range); y++) {
-            int16_t wy = y, dy;
-            if (wy < 0 || wy >= w->h) {
-                if (!w->wrap)
-                    continue;
-                while (wy < 0) wy = (int16_t)(wy + w->h);
-                while (wy >= w->h) wy = (int16_t)(wy - w->h);
-            }
-            dy = (int16_t)(wy - uy);
-            if (dy > (int16_t)(w->h >> 1)) dy = (int16_t)(dy - w->h);
-            else if (dy < -(int16_t)(w->h >> 1)) dy = (int16_t)(dy + w->h);
-            for (x = (int16_t)(ux - range); x <= (int16_t)(ux + range); x++) {
-                int16_t wx = x, dx;
-                if (wx < 0 || wx >= w->w) {
-                    if (!w->wrap)
-                        continue;
-                    while (wx < 0) wx = (int16_t)(wx + w->w);
-                    while (wx >= w->w) wx = (int16_t)(wx - w->w);
-                }
-                dx = (int16_t)(wx - ux);
-                if (dx > (int16_t)(w->w >> 1)) dx = (int16_t)(dx - w->w);
-                else if (dx < -(int16_t)(w->w >> 1)) dx = (int16_t)(dx + w->w);
-                if (dx == 0 && dy == 0)
-                    continue;            /* own cell, set above */
-                /* Airborne sources look over everything (GDD 3.4); the
-                 * covered-terrain exceptions for creatures below follow
-                 * with the roof data. */
-                if ((u->flags & UF_FLYING) ||
-                    (!get_bit(s->visible, w->w, w->h, wx, wy) &&
-                     path_clear(w, (uint8_t)ux, (uint8_t)uy, (int8_t)dx, (int8_t)dy))) {
-                    set_bit(s->visible, w->w, w->h, wx, wy);
-                    set_bit(s->explored, w->w, w->h, wx, wy);
-                }
-            }
+        set_bit(s->visible, w->w, w->h, u->x, u->y);
+        set_bit(s->explored, w->w, w->h, u->x, u->y);
+        if (u->flags & UF_FLYING) {
+            mark_square(s, w, u->x, u->y, SIGHT_AIR);
+            continue;
         }
+        c.ux = (uint8_t)u->x;
+        c.uy = (uint8_t)u->y;
+        c.radius = SIGHT_GROUND;
+        for (oct = 0; oct < 8; oct++)
+            cast_octant(&c, 1, 0, 1, 1, 1, oct);
     }
-}
-
-/* Rebuild the blocking bitmap (used by sight_compute and by the
- * on-demand LOS test below). */
-static void build_blk(const World *w)
-{
-    uint8_t y8, b, bytes;
-    memset(blk, 0, sizeof blk);
-    bytes = (uint8_t)((w->w + 7) >> 3);
-    for (y8 = 0; y8 < w->h; y8++)
-        for (b = 0; b < bytes; b++)
-            blk[y8][b] = world_sight_byte(w, y8, (uint8_t)(b << 3));
 }
 
 bool sight_has_los(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1)
@@ -152,7 +267,8 @@ bool sight_has_los(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y
     int16_t dx, dy;
     if (!world_wrap(w, &x0, &y0) || !world_wrap(w, &x1, &y1))
         return false;
-    build_blk(w);                       /* independent of sight_compute */
+    ensure_blk(w);                      /* independent of sight_compute */
+    blk_cur = blk;
     dx = (int16_t)(x1 - x0);
     dy = (int16_t)(y1 - y0);
     if (w->wrap) {
@@ -169,15 +285,10 @@ bool sight_has_los(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y
 bool sight_has_spell_los(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1)
 {
     int16_t dx, dy;
-    uint8_t x, y;
     if (!world_wrap(w, &x0, &y0) || !world_wrap(w, &x1, &y1))
         return false;
-    build_blk(w);
-    for (y = 0; y < w->h; y++)
-        for (x = 0; x < w->w; x++)
-            if (w->floor[y][x] == FL_TALL_GRASS && !world_has_roof(w, x, y) &&
-                !world_feature_blocks_sight(w, x, y))
-                blk[y][x >> 3] &= (uint8_t)~(0x80u >> (x & 7));
+    ensure_blk_spell(w);
+    blk_cur = blk_spell;
     world_delta(w, x0, y0, x1, y1, &dx, &dy);
     return path_clear(w, (uint8_t)x0, (uint8_t)y0, (int8_t)dx, (int8_t)dy);
 }
@@ -194,13 +305,5 @@ bool sight_visible(const Sight *s, const World *w, int16_t x, int16_t y)
 
 void sight_add_eye(Sight *s, const World *w, int16_t x, int16_t y)
 {
-    int16_t dx, dy;
-    for (dy = -SIGHT_GROUND; dy <= SIGHT_GROUND; dy++)
-        for (dx = -SIGHT_GROUND; dx <= SIGHT_GROUND; dx++) {
-            int16_t wx = (int16_t)(x + dx), wy = (int16_t)(y + dy);
-            if (!world_wrap(w, &wx, &wy))
-                continue;
-            set_bit(s->visible, w->w, w->h, wx, wy);
-            set_bit(s->explored, w->w, w->h, wx, wy);
-        }
+    mark_square(s, w, x, y, SIGHT_GROUND);
 }

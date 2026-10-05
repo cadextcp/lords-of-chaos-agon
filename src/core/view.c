@@ -40,19 +40,51 @@ static const uint16_t ANIM_B[] = {T_CANDLE_1, T_FLOOR_WATER_1, T_PORTAL_1,
                                   T_AREA_FLOOD_1};
 #define ANIM_N (sizeof ANIM_A / sizeof ANIM_A[0])
 
+/* Which pair a tile belongs to: 1 + index into ANIM_A/ANIM_B, 0 = not
+ * animated. anim_swap() used to search the pair list linearly, and
+ * view_update() calls it for every layer of every field - roughly 13 600
+ * comparisons per compose on a 9x9 window.
+ *
+ * Kept in step with ANIM_A/ANIM_B by hand; selftest_view() checks every
+ * tile id against the lists, so drift cannot pass unnoticed. */
+static const uint8_t anim_pair[TILE_COUNT] = {
+    [T_CANDLE_0] = 1,     [T_CANDLE_1] = 1,
+    [T_FLOOR_WATER_0] = 2, [T_FLOOR_WATER_1] = 2,
+    [T_PORTAL_0] = 3,     [T_PORTAL_1] = 3,
+    [T_AREA_FIRE_0] = 4,  [T_AREA_FIRE_1] = 4,
+    [T_AREA_BLOB_0] = 5,  [T_AREA_BLOB_1] = 5,
+    [T_AREA_VINE_0] = 6,  [T_AREA_VINE_1] = 6,
+    [T_AREA_FLOOD_0] = 7, [T_AREA_FLOOD_1] = 7,
+};
+
 static uint16_t anim_swap(uint16_t id, uint8_t ph)
 {
     uint8_t k;
-    for (k = 0; k < ANIM_N; k++) {
-        if (id == ANIM_A[k] || id == ANIM_B[k])
-            return ph ? ANIM_B[k] : ANIM_A[k];
-    }
-    return id;
+    if (id >= TILE_COUNT)
+        return id;
+    k = anim_pair[id];
+    if (k == 0)
+        return id;
+    return ph ? ANIM_B[k - 1] : ANIM_A[k - 1];
 }
 
 static bool is_animated(uint16_t id)
 {
-    return anim_swap(id, 0) != anim_swap(id, 1);
+    return id < TILE_COUNT && anim_pair[id] != 0;
+}
+
+bool view_anim_table_ok(void)
+{
+    uint16_t id;
+    for (id = 0; id < TILE_COUNT; id++) {
+        uint8_t k, want = 0;
+        for (k = 0; k < ANIM_N; k++)
+            if (id == ANIM_A[k] || id == ANIM_B[k])
+                want = (uint8_t)(k + 1);
+        if (anim_pair[id] != want)
+            return false;
+    }
+    return true;
 }
 
 static FieldLayers fields[VIEW_H][VIEW_W];

@@ -129,7 +129,11 @@ typedef struct {
 /* Load a binary map (.map, ADR 0008). Validates everything first; on
  * false the world is left unchanged. */
 bool world_load_bin(World *w, const uint8_t *data, uint16_t len);
-/* Call after changing floor/decor/feature (door opened ...). */
+/* Call after changing floor/decor/feature/roof (door opened ...).
+ * Mandatory, not cosmetic: view.c caches the static tile layers against
+ * `generation`, and sight.c caches the sight-blocking bitmaps against it.
+ * A terrain write without this call leaves both looking at stale terrain.
+ * That includes writes made directly by tests. */
 void world_map_changed(World *w);
 
 /* Normalise (x, y) for wrapping maps. Returns false if outside a

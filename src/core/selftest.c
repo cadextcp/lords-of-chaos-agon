@@ -69,6 +69,18 @@ static int has_layer(const FieldLayers *f, uint16_t id)
     return 0;
 }
 
+/* Visible fields of the whole map - for the shadowcasting shape checks. */
+static uint16_t count_visible(const Sight *s, const World *w)
+{
+    uint16_t n = 0;
+    uint8_t x, y;
+    for (y = 0; y < w->h; y++)
+        for (x = 0; x < w->w; x++)
+            if (sight_visible(s, w, x, y))
+                n++;
+    return n;
+}
+
 /* Every window field of the fast (cached) path must equal view_compose(). */
 static int fast_equals_reference(void)
 {
@@ -136,6 +148,7 @@ static void test_world(void)
 
 static void test_view(void)
 {
+    check(view_anim_table_ok(), "view: anim_pair matches the ANIM_A/ANIM_B lists");
     FieldLayers f;
 
     view_compose(&world, 0, 0, &f);   /* top-left corner: walls E and S */
@@ -523,6 +536,45 @@ static void test_sight(void)
         view_clean();
         view_set_sight(NULL);
     }
+
+    /* Shadowcasting (D39, ADR 0009): on clear ground the field of view has
+     * to be exactly the Chebyshev square. A gap between two of the eight
+     * octants - the classic defect of this algorithm - shows up here and
+     * nowhere else, because every other check only looks at single fields. */
+    {
+        uint8_t x, y;
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        for (y = 0; y < world.h; y++)
+            for (x = 0; x < world.w; x++) {
+                world.floor[y][x] = FL_GRASS;
+                world.feature[y][x] = FE_NONE;
+            }
+        world_map_changed(&world);
+        world.unit_count = 1;
+        world.units[0].x = 18;
+        world.units[0].y = 18;
+        world.units[0].flags = (uint8_t)(world.units[0].flags & ~UF_FLYING);
+        sight_init(&s, OWN_P1);
+        sight_compute(&world, &s);
+        check(count_visible(&s, &world) ==
+                  (2u * SIGHT_GROUND + 1u) * (2u * SIGHT_GROUND + 1u),
+              "sight: clear ground gives the whole Chebyshev square");
+        check(sight_visible(&s, &world, 9, 9) &&
+              sight_visible(&s, &world, 27, 27) &&
+              sight_visible(&s, &world, 9, 27) &&
+              sight_visible(&s, &world, 27, 9),
+              "sight: every diagonal corner of the square is reached");
+
+        for (y = 17; y <= 19; y++)       /* walled in: own field plus the ring */
+            for (x = 17; x <= 19; x++)
+                if (x != 18 || y != 18)
+                    world.feature[y][x] = FE_WALL;
+        world_map_changed(&world);
+        sight_init(&s, OWN_P1);
+        sight_compute(&world, &s);
+        check(count_visible(&s, &world) == 9,
+              "sight: walled in sees its own field and the walls, nothing else");
+    }
 }
 
 static void test_flight(void)
@@ -615,12 +667,14 @@ static void test_bump_and_look(void)
 
     world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
     world.feature[5][6] = FE_DOOR_CLOSED;         /* north of the wizard */
+    world_map_changed(&world);
     check(world_bump_kind(&world, 0, 0, -1) == BUMP_DOOR, "bump: closed door ahead");
     check(world_open_door(&world, 0, 6, 5) &&
           world.feature[5][6] == FE_DOOR_OPEN && world.units[0].ap == 34,
           "bump: opening costs 6 AP and opens the door");
     check(world_bump_kind(&world, 0, 0, -1) == BUMP_OK, "bump: open door is walkable");
     world.feature[5][6] = FE_DOOR_CLOSED;
+    world_map_changed(&world);
     check(!world_open_door(&world, 11, 6, 5),
           "bump: the bat has no hands (CF_USE)");
     world.units[0].ap = 5;
@@ -900,6 +954,7 @@ static void test_combat(void)
         world.units[0].y = 6;
         world.units[0].ap = 40;
         world.feature[5][8] = FE_DOOR_CLOSED;    /* closed for the attack */
+        world_map_changed(&world);
         {
             bool destroyed = false;
             check(combat_terrain(&world, &rng, 0, 3, 2, &destroyed) == 0,
@@ -1310,6 +1365,7 @@ static void test_bolt(void)
     world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
     world.unit_count = 1;
     world.feature[5][8] = FE_DOOR_OPEN; /* open the house door for lines */
+    world_map_changed(&world);
     memset(&book, 0, sizeof book);
     book.level[SP_MAGIC_BOLT] = 8;      /* enough casts for the tests */
     world.units[1].kind = CR_GOBLIN;    /* target on the path */
@@ -1360,6 +1416,7 @@ static void test_bolt(void)
         check(!spell_lightning(&world, &book, 0, 3, 2, &rng, &shot),
               "bolt: lightning rejects massive targets");
         world.feature[5][9] = FE_ROCK;  /* destructible terrain at the target */
+        world_map_changed(&world);
         rng_seed(&rng, 77);
         check(spell_lightning(&world, &book, 0, 9, 5, &rng, &shot),
               "bolt: lightning strikes");
@@ -1543,9 +1600,11 @@ static void test_ai(void)
     world.units[1].ap = 30;
     world.units[1].sta = 45;
     world.feature[5][8] = FE_DOOR_OPEN;         /* clear line of sight */
+    world_map_changed(&world);
 
     check(ai_nearest_enemy(&world, 1, 9) == 0, "ai: goblin scents the wizard");
     world.feature[5][8] = FE_DOOR_CLOSED;
+    world_map_changed(&world);
     world.units[1].x = 12;                      /* behind the east wall */
     world.units[1].y = 6;
     check(ai_nearest_enemy(&world, 1, 9) == NO_UNIT,
@@ -1553,6 +1612,7 @@ static void test_ai(void)
     world.units[1].x = 9;
     world.units[1].y = 5;
     world.feature[5][8] = FE_DOOR_OPEN;
+    world_map_changed(&world);
 
     {   /* hunter with distance closes in */
         uint8_t before = 255, after;
@@ -1895,6 +1955,7 @@ static void test_m4a(void)
         world.units[0].y = 8;
         world.units[0].ap = 40;
         world.feature[8][3] = FE_CHEST;
+        world_map_changed(&world);
         objects_before = world.object_count;
         rng_seed(&rng, 9);
         check(items_open_chest(&world, &rng, 0, 3, 8) &&
@@ -1903,6 +1964,7 @@ static void test_m4a(void)
               world.units[0].ap == 40 - ACTIONS[ACT_OPEN_CHEST].ap * 3,
               "m4a: prying open costs triple AP and drops loot");
         world.feature[8][3] = FE_CHEST;
+        world_map_changed(&world);
         world.units[0].items[0] = OBJ_CHEST_KEY;
         world.units[0].item_count = 1;
         world.units[0].in_use = 0;
@@ -1932,6 +1994,7 @@ static void test_m4b(void)
     world.units[1].mr = 46;
     world.units[1].con = world.units[1].con_max = 32;
     world.feature[5][8] = FE_DOOR_OPEN;         /* targets need sight (D17) */
+    world_map_changed(&world);
     memset(&book, 0, sizeof book);
 
     {   /* effects: grant, tick, expire */
@@ -3245,6 +3308,7 @@ static void test_m4k_ai(void)
         guard = world_spawn_unit(&world, OWN_NEUTRAL, CR_ZOMBIE, 6, 4);
         world.units[guard].flags |= UF_UNDEAD;
         world.feature[3][7] = FE_DOOR_CLOSED;   /* door east of the guard */
+        world_map_changed(&world);
         w1 = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 9, 4);
         world.units[guard].ap = 30;
         rng_seed(&rng, 5);
@@ -3262,6 +3326,7 @@ static void test_m4k_ai(void)
         wiz = world_spawn_unit(&world, OWN_P2, CR_WIZARD, 8, 6);
         world.units[wiz].ap = 40;
         world.feature[6][9] = FE_CHEST;         /* chest east of the wizard */
+        world_map_changed(&world);
         {   /* a diamond inside the chest */
             world.objects[world.object_count].x = 9;
             world.objects[world.object_count].y = 6;
@@ -3326,6 +3391,7 @@ static void test_m5b_tutorial(void)
     check(tutorial_update(&t, &world, &g) == TUT_CHEST,
           "m5b: pickup completes");
     world.feature[2][5] = FE_NONE;        /* chest opened */
+    world_map_changed(&world);
     check(tutorial_update(&t, &world, &g) == TUT_KILL,
           "m5b: chest step completes");
     for (i = 0; i < world.unit_count; i++)

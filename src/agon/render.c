@@ -131,10 +131,81 @@ static bool load_tiles(void)
     return true;
 }
 
+/* Batched bitmap output (ADR 0006, lever 1; audit B4/B5).
+ *
+ * A full redraw is ~260 bitmaps at 12 bytes each: 5 for
+ * `VDU 23,27,&20,bufferId;` and 7 for `VDU 23,27,3,x;y;`. Sent through the
+ * libagon helpers, every one of those bytes pays call overhead. MOS
+ * RST 18h takes a length in BC and ships a whole block in one call
+ * (mos_puts with size != 0; the delimiter only applies when size is 0),
+ * so render_fields() collects a frame and sends it in few calls.
+ *
+ * Two rules keep this honest:
+ *  - Only the tile path writes into the buffer, and only while a batch is
+ *    open. Everything else (text, rectangles, sprites) still goes out
+ *    directly, so nothing can be reordered behind a half-filled buffer.
+ *  - `sel` remembers the bitmap the VDP has selected, so repeated tiles
+ *    skip their select. It is only valid inside one batch and is reset
+ *    when a batch opens. */
+#define VDU_BUF 512
+static uint8_t vdu_buf[VDU_BUF];
+static uint16_t vdu_len;
+static bool vdu_batch;
+static uint16_t vdu_sel;             /* bitmap selected on the VDP, or NO_SEL */
+#define NO_SEL 0xFFFF
+
+static void vdu_flush(void)
+{
+    if (vdu_len) {
+        mos_puts((const char *)vdu_buf, vdu_len, 0);
+        vdu_len = 0;
+    }
+}
+
+static void batch_begin(void)
+{
+    vdu_len = 0;
+    vdu_sel = NO_SEL;
+    vdu_batch = true;
+}
+
+static void batch_end(void)
+{
+    vdu_flush();
+    vdu_batch = false;
+}
+
+/* Select (when needed) and draw one bitmap by its VDP buffer id. */
+static void emit_bitmap(uint16_t buf, int x, int y)
+{
+    uint8_t *p;
+    if (!vdu_batch) {
+        vdp_adv_select_bitmap(buf);
+        vdp_draw_bitmap(x, y);
+        return;
+    }
+    if (vdu_len + 12u > VDU_BUF)
+        vdu_flush();
+    if (buf != vdu_sel) {
+        p = &vdu_buf[vdu_len];
+        p[0] = 23; p[1] = 27; p[2] = 0x20;
+        p[3] = (uint8_t)buf;
+        p[4] = (uint8_t)(buf >> 8);
+        vdu_len = (uint16_t)(vdu_len + 5);
+        vdu_sel = buf;
+    }
+    p = &vdu_buf[vdu_len];
+    p[0] = 23; p[1] = 27; p[2] = 3;
+    p[3] = (uint8_t)(uint16_t)x;
+    p[4] = (uint8_t)((uint16_t)x >> 8);
+    p[5] = (uint8_t)(uint16_t)y;
+    p[6] = (uint8_t)((uint16_t)y >> 8);
+    vdu_len = (uint16_t)(vdu_len + 7);
+}
+
 static void draw_tile(uint16_t id, int x, int y)
 {
-    vdp_adv_select_bitmap(TILE_BUFFER_BASE + id);
-    vdp_draw_bitmap(x, y);
+    emit_bitmap((uint16_t)(TILE_BUFFER_BASE + id), x, y);
 }
 
 uint16_t render_tile_buffer(uint16_t id)
@@ -158,8 +229,8 @@ static void draw_small_mount(uint16_t id, int x, int y)
         draw_tile(id, x, y);
         return;
     }
-    vdp_adv_select_bitmap(TILE_BUFFER_BASE + TILE_COUNT + slot);
-    vdp_draw_bitmap(x + (TILE_PX - MOUNT_PX) / 2, y + (TILE_PX - MOUNT_PX));
+    emit_bitmap((uint16_t)(TILE_BUFFER_BASE + TILE_COUNT + slot),
+                x + (TILE_PX - MOUNT_PX) / 2, y + (TILE_PX - MOUNT_PX));
 }
 
 /* The 8x16 heading font (tools/build_font.py): 256 glyphs x 16 bytes,
@@ -255,6 +326,7 @@ static void ride_offset(uint16_t mount_tile, int *dx, int *dy)
 uint8_t render_fields(void)
 {
     uint8_t vx, vy, i, n = 0;
+    batch_begin();
     for (vy = 0; vy < VIEW_H; vy++) {
         for (vx = 0; vx < VIEW_W; vx++) {
             const FieldLayers *f;
@@ -287,18 +359,22 @@ uint8_t render_fields(void)
             n++;
         }
     }
+    batch_end();                 /* the frame goes out before anything else */
     view_clean();
     if (n)
         vdp_refresh_sprites();   /* keep the cursor on top of new tiles */
     return n;
 }
 
+/* mos_putstring goes straight out through MOS RST 18h; printf("%s") would
+ * drag the whole libc formatting machinery in for a plain string, and the
+ * panel writes a dozen of these per frame (audit B7). */
 static void text_at(uint8_t col, uint8_t row, uint8_t colour, const char *s)
 {
     vdp_cursor_tab(col, row);
     vdp_set_text_colour(colour);
     vdp_set_text_bg_colour(C_BLACK);
-    printf("%s", s);
+    mos_putstring(s);
 }
 
 /* Fill colour, bar outline colour and icon per bar (Amiga order, B2.4). */
@@ -689,10 +765,10 @@ void render_heading(int x, int y, uint8_t colour, const char *text)
     vdp_write_at_graphics_cursor();
     vdp_gcol(0, colour == C_BRIGHT_YELLOW ? C_RED : C_BLUE);
     vdp_move_to(x + 1, y + 1);
-    printf("%s", text);
+    mos_putstring(text);
     vdp_gcol(0, colour);
     vdp_move_to(x, y);
-    printf("%s", text);
+    mos_putstring(text);
     vdp_write_at_text_cursor();
     vdp_font_select(SYSTEM_FONT, 0);
 }

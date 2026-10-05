@@ -2,6 +2,23 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Plattform-Audit: Sicht, LOS und Zeichenstrom (2026-10-05)
+
+Hintergrund und Begründung: `docs/AUDIT-PLATTFORM.md`.
+
+### Geändert
+- **Sicht per Shadowcasting (D39, ADR 0009):** acht Oktanten statt eines Bresenham-Strahls je Zielfeld, O(r²) statt O(r³). Reichweite, Chebyshev-Distanz, Endpunkt-Regel und Flieger bleiben unverändert; in verwinkeltem Gelände deckt die Sicht einzelne Felder anders auf. Steigungen als exakte Brüche, ohne Division und ohne Gleitkommazahlen.
+- **Blocking-Bitmaps zwischengespeichert:** jede LOS-Abfrage baute die Bitmap der ganzen Karte neu (1440 Durchläufe), und die KI fragt eine pro Kandidat in einer Schleife. Beide Bitmaps hängen jetzt an `World.generation`. Die Zauber-Variante (D36) hat ihre eigene und scannt nicht mehr pro Aufruf die ganze Karte.
+- **Zeichenstrom gebündelt:** `render_fields()` sammelt die Bitmap-Befehle eines Bildes und schickt sie über `mos_puts` (MOS RST 18h mit Länge) statt Byte für Byte durch die libagon. Wiederholte Kacheln sparen zusätzlich ihr `select_bitmap`.
+- **Animationspartner als Tabelle** statt Linearsuche — `view_update()` rief die Suche für jede Ebene jedes Feldes auf (~13 600 Vergleiche je Komposition).
+- **Panel- und Menütext** über `mos_putstring` statt `printf("%s")`. Das Binary wird dadurch kleiner, nicht größer: 308 400 → 307 912 Byte.
+
+### Behoben
+- **Ein Tür-Test im Selftest hatte still seine Aussage verloren:** er schrieb `feature[][]` direkt, ohne `world_map_changed()`. Mit dem neuen Cache fiel das auf. Alle 14 direkten Geländeschreibzugriffe im Selftest ziehen die Invariante jetzt nach, und `world.h` sagt, dass sie Pflicht ist.
+
+### Offen
+- Messwerte auf echter Hardware stehen noch aus (das Gerät lief beim Playtest). Erwartet: Sicht deutlich unter 100 ms, KI-Phase überwiegend erledigt.
+
 ## [Unreleased] – Reiter verschwinden nicht mehr (2026-10-05)
 
 ### Behoben
