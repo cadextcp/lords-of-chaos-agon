@@ -56,6 +56,7 @@ static void init_unit(Unit *u, uint8_t x, uint8_t y, uint8_t kind, uint8_t owner
     u->herd_dir = 0;
     u->travel = 0;
     u->group = 0;
+    u->reacted = false;
     u->alarm = 0;
     u->alarm_charge = 0;
     u->alarm_x = u->alarm_y = 0;
@@ -507,7 +508,7 @@ void world_new_turn(World *w)
         Unit *u = &w->units[i];
         /* airborne on a flying potion (no wings): the ground budget */
         uint8_t full = (u->flags & UF_FLYING) && u->ap_fly ? u->ap_fly : u->ap_max;
-        u->flags &= (uint8_t)~UF_REACTED;   /* new round, new reaction (D29) */
+        u->reacted = false;                 /* new round, new reaction (D29) */
         if (u->flags & UF_WOUNDED)         /* bleeds until death (PM 17) */
             u->con = u->con > 0 ? (uint8_t)(u->con - 1) : 0;
         uint16_t sta;

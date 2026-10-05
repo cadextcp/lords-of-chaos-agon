@@ -32,7 +32,9 @@ typedef enum {
 /* Status flags shown as panel icons (PM 11). */
 enum { UF_UNDEAD = 1, UF_FLYING = 2, UF_MOUNT = 4, UF_WOUNDED = 8,
        UF_INVISIBLE = 16, UF_MAGIC_WEAPON = 32 /* enchanted (M4b Enchant) */,
-       UF_REACTED = 64 /* the round's defensive reaction is spent (D29) */,
+       /* 64 is UF_RIDDEN (ride.h). The reaction of D29 lives in
+        * Unit.reacted: it shared bit 64 with UF_RIDDEN, and the round
+        * reset dropped riders out of the world (wizard "died"). */
        UF_ENGAGED = 128 /* bound in melee until its owner's phase ends (GDD 6) */ };
 
 /* Brewing cauldron on a field (M4c, GDD 7.2). */
@@ -78,6 +80,7 @@ typedef struct {
     uint8_t herd_dir;         /* crossing herd: direction 1..8, 0 = none */
     uint8_t travel;           /* crossing herd: fields walked so far */
     uint8_t group;            /* herd: the leader's id (0 = alone) */
+    bool reacted;             /* the round's defensive reaction is spent (D29) */
     uint8_t alarm;            /* alarmed for this many rounds (D37) */
     uint8_t alarm_charge;     /* 1 = attack the disturber, 0 = flee */
     uint8_t alarm_x, alarm_y; /* where the trouble was */

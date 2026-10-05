@@ -722,13 +722,13 @@ static void test_combat(void)
     world.units[1].con = 32;
     {
         CombatResult a, b;
-        world.units[1].flags &= (uint8_t)~UF_REACTED;   /* fresh round (D29) */
+        world.units[1].reacted = false;   /* fresh round (D29) */
         combat_melee(&world, &rng, 0, 1, &a);
         world.units[0].ap = 40;
         world.units[0].con = 30;
         world.units[1].ap = 0;
         world.units[1].con = 32;
-        world.units[1].flags &= (uint8_t)~UF_REACTED;   /* fresh round (D29) */
+        world.units[1].reacted = false;   /* fresh round (D29) */
         rng_seed(&rng, 7);
         combat_melee(&world, &rng, 0, 1, &b);
         check(a.hit == b.hit && a.damage == b.damage && a.returned == b.returned,
@@ -742,7 +742,7 @@ static void test_combat(void)
     world.units[1].ap = 30;                     /* fresh defender */
     world.units[1].sta = 45;
     world.units[1].con = 32;
-    world.units[1].flags &= (uint8_t)~UF_REACTED;
+    world.units[1].reacted = false;
     rng_seed(&rng, 21);
     combat_melee(&world, &rng, 0, 1, &r);
     check(r.returned, "combat: defenders strike back");
@@ -1229,6 +1229,43 @@ static void test_wild(void)
               world.units[g].x != 21,
               "d37: the stampeding elephant tramples the goblin");
         events_reset();
+    }
+
+    /* a wizard riding a gryphon survives the round change (bug: the
+     * reaction flag shared bit 64 with UF_RIDDEN) */
+    world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+    strip_neutrals();
+    {
+        uint8_t k, wz = 0, gr;
+        Game g;
+        for (k = 0; k < world.unit_count; k++)
+            if (world.units[k].owner == OWN_P1)
+                wz = k;
+        world.units[wz].x = 20;
+        world.units[wz].y = 12;
+        gr = world_spawn_unit(&world, OWN_P1, CR_GRYPHON, 21, 12);
+        world.units[wz].ap = 40;
+        (void)gr;
+        rng_seed(&r, 1);
+        game_init(&g, world.portal_x, world.portal_y, world.portal_rmin,
+                  world.portal_rmax, &r);
+        for (k = 0; k < world.unit_count; k++)
+            if (world.units[k].owner == OWN_P1 && world.units[k].kind == CR_WIZARD)
+                wz = k;
+        check(ride_mount_adjacent(&world, wz), "ride: the wizard mounts the gryphon");
+        world_new_turn(&world);
+        world_new_turn(&world);
+        check(game_outcome(&g, &world, OWN_P1) == OUT_RUNNING &&
+              !game_over(&g, &world),
+              "ride: a riding wizard lives through the round change");
+        {
+            unsigned others = (unsigned)UF_UNDEAD | (unsigned)UF_FLYING |
+                              (unsigned)UF_MOUNT | (unsigned)UF_WOUNDED |
+                              (unsigned)UF_INVISIBLE | (unsigned)UF_MAGIC_WEAPON |
+                              (unsigned)UF_ENGAGED;
+            check(((unsigned)UF_RIDDEN & others) == 0,
+                  "ride: UF_RIDDEN has a bit of its own");
+        }
     }
 
     /* spells reach through tall grass, eyes do not (D36) */
@@ -3636,7 +3673,7 @@ static void test_m5e_balance(void)
         rng_seed(&rng, 32);
         check(combat_disengage_swings(&world, &rng, 0, &fs) == 0,
               "m5e: no free swing left in the same round (D29)");
-        world.units[1].flags &= (uint8_t)~UF_REACTED;   /* new round */
+        world.units[1].reacted = false;   /* new round */
         rng_seed(&rng, 33);
         check(combat_disengage_swings(&world, &rng, 0, &fs) == 1,
               "m5e: the free swing works again next round");
@@ -3740,7 +3777,7 @@ static void test_m5e_balance(void)
             world.units[0].con = 30;
             world.units[1].con = 250;      /* a punching bag that survives */
             world.units[1].con_max = 250;
-            world.units[1].flags |= UF_REACTED;   /* its counter stays off */
+            world.units[1].reacted = true;   /* its counter stays off */
             if (combat_melee(&world, &rng, 0, 1, &cr) && cr.hit) {
                 hits++;
                 if (cr.crit) {

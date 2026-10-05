@@ -105,11 +105,11 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
      * gets ONE reaction per round (D29, D&D style): it is spent here, and
      * further attacks in the same round land unanswered. Being attacked
      * still costs no AP and no stamina. */
-    if (!(d->flags & UF_REACTED)) {
+    if (!d->reacted) {
         bool rcan_harm, rcrit = false;
         uint16_t rroll = 100;
         out->returned = true;
-        w->units[def].flags |= UF_REACTED;
+        w->units[def].reacted = true;
         events_push(EV_SWING, a->x, a->y, d->kind, d->owner, 0, 0);
         rcan_harm = items_can_harm_undead(w, def, att);
         if (rcan_harm)
@@ -145,9 +145,9 @@ bool combat_free_swing(World *w, Rng *rng, uint8_t att, uint8_t def,
         return false;
     if (!items_can_harm_undead(w, att, def))
         return false;                      /* clanks off harmlessly (GDD 4.2) */
-    if (a->flags & UF_REACTED)
+    if (a->reacted)
         return false;                      /* reaction spent this round (D29) */
-    w->units[att].flags |= UF_REACTED;     /* the swing uses it up */
+    w->units[att].reacted = true;          /* the swing uses it up */
     events_push(EV_SWING, d->x, d->y, a->kind, a->owner, 0, 0);
 
     {

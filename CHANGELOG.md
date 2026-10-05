@@ -2,6 +2,12 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Reiter verschwinden nicht mehr (2026-10-05)
+
+### Behoben
+- **Reiten:** Die Kampfreaktion (D29) teilte sich ein Statusbit mit „wird geritten“. Der Rundenwechsel warf Reiter dadurch aus der Welt, und der Zauberer galt als tot. Die Reaktion hat jetzt ein eigenes Feld.
+- Spielstand-Format v5 (alte Spielstände werden abgelehnt).
+
 ## [Unreleased] – Core ohne Hardware-Division schneller (aus dem Mega-Drive-Repo, 2026-10-05)
 
 ### Geändert
