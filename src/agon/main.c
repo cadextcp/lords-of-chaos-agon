@@ -21,6 +21,7 @@
 
 #include "../core/events.h"
 #include "../core/populate.h"
+#include "../core/effect.h"
 #include "../core/ai.h"
 #include "../core/area.h"
 #include "../core/ride.h"

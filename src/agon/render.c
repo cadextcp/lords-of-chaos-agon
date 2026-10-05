@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../core/effect.h"
 #include "../core/colors.h"
 #include "../core/gen/data.h"
 #include "../core/items.h"
