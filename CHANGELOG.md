@@ -2,6 +2,13 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Gelände-Politur 3: Kreaturen-Idle (D53) (2026-10-06)
+
+### Neu
+- **Kreaturen bewegen sich hin und wieder:** Fledermaus, Harpyie, Pixie, Greif, Pegasus und die Drachen schlagen mit den Flügeln, Geist und Spectre wiegen sich (gezeichnete Frames, 100 neue Kacheln), alle anderen Kreaturen heben sich kurz um 1–2 Pixel. Jede Figur ist ein Viertel der Zeit aktiv, gegeneinander versetzt. Reittiere mit Reiter, Watende und Figuren unter Dächern bleiben ruhig.
+- `tools/art/creature_frames.py` erzeugt die Frames aus den Basis-PNGs; `gen_data.py` erzeugt `CREATURE_FRAME`; `build_tiles.py` färbt die Frames wie die Basis ein.
+- Core: `view_bob()` (Lift außerhalb von `FieldLayers`), `view_set_idle()` (im Core aus, das Spiel schaltet ein); `view_animate()` berechnet Felder mit Figuren neu und reicht den Überhang nach oben durch. Neue Checks `d53`.
+
 ## [Unreleased] – Gelände-Politur 2: Übergänge (D52) (2026-10-06)
 
 ### Neu
