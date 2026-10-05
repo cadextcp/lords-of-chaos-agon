@@ -34,7 +34,7 @@
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
  * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures;
  * M5c added the seven fx tiles after "floor_*" (IDs shifted again). */
-#define HOUSE_VIEW_HASH 0xA0DA1AA4UL
+#define HOUSE_VIEW_HASH 0x70511CA1UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -3947,6 +3947,76 @@ static void test_c5_drowning(void)
           "c5: a flier over water does not tire");
 }
 
+static uint8_t idle_tick(uint8_t id, uint8_t slot, uint8_t other_id)
+{
+    uint8_t t;
+    for (t = 0; t < 16; t++)   /* unit `id` at `slot`, the other one resting */
+        if (((t + id * 3) & 15) == slot && ((t + other_id * 3) & 15) >= 4)
+            return t;
+    return 0;
+}
+
+/* D53: creature idle animation - drawn frames, the lift of the others, and
+ * the staggered schedule. */
+static void test_idle(void)
+{
+    FieldLayers f;
+    uint8_t g, p, gid, pid, t, tr;
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 0;
+    g = world_spawn_unit(&world, OWN_P1, CR_GOBLIN, 20, 19);
+    p = world_spawn_unit(&world, OWN_P1, CR_PIXIE, 21, 19);
+    gid = world.units[g].id;
+    pid = world.units[p].id;
+    view_set_origin(18, 17);          /* goblin at field 2,2, pixie at 3,2 */
+    view_set_phase(0);
+    view_set_idle(false);
+    view_invalidate();
+    view_update(&world);
+    view_clean();
+    check(view_bob(2, 2) == 0, "d53: idle off: no lift");
+    view_set_idle(true);
+    tr = (uint8_t)(idle_tick(gid, 5, pid) + 8);
+    view_animate(tr);
+    view_clean();
+    view_compose(&world, 20, 19, &f);
+    check(f.id[f.n - 1] == CREATURE_TILE[CR_GOBLIN] + OWN_P1 && view_bob(2, 2) == 0,
+          "d53: resting goblin: base tile, no lift");
+    t = idle_tick(gid, 2, pid);
+    view_animate(t);
+    check(view_dirty(2, 2) && (view_bob(2, 2) >> 4) == 2 && (view_bob(2, 2) & 15) >= 1,
+          "d53: idle goblin rises 2 pixels");
+    check(view_dirty(2, 1), "d53: the field above repaints (the lift overhangs)");
+    check(fast_equals_reference(), "d53: idle frame equals reference");
+    view_clean();
+    view_animate(tr);
+    check(view_bob(2, 2) == 0 && view_dirty(2, 2) && view_dirty(2, 1),
+          "d53: back at rest: lift gone, the stale overhang is repainted");
+    view_clean();
+    t = idle_tick(pid, 1, gid);
+    view_animate(t);
+    view_compose(&world, 21, 19, &f);
+    check(f.id[f.n - 1] == CREATURE_FRAME[CR_PIXIE][0] + OWN_P1 && view_dirty(3, 2) &&
+          view_bob(3, 2) == 0 && fast_equals_reference(),
+          "d53: pixie shows drawn frame 1 (no lift)");
+    view_clean();
+    t = (uint8_t)((3 - pid * 3) & 15);   /* the goblin may idle too: only the pixie is checked */
+    view_animate(t);
+    view_compose(&world, 21, 19, &f);
+    check(f.id[f.n - 1] == CREATURE_FRAME[CR_PIXIE][1] + OWN_P1 && fast_equals_reference(),
+          "d53: pixie shows drawn frame 2");
+    view_clean();
+    t = idle_tick(pid, 2, gid);
+    view_animate(t);
+    view_compose(&world, 21, 19, &f);
+    check(f.id[f.n - 1] == CREATURE_TILE[CR_PIXIE] + OWN_P1,
+          "d53: pixie back on its base tile between flaps");
+    view_set_idle(false);
+    view_animate(0);
+    view_set_origin(0, 0);
+    load_house();
+}
+
 static void test_c3_overlap(void)
 {
     FieldLayers f;
@@ -4310,6 +4380,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_c1_c2();
     test_c5_drowning();
     test_c3_overlap();
+    test_idle();
     load_house();   /* leave a clean state */
     return fails;
 }

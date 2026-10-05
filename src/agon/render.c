@@ -349,6 +349,8 @@ uint8_t render_fields(void)
                 int y = vy * TILE_PX;
                 if (f->air & (1u << i))         /* flyer, slightly higher */
                     y -= 3;
+                if ((view_bob(vx, vy) & 15) == i + 1)   /* idle creature rises */
+                    y -= view_bob(vx, vy) >> 4;
                 if (f->wade == i + 1 && vy + 1 < VIEW_H) {
                     y += WADE_DROP;             /* waist-deep: the legs spill  */
                     view_mark_dirty(vx, (uint8_t)(vy + 1));   /* into the field */

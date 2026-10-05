@@ -62,6 +62,13 @@ uint8_t view_update(const World *w);
  * view_update() when nothing else changed. */
 uint8_t view_animate(uint8_t phase);
 bool view_dirty(uint8_t vx, uint8_t vy);
+/* Idle lift of a creature in a field (D53): high nibble = pixels to draw it
+ * higher, low nibble = its layer index + 1; 0 = none. Presentation only,
+ * not part of the layers. */
+uint8_t view_bob(uint8_t vx, uint8_t vy);
+/* Creature idle animation (D53) on or off; off by default so tests and
+ * tools compose the plain base tiles. The game switches it on. */
+void view_set_idle(bool on);
 /* Force one view field to repaint (fx overlays, M5c). */
 void view_mark_dirty(uint8_t vx, uint8_t vy);
 /* Leave the unit with this stable id out of the composition while the

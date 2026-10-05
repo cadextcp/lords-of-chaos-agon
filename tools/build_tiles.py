@@ -24,6 +24,7 @@ Derived tiles generated here (GDD 11.2/11.3):
 
 from __future__ import annotations
 
+import re
 import struct
 import sys
 from pathlib import Path
@@ -91,7 +92,8 @@ def collect() -> list[tuple[str, Image.Image]]:
         check(p.name, im)
         if im.size != (24, 24):
             raise SystemExit(f"{p.name}: expected 24x24, got {im.size}")
-        if p.stem in OWNED:
+        frame = re.fullmatch(r"(.+)_f[12]", p.stem)     # idle frames of a creature
+        if p.stem in OWNED or (frame and frame.group(1) in OWNED):
             for owner in OWNERS:
                 entries.append((f"{p.stem}_{owner}", owner_variant(im, owner)))
         else:

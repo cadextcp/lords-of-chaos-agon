@@ -2243,6 +2243,7 @@ menu_start:
         bench();
 
     chord_init(&chord, WINDOW_CS, DELAY_CS, REPEAT_CS);
+    view_set_idle(true);   /* creatures play their idle now and then (D53) */
     next_anim = getsysvar_time() + ANIM_CS;
     next_blink = getsysvar_time() + BLINK_CS;
     while (running) {

@@ -192,6 +192,7 @@ static int16_t origin_x, origin_y;
 static int16_t cursor_x, cursor_y;
 static uint16_t cursor_tile = NO_CURSOR;
 static uint8_t phase;
+static uint8_t tick;   /* full animation counter; phase = tick & 3 */
 static const Sight *sight_map;   /* NULL: omniscient (tests, mockups) */
 static int16_t portal_x = -1, portal_y = -1;   /* open portal, if any */
 
@@ -247,7 +248,11 @@ void view_set_portal(int16_t x, int16_t y)
     portal_y = y;
 }
 
-void view_set_phase(uint8_t p) { phase = p & 3; }
+void view_set_phase(uint8_t p)
+{
+    phase = p & 3;
+    tick = p;
+}
 
 static void push(FieldLayers *f, uint16_t id)
 {
@@ -447,6 +452,37 @@ void view_hide_unit(uint8_t id)
     hidden_unit_id = id;
 }
 
+/* Creature idle animation (D53): now and then a creature plays a four-step
+ * idle (about a quarter of the time, staggered by unit id so the troop does
+ * not move in unison). Creatures with drawn frames (CREATURE_FRAME) flap or
+ * sway: base, f1, base, f2. All others rise a pixel or two - the renderer
+ * lifts the layer (view_bob). A unit with a rider keeps its base tile: the
+ * rider offsets are tied to it (ride.c, render.c). */
+#define IDLE_REST 4
+static const uint8_t FLAP_SEQ[4] = {0, 1, 0, 2};
+static const uint8_t LIFT_SEQ[5] = {0, 1, 2, 1, 0};
+static uint8_t unit_bob;   /* set by push_unit: lift << 4 | layer + 1, 0 = none */
+
+static bool idle_on;   /* off by default: tests and tools see base tiles */
+
+void view_set_idle(bool on) { idle_on = on; }
+
+static uint8_t idle_step(const Unit *un)
+{
+    uint8_t slot = (uint8_t)((tick + un->id * 3) & 15);
+    if (!idle_on || slot >= 4 || ride_rider_kind(un) < CR_COUNT)
+        return IDLE_REST;
+    return slot;
+}
+
+static uint16_t unit_tile(const Unit *un, uint8_t step)
+{
+    uint16_t t = CREATURE_TILE[un->kind];
+    if (step < 4 && FLAP_SEQ[step] && CREATURE_FRAME[un->kind][FLAP_SEQ[step] - 1])
+        t = CREATURE_FRAME[un->kind][FLAP_SEQ[step] - 1];
+    return (uint16_t)(t + un->owner);
+}
+
 /* Hidden movement (GDD 3.4, AMI 4): enemy units are only drawn when the
  * viewer currently sees their field; invisible enemies never. */
 static void push_unit(const World *w, const Unit *un, FieldLayers *out, bool air)
@@ -467,13 +503,20 @@ static void push_unit(const World *w, const Unit *un, FieldLayers *out, bool air
             out->id[out->n++] = (uint16_t)(CREATURE_TILE[rk] + un->owner);
         }
     }
-    if (air)
-        push_air(out, (uint16_t)(CREATURE_TILE[un->kind] + un->owner));
-    else {
-        if (out->n < VIEW_MAX_LAYERS && FLOOR_DROWN[w->floor[un->y][un->x]] &&
-            ride_rider_kind(un) >= CR_COUNT)
-            out->wade = (uint8_t)(out->n + 1);   /* waist-deep (C4) */
-        push(out, (uint16_t)(CREATURE_TILE[un->kind] + un->owner));
+    {
+        uint8_t step = idle_step(un);
+        if (air)
+            push_air(out, unit_tile(un, step));
+        else {
+            if (out->n < VIEW_MAX_LAYERS && FLOOR_DROWN[w->floor[un->y][un->x]] &&
+                ride_rider_kind(un) >= CR_COUNT)
+                out->wade = (uint8_t)(out->n + 1);   /* waist-deep (C4) */
+            /* creatures without drawn frames rise a little (not wading) */
+            if (step < 4 && LIFT_SEQ[step] && !out->wade && out->n < VIEW_MAX_LAYERS &&
+                !CREATURE_FRAME[un->kind][0] && ride_rider_kind(un) >= CR_COUNT)
+                unit_bob = (uint8_t)((LIFT_SEQ[step] << 4) | (out->n + 1));
+            push(out, unit_tile(un, step));
+        }
     }
     /* Mark what belongs to an enemy wizard so the renderer can frame it
      * (B4). Wild animals stay unmarked - they are nobody's troops. */
@@ -667,6 +710,7 @@ static void compose_fast(const World *w, uint8_t vx, uint8_t vy, FieldLayers *ou
 {
     int16_t wx = (int16_t)(origin_x + vx), wy = (int16_t)(origin_y + vy);
     uint8_t i;
+    unit_bob = 0;
     if (w->wrap) {   /* origin is normalised in view_update(): one subtraction */
         if (wx >= w->w) wx = (int16_t)(wx - w->w);
         if (wy >= w->h) wy = (int16_t)(wy - w->h);
@@ -711,11 +755,48 @@ static void compose_fast(const World *w, uint8_t vx, uint8_t vy, FieldLayers *ou
     }
     apply_sight(w, wx, wy, out);
     compose_cursor(w, wx, wy, out);
+    /* no lift for what is hidden or under a roof */
+    if (unit_bob && ((unit_bob & 15) > out->n || has_roof_layer(out)))
+        unit_bob = 0;
+}
+
+/* Per window field: the lift of its idle creature (see unit_bob), whether a
+ * ground unit stands there, and the idle step it was drawn in. */
+static uint8_t bob[VIEW_H][VIEW_W];
+static uint8_t unit_cell[VIEW_H][VIEW_W];   /* ground unit index + 1 */
+static uint8_t cell_step[VIEW_H][VIEW_W];
+static uint8_t had_air[VIEW_H][VIEW_W];     /* overhang before the last change */
+
+uint8_t view_bob(uint8_t vx, uint8_t vy) { return bob[vy][vx]; }
+
+/* A field overhangs the one above when it shows an airborne unit, a rider or
+ * a lifted creature. */
+static bool overhangs(uint8_t vx, uint8_t vy)
+{
+    return ((fields[vy][vx].air | fields[vy][vx].ride) != 0) || bob[vy][vx] != 0;
+}
+
+/* Airborne units are drawn a few pixels into the field above (GDD 11.3): a
+ * field whose overhang changed - old or new - must repaint the field above
+ * (stale overhang), and a repainted field must be followed by the overhang
+ * field below it, since fields draw top-down. */
+static void propagate_overhang(void)
+{
+    uint8_t vx, vy;
+    for (vy = 0; vy < VIEW_H; vy++) {
+        for (vx = 0; vx < VIEW_W; vx++) {
+            if (!dirty[vy][vx])
+                continue;
+            if (vy > 0 && (overhangs(vx, vy) || had_air[vy][vx]))
+                dirty[vy - 1][vx] = 1;
+            if (vy + 1 < VIEW_H && overhangs(vx, (uint8_t)(vy + 1)))
+                dirty[vy + 1][vx] = 1;
+        }
+    }
 }
 
 uint8_t view_update(const World *w)
 {
-    static uint8_t had_air[VIEW_H][VIEW_W];
     FieldLayers f;
     uint8_t vx, vy, n = 0;
     if (cache_world != w || cache_gen != w->generation)
@@ -735,33 +816,22 @@ uint8_t view_update(const World *w)
                     if (is_animated(f.id[i]))
                         animated[vy][vx] = 1;
             }
-            had_air[vy][vx] = (fields[vy][vx].air | fields[vy][vx].ride) != 0;
+            unit_cell[vy][vx] = over_unit[vy][vx];
+            cell_step[vy][vx] = over_unit[vy][vx]
+                ? idle_step(&w->units[over_unit[vy][vx] - 1]) : IDLE_REST;
+            had_air[vy][vx] = overhangs(vx, vy);
             if (!valid || f.n != fields[vy][vx].n || f.air != fields[vy][vx].air ||
                 f.ride != fields[vy][vx].ride || f.foe != fields[vy][vx].foe ||
-                f.wade != fields[vy][vx].wade ||
+                f.wade != fields[vy][vx].wade || unit_bob != bob[vy][vx] ||
                 memcmp(f.id, fields[vy][vx].id, f.n * sizeof f.id[0]) != 0) {
                 fields[vy][vx] = f;
+                bob[vy][vx] = unit_bob;
                 dirty[vy][vx] = 1;
             }
         }
     }
     valid = true;
-    /* Airborne units are drawn a few pixels into the field above (GDD
-     * 11.3): a field whose air layer changed - old or new - must repaint
-     * the field above (stale overhang), and a repainted field must be
-     * followed by the air field below it, since fields draw top-down. */
-    for (vy = 0; vy < VIEW_H; vy++) {
-        for (vx = 0; vx < VIEW_W; vx++) {
-            if (!dirty[vy][vx])
-                continue;
-            if (vy > 0 && ((fields[vy][vx].air | fields[vy][vx].ride) ||
-                           had_air[vy][vx]))
-                dirty[vy - 1][vx] = 1;
-            if (vy + 1 < VIEW_H &&
-                (fields[vy + 1][vx].air | fields[vy + 1][vx].ride))
-                dirty[vy + 1][vx] = 1;
-        }
-    }
+    propagate_overhang();
     for (vy = 0; vy < VIEW_H; vy++)
         for (vx = 0; vx < VIEW_W; vx++)
             n = (uint8_t)(n + dirty[vy][vx]);
@@ -772,9 +842,30 @@ uint8_t view_animate(uint8_t p)
 {
     uint8_t vx, vy, i, n = 0;
     phase = p & 3;
+    tick = p;
+    for (vy = 0; vy < VIEW_H; vy++)
+        for (vx = 0; vx < VIEW_W; vx++)
+            had_air[vy][vx] = overhangs(vx, vy);
     for (vy = 0; vy < VIEW_H; vy++)
         for (vx = 0; vx < VIEW_W; vx++) {
             FieldLayers *f = &fields[vy][vx];
+            if (unit_cell[vy][vx] && cache_world &&
+                unit_cell[vy][vx] <= cache_world->unit_count) {
+                /* a creature stands here: it may start, step or end its idle */
+                uint8_t step = idle_step(&cache_world->units[unit_cell[vy][vx] - 1]);
+                if (step != IDLE_REST || cell_step[vy][vx] != IDLE_REST) {
+                    FieldLayers g;
+                    compose_fast(cache_world, vx, vy, &g);
+                    cell_step[vy][vx] = step;
+                    if (g.n != f->n || memcmp(g.id, f->id, g.n * sizeof g.id[0]) != 0 ||
+                        unit_bob != bob[vy][vx]) {
+                        *f = g;
+                        bob[vy][vx] = unit_bob;
+                        dirty[vy][vx] = 1;
+                    }
+                    continue;
+                }
+            }
             if (!animated[vy][vx])
                 continue;
             for (i = 0; i < f->n; i++) {
@@ -784,8 +875,11 @@ uint8_t view_animate(uint8_t p)
                     dirty[vy][vx] = 1;
                 }
             }
-            n = (uint8_t)(n + dirty[vy][vx]);
         }
+    propagate_overhang();
+    for (vy = 0; vy < VIEW_H; vy++)
+        for (vx = 0; vx < VIEW_W; vx++)
+            n = (uint8_t)(n + dirty[vy][vx]);
     return n;
 }
 
