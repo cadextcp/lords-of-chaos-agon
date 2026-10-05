@@ -195,7 +195,7 @@ bool area_cast(World *w, AreaKind kind, uint8_t level, uint8_t owner,
 }
 
 /* Objects fire burns (start values, GDD 7.2): paper, wood, plants. */
-static bool object_burns(uint8_t tile)
+static bool object_burns(uint16_t tile)
 {
     static const uint8_t BURNS[] = {OBJ_SCROLL, OBJ_BOW, OBJ_APPLE,
                                     OBJ_MUSHROOM, OBJ_MAGIC_APPLE,

@@ -34,7 +34,7 @@
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
  * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures;
  * M5c added the seven fx tiles after "floor_*" (IDs shifted again). */
-#define HOUSE_VIEW_HASH 0x3D34B775UL
+#define HOUSE_VIEW_HASH 0xA0DA1AA4UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -384,6 +384,42 @@ static void test_terrain(void)
         view_compose(&world, wx, wy, &b);
         check(a.n == b.n && memcmp(a.id, b.id, a.n * sizeof a.id[0]) == 0,
               "d51: composing a field twice gives the same layers");
+    }
+    {   /* D52: transitions - shore on water, tufts on a path, corners */
+        uint8_t save[3][3], save_fe = world.feature[31][11];
+        int16_t x, y, bx = 10, by = 30;
+        FieldLayers f;
+        for (y = 0; y < 3; y++)
+            for (x = 0; x < 3; x++) {
+                save[y][x] = world.floor[by + y][bx + x];
+                world.floor[by + y][bx + x] = FL_GRASS;
+            }
+        world.feature[by + 1][bx + 1] = FE_NONE;
+        world.floor[by + 1][bx + 1] = FL_WATER;
+        view_compose(&world, bx + 1, by + 1, &f);
+        check(f.id[1] == T_EDGE_SHORE_M01 + 14, "d52: a pond is walled in by the shore (mask 15)");
+        world.floor[by + 1][bx] = FL_WATER;          /* water to the west */
+        view_compose(&world, bx + 1, by + 1, &f);
+        check(f.id[1] == T_EDGE_SHORE_M01 + 6 && f.n == 2, "d52: open side west: shore mask 7, no redundant corners");
+        world.floor[by + 1][bx] = FL_GRASS;
+        world.floor[by][bx] = FL_WATER;
+        world.floor[by + 1][bx + 1] = FL_WATER;
+        view_compose(&world, bx + 1, by + 1, &f);
+        check(f.id[1] == T_EDGE_SHORE_M01 + 14 || f.n > 1, "d52: a diagonal water neighbour still gets edges");
+        world.floor[by + 1][bx + 1] = FL_PATH;
+        view_compose(&world, bx + 1, by + 1, &f);
+        check(f.id[1] == T_EDGE_PATH_M01 + 14, "d52: grass around a path field: tufts on all sides");
+        world.floor[by + 1][bx + 1] = FL_GRASS;
+        world.floor[by + 1][bx + 2] = FL_TALL_GRASS;
+        view_compose(&world, bx + 1, by + 1, &f);
+        check(f.id[1] == T_EDGE_TALL_M01 + 1, "d52: tall grass to the east frays the meadow");
+        world.floor[by + 1][bx + 2] = FL_STONE;
+        view_compose(&world, bx + 1, by + 1, &f);
+        check(f.n == 1, "d52: stone floor next to grass gives no transition");
+        for (y = 0; y < 3; y++)
+            for (x = 0; x < 3; x++)
+                world.floor[by + y][bx + x] = save[y][x];
+        world.feature[31][11] = save_fe;
     }
     {   /* variants are a pure function of the position (wrap-stable) */
         uint8_t seen_base = 0, seen_var = 0;

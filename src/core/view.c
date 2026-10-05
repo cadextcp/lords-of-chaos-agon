@@ -37,6 +37,64 @@ static const uint16_t FLOOR_VAR[FL_COUNT][4] = {
 /* Half the fields keep the base texture. */
 static const uint8_t VAR_PICK[8] = {0, 0, 1, 0, 2, 0, 3, 1};
 
+static void push(FieldLayers *f, uint16_t id);
+
+/* Terrain transitions (D52): a field that gives way to a neighbouring terrain
+ * gets a transparent edge overlay (tools/art/make_terrain.py): the shore lip
+ * on water, grass tufts on a path, tall-grass blades on a meadow. Edge tiles
+ * are indexed by a 4-bit neighbour mask (N=1 E=2 S=4 W=8, like wall_mask),
+ * corner tiles cover a lone diagonal neighbour (NW, NE, SE, SW). */
+enum { TR_NONE, TR_SHORE, TR_PATH, TR_TALL };
+static const uint8_t TR_FAMILY[FL_COUNT] = {
+    [FL_WATER] = TR_SHORE, [FL_PATH] = TR_PATH, [FL_GRASS] = TR_TALL};
+#define FLBIT(f) ((uint16_t)(1u << (f)))
+/* which neighbouring floors a family reacts to */
+static const uint16_t TR_NEIGH[4] = {
+    [TR_SHORE] = (uint16_t)~FLBIT(FL_WATER),
+    [TR_PATH] = FLBIT(FL_GRASS) | FLBIT(FL_TALL_GRASS) | FLBIT(FL_SWAMP) |
+                FLBIT(FL_FOREST),
+    [TR_TALL] = FLBIT(FL_TALL_GRASS)};
+static const uint16_t TR_EDGE[4] = {0, T_EDGE_SHORE_M01, T_EDGE_PATH_M01,
+                                    T_EDGE_TALL_M01};
+static const uint16_t TR_CORNER[4] = {0, T_EDGE_SHORE_C0, T_EDGE_PATH_C0,
+                                      T_EDGE_TALL_C0};
+
+/* Floor next to a field; beyond the edge of a small map it is the field's own. */
+static uint8_t floor_near(const World *w, int16_t x, int16_t y, uint8_t own)
+{
+    if (!world_wrap(w, &x, &y))
+        return own;
+    return w->floor[y][x];
+}
+
+static bool tr_hit(const World *w, int16_t x, int16_t y, uint8_t own, uint16_t neigh)
+{
+    return (neigh >> floor_near(w, x, y, own)) & 1;
+}
+
+static void push_transition(const World *w, int16_t wx, int16_t wy, uint8_t fl,
+                            FieldLayers *out)
+{
+    static const int8_t DX[8] = {0, 1, 0, -1, -1, 1, 1, -1};
+    static const int8_t DY[8] = {-1, 0, 1, 0, -1, -1, 1, 1};
+    /* orthogonal mask bits that make a corner redundant: NW, NE, SE, SW */
+    static const uint8_t SHADOWED[4] = {1 | 8, 1 | 2, 4 | 2, 4 | 8};
+    uint8_t fam = TR_FAMILY[fl], mask = 0, i;
+    uint16_t neigh;
+    if (fam == TR_NONE || world_is_wall_line(w, wx, wy))
+        return;
+    neigh = TR_NEIGH[fam];
+    for (i = 0; i < 4; i++)
+        if (tr_hit(w, (int16_t)(wx + DX[i]), (int16_t)(wy + DY[i]), fl, neigh))
+            mask |= (uint8_t)(1u << i);
+    if (mask)
+        push(out, (uint16_t)(TR_EDGE[fam] + mask - 1));
+    for (i = 0; i < 4; i++)
+        if (!(mask & SHADOWED[i]) &&
+            tr_hit(w, (int16_t)(wx + DX[4 + i]), (int16_t)(wy + DY[4 + i]), fl, neigh))
+            push(out, (uint16_t)(TR_CORNER[fam] + i));
+}
+
 /* Deterministic 16-bit hash of a world position (no division; the casts keep
  * it identical with the 24-bit int of the eZ80). */
 static uint16_t field_hash(int16_t x, int16_t y)
@@ -232,9 +290,10 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
     {
         uint16_t h = field_hash(wx, wy), t = FLOOR_VAR[fl][VAR_PICK[(h >> 3) & 7]];
         push(out, t ? t : FLOOR_TILE[fl]);
+        push_transition(w, wx, wy, fl, out);
         /* A water lily on open water: water on both sides along one axis
          * (a two-field river qualifies, a bank corner does not). */
-        if (fl == FL_WATER && ((h >> 6) & 15) < 2 && fe == FE_NONE &&
+        if (fl == FL_WATER && out->n == 1 && ((h >> 6) & 15) < 2 && fe == FE_NONE &&
             ((world_floor(w, (int16_t)(wx - 1), wy) == FL_WATER &&
               world_floor(w, (int16_t)(wx + 1), wy) == FL_WATER) ||
              (world_floor(w, wx, (int16_t)(wy - 1)) == FL_WATER &&
@@ -519,7 +578,7 @@ void view_compose(const World *w, int16_t x, int16_t y, FieldLayers *out)
 }
 
 /* Static layers of every map field, computed once per map
- * (MAP_MAX_W * MAP_MAX_H * sizeof(FieldLayers) = 39 KB). Platforms with
+ * (MAP_MAX_W * MAP_MAX_H * sizeof(StaticField) = 26 KB). Platforms with
  * little RAM (the Mega Drive port, repo lords-of-chaos-md: 64 KB) build with
  * VIEW_STATIC_CACHE=0 and compose the static layers on demand instead;
  * the result is the same, only slower. */
@@ -528,7 +587,15 @@ void view_compose(const World *w, int16_t x, int16_t y, FieldLayers *out)
 #endif
 
 #if VIEW_STATIC_CACHE
-static FieldLayers scache[MAP_MAX_H][MAP_MAX_W];
+/* Static layers only: at most floor, 4 transition pieces, decor and feature
+ * (a wall: floor, 4 half floors, decor, wall). A full FieldLayers per field
+ * took 44 KB of the eZ80's scarce RAM (AGON-QUIRKS S6). */
+#define STATIC_MAX 8
+typedef struct {
+    uint8_t n;
+    uint16_t id[STATIC_MAX];
+} StaticField;
+static StaticField scache[MAP_MAX_H][MAP_MAX_W];
 #endif
 static const World *cache_world;
 static uint8_t cache_gen;
@@ -538,8 +605,14 @@ void view_rebuild(const World *w)
 #if VIEW_STATIC_CACHE
     uint8_t x, y;
     for (y = 0; y < w->h; y++)
-        for (x = 0; x < w->w; x++)
-            compose_static(w, x, y, &scache[y][x]);
+        for (x = 0; x < w->w; x++) {
+            FieldLayers f;
+            uint8_t i;
+            compose_static(w, x, y, &f);
+            scache[y][x].n = f.n < STATIC_MAX ? f.n : STATIC_MAX;
+            for (i = 0; i < scache[y][x].n; i++)
+                scache[y][x].id[i] = f.id[i];
+        }
 #endif
     cache_world = w;
     cache_gen = w->generation;
@@ -603,7 +676,13 @@ static void compose_fast(const World *w, uint8_t vx, uint8_t vy, FieldLayers *ou
         return;
     }
 #if VIEW_STATIC_CACHE
-    *out = scache[wy][wx];
+    out->n = scache[wy][wx].n;
+    out->air = 0;
+    out->ride = 0;
+    out->foe = 0;
+    out->wade = 0;
+    for (i = 0; i < out->n; i++)
+        out->id[i] = scache[wy][wx].id[i];
 #else
     compose_static(w, wx, wy, out);
 #endif
