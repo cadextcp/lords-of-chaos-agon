@@ -4,6 +4,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 
 ## [Unreleased] – Messen und Fernsteuern vom PC (2026-10-05)
 
+### Gemessen
+Vollständiger `loc --bench` auf dem echten Agon Light 2, Selftest grün: **Sicht 298 → 12 ms (25×)**, **KI-Phase 160 → 20 ms (8×)**, Komposition 90 → 38 ms, voller Redraw 152 → 100 ms. Ein eigener Schritt kostete vorher 0,4–0,5 s und liegt jetzt unter 60 ms. Werte in `docs/AGON-QUIRKS.md`.
+
 ### Behoben
 - **Esc wirkt jetzt auch über die USB-Konsole (Quirk H5).** Dort kommen Zeichen ohne VKey an; das Spiel prüfte nur `vkey == VK_ESC`. `input_poll()` normalisiert das an einer Stelle. Damit lässt sich eine Sitzung komplett vom PC fahren — einschließlich Beenden, und erst das schreibt `loc.log`.
 - **Der Benchmark gab die Hälfte seiner Zahlen nicht aus.** `compose`, `full` und `candles` riefen `render_message` und waren über USB zu sehen; Cursor, Sicht, Flächen-Ticks und KI-Phase nur `log_line` — und das Log erreicht die Karte erst beim Schließen, das ohne Esc nicht ging. Die Zeilen werden jetzt gesammelt und am Ende des Laufs auf die Konsole gegeben, also außerhalb jedes gemessenen Abschnitts.

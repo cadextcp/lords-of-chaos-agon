@@ -999,6 +999,7 @@ static void bench(void)
              (unsigned long)(part_cs * 10 / n));
     bench_line(buf);
     render_message(1, C_BRIGHT_YELLOW, buf);
+    bench_dump();                /* every number to the USB console */
 }
 
 /* ---------- save game (GDD 2.3, M4i) ---------- */

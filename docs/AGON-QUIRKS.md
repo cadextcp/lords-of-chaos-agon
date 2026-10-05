@@ -109,20 +109,25 @@ USB-Konsole (`scripts/agonctl.py` im Lumagon-Repo) reicht ein `y` ohne CR. Zu be
 - Der VDP-Teil dauert nur etwa 17 s (1.077.840 Bytes, 520 kbit/s) — die Dateien vorher per
   `agonload.py` hochzuladen ist der langsame Schritt.
 
-**Messwerte nach dem Plattform-Audit** (2026-10-05, Stand `e9f33cb`, Szenario 1, 9×9-Fenster).
-Selftest auf dem Gerät: `=== TEST PASS ===` mit Shadowcasting und den LOS-Caches.
+**Messwerte nach dem Plattform-Audit** (2026-10-05, Stand `6506f98` + Bench-Fix, Szenario 1,
+9×9-Fenster). Selftest auf dem Gerät: `=== TEST PASS ===`.
 
-| Messung | vor dem Audit | nach dem Audit |
-|---|---|---|
-| Fenster komponieren (81 Felder) | 90 ms | **38 ms** |
-| Voller Redraw (81 Felder) | 152 ms je Frame | **100 ms je Frame** |
-| Nur Kerzenanimation | 6 ms | 6 ms |
+| Messung | vor dem Audit | nach dem Audit | Faktor |
+|---|---|---|---|
+| Cursor blinken | 0 ms | 0 ms | — |
+| Fenster komponieren (81 Felder) | 90 ms | **38 ms** | 2,4× |
+| **Sichtberechnung** | **298 ms** | **12 ms** | **25×** |
+| 20 Flächen-Ticks | 40 ms | 40 ms | — |
+| **KI-Phase** | **160 ms** | **20 ms** | **8×** |
+| Voller Redraw (81 Felder) | 152 ms je Frame | **100 ms je Frame** | 1,5× |
+| Nur Kerzenanimation | 6 ms | 6 ms | — |
 
-Das Komponieren profitiert von der `anim_pair`-Tabelle (B6), der Redraw vom gebündelten
-Zeichenstrom und den gesparten `select_bitmap` (B4/B5). **Noch offen:** Sicht, Flächen-Ticks
-und KI-Phase — der Messlauf wurde abgeschnitten, und `loc --bench` wartet am Ende auf Esc,
-das über USB nicht ankommt (H5). Erwartung: Sicht deutlich unter 100 ms (Shadowcasting),
-KI-Phase überwiegend durch den `blk`-Cache erledigt.
+**Einordnung:** Ein eigener Schritt kostete vorher Sicht (298) + Komposition (90) + Redraw,
+also grob 0,4–0,5 s. Jetzt sind es 12 + 38 ms plus zwei bis vier neu gezeichnete Felder —
+unter 60 ms, praktisch sofort. Die Sicht ist von der teuersten Einzelposition zur
+billigsten geworden (Shadowcasting, D39); die KI-Phase war zu rund 7/8 der immer wieder neu
+gebaute Blockier-Bitmap (Audit B1). Der volle Redraw bleibt der dickste Posten und fällt
+nur beim Kameraschwenk an — dort liegt der nächste Hebel (B8, Viewport-Scroll).
 
 **Messwerte `loc --bench` auf dem echten Agon Light 2** (2026-10-03, Stand `037521f`, Szenario 1, 9×9-Fenster):
 

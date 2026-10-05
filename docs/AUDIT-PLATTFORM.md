@@ -17,10 +17,10 @@
 | B6 `anim_pair`-Tabelle | ✅ umgesetzt, als `const` zur Übersetzungszeit |
 | B7 `printf` → `mos_putstring` | ✅ umgesetzt |
 | B8 Viewport-Scroll beim Schwenk | ⬜ offen, braucht M2 — und `VDU 23,27,3` ignoriert den Viewport (siehe ADR 0006) |
-| M1 Wo liegen die 152 ms? | ⬜ offen |
+| M1 Wo liegen die 100 ms? | ⬜ offen (der Redraw ist jetzt der größte Posten) |
 | M2 Scrollt MODE 8? | ⬜ offen |
 | M3 8- oder 24-Bit-Codegen? | ⬜ offen |
-| M4 KI-Phase nachmessen | ⬜ offen (Gerät war beim Playtest belegt) |
+| M4 KI-Phase nachmessen | ✅ **160 → 20 ms**, Sicht **298 → 12 ms** (Hardware, 2026-10-05) |
 | Bewegte Einheiten als Sprites | ⬜ offen |
 
 Der Pro-Einheit-Sichtcache (B3, Weg 1) ist **nicht** gebaut: Shadowcasting
