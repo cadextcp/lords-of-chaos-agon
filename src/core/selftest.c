@@ -2842,6 +2842,20 @@ static void test_m4e(void)
             view_compose(&world, 5, 5, &f);
             check(has_layer(&f, T_ROOF),
                   "d41: a second own unit inside does not open the house");
+            {   /* Characterisation, not a wish: with the roof down the figure
+                 * still sits ABOVE it in the layer list, so it is drawn on the
+                 * roof. See docs/design/VORLAGE-daecher-und-sicht.md, point 3 -
+                 * when that is decided, this check has to flip. */
+                uint8_t li, roof_i = 0xFF, unit_i = 0xFF;
+                for (li = 0; li < f.n; li++) {
+                    if (f.id[li] == T_ROOF)
+                        roof_i = li;
+                    if (f.id[li] == T_WIZARD_P1)
+                        unit_i = li;
+                }
+                check(roof_i != 0xFF && unit_i != 0xFF && unit_i > roof_i,
+                      "open: a figure under a closed roof is drawn on top of it");
+            }
             world.unit_count = 0;
         }
         {   /* a ridden pair inside the lifted roof keeps its masks in step */
