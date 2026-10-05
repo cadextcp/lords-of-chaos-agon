@@ -73,7 +73,7 @@
   - **Gestapelte PRs immer mit Merge-Commits**, nicht Rebase oder Squash, sonst tauchen die Commits doppelt auf.
   - Das Auto-Merge-Werkzeug der App wurde vom Freigabesystem abgelehnt.
 - **Belege zeigen:** Nach sichtbaren Änderungen einen Emulator-Screenshot machen (`tools/run.py ... --screenshot`) und ansehen. Der Nutzer reagiert auf Bilder.
-- **PR #55 „Mega Drive als zweite Plattform“ (D23):** Auf Wunsch des Nutzers **ignorieren**. Nicht mergen, nicht darauf aufbauen.
+- **Mega Drive:** Die Mega-Drive-Fassung entsteht im eigenen Repo `cadextcp/lords-of-chaos-md` (Fork dieses Repos, Core-Spike fertig). Der Nutzer stellt **zuerst das Agon-Spiel fertig**; die Agon-Steuerung bleibt, wie sie ist. Dieses Repo ist das Original für den gemeinsamen Core (`src/core`, `data/`, `assets/`): Das MD-Repo zieht von hier nach, Core-Verbesserungen von dort kommen als eigener PR zurück (zuerst 2026-10-05: `world_wrap`, `roof_refresh`, `VIEW_STATIC_CACHE`). Core-Code deshalb weiter plattformfrei halten. Der alte Branch `docs/mega-drive` (PR #55) ist im MD-Repo aufgegangen.
 - **Amiga-Referenz:** WinUAE ist installiert (`C:\Program Files\WinUAE\winuae64.exe`), Kickstart und ADF liegen in `Desktop\amiga\`. Beobachtungen kommen nach `docs/design/amiga-observations.md`.
 
 ---

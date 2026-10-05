@@ -389,7 +389,7 @@ void view_compose(const World *w, int16_t x, int16_t y, FieldLayers *out)
 
 /* Static layers of every map field, computed once per map
  * (MAP_MAX_W * MAP_MAX_H * sizeof(FieldLayers) = 39 KB). Platforms with
- * little RAM (Mega Drive: 64 KB in total, ADR 0010) build with
+ * little RAM (the Mega Drive port, repo lords-of-chaos-md: 64 KB) build with
  * VIEW_STATIC_CACHE=0 and compose the static layers on demand instead;
  * the result is the same, only slower. */
 #ifndef VIEW_STATIC_CACHE

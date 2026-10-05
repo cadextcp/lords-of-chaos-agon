@@ -184,9 +184,9 @@ void world_map_changed(World *w)
 bool world_wrap(const World *w, int16_t *x, int16_t *y)
 {
     if (w->wrap) {
-        /* Hot path: callers are at most one map size off. The 68000 has
-         * no fast 32-bit modulo (ADR 0010), so only far coordinates pay
-         * for the division. */
+        /* Hot path: callers are at most one map size off. The eZ80 and
+         * the 68000 (Mega Drive port) have no fast 32-bit modulo, so only
+         * far coordinates pay for the division. */
         if (*x < 0)
             *x = (int16_t)(*x + w->w);
         else if (*x >= w->w)
