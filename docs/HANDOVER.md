@@ -24,7 +24,7 @@ Alle Punkte aus `docs/PLAYTEST-2026-10-05.md` (A, B, C1–C9) sind umgesetzt und
 
 **Noch offen (aus der Milestone-Liste, unverändert):** Original-Zauberpreise (Tabelle des Nutzers), Spinne/Vampir-Rebalance, D33 Schriftrollen, VP-Vorschläge.
 
-**Werkzeug-Hinweise dieser Runde:** `tools/run.py --testland --no-menu --dump --free-round1 --list --keys "…" --screenshot` fährt eine Sitzung; die Bilder landen in `build/screenshots/`. Einzelne Dateien nie halb schreiben: erst `git status`, dann Branch, Commit, PR. Gestapelte PRs mit **Merge-Commits** mergen (GitHub hängt den nächsten PR beim Löschen des Branches selbst auf `main` um).
+**Werkzeug-Hinweise dieser Runde:** `tools/run.py --testland --no-menu --dump --free-round1 --list --keys "…" --screenshot` fährt eine Sitzung; die Bilder landen in `build/screenshots/`. Gestapelte PRs mit **Merge-Commits** mergen (GitHub hängt den nächsten PR beim Löschen des Branches selbst auf `main` um).
 
 ---
 
