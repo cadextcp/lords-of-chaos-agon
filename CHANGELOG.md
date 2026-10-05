@@ -2,6 +2,18 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Gelände-Politur 2: Übergänge (D52) (2026-10-06)
+
+### Neu
+- **Geländeübergänge:** Flussufer mit Sandlippe und Schaum, Wegränder mit Grasbüscheln, Halmfransen zwischen Wiese und Hochgras (57 neue Kacheln, `tools/art/make_terrain.py`, Auswahl per Nachbarmaske in `view.c`).
+- **Kartenvorschau:** `uv run tools/art/map_preview.py [Karte] [x0 y0 w h]` zeichnet eine ganze Karte nach `build/map_preview.png` (neuer Host-Schalter `loc_host --map-layers`).
+
+### Behoben
+- **Feuer verbrannte Schriftrollen u. Ä. nicht mehr zuverlässig:** `object_burns` kürzte die 16-Bit-Kachel-ID auf 8 Bit; seit IDs über 255 liegen, passte keine mehr (Selftest `m4d` schlug an).
+
+### Geändert
+- **−18 KB RAM:** der statische Sicht-Cache hält nur noch die statischen Ebenen (`StaticField`, ≤ 8) statt einer vollen `FieldLayers` je Feld. Heap und Stack haben nun ~30 KB statt ~15 KB (QUIRKS S6).
+
 ## [Unreleased] – Gelände-Politur 1: Variation, fließendes Wasser, Seerosen (D51) (2026-10-06)
 
 ### Neu

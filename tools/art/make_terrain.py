@@ -21,6 +21,7 @@ river).
 from __future__ import annotations
 
 import argparse
+import math
 import random
 import sys
 from pathlib import Path
@@ -164,6 +165,85 @@ def lily(frame: int) -> Image.Image:
     return im
 
 
+# ---- terrain transitions (D52) --------------------------------------------
+# Transparent overlays drawn on the field that gives way: the shore lip on
+# water fields, grass tufts on path fields, tall-grass blades on meadows.
+# Edge tiles are named <family>_m<mask> (mask bits N=1 E=2 S=4 W=8, 1..15);
+# corner tiles <family>_c<k> (0 NW, 1 NE, 2 SE, 3 SW) cover a lone diagonal
+# neighbour. The depth profile along a side is periodic and the same in every
+# tile, so a straight bank is continuous across field borders.
+SAND, DSAND = (170, 170, 85), (170, 85, 0)
+FAMILIES = {
+    # name: (base depth, wobble, extra rows of foam beyond the depth)
+    "shore": (3.0, 1.0, 2),
+    "path": (3.0, 1.5, 0),
+    "tall": (2.5, 1.5, 0),
+}
+SIDES = ("n", "e", "s", "w")        # mask bits 1, 2, 4, 8
+
+
+def profile(family: str, side: str) -> list[float]:
+    rnd = random.Random(f"{family}{side}")
+    base, amp, _ = FAMILIES[family]
+    p1, p2 = rnd.uniform(0, 6.28), rnd.uniform(0, 6.28)
+    return [base + amp * (0.7 * math.sin(2 * math.pi * 2 * i / N + p1)
+                          + 0.5 * math.sin(2 * math.pi * 3 * i / N + p2))
+            for i in range(N)]
+
+
+def edge_colour(family: str, dist: int, depth: float, rnd: random.Random):
+    if family == "shore":
+        if dist < depth:
+            return DSAND if rnd.random() < 0.07 else SAND
+        if dist < depth + 1:
+            return WHITE if rnd.random() < 0.6 else LBLUE
+        return LBLUE if rnd.random() < 0.3 else None
+    if dist >= depth or rnd.random() > 1.15 - dist / (depth + 0.5) * 0.9:
+        return None
+    if family == "path":
+        return rnd.choice((DGREEN, DGREEN, GREEN, GREEN, LGREEN))
+    return rnd.choice((LGREEN, LGREEN, GREEN, YELLOW))
+
+
+def edge_tile(family: str, mask: int = 0, corner: int | None = None) -> Image.Image:
+    im = Image.new("RGBA", (N, N), (0, 0, 0, 0))
+    rnd = random.Random(f"{family}{mask}{corner}")
+    reach = FAMILIES[family][2]
+    prof = {s: profile(family, s) for s in SIDES}
+    for y in range(N):
+        for x in range(N):
+            best = None            # (dist, depth) of the closest painting side
+            for bit, side in enumerate(SIDES):
+                if not mask & (1 << bit):
+                    continue
+                dist, i = {"n": (y, x), "s": (N - 1 - y, x),
+                           "w": (x, y), "e": (N - 1 - x, y)}[side]
+                d = prof[side][i]
+                if dist < d + reach and (best is None or dist < best[0]):
+                    best = (dist, d)
+            if corner is not None:
+                cx, cy = ((0, 0), (N - 1, 0), (N - 1, N - 1), (0, N - 1))[corner]
+                dist = round(math.hypot(x - cx, y - cy) * 0.65)
+                d = FAMILIES[family][0] + 1.0
+                if dist < d + reach and (best is None or dist < best[0]):
+                    best = (dist, d)
+            if best:
+                col = edge_colour(family, best[0], best[1], rnd)
+                if col:
+                    im.putpixel((x, y), (*col, 255))
+    return im
+
+
+def edge_tiles() -> dict[str, Image.Image]:
+    t = {}
+    for fam in FAMILIES:
+        for mask in range(1, 16):
+            t[f"edge_{fam}_m{mask:02d}"] = edge_tile(fam, mask)
+        for k in range(4):
+            t[f"edge_{fam}_c{k}"] = edge_tile(fam, 0, k)
+    return t
+
+
 def all_tiles() -> dict[str, Image.Image]:
     t = {
         "floor_grass_1": floor_grass_1(), "floor_grass_2": floor_grass_2(),
@@ -175,6 +255,7 @@ def all_tiles() -> dict[str, Image.Image]:
     for f in range(4):
         t[f"floor_water_{f}"] = water("a", f)
         t[f"floor_waterb_{f}"] = water("b", f)
+    t.update(edge_tiles())
     return t
 
 

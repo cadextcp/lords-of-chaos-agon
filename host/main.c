@@ -4,9 +4,12 @@
  *   loc_host --selftest   run core self-test, exit code 1 on failure
  *   loc_host --dump       print the wizard house as ASCII and exit
  *   loc_host --layers     print the tile layers of every view field
+ *   loc_host --map-layers <n>  tile layers of every field of map n (0 many coloured
+ *                         land, 1 ragaril, 2 slayer, 3 testland, 4 tutorial); tools/art/map_preview.py draws them
  *   loc_host              line-based play: w/a/s/d + Enter, q quits
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "../src/core/gen/maps.h"
@@ -50,6 +53,27 @@ static void layers(void)
     }
 }
 
+static void map_layers(int which)
+{
+    static const uint8_t *const BINS[] = {MAPBIN_MANY_COLOURED_LAND, MAPBIN_RAGARILS_DOMAIN,
+                                          MAPBIN_SLAYERS_DUNGEON, MAPBIN_TESTLAND, MAPBIN_TUTORIAL};
+    const uint16_t lens[] = {MAPBIN_MANY_COLOURED_LAND_LEN, MAPBIN_RAGARILS_DOMAIN_LEN,
+                             MAPBIN_SLAYERS_DUNGEON_LEN, MAPBIN_TESTLAND_LEN,
+                             MAPBIN_TUTORIAL_LEN};
+    int16_t x, y;
+    uint8_t i;
+    world_load_bin(&world, BINS[which], lens[which]);
+    printf("%d %d\n", world.w, world.h);
+    for (y = 0; y < world.h; y++)
+        for (x = 0; x < world.w; x++) {
+            FieldLayers f;
+            view_compose(&world, x, y, &f);
+            for (i = 0; i < f.n; i++)
+                printf("%u ", f.id[i]);
+            putchar('\n');
+        }
+}
+
 int main(int argc, char **argv)
 {
     int c;
@@ -58,6 +82,10 @@ int main(int argc, char **argv)
         uint16_t fails = core_selftest(print_line);
         puts(fails ? "=== TEST FAIL ===" : "=== TEST PASS ===");
         return fails ? 1 : 0;
+    }
+    if (argc > 2 && strcmp(argv[1], "--map-layers") == 0) {
+        map_layers(atoi(argv[2]));
+        return 0;
     }
     world_load_bin(&world, MAPBIN_WIZARD_HOUSE, MAPBIN_WIZARD_HOUSE_LEN);
     if (argc > 1 && strcmp(argv[1], "--dump") == 0) {
