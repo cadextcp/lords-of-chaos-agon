@@ -6,30 +6,30 @@
 # wild: behaviour as a wild animal (D35): peaceful = roams, fights back only;
 #       territorial = defends its home field (3 around); herd = peaceful, also
 #       crosses the map in herds; - = not a wild animal (monsters hunt as before).
-id,name,ap_ground,ap_fly,stamina,constitution,combat,defence,magic_res,carry,potion,vp,mount,ride,undead,weapons,use,wood,water,rock,mana,wild,note
-wizard,Zauberer,40,0,60,30,10,12,80,30,3,20,no,yes,no,yes,yes,no,no,no,80,-,own values (designer)
-gold_dragon,Golddrache,38,40,86,90,50,42,82,30,10,9,no,no,no,no,yes,no,yes,no,0,-,
-green_dragon,Gruener Drache,32,36,80,82,40,43,75,26,10,8,no,no,no,no,yes,yes,no,no,0,-,
-red_dragon,Roter Drache,34,40,90,72,32,34,90,32,10,7,no,no,no,no,yes,no,no,yes,0,-,
-pixie,Pixie,34,0,40,16,4,6,67,30,2,1,no,yes,no,yes,yes,yes,no,no,0,-,
-dwarf,Zwerg,26,0,57,25,6,6,40,35,2,1,no,yes,no,yes,yes,no,no,yes,0,-,
-goblin,Goblin,30,0,45,32,9,9,46,42,2,1,no,yes,no,yes,yes,no,no,no,0,-,
-troll,Troll,32,0,88,47,12,16,46,40,2,2,no,yes,no,yes,yes,no,no,no,0,-,
-giant,Riese,30,0,48,66,21,15,50,50,4,3,no,no,no,yes,yes,no,no,no,0,-,
-centaur,Zentaur,48,0,62,36,8,10,54,34,3,1,no,no,no,yes,yes,no,no,no,0,-,
-unicorn,Einhorn,56,0,72,40,12,9,42,0,3,1,yes,no,no,no,no,no,no,yes,0,herd,
-pegasus,Pegasus,46,56,80,40,8,9,50,0,3,1,yes,no,no,no,no,no,no,no,0,herd,
-gryphon,Greif,42,52,73,53,24,21,57,0,4,4,yes,no,no,no,no,no,no,yes,0,territorial,
-elephant,Elefant,36,0,55,73,14,22,40,0,6,2,yes,no,no,no,no,no,no,no,0,herd,
-gorilla,Gorilla,34,0,56,38,15,14,43,26,4,1,no,no,no,no,yes,yes,no,no,0,peaceful,
-lion,Loewe,54,0,64,34,21,14,46,0,4,2,no,no,no,no,no,yes,no,no,0,territorial,
-bear,Baer,38,0,70,48,22,26,48,0,5,3,no,no,no,no,no,yes,no,no,0,territorial,
-crocodile,Krokodil,26,0,52,62,26,20,55,0,4,2,no,no,no,no,no,no,yes,no,0,territorial,
-giant_bat,Riesenfledermaus,24,62,75,20,9,7,41,0,3,1,no,no,no,no,no,no,no,no,0,peaceful,
-harpy,Harpyie,28,52,60,28,22,14,60,16,4,3,no,no,no,no,yes,no,no,no,0,-,
-giant_spider,Riesenspinne,44,0,74,52,41,24,55,0,7,6,no,no,no,no,no,no,no,yes,0,territorial,
-zombie,Zombie,24,0,90,50,6,5,50,30,3,1,no,no,yes,no,yes,no,no,no,0,-,
-ghost,Geist,36,36,92,30,8,18,60,0,6,2,no,no,yes,no,no,no,yes,no,0,-,
-vampire,Vampir,34,40,85,60,18,17,65,30,5,4,no,no,yes,no,yes,no,no,no,0,-,
-spectre,Gespenst,38,0,80,72,28,24,70,0,7,5,no,no,yes,no,yes,no,no,no,0,-,
-demon,Daemon,30,0,90,78,38,31,78,0,9,7,no,no,yes,no,yes,no,no,no,0,-,
+id,name,ap_ground,ap_fly,stamina,constitution,combat,defence,magic_res,carry,potion,vp,mount,ride,undead,weapons,use,wood,water,rock,mana,wild,note,phase
+wizard,Zauberer,40,0,60,30,10,12,80,30,3,20,no,yes,no,yes,yes,no,no,no,80,-,own values (designer),no
+gold_dragon,Golddrache,38,40,86,90,50,42,82,30,10,9,no,no,no,no,yes,no,yes,no,0,-,,no
+green_dragon,Gruener Drache,32,36,80,82,40,43,75,26,10,8,no,no,no,no,yes,yes,no,no,0,-,,no
+red_dragon,Roter Drache,34,40,90,72,32,34,90,32,10,7,no,no,no,no,yes,no,no,yes,0,-,,no
+pixie,Pixie,34,0,40,16,4,6,67,30,2,1,no,yes,no,yes,yes,yes,no,no,0,-,,no
+dwarf,Zwerg,26,0,57,25,6,6,40,35,2,1,no,yes,no,yes,yes,no,no,yes,0,-,,no
+goblin,Goblin,30,0,45,32,9,9,46,42,2,1,no,yes,no,yes,yes,no,no,no,0,-,,no
+troll,Troll,32,0,88,47,12,16,46,40,2,2,no,yes,no,yes,yes,no,no,no,0,-,,no
+giant,Riese,30,0,48,66,21,15,50,50,4,3,no,no,no,yes,yes,no,no,no,0,-,,no
+centaur,Zentaur,48,0,62,36,8,10,54,34,3,1,no,no,no,yes,yes,no,no,no,0,-,,no
+unicorn,Einhorn,56,0,72,40,12,9,42,0,3,1,yes,no,no,no,no,no,no,yes,0,herd,,no
+pegasus,Pegasus,46,56,80,40,8,9,50,0,3,1,yes,no,no,no,no,no,no,no,0,herd,,no
+gryphon,Greif,42,52,73,53,24,21,57,0,4,4,yes,no,no,no,no,no,no,yes,0,territorial,,no
+elephant,Elefant,36,0,55,73,14,22,40,0,6,2,yes,no,no,no,no,no,no,no,0,herd,,no
+gorilla,Gorilla,34,0,56,38,15,14,43,26,4,1,no,no,no,no,yes,yes,no,no,0,peaceful,,no
+lion,Loewe,54,0,64,34,21,14,46,0,4,2,no,no,no,no,no,yes,no,no,0,territorial,,no
+bear,Baer,38,0,70,48,22,26,48,0,5,3,no,no,no,no,no,yes,no,no,0,territorial,,no
+crocodile,Krokodil,26,0,52,62,26,20,55,0,4,2,no,no,no,no,no,no,yes,no,0,territorial,,no
+giant_bat,Riesenfledermaus,24,62,75,20,9,7,41,0,3,1,no,no,no,no,no,no,no,no,0,peaceful,,no
+harpy,Harpyie,28,52,60,28,22,14,60,16,4,3,no,no,no,no,yes,no,no,no,0,-,,no
+giant_spider,Riesenspinne,44,0,74,52,41,24,55,0,7,6,no,no,no,no,no,no,no,yes,0,territorial,,no
+zombie,Zombie,24,0,90,50,6,5,50,30,3,1,no,no,yes,no,yes,no,no,no,0,-,,no
+ghost,Geist,36,36,92,30,8,18,60,0,6,2,no,no,yes,no,no,no,yes,no,0,-,,yes
+vampire,Vampir,34,40,85,60,18,17,65,30,5,4,no,no,yes,no,yes,no,no,no,0,-,,no
+spectre,Gespenst,38,0,80,72,28,24,70,0,7,5,no,no,yes,no,yes,no,no,no,0,-,,yes
+demon,Daemon,30,0,90,78,38,31,78,0,9,7,no,no,yes,no,yes,no,no,no,0,-,,no

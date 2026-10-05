@@ -213,6 +213,22 @@ static void test_dirty_and_move(void)
     world.units[0].y = 5;
     check(!world_move_unit(&world, 0, -1, 0), "move: wall blocks");
     check(!world_move_unit(&world, 0, 0, 1), "move: table blocks");
+
+    {   /* D43: ghost and spectre drift through the same wall */
+        uint8_t g;
+        world.unit_count = 1;
+        g = world_spawn_unit(&world, OWN_P1, CR_GHOST, 1, 5);
+        world.units[g].flags = (uint8_t)(world.units[g].flags & ~UF_FLYING);
+        world.units[g].ap = 40;
+        check(world_move_unit(&world, g, -1, 0),
+              "d43: the ghost walks through the wall");
+        world.units[g].x = 1;
+        world.units[g].y = 5;
+        world.units[0].x = 0;            /* a body still stops it */
+        world.units[0].y = 5;
+        check(!world_move_unit(&world, g, -1, 0),
+              "d43: another unit still blocks the ghost");
+    }
 }
 
 static void test_ap(void)
@@ -1486,7 +1502,8 @@ static void test_items(void)
 
     check(items_cycle(&world, 0) && world.units[0].in_use == 0 &&
           world.units[0].ap == 30, "items: wielding costs 4 AP");
-    check(items_combat(&world, 0) == 20, "items: sword +10 combat (D31)");
+    check(items_combat(&world, 0) == 10,
+          "d42: a wielded sword leaves the hit value alone");
 
     {   /* shield carried: defence always (GDD 6.1) */
         world.units[0].items[1] = OBJ_SHIELD;
@@ -2393,11 +2410,23 @@ static void test_m4_review(void)
     u->item_count = 1;
     u->in_use = 0;
     u->con = u->con_max;
-    {
+    {   /* D42: the enchantment moved from the hit value to the dice */
         uint8_t plain = items_combat(&world, 0);
+        uint16_t k, sum_plain = 0, sum_magic = 0;
+        Rng drng;
+        rng_seed(&drng, 77);
+        for (k = 0; k < 100; k++)
+            sum_plain = (uint16_t)(sum_plain +
+                                   items_attack_damage(&world, 0, &drng, false));
         effect_grant(u, EFF_MAGIC_WEAPON, 1, 2);
-        check(items_combat(&world, 0) == plain + WEAPONS[WEAPON_SWORD].combat,
-              "m4r: an enchanted sword counts double");
+        check(items_combat(&world, 0) == plain,
+              "d42: an enchanted sword leaves the hit value alone");
+        rng_seed(&drng, 77);
+        for (k = 0; k < 100; k++)
+            sum_magic = (uint16_t)(sum_magic +
+                                   items_attack_damage(&world, 0, &drng, false));
+        check(sum_magic > sum_plain,
+              "d42: the enchantment doubles the weapon's dice instead");
     }
 }
 
@@ -2848,12 +2877,14 @@ static void test_m4e(void)
         world.units[a].items[0] = OBJ_AXE;
         world.units[a].item_count = 1;
         world.units[a].in_use = 0;
-        check(items_combat(&world, a) == 10 + 9,
-              "m4e: the axe gives +9 combat (D31)");
+        check(items_combat(&world, a) == 10,
+              "d42: the axe does not raise the hit value");
         rng_seed(&rng, 5);
+        /* wizard 10 against goblin defence 9: 55 %. Under D31 the axe's
+         * +9 pushed this to the 90 % ceiling. */
         check(combat_hit_chance(items_combat(&world, a),
-                                items_defence(&world, b)) == 90,
-              "m4e: axe vs goblin hits 90 % (D31)");
+                                items_defence(&world, b)) == 55,
+              "d42: axe vs goblin hits 55 % - the blade only adds damage");
     }
 
     {   /* enemy in the roofed house is hidden from outside rays */

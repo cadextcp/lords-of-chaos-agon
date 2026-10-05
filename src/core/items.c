@@ -152,13 +152,19 @@ bool items_cycle(World *w, uint8_t unit)
 /* Damage roll of one weapon (D28/D30): the weapon's dice plus com/5, bare
  * hands and any non-weapon object 1d4; a critical hit rolls the dice
  * twice (the flat com bonus does not - D&D style). */
-static uint8_t weapon_damage(uint8_t weapon, uint8_t com, Rng *rng, bool crit)
+static uint8_t weapon_damage(uint8_t weapon, uint8_t com, Rng *rng, bool crit,
+                            bool magic)
 {
     uint8_t n = 1, die = 4, i;
     uint16_t d;
     if (weapon != WEAPON_NONE) {
         n = WEAPONS[weapon].dice_n;
         die = WEAPONS[weapon].die;
+        /* An enchanted blade used to double the weapon's combat bonus.
+         * Since D42 took weapons out of the hit chance it doubles the
+         * dice instead - otherwise the flag would do nothing at all. */
+        if (magic)
+            n = (uint8_t)(n * 2);
     }
     if (crit)
         n = (uint8_t)(n * 2);
@@ -171,7 +177,8 @@ static uint8_t weapon_damage(uint8_t weapon, uint8_t com, Rng *rng, bool crit)
 uint8_t items_attack_damage(const World *w, uint8_t unit, Rng *rng, bool crit)
 {
     const Unit *u = &w->units[unit];
-    return weapon_damage(items_in_use_weapon(u), u->com, rng, crit);
+    return weapon_damage(items_in_use_weapon(u), u->com, rng, crit,
+                         (u->flags & UF_MAGIC_WEAPON) != 0);
 }
 
 bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
@@ -222,7 +229,8 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
                                              items_defence(w, target)))
                     combat_damage(w, target,
                                   weapon_damage(weapon, u->com, rng,
-                                                roll < COMBAT_CRIT_PERCENT),
+                                                roll < COMBAT_CRIT_PERCENT,
+                                                (u->flags & UF_MAGIC_WEAPON) != 0),
                                   u->kind, u->owner, false, NULL,
                                   roll < COMBAT_CRIT_PERCENT);
                 else
@@ -281,7 +289,8 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
         if (roll < combat_hit_chance(items_combat(w, unit),
                                      items_defence(w, target))) {
             uint8_t crit = roll < COMBAT_CRIT_PERCENT;
-            uint8_t dmg = weapon_damage(weapon, u->com, rng, crit != 0);
+            uint8_t dmg = weapon_damage(weapon, u->com, rng, crit != 0,
+                                        (u->flags & UF_MAGIC_WEAPON) != 0);
             if (damage)
                 *damage = dmg;
             combat_damage(w, target, dmg, u->kind, u->owner, false, NULL,
@@ -317,16 +326,15 @@ bool items_can_harm_undead(const World *w, uint8_t attacker, uint8_t defender)
 uint8_t items_combat(const World *w, uint8_t unit)
 {
     const Unit *u;
-    uint8_t weapon, com, malus;
+    uint8_t com, malus;
     if (unit >= w->unit_count)
         return 0;
     u = &w->units[unit];
+    /* D42: a weapon changes what a hit costs, not whether it lands. Bare
+     * hands used to be close to useless because the weapon bonus went into
+     * the hit chance. Strength still counts - that is the arm, not the
+     * blade. */
     com = u->com;
-    weapon = items_in_use_weapon(u);
-    if (weapon != WEAPON_NONE) {         /* enchanted: double values (GDD 6.1) */
-        uint8_t bonus = WEAPONS[weapon].combat;
-        com = (uint8_t)(com + ((u->flags & UF_MAGIC_WEAPON) ? 2 * bonus : bonus));
-    }
     if (effect_active(u, EFF_STRENGTH))
         com = (uint8_t)(com + effect_power(u, EFF_STRENGTH));
     malus = con_malus(u);               /* below 50 % Con (GDD 4.1) */

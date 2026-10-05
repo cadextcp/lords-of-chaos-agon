@@ -2,6 +2,12 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Playtest-Runde C (Teil 1): Waffen und Geister (2026-10-05)
+
+### Geändert
+- **Waffen beeinflussen nur noch den Schaden (D42).** Ohne Waffe traf man bisher sehr schlecht, weil der Waffenbonus in den Kampfwert und damit in die Trefferchance floss — die Axt hob den Zauberer gegen einen Goblin von 55 % auf den 90-%-Deckel. Die Zauberwaffe verdoppelt jetzt die Schadenswürfel statt eines Kampfbonus, sonst wäre das Flag wirkungslos geworden.
+- **Geist und Gespenst gehen durch Wände (D43).** Neues Flag `CF_PHASE` aus `creatures.csv`. Einheiten halten sie weiterhin auf.
+
 ## [Unreleased] – Playtest-Runde B: Bedienung und Anzeige (2026-10-05)
 
 ### Geändert

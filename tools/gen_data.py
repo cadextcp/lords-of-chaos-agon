@@ -100,7 +100,8 @@ def main() -> int:
     h += ["    ACT_COUNT", "} ActionId;", "",
           "typedef struct { uint8_t ap, stamina; } ActionDef;",
           "extern const ActionDef ACTIONS[ACT_COUNT];", "",
-          "enum { CF_MOUNT = 1, CF_RIDE = 2, CF_UNDEAD = 4, CF_WEAPONS = 8, CF_USE = 16 };",
+          "enum { CF_MOUNT = 1, CF_RIDE = 2, CF_UNDEAD = 4, CF_WEAPONS = 8, CF_USE = 16,",
+          "       CF_PHASE = 32 };   /* walks through walls (D43) */",
           "enum { WILD_NONE, WILD_PEACEFUL, WILD_TERRITORIAL, WILD_HERD };",
           "typedef struct {",
           "    const char *name;",
@@ -184,7 +185,8 @@ def main() -> int:
     yes = lambda r, k: r[k] == "yes"
     for r in creatures:
         fl = [f for f, k in (("CF_MOUNT", "mount"), ("CF_RIDE", "ride"), ("CF_UNDEAD", "undead"),
-                             ("CF_WEAPONS", "weapons"), ("CF_USE", "use")) if yes(r, k)]
+                             ("CF_WEAPONS", "weapons"), ("CF_USE", "use"),
+                             ("CF_PHASE", "phase")) if yes(r, k)]
         nat = [f for f, k in (("NATIVE_WOOD", "wood"), ("NATIVE_WATER", "water"),
                               ("NATIVE_ROCK", "rock")) if yes(r, k)]
         nums = ", ".join(r[k] for k in ("ap_ground", "ap_fly", "stamina", "constitution", "combat",

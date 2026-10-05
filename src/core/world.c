@@ -439,7 +439,10 @@ bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
             return false;
         cost = world_air_step_cost(dx != 0 && dy != 0);
     } else {
-        if (world_blocks(w, nx, ny) ||
+        /* D43: ghost and spectre drift through walls and furniture. Other
+         * units on the field still stop them - a body is a body. */
+        if ((world_blocks(w, nx, ny) &&
+             !(CREATURES[u->kind].flags & CF_PHASE)) ||
             world_unit_at(w, nx, ny, UL_GROUND) != NO_UNIT)
             return false;
         if (area_blocks_kind(w, nx, ny))
