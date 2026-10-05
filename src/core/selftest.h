@@ -10,6 +10,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "world.h"
+
 typedef void (*selftest_log_fn)(const char *line);
 
 /* Returns the number of failed checks (0 = pass). */
@@ -17,5 +19,8 @@ uint16_t core_selftest(selftest_log_fn log);
 /* Print passing checks too? Default true (host). The Agon build sets
  * false: the emulator console loses the tail of long outputs. */
 void selftest_set_verbose(bool verbose);
+/* The selftest's World, idle while the game runs: the game borrows it as
+ * a scratch copy instead of a second World of its own (eZ80 RAM, S6). */
+World *selftest_scratch_world(void);
 
 #endif

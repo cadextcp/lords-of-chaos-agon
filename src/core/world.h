@@ -170,6 +170,11 @@ typedef enum { UL_GROUND, UL_AIR } UnitLayer;
 /* Unit at (x, y) on that layer, NO_UNIT if none (ground layer unless
  * stated). */
 uint8_t world_unit_at(const World *w, int16_t x, int16_t y, UnitLayer layer);
+/* First unit on that layer of (x, y) that stops `owner` from entering
+ * (C3): units of the same wizard may share a field, everything else
+ * blocks - and for neutral movers every unit does. NO_UNIT if free. */
+uint8_t world_blocking_unit_at(const World *w, int16_t x, int16_t y,
+                               UnitLayer layer, uint8_t owner);
 /* AP cost to enter (x, y); diagonal steps cost 3/2, rounded up (GDD 5.3). */
 uint8_t world_step_cost(const World *w, int16_t x, int16_t y, bool diagonal);
 /* Same for a unit: its terrain type (wood/water/rock) pays only the plain

@@ -283,6 +283,21 @@ uint8_t world_unit_at(const World *w, int16_t x, int16_t y, UnitLayer layer)
     return NO_UNIT;
 }
 
+uint8_t world_blocking_unit_at(const World *w, int16_t x, int16_t y,
+                               UnitLayer layer, uint8_t owner)
+{
+    uint8_t i;
+    bool air = layer == UL_AIR;
+    if (!world_wrap(w, &x, &y))
+        return NO_UNIT;
+    for (i = 0; i < w->unit_count; i++)
+        if (w->units[i].x == x && w->units[i].y == y &&
+            ((w->units[i].flags & UF_FLYING) != 0) == air &&
+            (owner == OWN_NEUTRAL || w->units[i].owner != owner))
+            return i;
+    return NO_UNIT;
+}
+
 uint8_t world_step_cost(const World *w, int16_t x, int16_t y, bool diagonal)
 {
     uint8_t c = FLOOR_AP[world_floor(w, x, y)];
@@ -440,7 +455,7 @@ bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
         return false;
     if (u->flags & UF_FLYING) {
         /* Flyers cross anything, they only respect the air layer. */
-        if (world_unit_at(w, nx, ny, UL_AIR) != NO_UNIT)
+        if (world_blocking_unit_at(w, nx, ny, UL_AIR, u->owner) != NO_UNIT)
             return false;
         cost = world_air_step_cost(dx != 0 && dy != 0);
     } else {
@@ -448,7 +463,7 @@ bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
          * units on the field still stop them - a body is a body. */
         if ((world_blocks(w, nx, ny) &&
              !(CREATURES[u->kind].flags & CF_PHASE)) ||
-            world_unit_at(w, nx, ny, UL_GROUND) != NO_UNIT)
+            world_blocking_unit_at(w, nx, ny, UL_GROUND, u->owner) != NO_UNIT)
             return false;
         if (area_blocks_kind(w, nx, ny))
             return false;                  /* stuck in blob or vine (M4d) */
@@ -645,7 +660,7 @@ BumpKind world_bump_kind(const World *w, uint8_t unit, int8_t dx, int8_t dy)
     if (!world_wrap(w, &nx, &ny))
         return BUMP_OUTSIDE;
     if (u->flags & UF_FLYING) {
-        if (world_unit_at(w, nx, ny, UL_AIR) != NO_UNIT)
+        if (world_blocking_unit_at(w, nx, ny, UL_AIR, u->owner) != NO_UNIT)
             return BUMP_UNIT;
         cost = world_air_step_cost(dx != 0 && dy != 0);
     } else {
@@ -653,7 +668,7 @@ BumpKind world_bump_kind(const World *w, uint8_t unit, int8_t dx, int8_t dy)
             return BUMP_DOOR;
         if (world_blocks(w, nx, ny))
             return BUMP_TERRAIN;
-        if (world_unit_at(w, nx, ny, UL_GROUND) != NO_UNIT)
+        if (world_blocking_unit_at(w, nx, ny, UL_GROUND, u->owner) != NO_UNIT)
             return BUMP_UNIT;
         if (area_blocks_kind(w, nx, ny))
             return BUMP_HELD;

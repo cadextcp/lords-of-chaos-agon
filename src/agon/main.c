@@ -353,6 +353,7 @@ static void frame(bool dump)
         char buf[24];
         /* Roofs lift for the active figure's eyes, not for the cursor (D41). */
         view_set_roof_viewer(world.units[active()].x, world.units[active()].y);
+        view_set_active_unit(world.units[active()].id);
         view_follow(&world, cx, cy);
         view_update(&world);
         render_fields();
@@ -372,6 +373,7 @@ static void frame(bool dump)
     {
         const Unit *u = &world.units[active()];
         view_set_roof_viewer(u->x, u->y);
+        view_set_active_unit(u->id);
         view_follow(&world, u->x, u->y);
         view_update(&world);
         render_fields();
@@ -1196,10 +1198,9 @@ static void draw_help(void);
 /* Could the active unit do this right now? The real action runs on a
  * scratch copy of the world, so the menu shows exactly what the key would
  * do (items on the field, free hands, AP, free landing field, ...). */
-static World trial;
-
 static bool action_possible(char key)
 {
+    World *trial = selftest_scratch_world();   /* no World of our own (S6) */
     uint8_t a = active();
     const Unit *u = &world.units[a];
     bool in_hand = u->in_use != NO_ITEM && u->in_use < u->item_count;
@@ -1220,29 +1221,29 @@ static bool action_possible(char key)
     default:
         break;
     }
-    trial = world;
+    *trial = world;
     switch (key) {
     case '>':
-        return world_land(&trial, a);
+        return world_land(trial, a);
     case '<':
-        return world_take_off(&trial, a);
+        return world_take_off(trial, a);
     case 'b':
-        return (u->flags & UF_RIDDEN) ? ride_dismount(&trial, a)
-                                      : ride_mount_adjacent(&trial, a);
+        return (u->flags & UF_RIDDEN) ? ride_dismount(trial, a)
+                                      : ride_mount_adjacent(trial, a);
     case 'g':
-        return items_pick_up(&trial, a);
+        return items_pick_up(trial, a);
     case 'd':
-        return items_drop(&trial, a);
+        return items_drop(trial, a);
     case 'w':
-        return u->item_count > 0 && items_cycle(&trial, a);
+        return u->item_count > 0 && items_cycle(trial, a);
     case 'e':
-        return items_eat(&trial, a);
+        return items_eat(trial, a);
     case 'r':
-        return items_read(&trial, a) != NULL;
+        return items_read(trial, a) != NULL;
     case 'q':
-        return brew_drink_vial(&trial, a) || brew_drink(&trial, a);
+        return brew_drink_vial(trial, a) || brew_drink(trial, a);
     case 'v':
-        return brew_fill(&trial, a);
+        return brew_fill(trial, a);
     default:
         return false;
     }

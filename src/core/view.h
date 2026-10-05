@@ -82,6 +82,8 @@ uint32_t view_hash(void);
 /* The figure whose line of sight lifts roofs (D41). Only the active
  * figure sees under a roof; a negative x lifts none. */
 void view_set_roof_viewer(int16_t x, int16_t y);
+/* The active unit (C3): where own units share a field, it is the one drawn. */
+void view_set_active_unit(uint8_t id);
 
 bool view_anim_table_ok(void);
 
