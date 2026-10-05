@@ -3817,6 +3817,32 @@ static void test_c1_c2(void)
           "c1: a free chest opens at single AP, no key");
 }
 
+static void test_c5_drowning(void)
+{
+    uint8_t n, sta_before;
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 0;
+    world_spawn_unit(&world, OWN_P1, CR_GOBLIN, 20, 19);
+    world.floor[19][20] = FL_WATER;
+    world_spawn_unit(&world, OWN_P1, CR_GOBLIN, 22, 19);   /* dry land */
+    world.floor[19][22] = FL_STONE;
+    sta_before = world.units[0].sta;
+    world_new_turn(&world);
+    check(world.units[0].sta < sta_before && world.units[1].sta == world.units[1].sta_max,
+          "c5: a round in deep water costs stamina, dry land does not");
+    for (n = 0; n < 20 && world.unit_count == 2; n++)
+        world_new_turn(&world);
+    check(world.unit_count == 1 && world.units[0].x == 22,
+          "c5: the swimmer drowns once stamina is gone");
+    world.unit_count = 0;
+    world_spawn_unit(&world, OWN_P1, CR_GOBLIN, 20, 19);
+    world.units[0].flags |= UF_FLYING;
+    for (n = 0; n < 10; n++)
+        world_new_turn(&world);
+    check(world.unit_count == 1 && world.units[0].con == world.units[0].con_max,
+          "c5: a flier over water does not tire");
+}
+
 static void test_m5e_balance(void)
 {
     Rng rng;
@@ -4136,6 +4162,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m5c_events();
     test_m5e_balance();
     test_c1_c2();
+    test_c5_drowning();
     load_house();   /* leave a clean state */
     return fails;
 }

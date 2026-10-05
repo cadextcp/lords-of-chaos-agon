@@ -530,6 +530,14 @@ void world_new_turn(World *w)
         if (effect_active(u, EFF_SPEED))  /* Speed (potion): AP x2 */
             u->ap = (uint8_t)(u->ap * 2);
         u->sta = (uint8_t)(sta > u->sta_max ? u->sta_max : sta);
+        if (FLOOR_DROWN[w->floor[u->y][u->x]] &&   /* treading water (C5) */
+            !(u->native & NATIVE_WATER) && !(u->flags & UF_FLYING)) {
+            uint8_t cost = (uint8_t)(u->sta_max / 2);   /* net -25 % a round */
+            uint8_t hurt = (uint8_t)(u->con_max / 5 > 1 ? u->con_max / 5 : 1);
+            u->sta = u->sta > cost ? (uint8_t)(u->sta - cost) : 0;
+            if (u->sta == 0)               /* spent: drowning, like bleeding */
+                u->con = u->con > hurt ? (uint8_t)(u->con - hurt) : 0;
+        }
         effect_tick(u);                   /* durations run down (GDD 2.1) */
         if ((u->flags & UF_FLYING) && u->ap_fly == 0 &&
             !effect_active(u, EFF_FLYING)) {  /* the potion wore off */

@@ -13,6 +13,11 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 - **Türen schließen und abschließen:** `a` + Richtung schließt offene Türen, mit einem Schlüssel auch ab- und aufschließen. Abgeschlossene Türen sperren Weg und Sicht; Gegner ohne Schlüssel schlagen sie kaputt.
 - **Truhen mit und ohne Schloss:** neues Feld `FE_CHEST_FREE` (Karte `x`) öffnet ohne Schlüssel; zufällig verteilte Truhen sind je zur Hälfte frei oder verschlossen.
 
+## [Unreleased] – Ertrinken (C5, D48) (2026-10-05)
+
+### Neu
+- **Wasser kostet Kraft:** Wer eine Runde in tiefem Wasser endet, verliert die halbe Ausdauer; bei 0 schwindet pro Runde ein Fünftel der Con, bei 0 ertrinkt die Figur. Flieger und Wasserwesen sind ausgenommen.
+
 ## [Unreleased] – Messen und Fernsteuern vom PC (2026-10-05)
 
 ### Gemessen
