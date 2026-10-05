@@ -24,6 +24,30 @@ static const uint16_t FLOOR_HALF[FL_COUNT] = {
     [FL_WATER] = T_FLOOR_WATER_0_HALF_N, [FL_RUBBLE] = T_FLOOR_RUBBLE_HALF_N};
 enum { HALF_N, HALF_S, HALF_W, HALF_E };
 
+/* Per-field floor variants (graphics polish, D51): a hash of the world
+ * position picks the texture, so a meadow is not one repeated tile. Entry 0
+ * of a row is unused; a missing variant (0) falls back to the base tile. */
+static const uint16_t FLOOR_VAR[FL_COUNT][4] = {
+    [FL_GRASS] = {0, T_FLOOR_GRASS_1, T_FLOOR_GRASS_2, T_FLOOR_GRASS_3},
+    [FL_PATH] = {0, T_FLOOR_PATH_1, T_FLOOR_PATH_2, T_FLOOR_PATH_1},
+    [FL_TALL_GRASS] = {0, T_FLOOR_TALLGRASS_1, 0, T_FLOOR_TALLGRASS_1},
+    [FL_SWAMP] = {0, T_FLOOR_SWAMP_1, 0, T_FLOOR_SWAMP_1},
+    [FL_WATER] = {0, T_FLOOR_WATERB_0, 0, T_FLOOR_WATERB_0},
+};
+/* Half the fields keep the base texture. */
+static const uint8_t VAR_PICK[8] = {0, 0, 1, 0, 2, 0, 3, 1};
+
+/* Deterministic 16-bit hash of a world position (no division; the casts keep
+ * it identical with the 24-bit int of the eZ80). */
+static uint16_t field_hash(int16_t x, int16_t y)
+{
+    uint16_t h = (uint16_t)((uint16_t)x * 0x9E37u) ^ (uint16_t)((uint16_t)y * 0x85EBu);
+    h ^= (uint16_t)(h >> 7);
+    h = (uint16_t)(h * 0x2C1Bu);
+    h ^= (uint16_t)(h >> 9);
+    return h;
+}
+
 static const uint16_t FEATURE_TILE[FE_COUNT] = {
     [FE_BED] = T_BED, [FE_BOOKSHELF] = T_BOOKSHELF, [FE_CANDLE] = T_CANDLE_0,
     [FE_CAULDRON] = T_CAULDRON, [FE_TABLE] = T_TABLE, [FE_CHAIR] = T_CHAIR,
@@ -31,30 +55,42 @@ static const uint16_t FEATURE_TILE[FE_COUNT] = {
     [FE_ROCK] = T_ROCK, [FE_CHEST_FREE] = T_CHEST,
 };
 
-/* Animated tiles: frame 0 <-> frame 1 (candles, water). */
-static const uint16_t ANIM_A[] = {T_CANDLE_0, T_FLOOR_WATER_0, T_PORTAL_0,
-                                  T_AREA_FIRE_0, T_AREA_BLOB_0, T_AREA_VINE_0,
-                                  T_AREA_FLOOD_0};
-static const uint16_t ANIM_B[] = {T_CANDLE_1, T_FLOOR_WATER_1, T_PORTAL_1,
-                                  T_AREA_FIRE_1, T_AREA_BLOB_1, T_AREA_VINE_1,
-                                  T_AREA_FLOOD_1};
-#define ANIM_N (sizeof ANIM_A / sizeof ANIM_A[0])
+/* Animated tiles: up to 4 frames per group, chosen by the 2-bit phase.
+ * Two-frame groups (candles, portal, area effects) repeat A, B, A, B. The
+ * water flows over 4 frames; all fields share one phase, so the ripples move
+ * on across field borders (see tools/art/make_terrain.py). */
+#define ANIM_2(a, b) {a, b, a, b}
+static const uint16_t ANIM_F[][4] = {
+    ANIM_2(T_CANDLE_0, T_CANDLE_1),
+    {T_FLOOR_WATER_0, T_FLOOR_WATER_1, T_FLOOR_WATER_2, T_FLOOR_WATER_3},
+    ANIM_2(T_PORTAL_0, T_PORTAL_1),
+    ANIM_2(T_AREA_FIRE_0, T_AREA_FIRE_1),
+    ANIM_2(T_AREA_BLOB_0, T_AREA_BLOB_1),
+    ANIM_2(T_AREA_VINE_0, T_AREA_VINE_1),
+    ANIM_2(T_AREA_FLOOD_0, T_AREA_FLOOD_1),
+    {T_FLOOR_WATERB_0, T_FLOOR_WATERB_1, T_FLOOR_WATERB_2, T_FLOOR_WATERB_3},
+    ANIM_2(T_DECOR_LILY_0, T_DECOR_LILY_1),
+};
+#define ANIM_N (sizeof ANIM_F / sizeof ANIM_F[0])
 
-/* Which pair a tile belongs to: 1 + index into ANIM_A/ANIM_B, 0 = not
- * animated. anim_swap() used to search the pair list linearly, and
- * view_update() calls it for every layer of every field - roughly 13 600
- * comparisons per compose on a 9x9 window.
+/* Which group a tile belongs to: 1 + index into ANIM_F, 0 = not animated.
+ * anim_swap() is called for every layer of every field (roughly 13 600 times
+ * per compose on a 9x9 window), so it must not search.
  *
- * Kept in step with ANIM_A/ANIM_B by hand; selftest_view() checks every
- * tile id against the lists, so drift cannot pass unnoticed. */
+ * Kept in step with ANIM_F by hand; selftest_view() checks every tile id
+ * against the table, so drift cannot pass unnoticed. */
 static const uint8_t anim_pair[TILE_COUNT] = {
-    [T_CANDLE_0] = 1,     [T_CANDLE_1] = 1,
+    [T_CANDLE_0] = 1,      [T_CANDLE_1] = 1,
     [T_FLOOR_WATER_0] = 2, [T_FLOOR_WATER_1] = 2,
-    [T_PORTAL_0] = 3,     [T_PORTAL_1] = 3,
-    [T_AREA_FIRE_0] = 4,  [T_AREA_FIRE_1] = 4,
-    [T_AREA_BLOB_0] = 5,  [T_AREA_BLOB_1] = 5,
-    [T_AREA_VINE_0] = 6,  [T_AREA_VINE_1] = 6,
-    [T_AREA_FLOOD_0] = 7, [T_AREA_FLOOD_1] = 7,
+    [T_FLOOR_WATER_2] = 2, [T_FLOOR_WATER_3] = 2,
+    [T_PORTAL_0] = 3,      [T_PORTAL_1] = 3,
+    [T_AREA_FIRE_0] = 4,   [T_AREA_FIRE_1] = 4,
+    [T_AREA_BLOB_0] = 5,   [T_AREA_BLOB_1] = 5,
+    [T_AREA_VINE_0] = 6,   [T_AREA_VINE_1] = 6,
+    [T_AREA_FLOOD_0] = 7,  [T_AREA_FLOOD_1] = 7,
+    [T_FLOOR_WATERB_0] = 8, [T_FLOOR_WATERB_1] = 8,
+    [T_FLOOR_WATERB_2] = 8, [T_FLOOR_WATERB_3] = 8,
+    [T_DECOR_LILY_0] = 9,  [T_DECOR_LILY_1] = 9,
 };
 
 static uint16_t anim_swap(uint16_t id, uint8_t ph)
@@ -65,7 +101,7 @@ static uint16_t anim_swap(uint16_t id, uint8_t ph)
     k = anim_pair[id];
     if (k == 0)
         return id;
-    return ph ? ANIM_B[k - 1] : ANIM_A[k - 1];
+    return ANIM_F[k - 1][ph & 3];
 }
 
 static bool is_animated(uint16_t id)
@@ -78,9 +114,12 @@ bool view_anim_table_ok(void)
     uint16_t id;
     for (id = 0; id < TILE_COUNT; id++) {
         uint8_t k, want = 0;
-        for (k = 0; k < ANIM_N; k++)
-            if (id == ANIM_A[k] || id == ANIM_B[k])
-                want = (uint8_t)(k + 1);
+        for (k = 0; k < ANIM_N; k++) {
+            uint8_t f;
+            for (f = 0; f < 4; f++)
+                if (id == ANIM_F[k][f])
+                    want = (uint8_t)(k + 1);
+        }
         if (anim_pair[id] != want)
             return false;
     }
@@ -150,7 +189,7 @@ void view_set_portal(int16_t x, int16_t y)
     portal_y = y;
 }
 
-void view_set_phase(uint8_t p) { phase = p & 1; }
+void view_set_phase(uint8_t p) { phase = p & 3; }
 
 static void push(FieldLayers *f, uint16_t id)
 {
@@ -190,7 +229,18 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
     out->wade = 0;
     fl = w->floor[wy][wx];
     fe = w->feature[wy][wx];
-    push(out, FLOOR_TILE[fl]);
+    {
+        uint16_t h = field_hash(wx, wy), t = FLOOR_VAR[fl][VAR_PICK[(h >> 3) & 7]];
+        push(out, t ? t : FLOOR_TILE[fl]);
+        /* A water lily on open water: water on both sides along one axis
+         * (a two-field river qualifies, a bank corner does not). */
+        if (fl == FL_WATER && ((h >> 6) & 15) < 2 && fe == FE_NONE &&
+            ((world_floor(w, (int16_t)(wx - 1), wy) == FL_WATER &&
+              world_floor(w, (int16_t)(wx + 1), wy) == FL_WATER) ||
+             (world_floor(w, wx, (int16_t)(wy - 1)) == FL_WATER &&
+              world_floor(w, wx, (int16_t)(wy + 1)) == FL_WATER)))
+            push(out, T_DECOR_LILY_0);
+    }
 
     /* Half floors: each side of a wall line shows the neighbour's floor. */
     if (world_is_wall_line(w, wx, wy)) {
@@ -429,7 +479,7 @@ static void compose_dynamic(const World *w, int16_t wx, int16_t wy, FieldLayers 
     }
 
     if (portal_x == wx && portal_y == wy)
-        push(out, phase ? T_PORTAL_1 : T_PORTAL_0);
+        push(out, (phase & 1) ? T_PORTAL_1 : T_PORTAL_0);
 
     u = unit_for_view(w, wx, wy, UL_GROUND);
     if (u != NO_UNIT)
@@ -448,7 +498,7 @@ static void compose_dynamic(const World *w, int16_t wx, int16_t wy, FieldLayers 
                           : k == AREA_BLOB ? T_AREA_BLOB_0
                           : k == AREA_VINE ? T_AREA_VINE_0 : T_AREA_FLOOD_0;
             (void)p2;
-            push(out, phase ? (uint16_t)(base + 1) : base);
+            push(out, (phase & 1) ? (uint16_t)(base + 1) : base);
         }
     }
 }
@@ -563,7 +613,7 @@ static void compose_fast(const World *w, uint8_t vx, uint8_t vy, FieldLayers *ou
     if (over_obj[vy][vx] != NO_TILE)
         push(out, over_obj[vy][vx]);
     if (portal_x == wx && portal_y == wy)
-        push(out, phase ? T_PORTAL_1 : T_PORTAL_0);
+        push(out, (phase & 1) ? T_PORTAL_1 : T_PORTAL_0);
     if (over_unit[vy][vx])
         push_unit(w, &w->units[over_unit[vy][vx] - 1], out, false);
     if (over_air[vy][vx]) {
@@ -577,7 +627,7 @@ static void compose_fast(const World *w, uint8_t vx, uint8_t vy, FieldLayers *ou
             uint16_t base = k == AREA_FIRE ? T_AREA_FIRE_0
                           : k == AREA_BLOB ? T_AREA_BLOB_0
                           : k == AREA_VINE ? T_AREA_VINE_0 : T_AREA_FLOOD_0;
-            push(out, phase ? (uint16_t)(base + 1) : base);
+            push(out, (phase & 1) ? (uint16_t)(base + 1) : base);
         }
     }
     apply_sight(w, wx, wy, out);
@@ -642,7 +692,7 @@ uint8_t view_update(const World *w)
 uint8_t view_animate(uint8_t p)
 {
     uint8_t vx, vy, i, n = 0;
-    phase = p & 1;
+    phase = p & 3;
     for (vy = 0; vy < VIEW_H; vy++)
         for (vx = 0; vx < VIEW_W; vx++) {
             FieldLayers *f = &fields[vy][vx];

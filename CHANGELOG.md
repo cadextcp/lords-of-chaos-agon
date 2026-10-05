@@ -2,6 +2,14 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Gelände-Politur 1: Variation, fließendes Wasser, Seerosen (D51) (2026-10-06)
+
+### Neu
+- **Abwechslungsreiche Flächen:** Gras (3 Varianten mit Blümchen, Halmen, Steinchen), Weg (2), Hochgras und Sumpf (je 1), per Positions-Hash gewählt (`tools/art/make_terrain.py`).
+- **Fließendes Wasser:** 4 Frames statt 2, Wellenzeilen mit unterschiedlicher Geschwindigkeit, nahtlos über Feldgrenzen; zwei Muster-Varianten.
+- **Seerosen** auf Wasserfeldern (2 Frames).
+- Animationsphase mit 2 Bit; Tabelle `ANIM_F` mit 4 Frames je Gruppe. `HOUSE_VIEW_HASH` neu (Kachel-IDs verschoben), neue Checks `d51`.
+
 ## [Unreleased] – Dach-Anzeige (D46) (2026-10-05)
 
 ### Behoben

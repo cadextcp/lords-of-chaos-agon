@@ -34,7 +34,7 @@
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
  * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures;
  * M5c added the seven fx tiles after "floor_*" (IDs shifted again). */
-#define HOUSE_VIEW_HASH 0x632E5581UL
+#define HOUSE_VIEW_HASH 0x3D34B775UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -350,6 +350,55 @@ static void test_terrain(void)
     view_update(&world);
     view_clean();
     check(view_animate(1) > 0 && fast_equals_reference(), "terrain: water animates like reference");
+    {   /* D51: the water flows through four frames and every frame is the
+         * same as the reference composition */
+        uint8_t ph, moved = 1, distinct = 0;
+        FieldLayers prev, cur;
+        int16_t x, y, wx = -1, wy = -1;
+        for (y = 0; y < world.h && wx < 0; y++)
+            for (x = 0; x < world.w; x++)
+                if (world.floor[y][x] == FL_WATER && world.feature[y][x] == FE_NONE) {
+                    wx = x;
+                    wy = y;
+                    break;
+                }
+        check(wx >= 0, "d51: the testland has open water");
+        view_set_phase(0);
+        view_compose(&world, wx, wy, &prev);
+        for (ph = 1; ph < 4; ph++) {
+            view_set_phase(ph);
+            view_compose(&world, wx, wy, &cur);
+            if (cur.id[0] != prev.id[0])
+                distinct++;
+            else
+                moved = 0;
+            prev = cur;
+            view_animate(ph);
+            if (!fast_equals_reference())
+                moved = 0;
+        }
+        check(moved && distinct == 3, "d51: water shows a new frame in each of the 4 phases");
+        view_set_phase(0);
+        view_animate(0);
+        view_compose(&world, wx, wy, &a);
+        view_compose(&world, wx, wy, &b);
+        check(a.n == b.n && memcmp(a.id, b.id, a.n * sizeof a.id[0]) == 0,
+              "d51: composing a field twice gives the same layers");
+    }
+    {   /* variants are a pure function of the position (wrap-stable) */
+        uint8_t seen_base = 0, seen_var = 0;
+        int16_t x, y;
+        for (y = 0; y < world.h; y++)
+            for (x = 0; x < world.w; x++)
+                if (world.floor[y][x] == FL_GRASS && world.feature[y][x] == FE_NONE) {
+                    view_compose(&world, x, y, &a);
+                    if (a.id[0] == T_FLOOR_GRASS)
+                        seen_base = 1;
+                    else if (a.id[0] >= T_FLOOR_GRASS_1 && a.id[0] <= T_FLOOR_GRASS_3)
+                        seen_var = 1;
+                }
+        check(seen_base && seen_var, "d51: meadows mix the base tile and its variants");
+    }
     view_animate(0);
     view_set_origin(0, 0);
     load_house();

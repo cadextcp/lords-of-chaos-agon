@@ -46,7 +46,7 @@ int16_t view_origin_y(void);
 void view_follow(const World *w, int16_t x, int16_t y);
 /* Cursor frame at a world position (tile e.g. T_CURSOR_GREEN), or none. */
 void view_set_cursor(int16_t x, int16_t y, uint16_t tile);
-/* Animation phase (e.g. candle flicker), 0 or 1. */
+/* Animation phase (candle flicker, flowing water), 0..3; two-frame tiles use bit 0. */
 void view_set_phase(uint8_t phase);
 
 /* Recompute the cached static layers (floor, walls, decor, furniture).
