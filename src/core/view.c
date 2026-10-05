@@ -225,10 +225,10 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
  * building is the 4-connected region of roofed fields; it is flooded
  * once per change of the own units under roofs, not once per field. */
 /* Whose eyes decide whether a roof is lifted: only the currently active
- * figure, and only along its line of sight (playtest 2026-10-05, D41).
- * Standing outside therefore shows nothing of the inside, a figure in a
- * room uncovers that room, and an open door gives a glimpse - exactly as
- * far as the line of sight reaches. Negative x switches it off.
+ * figure. Under a roof (D46) nothing is drawn at all; outside, the roof
+ * opens along its line of sight (playtest 2026-10-05, D41): an open door
+ * gives a glimpse - exactly as far as the line of sight reaches. Negative
+ * x switches it off.
  *
  * Replaces the old flood fill, which lifted the whole connected roof as
  * soon as one own unit stood anywhere under it (F7, M4e) - and with it
@@ -253,6 +253,38 @@ static bool roof_lifted(const World *w, int16_t wx, int16_t wy)
     return sight_has_los(w, roof_vx, roof_vy, wx, wy);
 }
 
+/* D46 (playtest 2026-10-05): indoors no roof is drawn at all. The
+ * per-field lift (D41) missed wall-corner fields - shadowcasting and the
+ * Bresenham ray disagree there - so moving around a house kept popping
+ * roof tiles up wherever the ray was cut. */
+static bool viewer_under_roof(const World *w)
+{
+    if (roof_vx < 0)
+        return false;
+    return world_has_roof(w, roof_vx, roof_vy);
+}
+
+/* The roof covers the outer wall (playtest 2026-10-05): the bitmap marks
+ * only the interior, and without this the house looked open-topped, the
+ * roof ending in front of the wall. A wall or door touching roofed
+ * ground carries the roof; on a wall the per-field lift (D41) never
+ * applies - its roof goes when the viewer stands under the roof (D46),
+ * not when the wall itself is in line of sight. */
+static bool roof_covered(const World *w, int16_t wx, int16_t wy, bool *wall)
+{
+    static const int8_t N[4][2] = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
+    uint8_t fe = w->feature[wy][wx], i;
+    *wall = fe == FE_WALL;
+    if (world_has_roof(w, wx, wy))
+        return true;
+    if (fe != FE_WALL && fe != FE_DOOR_CLOSED && fe != FE_DOOR_OPEN)
+        return false;
+    for (i = 0; i < 4; i++)
+        if (world_has_roof(w, (int16_t)(wx + N[i][0]), (int16_t)(wy + N[i][1])))
+            return true;
+    return false;
+}
+
 /* The roof goes on LAST, not with the static layers (D44): drawn early it
  * sat below the units, and the renderer paints bottom-up - a figure under
  * a closed roof appeared to stand on it. Pushed here it covers whatever is
@@ -260,9 +292,12 @@ static bool roof_lifted(const World *w, int16_t wx, int16_t wy)
 static void apply_roof_rule(const World *w, int16_t wx, int16_t wy,
                             FieldLayers *out)
 {
-    if (!world_wrap(w, &wx, &wy) || !world_has_roof(w, wx, wy))
+    bool wall;
+    if (!world_wrap(w, &wx, &wy) || !roof_covered(w, wx, wy, &wall))
         return;
-    if (roof_lifted(w, wx, wy))
+    if (viewer_under_roof(w))            /* D46: indoors, no roofs at all */
+        return;
+    if (!wall && roof_lifted(w, wx, wy)) /* D41: the glimpse through a door */
         return;
     push(out, T_ROOF);
 }
@@ -309,7 +344,19 @@ static void push_unit(const World *w, const Unit *un, FieldLayers *out, bool air
 }
 
 /* Hidden map (GDD 11.2): unexplored fields are a black tile, explored but
- * out of sight get the raster overlay on top. */
+ * out of sight get the raster overlay on top. A roof stays in its normal
+ * texture (playtest 2026-10-05): the raster made the roof read as
+ * "obscured" from outside, and the opaque tile covers whatever is below
+ * it anyway. */
+static bool has_roof_layer(const FieldLayers *out)
+{
+    uint8_t i;
+    for (i = 0; i < out->n; i++)
+        if (out->id[i] == T_ROOF)
+            return true;
+    return false;
+}
+
 static void apply_sight(const World *w, int16_t wx, int16_t wy, FieldLayers *out)
 {
     if (!sight_map)
@@ -320,7 +367,7 @@ static void apply_sight(const World *w, int16_t wx, int16_t wy, FieldLayers *out
         out->ride = 0;
         out->foe = 0;
         push(out, T_UNEXPLORED);
-    } else if (!sight_visible(sight_map, w, wx, wy)) {
+    } else if (!sight_visible(sight_map, w, wx, wy) && !has_roof_layer(out)) {
         push(out, T_OVERLAY_REMEMBERED);
     }
 }

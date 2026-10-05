@@ -2910,6 +2910,60 @@ static void test_m4e(void)
             check(!world_land(&world, bat),
                   "m4e: no landing under the roof");
         }
+        {   /* D46 (2026-10-05): indoors no roof is drawn at all. The
+             * per-field lift (D41) missed the north wall row - shadowcasting
+             * saw those fields, the ray did not - so roof tiles kept
+             * popping up between the rooms while walking around. */
+            view_set_roof_viewer(6, 6);          /* the wizard starts indoors */
+            check(world_has_roof(&world, 7, 2) &&
+                  !sight_has_los(&world, 6, 6, 7, 2),
+                  "d46: premise - a roofed wall the room has no ray to");
+            view_compose(&world, 7, 2, &f);
+            check(!has_layer(&f, T_ROOF),
+                  "d46: indoors no roof, not even without line of sight");
+            view_compose(&world, 5, 5, &f);
+            check(!has_layer(&f, T_ROOF),
+                  "d46: indoors no roof over the room itself either");
+        }
+        {   /* the roof keeps the outer wall covered (2026-10-05): a wall
+             * field carries its roof even in line of sight - the facade
+             * must not go open right in front of the viewer. */
+            view_set_roof_viewer(11, 6);         /* outside, east of it */
+            check(world_has_roof(&world, 8, 6) &&
+                  sight_has_los(&world, 11, 6, 8, 6),
+                  "d46: premise - the east wall is roofed and in sight");
+            view_compose(&world, 8, 6, &f);
+            check(has_layer(&f, T_ROOF),
+                  "d46: the wall keeps its roof even in line of sight");
+            view_set_roof_viewer(-1, 0);
+            view_compose(&world, 28, 22, &f);
+            check(!has_layer(&f, T_ROOF),
+                  "d46: a wall away from any roof stays bare");
+        }
+        {   /* a remembered roof keeps its normal texture (2026-10-05): no
+             * dither overlay on roofed fields - from outside the roof read
+             * as "obscured" patchwork. The opaque tile hides what is below
+             * it anyway. */
+            Sight s;
+            world.unit_count = 0;
+            view_set_roof_viewer(-1, 0);
+            world_spawn_unit(&world, OWN_P1, CR_WIZARD, 6, 6);
+            sight_init(&s, OWN_P1);
+            sight_compute(&world, &s);           /* explores the rooms */
+            world.unit_count = 0;                /* the explorer leaves */
+            world_spawn_unit(&world, OWN_P1, CR_WIZARD, 20, 19);
+            sight_compute(&world, &s);           /* tower out of sight now */
+            view_set_sight(&s);
+            view_compose(&world, 5, 5, &f);
+            check(sight_explored(&s, &world, 5, 5) &&
+                  !sight_visible(&s, &world, 5, 5),
+                  "d46: premise - the room is remembered, not seen");
+            check(has_layer(&f, T_ROOF) &&
+                  !has_layer(&f, T_OVERLAY_REMEMBERED),
+                  "d46: a remembered roof shows in its normal texture");
+            view_set_sight(NULL);
+            world.unit_count = 0;
+        }
     }
 
     {   /* the new weapons in the melee path (values land via items_*) */

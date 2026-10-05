@@ -2,6 +2,11 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Dach-Anzeige (D46) (2026-10-05)
+
+### Behoben
+- **Dächer poppen nicht mehr im Haus.** Steht die aktive Figur unter einem Dach, wird gar kein Dach gezeichnet. Mauern und Türen mit überdachtem Nachbarn tragen das Dach (die per-Feld-Hebung greift dort nie, das Dach endet also nicht mehr vor der Außenwand), und das „verdeckt“-Raster liegt nie über Dachfeldern. Grund: Shadowcasting und Bresenham-Strahl fallen an Wandkanten auseinander. Entscheidung D46 im GDD, fünf neue Checks (`d46`) im Selftest.
+
 ## [Unreleased] – Messen und Fernsteuern vom PC (2026-10-05)
 
 ### Gemessen
