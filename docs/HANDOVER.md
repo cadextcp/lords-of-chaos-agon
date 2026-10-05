@@ -1,7 +1,30 @@
 # Übergabe: Stand und nächste Schritte
 
-> Stand: 2026-10-04 · **M0–M5 vollständig**, **Polish-Runde** gemergt (#113–#117), dazu #118 (D34) und #119 (D35–D37) · CI grün · `loc.bin` 299 KB
+> Stand: 2026-10-05 · **M0–M5 vollständig**, Polish-Runde, **Playtest-Runden A–C vollständig** (bis #126, Entscheidungen bis D50) · CI grün · `loc.bin` 323 KB
 > Für die nächste Person bzw. den nächsten Agenten. Zuerst `CLAUDE.md` lesen (Regeln, Befehle), dann dieses Dokument.
+
+---
+
+## 0. Stand 2026-10-05: Playtest-Runden A–C erledigt
+
+Alle Punkte aus `docs/PLAYTEST-2026-10-05.md` (A, B, C1–C9) sind umgesetzt und gemergt, `main` ist grün (Host + eZ80). Zuletzt kamen dazu:
+
+| PR | Inhalt |
+|---|---|
+| #121 | Rundenwechsel-Redraw: sichtbare Phasen heben den Vorhang, Karte wird neu aufgebaut (D45) |
+| #122 | Dach-Anzeige (D46): im Haus kein Dach, Mauern tragen das Dach, kein „verdeckt“-Raster über Dachfeldern |
+| #123 | **C1/C2 (D47):** `a` + Richtung schließt Türen, mit Schlüssel ab-/aufschließen, Truhen öffnen. `FE_DOOR_LOCKED` (Karte `L`), `FE_CHEST_FREE` (Karte `x`); Gegner ohne Schlüssel zerstören abgeschlossene Türen. Kartentruhen `X` bleiben verschlossen, Zufallstruhen je zur Hälfte frei |
+| #124 | **C5 (D48):** Ertrinken. Runde im tiefen Wasser = halbe Ausdauer weg; bei 0 pro Runde −⅕ Con |
+| #125 | **C4 (D49):** Waten. Figuren im Wasser 8 px tiefer, Beine vom Feld darunter verdeckt (`FieldLayers.wade`) |
+| #126 | **C3 (D50):** Eigene Figuren dürfen sich überlagern (`world_blocking_unit_at`); gezeichnet wird die aktive (`view_set_active_unit`) |
+
+**Nicht von Hand im Spiel geprüft:** C1/C2 (Türen/Truhen, `a`-Taste) und C3 (Überlagern) sind nur durch Selftests abgedeckt. C4 wurde per Emulator-Screenshot gesehen. Als Nächstes im Spiel anspielen.
+
+**RAM-Reserve (wichtig):** Heap und Stack teilen sich nur das Stück zwischen Ende von `.bss` und `0xB0000` — nach #126 rund 15 KB, davor ~9,5 KB. Wenige KB mehr Code ließen den eZ80-Selftest in CI scheitern („water animates like reference“), lokal aber nicht (Details QUIRKS S6). Bei Fehlern, die nur von der Codegröße abhängen: zuerst `.bss`-Ende in `bin/loc.map` prüfen. Das Kontextmenü borgt dafür die `World` des Selftests (`selftest_scratch_world()`).
+
+**Noch offen (aus der Milestone-Liste, unverändert):** Original-Zauberpreise (Tabelle des Nutzers), Spinne/Vampir-Rebalance, D33 Schriftrollen, VP-Vorschläge.
+
+**Werkzeug-Hinweise dieser Runde:** `tools/run.py --testland --no-menu --dump --free-round1 --list --keys "…" --screenshot` fährt eine Sitzung; die Bilder landen in `build/screenshots/`. Einzelne Dateien nie halb schreiben: erst `git status`, dann Branch, Commit, PR. Gestapelte PRs mit **Merge-Commits** mergen (GitHub hängt den nächsten PR beim Löschen des Branches selbst auf `main` um).
 
 ---
 
@@ -191,7 +214,7 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
 
 ## 7. Nächste Schritte
 
-**Polish-Runde (Stand 2026-10-04):** #113–#119 sind alle gemergt, `main` ist grün (Host + eZ80). Als Nächstes auf Hardware prüfen (SD-Paket `bin/loc-sd.zip` neu): `vdptest` (Log mit dem Emulator vergleichen, ADR 0012), Klang/Musik, Schrift, Sprites, Ladezeit (`sfx.bin` 110 KB zusätzlich), VDP-RAM. Offen aus dem Plan: Copper/Doppelpuffer verworfen (ADR 0012); KI-Bewegungen gleiten noch nicht (nur eigene Schritte). Grafik-Restposten: Lexikon-Vorschaubilder, Zauberer-Porträt, Gelände auf der Großkarte; optional Partikel und Status-Symbole für neue Effekte.
+**Polish-Runde (Stand 2026-10-04, siehe §0 für 2026-10-05):** #113–#119 sind alle gemergt, `main` ist grün (Host + eZ80). Als Nächstes auf Hardware prüfen (SD-Paket `bin/loc-sd.zip` neu): `vdptest` (Log mit dem Emulator vergleichen, ADR 0012), Klang/Musik, Schrift, Sprites, Ladezeit (`sfx.bin` 110 KB zusätzlich), VDP-RAM. Offen aus dem Plan: Copper/Doppelpuffer verworfen (ADR 0012); KI-Bewegungen gleiten noch nicht (nur eigene Schritte). Grafik-Restposten: Lexikon-Vorschaubilder, Zauberer-Porträt, Gelände auf der Großkarte; optional Partikel und Status-Symbole für neue Effekte.
 
 **Fallstricke aus der Polish-Runde:** Der eZ80-RAM ist knapp (QUIRK S6) – große Puffer nur streamen, Werkzeuge als eigene Programme (`spikes/`). Audio: VDP queued nicht (A1), Kanal 3+ erst freischalten (A8), stimmbar = Flag 16 (A9) – sonst landen Befehlsbytes als Text auf dem Schirm. Python-Patches unter Windows immer mit `encoding="utf-8"` lesen.
 
