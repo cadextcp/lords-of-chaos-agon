@@ -14,6 +14,7 @@
 #include <stdint.h>
 
 #include "rng.h"
+#include "sight.h"
 #include "world.h"
 
 typedef struct {
@@ -33,6 +34,11 @@ typedef struct {
 /* Attack rolls at or below this percentile are critical (D30): the
  * damage dice count twice (flat bonuses do not - D&D style). */
 #define COMBAT_CRIT_PERCENT 5
+/* Spell hit chance (D40): magic ignores armour and defence completely -
+ * only magic resistance counts. The clamp keeps a critical failure
+ * possible against the weakest resistance and a hit possible against the
+ * strongest, so nothing is ever immune or automatic. */
+uint8_t combat_spell_hit_chance(uint8_t magic_res);
 
 /* Hit chance in percent, for tests and the AI: 50 + 5 per point of
  * Combat over Defence, clamped to 10..90. */
@@ -60,9 +66,11 @@ bool combat_free_swing(World *w, Rng *rng, uint8_t att, uint8_t def,
                        CombatResult *out);
 /* After `unit` moved out of melee contact (an enemy was adjacent
  * before AND an enemy is adjacent now): one adjacent living enemy gets
- * a free swing. Returns the number of swings (0/1), out filled. */
+ * a free swing. Returns the number of swings (0/1), out filled.
+ * `seen` is the field of view of the moving side: an enemy it cannot see
+ * does not get the swing (playtest 2026-10-05). NULL lifts that test. */
 uint8_t combat_disengage_swings(World *w, Rng *rng, uint8_t unit,
-                                CombatResult *out);
+                                const Sight *seen, CombatResult *out);
 
 /* Terrain attack (GDD 3.3): damage rolled against the feature's
  * toughness; a lucky hit smashes it. Returns the damage, 0 when there

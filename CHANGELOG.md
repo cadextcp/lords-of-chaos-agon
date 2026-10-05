@@ -2,6 +2,19 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Playtest-Runde A: Magie, Dächer, freier Schlag (2026-10-05)
+
+Rückmeldungen und Einordnung: `docs/PLAYTEST-2026-10-05.md`.
+
+### Geändert
+- **Magie ignoriert Verteidigung (D40):** Schadenszauber würfeln allein gegen die Magieresistenz (`100 − MR`, 5–95 %). Vorher stand der Nahkampfwert des Zauberers gegen die physische Verteidigung — gegen eine Riesenspinne ergab das bei *jedem* Wurf den 10-%-Boden, jetzt 45 %. `magic_res` stand bis dahin in der Kreaturtabelle, wurde auf die Einheit übernommen und war im Zauberer-Designer **mit Punkten steigerbar — ohne jede Wirkung**.
+- **Dächer heben nur für die aktive Figur (D41):** entlang ihrer Sichtlinie statt per Flutfüllung über das ganze Gebäude. Von außen sieht man nicht mehr hinein, durch eine offene Tür so weit, wie die Sichtlinie reicht. Spart 3,9 KB eZ80-RAM.
+- **Freier Schlag nur von Gesehenen:** ein Gegner, den die weglaufende Seite nicht sieht, bekommt keinen Gelegenheitsschlag mehr. Für die KI noch unverändert (sie führt keine eigene Sichtkarte je Zug) — die Asymmetrie ist bewusst und offen.
+
+### Behoben
+- **Aufsteigen meldete Unsinn:** ein zweites „fliegen“ fiel durch die `else`-Kette auf „Da fliegt schon einer.“ Jetzt „Du fliegst schon.“, und mit Flugtrank nicht mehr „Diese Kreatur fliegt nicht.“
+- **Laufen unter offener Gesamtkarte:** Pfeil- und Diagonaltasten wurden vor dem Overlay-Zweig abgearbeitet, die Figur lief weiter und das Detailfenster zeichnete sich über die Karte. Der Schritt entfällt jetzt, die Taste wird aber nicht verschluckt (Quirk K6).
+
 ## [Unreleased] – Plattform-Audit: Sicht, LOS und Zeichenstrom (2026-10-05)
 
 Hintergrund und Begründung: `docs/AUDIT-PLATTFORM.md`.

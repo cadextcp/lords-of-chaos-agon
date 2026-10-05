@@ -76,6 +76,10 @@ uint32_t view_hash(void);
 /* The animation partner table (anim_pair) is maintained by hand next to
  * the ANIM_A/ANIM_B lists. True when the two agree for every tile id.
  * For the selftest - drift would silently freeze an animation. */
+/* The figure whose line of sight lifts roofs (D41). Only the active
+ * figure sees under a roof; a negative x lifts none. */
+void view_set_roof_viewer(int16_t x, int16_t y);
+
 bool view_anim_table_ok(void);
 
 #endif

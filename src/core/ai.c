@@ -75,7 +75,7 @@ bool ai_step_toward(World *w, Rng *rng, uint8_t unit, int16_t x, int16_t y)
         if (world_move_unit(w, unit, dx, dy)) {
             CombatResult fs;               /* D26: the player swings back */
             if (was_adjacent &&
-                combat_disengage_swings(w, rng, unit, &fs) && fs.hit) {
+                combat_disengage_swings(w, rng, unit, NULL, &fs) && fs.hit) {
                 unit = world_find_unit(w, my_id);
                 if (unit == NO_UNIT)
                     return true;           /* died on the free swing */

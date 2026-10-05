@@ -356,20 +356,22 @@ uint8_t items_defence(const World *w, uint8_t unit)
     return def > malus ? (uint8_t)(def - malus) : 0;
 }
 
-uint8_t items_defence_noshield(const World *w, uint8_t unit)
+/* Magic resistance of a unit (D40). A carried shield never helped against
+ * magic (D32) and armour no longer does either, but the protective spells
+ * keep their effect - they used to be added to defence. */
+uint8_t items_magic_res(const World *w, uint8_t unit)
 {
     const Unit *u;
-    uint8_t def, malus;
+    uint16_t mr;
     if (unit >= w->unit_count)
         return 0;
     u = &w->units[unit];
-    def = u->def;    /* no carried shield: magic cuts through armour (D32) */
+    mr = u->mr;
     if (effect_active(u, EFF_SHIELD))
-        def = (uint8_t)(def + effect_power(u, EFF_SHIELD));
+        mr = (uint16_t)(mr + effect_power(u, EFF_SHIELD));
     if (effect_active(u, EFF_PROTECT))
-        def = (uint8_t)(def + effect_power(u, EFF_PROTECT));
-    malus = con_malus(u);
-    return def > malus ? (uint8_t)(def - malus) : 0;
+        mr = (uint16_t)(mr + effect_power(u, EFF_PROTECT));
+    return mr > 100 ? 100 : (uint8_t)mr;
 }
 
 

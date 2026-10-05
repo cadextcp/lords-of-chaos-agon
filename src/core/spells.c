@@ -163,8 +163,7 @@ static bool shoot_field(World *w, Rng *rng, const Unit *caster, int16_t x,
     if (target == NO_UNIT)
         return false;
     roll = rng_range(rng, 100);
-    if (roll >= combat_hit_chance(caster->com,
-                                 items_defence_noshield(w, target))) {
+    if (roll >= combat_spell_hit_chance(items_magic_res(w, target))) {
         events_push(EV_MISS, x, y, caster->kind, caster->owner, 0, 0);
         return false;
     }

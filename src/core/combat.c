@@ -1,10 +1,22 @@
 #include "combat.h"
 
+#include "sight.h"
+
 #include <string.h>
 
 #include "events.h"
 #include "gen/data.h"
 #include "items.h"
+
+uint8_t combat_spell_hit_chance(uint8_t magic_res)
+{
+    int16_t p = (int16_t)(100 - (int16_t)magic_res);
+    if (p < COMBAT_CRIT_PERCENT)
+        return COMBAT_CRIT_PERCENT;
+    if (p > 100 - COMBAT_CRIT_PERCENT)
+        return 100 - COMBAT_CRIT_PERCENT;
+    return (uint8_t)p;
+}
 
 uint8_t combat_hit_chance(uint8_t com, uint8_t def)
 {
@@ -168,7 +180,7 @@ bool combat_free_swing(World *w, Rng *rng, uint8_t att, uint8_t def,
 }
 
 uint8_t combat_disengage_swings(World *w, Rng *rng, uint8_t unit,
-                                CombatResult *out)
+                                const Sight *seen, CombatResult *out)
 {
     uint8_t i;
     if (unit >= w->unit_count)
@@ -177,6 +189,8 @@ uint8_t combat_disengage_swings(World *w, Rng *rng, uint8_t unit,
         const Unit *e = &w->units[i];
         if (e->owner == w->units[unit].owner || (e->flags & UF_INVISIBLE))
             continue;
+        if (seen && !sight_visible(seen, w, e->x, e->y))
+            continue;                  /* unseen: no swing out of nowhere */
         if (!adjacent(w, e, &w->units[unit]))
             continue;
         if (!combat_free_swing(w, rng, i, unit, out))

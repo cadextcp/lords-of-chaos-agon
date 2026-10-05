@@ -349,6 +349,8 @@ static void frame(bool dump)
         int16_t cx = targeting ? target_x : look_x;
         int16_t cy = targeting ? target_y : look_y;
         char buf[24];
+        /* Roofs lift for the active figure's eyes, not for the cursor (D41). */
+        view_set_roof_viewer(world.units[active()].x, world.units[active()].y);
         view_follow(&world, cx, cy);
         view_update(&world);
         render_fields();
@@ -367,6 +369,7 @@ static void frame(bool dump)
     }
     {
         const Unit *u = &world.units[active()];
+        view_set_roof_viewer(u->x, u->y);
         view_follow(&world, u->x, u->y);
         view_update(&world);
         render_fields();
@@ -689,7 +692,7 @@ static void step(uint8_t m, bool dump)
         if (!dump)
             glide(mover_id, old_x, old_y);
         if (was_adjacent &&
-            combat_disengage_swings(&world, &turns.rng, active(), &fs)) {
+            combat_disengage_swings(&world, &turns.rng, active(), &p1_sight, &fs)) {
             if (fs.hit) {
                 log_push("Freier Schlag erwischt uns.");
                 render_message(1, C_BRIGHT_RED,

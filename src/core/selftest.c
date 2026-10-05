@@ -861,11 +861,39 @@ static void test_combat(void)
         check(world_enemy_adjacent(&world, 0),
               "combat: the goblin is still adjacent after the step");
         rng_seed(&frng, 21);
-        check(combat_disengage_swings(&world, &frng, 0, &r) == 1,
+        check(combat_disengage_swings(&world, &frng, 0, NULL, &r) == 1,
               "combat: the disengage swing happens");
         world_remove_unit(&world, 1);
         check(!world_enemy_adjacent(&world, 0) && world_move_unit(&world, 0, 0, -1),
               "combat: free again after the enemy dies");
+    }
+
+    {   /* An enemy the moving side cannot see gets no swing out of nowhere
+         * (playtest 2026-10-05). The same position with an all-seeing map
+         * must still swing, otherwise the check proves nothing. */
+        Rng frng;
+        CombatResult r;
+        Sight blind, open;
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 2;
+        world.units[0].ap = 40;
+        world.units[1].x = (uint8_t)(world.units[0].x + 1);
+        world.units[1].y = world.units[0].y;
+        world.units[1].owner = OWN_P2;
+        world.units[1].kind = CR_GOBLIN;
+        world_engage(&world, 0);
+        check(world_move_unit(&world, 0, 0, -1) &&
+              world_enemy_adjacent(&world, 0),
+              "combat: still in contact after the step (sight case)");
+        sight_init(&blind, OWN_P1);                  /* sees nothing at all */
+        rng_seed(&frng, 21);
+        check(combat_disengage_swings(&world, &frng, 0, &blind, &r) == 0,
+              "combat: an unseen enemy gets no free swing");
+        sight_init(&open, OWN_P1);
+        memset(open.visible, 0xFF, sizeof open.visible);
+        rng_seed(&frng, 21);
+        check(combat_disengage_swings(&world, &frng, 0, &open, &r) == 1,
+              "combat: the same enemy in plain sight does swing");
     }
 
     {   /* diagonal slip: leaving all enemies behind avoids the swing (D26) */
@@ -881,7 +909,7 @@ static void test_combat(void)
         check(world_move_unit(&world, 0, -1, -1) &&
               !world_enemy_adjacent(&world, 0),
               "combat: the diagonal slip leaves the enemy behind");
-        check(combat_disengage_swings(&world, &frng, 0, &r) == 0,
+        check(combat_disengage_swings(&world, &frng, 0, NULL, &r) == 0,
               "combat: nobody is adjacent, no free swing");
     }
 
@@ -916,7 +944,7 @@ static void test_combat(void)
             Rng frng;
             CombatResult r;
             bool swing = world_enemy_adjacent(&world, 0) &&
-                         combat_disengage_swings(&world, &frng, 0, &r) == 1;
+                         combat_disengage_swings(&world, &frng, 0, NULL, &r) == 1;
             check(world_move_unit(&world, 0, -1, 0) || world.units[0].x != 7,
                   "combat: leaving the contact is allowed");
             check(swing || world.unit_count == 1,
@@ -2757,43 +2785,34 @@ static void test_m4e(void)
         check(world_has_roof(&world, 5, 5) && !world_has_roof(&world, 20, 19),
               "m4e: the house carries a roof");
         view_set_sight(NULL);
+        view_set_roof_viewer(-1, 0);
         view_compose(&world, 5, 5, &f);
         check(has_layer(&f, T_ROOF), "m4e: the roof is visible outside");
+
+        /* D41 (playtest 2026-10-05): only the active figure's line of sight
+         * lifts a roof. This replaces F7, where one own unit anywhere under
+         * the roof uncovered the whole building - a second figure outside
+         * then looked straight into the house. The checks below hold
+         * whatever the house looks like. */
         {
-            world_spawn_unit(&world, OWN_P1, CR_WIZARD, 5, 5);
+            view_set_roof_viewer(5, 5);              /* the active figure is there */
             view_compose(&world, 5, 5, &f);
             check(!has_layer(&f, T_ROOF),
-                  "m4e: an own unit inside hides the roof (F7)");
-            view_set_sight(NULL);
-        }
-        {   /* the whole building opens, not just the unit's own field */
-            world.unit_count = 0;
-            view_set_sight(NULL);
-            world_spawn_unit(&world, OWN_P1, CR_WIZARD, 6, 6);
-            view_compose(&world, 3, 2, &f);
-            check(!has_layer(&f, T_ROOF),
-                  "m4e: the roof lifts over the whole building");
-            view_compose(&world, 8, 10, &f);
-            check(!has_layer(&f, T_ROOF),
-                  "m4e: even the far corner shows the inside");
-            world.units[0].x = 15;       /* leaves the house */
-            world.units[0].y = 6;
-            view_compose(&world, 3, 2, &f);
+                  "d41: the active figure uncovers its own roofed field");
+
+            view_set_roof_viewer(20, 19);            /* outside, far away */
+            view_compose(&world, 5, 5, &f);
             check(has_layer(&f, T_ROOF),
-                  "m4e: the roof closes again behind the wizard");
-            world.units[0].x = 6;
-            world.units[0].y = 6;
-            world.units[0].owner = OWN_P2;      /* an enemy inside */
-            {
-                Sight roof_sight;
-                sight_init(&roof_sight, OWN_P1);
-                memset(roof_sight.explored, 0xFF, sizeof roof_sight.explored);
-                view_set_sight(&roof_sight);
-                view_compose(&world, 3, 2, &f);
-                check(has_layer(&f, T_ROOF),
-                      "m4e: an enemy inside does not lift the roof");
-                view_set_sight(NULL);
-            }
+                  "d41: from outside the roof stays closed");
+
+            /* The reversal of F7: another own unit under the roof must not
+             * uncover anything while the active figure stands outside. */
+            world.unit_count = 0;
+            world_spawn_unit(&world, OWN_P1, CR_WIZARD, 5, 5);
+            view_set_roof_viewer(20, 19);
+            view_compose(&world, 5, 5, &f);
+            check(has_layer(&f, T_ROOF),
+                  "d41: a second own unit inside does not open the house");
             world.unit_count = 0;
         }
         {   /* a ridden pair inside the lifted roof keeps its masks in step */
@@ -2801,6 +2820,7 @@ static void test_m4e(void)
             uint8_t li, rl = 0xFF, mt;
             world.unit_count = 0;
             view_set_sight(NULL);
+            view_set_roof_viewer(5, 5);          /* the pair is the active figure */
             mt = world_spawn_unit(&world, OWN_P1, CR_UNICORN, 5, 5);
             world.units[mt].flags |= UF_RIDDEN;
             world.units[mt].rider_kind = CR_WIZARD;
@@ -3737,11 +3757,11 @@ static void test_m5e_balance(void)
         combat_melee(&world, &rng, 0, 1, &r);      /* goblin counters ... */
         check(r.returned, "m5e: the goblin counters the first attack");
         rng_seed(&rng, 32);
-        check(combat_disengage_swings(&world, &rng, 0, &fs) == 0,
+        check(combat_disengage_swings(&world, &rng, 0, NULL, &fs) == 0,
               "m5e: no free swing left in the same round (D29)");
         world.units[1].reacted = false;   /* new round */
         rng_seed(&rng, 33);
-        check(combat_disengage_swings(&world, &rng, 0, &fs) == 1,
+        check(combat_disengage_swings(&world, &rng, 0, NULL, &fs) == 1,
               "m5e: the free swing works again next round");
     }
 
@@ -3798,9 +3818,18 @@ static void test_m5e_balance(void)
         world.units[1].item_count = 1;
         check(items_defence(&world, 1) ==
               CREATURES[CR_GOBLIN].defence + WEAPONS[WEAPON_SHIELD].defence &&
-              items_defence_noshield(&world, 1) == CREATURES[CR_GOBLIN].defence,
-              "m5e: shield counts in melee defence, not against magic (D32)");
-        {   /* the bolt rolls against the shield-less value */
+              items_magic_res(&world, 1) == CREATURES[CR_GOBLIN].magic_res,
+              "m5e: shield counts in melee defence, not against magic (D32/D40)");
+        /* D40: the spell roll knows magic resistance and nothing else. The
+         * giant spider is the case that brought this up - under the old
+         * rule the wizard's melee combat 10 against her defence 24 pinned
+         * every bolt to the 10 % floor. */
+        check(combat_spell_hit_chance(CREATURES[CR_GIANT_SPIDER].magic_res) ==
+                  100 - CREATURES[CR_GIANT_SPIDER].magic_res &&
+              combat_spell_hit_chance(0) == 100 - COMBAT_CRIT_PERCENT &&
+              combat_spell_hit_chance(100) == COMBAT_CRIT_PERCENT,
+              "d40: spell hit chance follows magic resistance alone");
+        {   /* the bolt rolls against magic resistance only */
             uint16_t k;
             uint8_t hits = 0;
             for (k = 0; k < 200; k++) {
@@ -3819,8 +3848,8 @@ static void test_m5e_balance(void)
                 if (shot.hit)
                     hits++;
             }
-            /* wizard com 10 vs goblin def 9 (no shield): 55 % expected;
-             * with the shield counted it would be pinned at 10 % */
+            /* goblin magic resistance 46 -> 54 % expected. Neither the
+             * shield nor the goblin's defence takes part any more (D40). */
             check(hits >= 80 && hits <= 130,
                   "m5e: the bolt hits a shielded goblin like an unshielded one");
         }

@@ -225,60 +225,33 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
  * stands under it (the player sees his building from within). The
  * building is the 4-connected region of roofed fields; it is flooded
  * once per change of the own units under roofs, not once per field. */
-static uint8_t roof_open[MAP_MAX_H][MAP_MAX_W];   /* 1: roof lifted */
-static uint16_t roof_queue[MAP_MAX_W * MAP_MAX_H];   /* y << 8 | x: no division */
+/* Whose eyes decide whether a roof is lifted: only the currently active
+ * figure, and only along its line of sight (playtest 2026-10-05, D41).
+ * Standing outside therefore shows nothing of the inside, a figure in a
+ * room uncovers that room, and an open door gives a glimpse - exactly as
+ * far as the line of sight reaches. Negative x switches it off.
+ *
+ * Replaces the old flood fill, which lifted the whole connected roof as
+ * soon as one own unit stood anywhere under it (F7, M4e) - and with it
+ * two buffers worth 3.9 KB of eZ80 RAM. */
+static int16_t roof_vx = -1, roof_vy;
 
-static bool roof_viewer(const World *w, const Unit *u, int16_t *x, int16_t *y)
+void view_set_roof_viewer(int16_t x, int16_t y)
 {
-    *x = u->x;
-    *y = u->y;
-    return !(u->flags & UF_FLYING) &&
-           (!sight_map || u->owner == sight_map->owner) &&
-           world_wrap(w, x, y) && world_has_roof(w, *x, *y);
+    roof_vx = x;
+    roof_vy = y;
 }
 
-static void roof_refresh(const World *w)
+static bool roof_lifted(const World *w, int16_t wx, int16_t wy)
 {
-    static const int8_t DX4[4] = {0, 0, -1, 1}, DY4[4] = {-1, 1, 0, 0};
-    static const World *cached_world;
-    static uint8_t cached_gen;
-    static uint32_t cached_sig;
-    static bool have;
-    uint32_t sig = sight_map ? (uint32_t)sight_map->owner + 2u : 1u;
-    uint8_t i;
-    int16_t x, y;
-    for (i = 0; i < w->unit_count; i++)
-        if (roof_viewer(w, &w->units[i], &x, &y))
-            sig = (sig << 5) - sig + (uint32_t)(y * MAP_MAX_W + x) + 1u;   /* * 31 */
-    if (have && cached_world == w && cached_gen == w->generation &&
-        cached_sig == sig)
-        return;
-    memset(roof_open, 0, sizeof roof_open);
-    for (i = 0; i < w->unit_count; i++) {
-        uint16_t head = 0, tail = 0;
-        if (!roof_viewer(w, &w->units[i], &x, &y) || roof_open[y][x])
-            continue;
-        roof_open[y][x] = 1;
-        roof_queue[tail++] = (uint16_t)((uint16_t)y << 8 | (uint16_t)x);
-        while (head < tail) {
-            uint8_t d;
-            int16_t cx = (int16_t)(roof_queue[head] & 0xFF);
-            int16_t cy = (int16_t)(roof_queue[head] >> 8);
-            head++;
-            for (d = 0; d < 4; d++) {
-                int16_t nx = (int16_t)(cx + DX4[d]), ny = (int16_t)(cy + DY4[d]);
-                if (!world_wrap(w, &nx, &ny) || !world_has_roof(w, nx, ny) ||
-                    roof_open[ny][nx])
-                    continue;
-                roof_open[ny][nx] = 1;
-                roof_queue[tail++] = (uint16_t)((uint16_t)ny << 8 | (uint16_t)nx);
-            }
-        }
-    }
-    cached_world = w;
-    cached_gen = w->generation;
-    cached_sig = sig;
-    have = true;
+    int16_t dx, dy;
+    if (roof_vx < 0)
+        return false;
+    world_delta(w, roof_vx, roof_vy, wx, wy, &dx, &dy);
+    if (dx > SIGHT_GROUND || dx < -SIGHT_GROUND ||
+        dy > SIGHT_GROUND || dy < -SIGHT_GROUND)
+        return false;
+    return sight_has_los(w, roof_vx, roof_vy, wx, wy);
 }
 
 static void apply_roof_rule(const World *w, int16_t wx, int16_t wy,
@@ -287,8 +260,7 @@ static void apply_roof_rule(const World *w, int16_t wx, int16_t wy,
     uint8_t j, k = 0;
     if (!world_wrap(w, &wx, &wy) || !world_has_roof(w, wx, wy))
         return;
-    roof_refresh(w);
-    if (!roof_open[wy][wx])
+    if (!roof_lifted(w, wx, wy))
         return;
     for (j = 0; j < out->n; j++) {
         if (out->id[j] != T_ROOF) {
