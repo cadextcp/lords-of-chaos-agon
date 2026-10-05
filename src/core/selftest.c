@@ -40,6 +40,11 @@ static selftest_log_fn out;
 static uint16_t fails;
 static World world;
 
+World *selftest_scratch_world(void)
+{
+    return &world;
+}
+
 static void load_house(void)
 {
     world_load_bin(&world, MAPBIN_WIZARD_HOUSE, MAPBIN_WIZARD_HOUSE_LEN);
@@ -92,18 +97,8 @@ static int fast_equals_reference(void)
             view_compose(&world, (int16_t)(view_origin_x() + vx),
                          (int16_t)(view_origin_y() + vy), &ref);
             if (f->n != ref.n || f->air != ref.air || f->ride != ref.ride ||
-                memcmp(f->id, ref.id, ref.n * sizeof ref.id[0]) != 0) {
-                char dbg[80];   /* TEMP debug */
-                uint8_t k;
-                snprintf(dbg, sizeof dbg, "DBG v%u,%u n%u/%u air%x/%x ride%x/%x", vx, vy,
-                         f->n, ref.n, f->air, ref.air, f->ride, ref.ride);
-                out(dbg);
-                for (k = 0; k < f->n && k < ref.n; k++) {
-                    snprintf(dbg, sizeof dbg, "DBG id%u %u/%u", k, f->id[k], ref.id[k]);
-                    out(dbg);
-                }
+                memcmp(f->id, ref.id, ref.n * sizeof ref.id[0]) != 0)
                 return 0;
-            }
         }
     return 1;
 }
@@ -4229,7 +4224,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m5e_balance();
     test_c1_c2();
     test_c5_drowning();
-    (void)test_c3_overlap;   /* bisect */
+    test_c3_overlap();
     load_house();   /* leave a clean state */
     return fails;
 }
