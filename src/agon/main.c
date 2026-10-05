@@ -881,6 +881,33 @@ bump:
 }
 
 /* Times N full redraws and N single-field redraws (candle flicker). */
+/* Bench results also belong on the USB console. log_line() alone writes
+ * them into loc.log, which only reaches the card when the game is closed,
+ * and Esc cannot be sent over USB (AGON-QUIRKS H5) - so half the numbers
+ * used to be unreachable without someone at the keyboard. Collected here
+ * and printed at the end, so the printing never lands inside a
+ * measured interval. */
+#define BENCH_LINES 8
+static char bench_buf[BENCH_LINES][48];
+static uint8_t bench_n;
+
+static void bench_line(const char *s)
+{
+    log_line(s);
+    if (bench_n < BENCH_LINES)
+        snprintf(bench_buf[bench_n++], sizeof bench_buf[0], "%s", s);
+}
+
+static void bench_dump(void)
+{
+    uint8_t i;
+    for (i = 0; i < bench_n; i++) {
+        mos_putstring(bench_buf[i]);
+        putch(13);
+        putch(10);
+    }
+}
+
 static void bench(void)
 {
     char buf[64];
@@ -908,14 +935,14 @@ static void bench(void)
         render_cursor(3, 4, CURSOR_GREEN, (i & 1) != 0);
     snprintf(buf, sizeof buf, "BENCH cursor blink: %lu ms",
              (unsigned long)((getsysvar_time() - t0) * 10 / n));
-    log_line(buf);
+    bench_line(buf);
 
     t0 = getsysvar_time();
     for (i = 0; i < n; i++)
         view_update(&world);                 /* compose only, nothing changes */
     snprintf(buf, sizeof buf, "BENCH compose 81 fields: %lu ms",
              (unsigned long)((getsysvar_time() - t0) * 10 / n));
-    log_line(buf);
+    bench_line(buf);
     render_message(2, C_BRIGHT_YELLOW, buf);
 
     t0 = getsysvar_time();
@@ -923,7 +950,7 @@ static void bench(void)
         sight_compute(&world, &p1_sight);
     snprintf(buf, sizeof buf, "BENCH sight compute: %lu ms",
              (unsigned long)((getsysvar_time() - t0) * 10 / n));
-    log_line(buf);
+    bench_line(buf);
 
     {   /* four areas over their life cycle (M4d: target < 500 ms) */
         uint8_t k2;
@@ -939,7 +966,7 @@ static void bench(void)
             area_round_end(&world, &brng);
         snprintf(buf, sizeof buf, "BENCH area tick x20: %lu ms",
                  (unsigned long)((getsysvar_time() - t0) * 10));
-        log_line(buf);
+        bench_line(buf);
         area_reset();
     }
 
@@ -961,16 +988,16 @@ static void bench(void)
         ai_wizard_phase(&bt, &world, &bctx);
         snprintf(buf, sizeof buf, "BENCH ai phase: %lu ms",
                  (unsigned long)((getsysvar_time() - t1) * 10));
-        log_line(buf);
+        bench_line(buf);
     }
 
     snprintf(buf, sizeof buf, "BENCH full %u fields: %lu ms/frame",
              fields, (unsigned long)(full_cs * 10 / n));
-    log_line(buf);
+    bench_line(buf);
     render_message(0, C_BRIGHT_YELLOW, buf);
     snprintf(buf, sizeof buf, "BENCH candles only: %lu ms/frame",
              (unsigned long)(part_cs * 10 / n));
-    log_line(buf);
+    bench_line(buf);
     render_message(1, C_BRIGHT_YELLOW, buf);
 }
 
@@ -1353,7 +1380,7 @@ static void designer_attrs(Wizard *w)
                  wizard_ap_cost());
         render_menu_line(3, (uint8_t)(5 + WA_COUNT), C_BRIGHT_WHITE, buf);
         render_menu_line(1, 14, C_GREY, "Links/Rechts: -/+   Esc: zurueck");
-        while (!kbuf_poll_event(&e))
+        while (!input_poll(&e))
             audio_poll();
         if (!e.isdown)
             continue;
@@ -1451,7 +1478,7 @@ static void designer_shop(Wizard *w, uint8_t page)
                 spell_panel(sel, 14);
         }
         render_menu_line(1, 27, C_GREY, "Rechts kauft, Links erstattet, Esc");
-        while (!kbuf_poll_event(&e))
+        while (!input_poll(&e))
             audio_poll();
         if (!e.isdown)
             continue;
@@ -1504,7 +1531,7 @@ static void designer_loop(uint8_t slot)
                              i == cursor ? C_BRIGHT_WHITE : C_GREY, buf);
         }
         render_menu_line(4, 22, C_GREY, "Enter waehlt, Esc verlaesst.");
-        while (!kbuf_poll_event(&e))
+        while (!input_poll(&e))
             audio_poll();
         if (!e.isdown)
             continue;
@@ -1554,7 +1581,7 @@ static void designer_setup_loop(void)
                  fx_glide_on ? "an" : "aus");
         render_menu_line(2, 14, C_BRIGHT_WHITE, buf);
         render_menu_line(2, 17, C_GREY, "Esc zurueck ins Menue.");
-        while (!kbuf_poll_event(&e))
+        while (!input_poll(&e))
             audio_poll();
         if (!e.isdown)
             continue;
@@ -1617,7 +1644,7 @@ static const char *menu_loop(bool *free_round1)
         }
         for (;;) {                        /* idle: keep the music fed (M5d) */
             audio_poll();
-            if (kbuf_poll_event(&e))
+            if (input_poll(&e))
                 break;
         }
         if (!e.isdown)
@@ -1893,7 +1920,7 @@ int main(int argc, char **argv)
             fx_drain_play(&world, NULL);
         }
         do {                              /* the tiles stay on screen */
-            while (!kbuf_poll_event(&e))
+            while (!input_poll(&e))
                 audio_poll();
         } while (!e.isdown);
         kbuf_deinit();
@@ -2104,7 +2131,7 @@ menu_start:
             render_menu_text(4, 12, C_BRIGHT_WHITE, "J = Ja, sinnvolles Set");
             render_menu_text(4, 13, C_BRIGHT_WHITE, "N = Nein, ganz ohne");
             for (;;) {
-                while (!kbuf_poll_event(&e))
+                while (!input_poll(&e))
                     audio_poll();
                 if (!e.isdown)
                     continue;
@@ -2153,7 +2180,7 @@ menu_start:
         /* Drain every queued key event first: drawing a step can take longer
          * than the repeat delay, and a stale "held" state would otherwise
          * repeat keys that were already released (ADR 0007). */
-        while (running && kbuf_poll_event(&e)) {
+        while (running && input_poll(&e)) {
             now = (uint16_t)getsysvar_time();
             if (game_ended && !(e.isdown && e.vkey == VK_ESC))
                 continue;                        /* game over: Esc only */

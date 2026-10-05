@@ -2,6 +2,15 @@
 
 #include "../core/chord.h"
 
+bool input_poll(struct keyboard_event_t *e)
+{
+    if (!kbuf_poll_event(e))
+        return false;
+    if (e->vkey == 0 && e->ascii == 27)
+        e->vkey = VK_ESC;
+    return true;
+}
+
 /* Movement by arrow keys only (GDD 5.2): WASD is NOT mapped - w, a, s
  * and d are action keys there (wield, plus d = drop; a/s unused), and
  * the arrow branch of the event loop would shadow them. */

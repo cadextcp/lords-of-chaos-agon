@@ -6,7 +6,10 @@
 #ifndef LOC_INPUT_H
 #define LOC_INPUT_H
 
+#include <stdbool.h>
 #include <stdint.h>
+
+#include <agon/keyboard.h>
 
 #define VK_ESC 0x7D
 #define VK_UP 0x96
@@ -25,6 +28,13 @@
 #define KMOD_SHIFT 0x02
 /* FabGL: VK_a..VK_z = 0x16..0x2F (layout applied, e.g. German y/z swap) */
 #define VK_LOWER(c) (0x16 + ((c) - 'a'))
+
+/* kbuf_poll_event with one correction: Esc typed over the USB console
+ * arrives as plain ASCII 27 with no VKey, while the keyboard at the Agon
+ * sends VK_ESC (AGON-QUIRKS H5). Normalising it in one place makes every
+ * Esc test in the game work for both, so a session can be driven from the
+ * PC - including quitting, which is what writes loc.log. */
+bool input_poll(struct keyboard_event_t *e);
 
 /* ARROW_* bit for arrow keys and WASD, else 0. */
 uint8_t input_arrow(uint8_t vkey);

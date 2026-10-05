@@ -2,6 +2,12 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Messen und Fernsteuern vom PC (2026-10-05)
+
+### Behoben
+- **Esc wirkt jetzt auch über die USB-Konsole (Quirk H5).** Dort kommen Zeichen ohne VKey an; das Spiel prüfte nur `vkey == VK_ESC`. `input_poll()` normalisiert das an einer Stelle. Damit lässt sich eine Sitzung komplett vom PC fahren — einschließlich Beenden, und erst das schreibt `loc.log`.
+- **Der Benchmark gab die Hälfte seiner Zahlen nicht aus.** `compose`, `full` und `candles` riefen `render_message` und waren über USB zu sehen; Cursor, Sicht, Flächen-Ticks und KI-Phase nur `log_line` — und das Log erreicht die Karte erst beim Schließen, das ohne Esc nicht ging. Die Zeilen werden jetzt gesammelt und am Ende des Laufs auf die Konsole gegeben, also außerhalb jedes gemessenen Abschnitts.
+
 ## [Unreleased] – KI: Sicht, sichtbare Phasen, erkennbare Ziele (2026-10-05)
 
 ### Geändert
