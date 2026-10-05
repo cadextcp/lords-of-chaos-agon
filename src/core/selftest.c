@@ -92,8 +92,18 @@ static int fast_equals_reference(void)
             view_compose(&world, (int16_t)(view_origin_x() + vx),
                          (int16_t)(view_origin_y() + vy), &ref);
             if (f->n != ref.n || f->air != ref.air || f->ride != ref.ride ||
-                memcmp(f->id, ref.id, ref.n * sizeof ref.id[0]) != 0)
+                memcmp(f->id, ref.id, ref.n * sizeof ref.id[0]) != 0) {
+                char dbg[80];   /* TEMP debug */
+                uint8_t k;
+                snprintf(dbg, sizeof dbg, "DBG v%u,%u n%u/%u air%x/%x ride%x/%x", vx, vy,
+                         f->n, ref.n, f->air, ref.air, f->ride, ref.ride);
+                out(dbg);
+                for (k = 0; k < f->n && k < ref.n; k++) {
+                    snprintf(dbg, sizeof dbg, "DBG id%u %u/%u", k, f->id[k], ref.id[k]);
+                    out(dbg);
+                }
                 return 0;
+            }
         }
     return 1;
 }
