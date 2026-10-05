@@ -2,6 +2,15 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Core ohne Hardware-Division schneller (aus dem Mega-Drive-Repo, 2026-10-05)
+
+### Geändert
+- **`world_wrap`** rechnet im Normalfall (höchstens eine Kartengröße daneben) ohne Modulo; nur weit entfernte Koordinaten zahlen noch die Division. eZ80 und 68000 haben keine schnelle 32-Bit-Division.
+- **`roof_refresh`** ohne Division und ohne 32-Bit-Multiplikation in der Schleife (Warteschlange als `y << 8 | x`, `* 31` als Schieben und Abziehen).
+- **`VIEW_STATIC_CACHE`** (Standard 1, unverändert für den Agon) kann den 39-KB-Ebenen-Cache abschalten; die Mega-Drive-Fassung (`cadextcp/lords-of-chaos-md`, 64 KB RAM) setzt 0.
+- `lexicon_import`: Compiler-Warnung zu `1ul << OBJ_COUNT` bei 32-Bit-`long` beseitigt (toter Zweig, kein Laufzeitunterschied).
+- Ergebnisse unverändert: Selftest, `HOUSE_VIEW_HASH` und der Benchmark-Hash des MD-Repos sind gleich. Gemessen auf dem 68000: Ansicht 580 → 164 ms, KI-Zug 253 → 179 ms. Auf dem Agon nicht gemessen (GUI-Emulator im CI ohne SDL3).
+
 ## [Unreleased] – Phasenbildschirm, aufgescheuchte Tiere (D37/D38, 2026-10-04)
 
 ### Geändert

@@ -194,7 +194,7 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
  * building is the 4-connected region of roofed fields; it is flooded
  * once per change of the own units under roofs, not once per field. */
 static uint8_t roof_open[MAP_MAX_H][MAP_MAX_W];   /* 1: roof lifted */
-static uint16_t roof_queue[MAP_MAX_W * MAP_MAX_H];
+static uint16_t roof_queue[MAP_MAX_W * MAP_MAX_H];   /* y << 8 | x: no division */
 
 static bool roof_viewer(const World *w, const Unit *u, int16_t *x, int16_t *y)
 {
@@ -217,7 +217,7 @@ static void roof_refresh(const World *w)
     int16_t x, y;
     for (i = 0; i < w->unit_count; i++)
         if (roof_viewer(w, &w->units[i], &x, &y))
-            sig = sig * 31u + (uint32_t)(y * MAP_MAX_W + x) + 1u;
+            sig = (sig << 5) - sig + (uint32_t)(y * MAP_MAX_W + x) + 1u;   /* * 31 */
     if (have && cached_world == w && cached_gen == w->generation &&
         cached_sig == sig)
         return;
@@ -227,11 +227,11 @@ static void roof_refresh(const World *w)
         if (!roof_viewer(w, &w->units[i], &x, &y) || roof_open[y][x])
             continue;
         roof_open[y][x] = 1;
-        roof_queue[tail++] = (uint16_t)(y * w->w + x);
+        roof_queue[tail++] = (uint16_t)((uint16_t)y << 8 | (uint16_t)x);
         while (head < tail) {
             uint8_t d;
-            int16_t cx = (int16_t)(roof_queue[head] % w->w);
-            int16_t cy = (int16_t)(roof_queue[head] / w->w);
+            int16_t cx = (int16_t)(roof_queue[head] & 0xFF);
+            int16_t cy = (int16_t)(roof_queue[head] >> 8);
             head++;
             for (d = 0; d < 4; d++) {
                 int16_t nx = (int16_t)(cx + DX4[d]), ny = (int16_t)(cy + DY4[d]);
@@ -239,7 +239,7 @@ static void roof_refresh(const World *w)
                     roof_open[ny][nx])
                     continue;
                 roof_open[ny][nx] = 1;
-                roof_queue[tail++] = (uint16_t)(ny * w->w + nx);
+                roof_queue[tail++] = (uint16_t)((uint16_t)ny << 8 | (uint16_t)nx);
             }
         }
     }
@@ -387,17 +387,29 @@ void view_compose(const World *w, int16_t x, int16_t y, FieldLayers *out)
     compose_cursor(w, wx, wy, out);
 }
 
-/* Static layers of every map field, computed once per map (14 KB). */
+/* Static layers of every map field, computed once per map
+ * (MAP_MAX_W * MAP_MAX_H * sizeof(FieldLayers) = 39 KB). Platforms with
+ * little RAM (the Mega Drive port, repo lords-of-chaos-md: 64 KB) build with
+ * VIEW_STATIC_CACHE=0 and compose the static layers on demand instead;
+ * the result is the same, only slower. */
+#ifndef VIEW_STATIC_CACHE
+#define VIEW_STATIC_CACHE 1
+#endif
+
+#if VIEW_STATIC_CACHE
 static FieldLayers scache[MAP_MAX_H][MAP_MAX_W];
+#endif
 static const World *cache_world;
 static uint8_t cache_gen;
 
 void view_rebuild(const World *w)
 {
+#if VIEW_STATIC_CACHE
     uint8_t x, y;
     for (y = 0; y < w->h; y++)
         for (x = 0; x < w->w; x++)
             compose_static(w, x, y, &scache[y][x]);
+#endif
     cache_world = w;
     cache_gen = w->generation;
 }
@@ -455,7 +467,11 @@ static void compose_fast(const World *w, uint8_t vx, uint8_t vy, FieldLayers *ou
         out->id[0] = T_FLOOR_GRASS;
         return;
     }
+#if VIEW_STATIC_CACHE
     *out = scache[wy][wx];
+#else
+    compose_static(w, wx, wy, out);
+#endif
     if (phase)
         for (i = 0; i < out->n; i++)
             out->id[i] = anim_swap(out->id[i], phase);
