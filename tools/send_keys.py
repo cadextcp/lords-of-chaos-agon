@@ -19,6 +19,7 @@ Exit code 0 = keys sent, 2 = emulator window not found.
 """
 
 import argparse
+import ctypes
 import sys
 import time
 
@@ -26,6 +27,17 @@ import pydirectinput
 import pygetwindow as gw
 
 WINDOW_TITLE = "Fab Agon Emulator"
+user32 = ctypes.windll.user32
+
+
+def activate(hwnd) -> None:
+    """ALT-trick: a tap of ALT lets a background process take the
+    foreground - plain SetForegroundWindow is denied (the click fallback
+    then lands on whatever covers the emulator, once Edge ate it)."""
+    user32.keybd_event(0x12, 0, 0, 0)       # ALT down
+    user32.SetForegroundWindow(hwnd)
+    user32.keybd_event(0x12, 0, 2, 0)       # ALT up
+    time.sleep(0.5)
 
 
 def main() -> int:
@@ -40,8 +52,11 @@ def main() -> int:
     if not wins:
         print("emulator window not found", file=sys.stderr)
         return 2
-    wins[0].activate()
-    wins[0].restore()
+    try:                                # stale handle / foreground lock:
+        activate(wins[0]._hWnd)         # the click below is the real focus
+        wins[0].restore()
+    except Exception:
+        pass
     time.sleep(args.settle)
     try:                                # Windows may deny activation: click
         cx = wins[0].left + wins[0].width // 2
