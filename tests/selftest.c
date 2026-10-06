@@ -1685,6 +1685,7 @@ static void test_combat(void)
 static void test_spells(void)
 {
     Spellbook book;
+    Rng rng;
     static Spellbook scnbooks[OWN_NEUTRAL];
 
     check(spellbook_load(scnbooks, SCN_MANY_COLOURED_LAND, SCN_MANY_COLOURED_LAND_LEN) &&
@@ -1693,6 +1694,7 @@ static void test_spells(void)
           scnbooks[OWN_P1].level[SP_DWARF] == 1 &&
           scnbooks[OWN_P2].level[SP_GOBLIN] == 2,
           "spells: books from the scenario file");
+    rng_seed(&rng, 11);
     memset(&book, 0, sizeof book);
     book.level[SP_GIANT_BAT] = 2;       /* p1 test book for the casts below */
     check(SUMMON_KIND[SP_DWARF] == CR_DWARF && SUMMON_KIND[SP_GIANT_BAT] == CR_GIANT_BAT &&
@@ -1711,27 +1713,30 @@ static void test_spells(void)
     check(!spell_can_cast(&world, &book, 0, SP_GIANT_BAT), "spells: too little AP");
 
     world.units[0].ap = 40;
-    {
+    {   /* K5.3: a cast at level 2 calls two creatures, costs 2 (2+1) mana, burns a level */
         const CreatureDef *bat = &CREATURES[CR_GIANT_BAT];
-        uint8_t got = spell_summon(&world, &book, 0, SP_GIANT_BAT);
-        check(got == 1 && world.unit_count == 2,
-              "d34: one cast summons one creature");
+        uint8_t got = spell_summon(&world, &book, 0, SP_GIANT_BAT, &rng);
+        check(got == 2 && world.unit_count == 3,
+              "0f: a level-2 cast summons two creatures");
         check(world.units[1].kind == CR_GIANT_BAT && world.units[1].owner == OWN_P1 &&
               world.units[1].ap == 24 && world.units[1].sta == 75,
               "spells: summoned with its own AP and stamina");
-        check(world.units[1].com == (uint8_t)(bat->combat * 115 / 100) &&
-              world.units[1].def == (uint8_t)(bat->defence * 115 / 100) &&
-              world.units[1].con_max == (uint8_t)(bat->con * 115 / 100) &&
-              world.units[1].con == world.units[1].con_max,
-              "d34: level 2 = +15 % combat, defence, constitution");
-        check(world.units[0].ap == 32 && world.units[0].mana == 76 &&
-              book.level[SP_GIANT_BAT] == 2,
-              "d34: 8 AP, the level-1 mana (4), the level stays");
-        check(spell_summon(&world, &book, 0, SP_GIANT_BAT) == 1 &&
-              world.units[0].mana == 72 && book.level[SP_GIANT_BAT] == 2,
-              "d34: summons can be cast again (no charges)");
+        check(world.units[1].com == bat->combat && world.units[1].def == bat->defence &&
+              world.units[1].con == bat->con,
+              "0f: summoned creatures have the plain table values");
+        check(world.units[0].ap == 32 && world.units[0].mana == 80 - 6 &&
+              book.level[SP_GIANT_BAT] == 1,
+              "0f: 8 AP, mana 2 x (2+1), the level is used up");
+        check(spell_summon(&world, &book, 0, SP_GIANT_BAT, &rng) == 1 &&
+              world.units[0].mana == 80 - 6 - 4 && book.level[SP_GIANT_BAT] == 0,
+              "0f: the last level calls one more, then the spell is spent");
+        check(!spell_can_cast(&world, &book, 0, SP_GIANT_BAT),
+              "0f: level 0 cannot be cast");
+        world_remove_unit(&world, 3);
         world_remove_unit(&world, 2);
+        world_remove_unit(&world, 1);
         world.units[0].mana = 72;
+        book.level[SP_GIANT_BAT] = 2;
     }
 
     {   /* no room: mana lost, nothing appears (GDD 7.2) */
@@ -1745,9 +1750,9 @@ static void test_spells(void)
                 world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, (uint8_t)x, (uint8_t)y);
         }
         world.units[0].ap = 40;
-        check(spell_summon(&world, &book, 0, SP_GIANT_BAT) == 0 &&
-              world.units[0].mana == 72 - 4 && book.level[SP_GIANT_BAT] == 2,
-              "spells: without room the mana is lost");
+        check(spell_summon(&world, &book, 0, SP_GIANT_BAT, &rng) == 0 &&
+              world.units[0].mana == 72 - 6 && book.level[SP_GIANT_BAT] == 1,
+              "spells: without room the mana is lost and the level too");
     }
 }
 
@@ -3078,10 +3083,10 @@ static void test_m4c(void)
         book.level[SP_GOLD_DRAGON] = 1;
         world.units[0].mana = 200;
         world.units[0].ap = 40;
-        check(spell_summon(&world, &book, 0, SP_GOLD_DRAGON) == 0,
+        check(spell_summon(&world, &book, 0, SP_GOLD_DRAGON, &rng) == 0,
               "m4c: no dragon without a cauldron");
         brew_set_cauldron(&world, 6, 6, false, 0xFF);
-        check(spell_summon(&world, &book, 0, SP_GOLD_DRAGON) == 0,
+        check(spell_summon(&world, &book, 0, SP_GOLD_DRAGON, &rng) == 0,
               "m4c: no dragon without dragon herb");
         {
             world.objects[world.object_count].x = 6;
@@ -3089,7 +3094,7 @@ static void test_m4c(void)
             world.objects[world.object_count].tile = T_OBJ_DRAGON_HERB;
             world.object_count++;
         }
-        check(spell_summon(&world, &book, 0, SP_GOLD_DRAGON) == 1 &&
+        check(spell_summon(&world, &book, 0, SP_GOLD_DRAGON, &rng) == 1 &&
               world.units[1].kind == CR_GOLD_DRAGON &&
               !items_kind_at(&world, 6, 6) == false,   /* herb spent */
               "m4c: the dragon rises and the herb is spent");
@@ -4009,12 +4014,10 @@ static void test_m4f(void)
         wizard_apply_standard_set(w);
         check(w->book.level[SP_MAGIC_BOLT] == 4 &&
               w->book.level[SP_MAGIC_SHIELD] == 3 &&
-              w->book.level[SP_HEALING_POTION] == 4 &&
               w->book.level[SP_GIANT_BAT] == 2 && w->book.level[SP_GRYPHON] == 1,
               "m4f: the standard template fills spells + 8 creatures");
-        check(w->com == 20 && w->def == 20 && w->mr == 80 && w->con == 49 &&
-              w->sta == 49 && w->mana_max == 86 && w->ap == 39 && w->xp == 69,
-              "m4f: the template costs 531 of the 600 XP (no cheating)");
+        check(w->com > 5 && w->def > 5 && w->xp <= 20 && wizard_valid(w),
+              "m4f: the template spends the 600 XP up to a few points (no cheating)");
         wizard_apply_standard_set(w);   /* idempotent: bolt already there */
         check(w->book.level[SP_MAGIC_BOLT] == 4,
               "m4f: the standard set never overwrites designed books");
@@ -4025,8 +4028,9 @@ static void test_m4f(void)
           wizard_attr_cost(WA_MAGIC_RES, 70) == 4 &&
           wizard_attr_cost(WA_CONSTITUTION, 34) == 3 &&
           wizard_attr_cost(WA_STAMINA, 34) == 4 &&
-          wizard_mana_cost() == 8 && wizard_ap_cost() == 8,
-          "m4f: anchor point costs 2/2/4/2/4, mana 9, AP 8 (F6)");
+          wizard_mana_cost(w) == 8 && wizard_ap_cost(w) == 8 &&
+          wizard_attr_cost(WA_COMBAT, 29) == 14 && wizard_attr_cost(WA_STAMINA, 89) == 11,
+          "m4f: point cost = floor(value / divisor), start costs 2/2/4/3/4, mana 8, AP 8");
 
     w->xp = 50;
     check(wizard_raise(w, WA_COMBAT) && w->com == 6 && w->xp == 48,
@@ -4044,36 +4048,38 @@ static void test_m4f(void)
         check(b.xp == 600 && b.com == 5 && b.def == 5 && b.mr == 70 &&
               b.con == 34 && b.sta == 34 && b.mana_max == 80 && b.ap == 34,
               "m4f: fresh wizard = minimums + 600 XP");
-        /* buy combat to the cap 30: 25 points x 2 XP = 50 spent */
-        while (wizard_raise(&b, WA_COMBAT))
-            raise_count++;
-        check(raise_count == 25 && b.com == 30 && b.xp == 550,
-              "m4f: combat caps at 30 after 25 points (50 XP)");
-        /* mana at 8 and AP at 8 still work from 550 */
-        check(wizard_mana_raise(&b) && b.mana_max == 81 && b.xp == 542 &&
-              wizard_mana_lower(&b) && b.mana_max == 80 && b.xp == 550,
-              "m4f: mana raises/refunds alongside");
-        /* lower it back: every lowering refunds the full price */
+        /* buy combat to the cap 30: the price rises with the value (K3.3) */
         {
-            uint8_t i;
-            for (i = 0; i < raise_count; i++)
-                wizard_lower(&b, WA_COMBAT);
+            uint16_t expect = 0, v;
+            for (v = 5; v < 30; v++)
+                expect = (uint16_t)(expect + v / 2);
+            while (wizard_raise(&b, WA_COMBAT))
+                raise_count++;
+            check(raise_count == 25 && b.com == 30 && b.xp == 600 - expect,
+                  "m4f: combat caps at 30 after 25 points, 206 XP");
+            /* mana at 8 and AP at 8 still work */
+            check(wizard_mana_raise(&b) && b.mana_max == 81 && b.xp == 600 - expect - 8 &&
+                  wizard_mana_lower(&b) && b.mana_max == 80 && b.xp == 600 - expect,
+                  "m4f: mana raises/refunds alongside");
+            /* lower it back: every lowering refunds the full price */
+            {
+                uint8_t i;
+                for (i = 0; i < raise_count; i++)
+                    wizard_lower(&b, WA_COMBAT);
+            }
+            check(b.com == 5 && b.xp == 600,
+                  "m4f: lowering refunds everything, back to 600");
+            /* defence to its cap costs the same 206; con and stamina rise to 90 */
+            for (rows = 0; rows < 25; rows++)
+                wizard_raise(&b, WA_DEFENCE);
+            check(b.xp == 600 - expect && b.def == 30, "m4f: defence costs like combat");
+            b.xp = 5000;
+            for (rows = 0; rows < 56; rows++)
+                wizard_raise(&b, WA_CONSTITUTION);
+            for (rows = 0; rows < 56; rows++)
+                wizard_raise(&b, WA_STAMINA);
+            check(b.con == 90 && b.sta == 90, "m4f: constitution and stamina cap at 90");
         }
-        check(b.com == 5 && b.xp == 600,
-              "m4f: lowering refunds everything, back to 600");
-        /* spend 600 exactly: defence 5->30 (50), con 25->60 (70),
-         * sta 34->100 (264), MR 70->100 (120), mana 90->105 (90),
-         * AP 34->40 (48) = 592, plus 1 mana (9) overshoots - so
-         * check the exact drain with defence/con/stamina only */
-        for (rows = 0; rows < 25; rows++)
-            wizard_raise(&b, WA_DEFENCE);
-        for (rows = 0; rows < 35; rows++)
-            wizard_raise(&b, WA_CONSTITUTION);
-        for (rows = 0; rows < 66; rows++)
-            wizard_raise(&b, WA_STAMINA);
-        check(b.xp == 600 - 50 - 78 - 264 && b.def == 30 && b.con == 60 &&
-              b.sta == 100,
-              "m4f: 600 XP drain exactly over the three rows");
         /* and the whole thing stays a valid wizard */
         check(wizard_valid(&b), "m4f: maxed wizard still validates");
     }
@@ -4097,15 +4103,20 @@ static void test_m4f(void)
         check(wizard_slots[1].level == 3, "m4f: scenario 2 lifts again");
     }
 
-    {   /* random wizard: some bought levels, XP, valid */
+    {   /* the original random wizard (K3.2): 6/6/90, spells 0..2, no XP */
         uint16_t s, sum = 0;
+        uint8_t over = 0;
         rng_seed(&rng, 9);
         wizard_slot_random(2, 2, &rng);
-        for (s = 0; s < SPELL_COUNT; s++)
+        for (s = 0; s < SPELL_COUNT; s++) {
             sum += wizard_slots[2].book.level[s];
-        check(wizard_slots[2].xp == 80 && wizard_valid(&wizard_slots[2]) &&
-              sum > 0,
-              "m4f: random wizard rolls a non-empty book");
+            if (wizard_slots[2].book.level[s] > 2)
+                over++;
+        }
+        check(wizard_slots[2].xp == 0 && wizard_slots[2].com == 6 &&
+              wizard_slots[2].def == 6 && wizard_slots[2].mr == 90 &&
+              wizard_valid(&wizard_slots[2]) && sum > 20 && over == 0,
+              "m4f: random wizard: 6/6/90, every spell 0..2, nothing to spend");
     }
 
     {   /* apply to the world: F5 - values yes, items no */
@@ -5169,42 +5180,45 @@ static void test_m5e_balance(void)
               "m5e: a level-8 bolt kills the goblin on most hits");
     }
 
-    {   /* F6: spell shop and mana with XP (anchor 2026-10-04) */
+    {   /* K3.3: spell shop and mana with XP */
         Wizard t;
         wizard_slot_reset(3);
         t = wizard_slots[3];
         t.xp = 100;
-        t.book.level[SP_MAGIC_BOLT] = 0;   /* fresh learn: full base price */
-        check(wizard_spell_next_cost(&t, SP_HARPY) == 12 &&
-              wizard_spell_next_cost(&t, SP_MAGIC_BOLT) == 9,
-              "m5f: summons cost the anchor, spells the mana-at-L1 placeholder");
-        t.book.level[SP_MAGIC_BOLT] = 6;   /* restore the starting level */
-        check(wizard_spell_next_cost(&t, SP_MAGIC_BOLT) == 4,
-              "m5f: above level 1 every level costs half the base");
+        check(wizard_spell_next_cost(&t, SP_HARPY) == 11 &&
+              wizard_spell_next_cost(&t, SP_MAGIC_BOLT) == 6 &&
+              wizard_spell_next_cost(&t, SP_GOLD_DRAGON) == 47 &&
+              wizard_spell_next_cost(&t, SP_BOMB_POTION) == 0,
+              "m5f: the first level costs xp_base, the bomb is not for sale");
+        t.book.level[SP_MAGIC_BOLT] = 6;
+        check(wizard_spell_next_cost(&t, SP_MAGIC_BOLT) == 6 + 3 * 6,
+              "m5f: level L to L+1 costs base + step x L");
         check(wizard_spell_raise(&t, SP_HARPY) && t.book.level[SP_HARPY] == 1 &&
-              t.xp == 88,
+              t.xp == 89,
               "m5f: the first level costs the base price");
-        check(wizard_spell_next_cost(&t, SP_HARPY) == 6 &&
-              wizard_spell_raise(&t, SP_HARPY) && t.xp == 82,
-              "m5f: every further level costs half the base (+50 % rule)");
+        check(wizard_spell_next_cost(&t, SP_HARPY) == 16 &&
+              wizard_spell_raise(&t, SP_HARPY) && t.xp == 73,
+              "m5f: every further level costs 5 more (11 + 5 L)");
         t.xp = 0;
         check(!wizard_spell_raise(&t, SP_HARPY), "m5f: no buying without XP");
         t.book.level[SP_HARPY] = 8;
+        t.xp = 500;
         check(!wizard_spell_raise(&t, SP_HARPY), "m5f: level 8 is the cap");
+        t.xp = 0;
         t.book.level[SP_HARPY] = 2;
-        check(wizard_spell_lower(&t, SP_HARPY) && t.xp == 6 &&
-              wizard_spell_lower(&t, SP_HARPY) && t.xp == 18,
-              "m5f: lowering refunds base/half exactly");
+        check(wizard_spell_lower(&t, SP_HARPY) && t.xp == 16 &&
+              wizard_spell_lower(&t, SP_HARPY) && t.xp == 27,
+              "m5f: lowering refunds exactly what the level cost");
         check(!wizard_spell_lower(&t, SP_TELEPORT),
               "m5f: nothing bought - lowering is refused");
-        check(wizard_mana_cost() == 8 && t.mana_max == 80 && t.ap == 34,
+        check(wizard_mana_cost(&t) == 8 && t.mana_max == 80 && t.ap == 34,
               "m5f: mana starts at 80, AP at 34 (F6)");
         t.xp = 8;
         check(wizard_mana_raise(&t) && t.mana_max == 81 && t.xp == 0 &&
               wizard_mana_lower(&t) && t.mana_max == 80 && t.xp == 8,
               "m5f: mana raises and refunds with 8 XP");
         t.xp = 7;
-        check(!wizard_mana_raise(&t), "m5f: one mana point costs exactly 8");
+        check(!wizard_mana_raise(&t), "m5f: one mana point costs 80 / 10 = 8");
         t.xp = 7;
         check(!wizard_ap_raise(&t), "m5f: no AP without 8 XP");
         t.xp = 8;

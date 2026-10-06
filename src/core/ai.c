@@ -1054,8 +1054,7 @@ static void wizard_actions(Turns *t, World *w, AiCtx *ctx, uint8_t owner)
             if (pick == 0xFF)
                 break;
             tried[pick >> 3] |= (uint8_t)(1u << (pick & 7));
-            if (spell_summon(w, &ctx->books[owner], wiz, pick) > 0)
-                n++;                      /* spawning appends: wiz stays */
+            n = (uint8_t)(n + spell_summon(w, &ctx->books[owner], wiz, pick, &t->rng));   /* spawning appends: wiz stays */
         }
     }
 

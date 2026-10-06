@@ -46,17 +46,17 @@ typedef struct {
 
 /* Attribute access for the designer table. */
 uint8_t wizard_attr(const Wizard *w, WizardAttr a);
-/* Cost of the NEXT point of this attribute (F6 start values: linear). */
+/* Cost of the NEXT point of this attribute at its current value: floor(value /
+ * divisor), divisors 2, 2, 16, 10, 8 (K3.3). */
 uint8_t wizard_attr_cost(WizardAttr a, uint8_t current);
 uint8_t wizard_attr_max(WizardAttr a);
 /* Spend XP on one point; false when not enough XP or at the cap. */
 bool wizard_raise(Wizard *w, WizardAttr a);
 /* Take one point back (full XP refund); never below the start value. */
 bool wizard_lower(Wizard *w, WizardAttr a);
-/* Buyable spells (F6 anchor, XP not mana): level 1 costs the spell's
- * design_cost, every further level half of that again, cap 8. Spells
- * are picked when the wizard is built or levels up - or found on
- * scrolls, rarer the more expensive the spell (D33). */
+/* Buyable spells (K3.3): level L to L+1 costs xp_base + xp_step * L,
+ * cap 8. Spells are picked when the wizard is built or levels up - or found
+ * on scrolls (D33). */
 uint16_t wizard_spell_next_cost(const Wizard *w, uint8_t spell);
 bool wizard_spell_raise(Wizard *w, uint8_t spell);   /* spend XP */
 bool wizard_spell_lower(Wizard *w, uint8_t spell);   /* full refund */
@@ -64,13 +64,13 @@ bool wizard_spell_lower(Wizard *w, uint8_t spell);   /* full refund */
  * (empty books otherwise). No-op when the wizard already owns Magic
  * Bolt - never overwrites a designed book. */
 void wizard_apply_standard_set(Wizard *w);
-/* Mana: 9 XP per point up to 250 (F6 anchor); the start value is the
- * minimum 90 and it flows into the unit via apply_to_world. */
-uint8_t wizard_mana_cost(void);
+/* Mana: floor(mana / 10) XP per point up to 200, start 80; it flows into the
+ * unit via apply_to_world. */
+uint8_t wizard_mana_cost(const Wizard *w);
 bool wizard_mana_raise(Wizard *w);
 bool wizard_mana_lower(Wizard *w);
-/* Action points: 8 XP per point, minimum 34, cap 120 (F6 anchor). */
-uint8_t wizard_ap_cost(void);
+/* Action points: floor(AP / 4) XP per point, minimum 34, cap 40. */
+uint8_t wizard_ap_cost(const Wizard *w);
 bool wizard_ap_raise(Wizard *w);
 bool wizard_ap_lower(Wizard *w);
 /* Sanity check for data read from the SD card (ranges, name, book). */

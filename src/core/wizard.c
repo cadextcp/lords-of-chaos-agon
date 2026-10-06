@@ -7,11 +7,9 @@
 
 Wizard wizard_slots[WIZARD_SLOTS];
 
-/* F6 (user anchor, 2026-10-04; Spectrum values since D66): a fresh wizard
- * starts at the minimum distribution below and distributes 600 XP over
- * attributes, mana, AP and summon spells. Point costs (the original's
- * start value / divisor): combat 2, defence 2, magic resistance 4,
- * constitution 3, stamina 4, mana 8, AP 8. */
+/* Designer (K3.2, K3.3, D67): a fresh wizard starts at the values below and
+ * spends 600 XP. A point of an attribute costs floor(current value /
+ * divisor) XP; a spell level from L to L+1 costs xp_base + xp_step * L. */
 #define START_COM 5
 #define START_DEF 5
 #define START_MR 70
@@ -20,11 +18,13 @@ Wizard wizard_slots[WIZARD_SLOTS];
 #define START_MANA 80
 #define START_AP 34
 #define START_XP 600
-static const uint8_t ATTR_COST[WA_COUNT] = {2, 2, 4, 3, 4};
-#define MANA_COST 8
-#define MANA_MAX 250
-#define AP_COST 8
-#define AP_MAX 120
+static const uint8_t ATTR_DIV[WA_COUNT] = {2, 2, 16, 10, 8};
+static const uint8_t ATTR_MAX[WA_COUNT] = {30, 30, 100, 90, 90};
+#define MANA_DIV 10
+#define MANA_MAX 200
+#define AP_DIV 4
+#define AP_MAX 40
+#define SPELL_BUY_MAX 8
 
 uint8_t wizard_attr(const Wizard *w, WizardAttr a)
 {
@@ -44,24 +44,12 @@ uint8_t wizard_attr(const Wizard *w, WizardAttr a)
 
 uint8_t wizard_attr_cost(WizardAttr a, uint8_t current)
 {
-    (void)current;
-    return a < WA_COUNT ? ATTR_COST[a] : 9;   /* flat, per the anchor */
+    return a < WA_COUNT ? (uint8_t)(current / ATTR_DIV[a]) : 9;
 }
 
 uint8_t wizard_attr_max(WizardAttr a)
 {
-    switch (a) {
-    case WA_COMBAT:
-        return 30;
-    case WA_DEFENCE:
-        return 30;
-    case WA_MAGIC_RES:
-        return 100;
-    case WA_CONSTITUTION:
-        return 60;
-    default:
-        return 100;
-    }
+    return a < WA_COUNT ? ATTR_MAX[a] : 100;
 }
 
 bool wizard_raise(Wizard *w, WizardAttr a)
@@ -97,17 +85,14 @@ bool wizard_lower(Wizard *w, WizardAttr a)
     return true;
 }
 
-/* Buyable spell levels (F6 anchor, 2026-10-04): the first level costs
- * the spell's design_cost XP, every further level half of that again
- * ("jeder Level 50 % mehr"), cap 8. Only summons are buyable; the
- * starting book carries everything else. */
+/* Buyable spell levels (K3.3): from level L to L+1 it costs xp_base +
+ * xp_step * L, level 8 is the cap. Spells without a price (the bomb) are
+ * not for sale. */
 uint16_t wizard_spell_next_cost(const Wizard *w, uint8_t spell)
 {
-    uint16_t base;
-    if (spell >= SPELL_COUNT || !SPELLS[spell].design_cost)
+    if (spell >= SPELL_COUNT || !SPELLS[spell].xp_base)
         return 0;
-    base = SPELLS[spell].design_cost;
-    return w->book.level[spell] == 0 ? base : (uint16_t)(base / 2 ? base / 2 : 1);
+    return (uint16_t)(SPELLS[spell].xp_base + SPELLS[spell].xp_step * w->book.level[spell]);
 }
 
 bool wizard_spell_raise(Wizard *w, uint8_t spell)
@@ -116,7 +101,7 @@ bool wizard_spell_raise(Wizard *w, uint8_t spell)
     if (spell >= SPELL_COUNT)
         return false;
     cost = wizard_spell_next_cost(w, spell);
-    if (!cost || w->book.level[spell] >= 8 || w->xp < cost)
+    if (!cost || w->book.level[spell] >= SPELL_BUY_MAX || w->xp < cost)
         return false;
     w->xp = (uint16_t)(w->xp - cost);
     w->book.level[spell]++;
@@ -125,33 +110,28 @@ bool wizard_spell_raise(Wizard *w, uint8_t spell)
 
 bool wizard_spell_lower(Wizard *w, uint8_t spell)
 {
-    uint16_t refund;
     if (spell >= SPELL_COUNT || w->book.level[spell] == 0)
         return false;
-    if (!SPELLS[spell].design_cost)
-        return false;   /* not learnable: nothing was ever paid */
+    if (!SPELLS[spell].xp_base)
+        return false;   /* not for sale: nothing was ever paid */
     if (w->book.level[spell] <= w->base_book.level[spell])
         return false;   /* pre-given starting level: no refund for it */
     w->book.level[spell]--;
-    /* the level just given up cost base at level 1, half above */
-    refund = w->book.level[spell] == 0 ? SPELLS[spell].design_cost
-                                       : SPELLS[spell].design_cost / 2;
-    if (refund == 0)
-        refund = 1;
-    w->xp = (uint16_t)(w->xp + refund);
+    w->xp = (uint16_t)(w->xp + wizard_spell_next_cost(w, spell));   /* full refund */
     return true;
 }
 
-uint8_t wizard_mana_cost(void)
+uint8_t wizard_mana_cost(const Wizard *w)
 {
-    return MANA_COST;
+    return (uint8_t)(w->mana_max / MANA_DIV);
 }
 
 bool wizard_mana_raise(Wizard *w)
 {
-    if (w->mana_max >= MANA_MAX || w->xp < MANA_COST)
+    uint8_t cost = wizard_mana_cost(w);
+    if (w->mana_max >= MANA_MAX || w->xp < cost)
         return false;
-    w->xp = (uint16_t)(w->xp - MANA_COST);
+    w->xp = (uint16_t)(w->xp - cost);
     w->mana_max++;
     return true;
 }
@@ -161,20 +141,21 @@ bool wizard_mana_lower(Wizard *w)
     if (w->mana_max <= START_MANA)
         return false;                    /* never below the start value */
     w->mana_max--;
-    w->xp = (uint16_t)(w->xp + MANA_COST);   /* full refund */
+    w->xp = (uint16_t)(w->xp + wizard_mana_cost(w));   /* full refund */
     return true;
 }
 
-uint8_t wizard_ap_cost(void)
+uint8_t wizard_ap_cost(const Wizard *w)
 {
-    return AP_COST;
+    return (uint8_t)(w->ap / AP_DIV);
 }
 
 bool wizard_ap_raise(Wizard *w)
 {
-    if (w->ap >= AP_MAX || w->xp < AP_COST)
+    uint8_t cost = wizard_ap_cost(w);
+    if (w->ap >= AP_MAX || w->xp < cost)
         return false;
-    w->xp = (uint16_t)(w->xp - AP_COST);
+    w->xp = (uint16_t)(w->xp - cost);
     w->ap++;
     return true;
 }
@@ -184,7 +165,7 @@ bool wizard_ap_lower(Wizard *w)
     if (w->ap <= START_AP)
         return false;                    /* never below the minimum */
     w->ap--;
-    w->xp = (uint16_t)(w->xp + AP_COST);     /* full refund */
+    w->xp = (uint16_t)(w->xp + wizard_ap_cost(w));     /* full refund */
     return true;
 }
 
@@ -238,73 +219,59 @@ void wizard_slot_reset(uint8_t slot)
      * scenario start (wizard_apply_standard_set). */
 }
 
-/* A sensible starting template that FITS the 600 XP budget (user rule:
- * nothing above 600, no cheating). Total 522 XP, 78 left to spend.
- * 8 different creatures at level 1-3, core spells, balanced
- * attributes. Applied on request at scenario start; never overwrites
- * a designed book. */
+/* A sensible starting template that FITS the 600 XP budget (nothing above
+ * 600, no cheating): the core spells and eight creatures at the levels below,
+ * then the rest of the XP goes round-robin into the attributes. Applied on
+ * request at scenario start; never overwrites a designed book. */
 void wizard_apply_standard_set(Wizard *w)
 {
+    static const struct { uint8_t spell, level; } SET[] = {
+        {SP_MAGIC_BOLT, 4}, {SP_MAGIC_SHIELD, 3}, {SP_HEALING_POTION, 3},
+        {SP_MAGIC_EYE, 2}, {SP_MAGIC_LIGHTNING, 1}, {SP_CURSE, 1},
+        {SP_GIANT_BAT, 2}, {SP_GOBLIN, 2}, {SP_DWARF, 3}, {SP_UNICORN, 1},
+        {SP_HARPY, 1}, {SP_ZOMBIE, 1}, {SP_GORILLA, 1}, {SP_GRYPHON, 1},
+    };
+    uint8_t i;
+    bool bought;
     if (!w || w->book.level[SP_MAGIC_BOLT] != 0)
         return;                        /* already has spells: leave it */
-    /* core spells (bolt/shield/healing/eye/lightning/curse) */
-    w->book.level[SP_MAGIC_BOLT] = 4;
-    w->book.level[SP_MAGIC_SHIELD] = 3;
-    w->book.level[SP_HEALING_POTION] = 4;
-    w->book.level[SP_MAGIC_EYE] = 3;
-    w->book.level[SP_MAGIC_LIGHTNING] = 2;
-    w->book.level[SP_CURSE] = 2;
-    w->book.level[SP_SPEED_POTION] = 2;
-    w->book.level[SP_FLYING_POTION] = 2;
-    /* 8 different creatures, level 1-3 (cheap to heavy) */
-    w->book.level[SP_GIANT_BAT] = 2;
-    w->book.level[SP_GOBLIN] = 2;
-    w->book.level[SP_DWARF] = 3;
-    w->book.level[SP_UNICORN] = 1;
-    w->book.level[SP_HARPY] = 1;
-    w->book.level[SP_ZOMBIE] = 1;
-    w->book.level[SP_GORILLA] = 1;
-    w->book.level[SP_GRYPHON] = 1;
-    /* balanced attributes: 5 -> 20 com/def, 34 -> 49 con/sta,
-     * 70 -> 80 MR, mana 80 -> 86, AP 34 -> 39 */
-    {
-        uint8_t i;
-        for (i = 0; i < 15; i++) {
-            wizard_raise(w, WA_COMBAT);
-            wizard_raise(w, WA_DEFENCE);
-            wizard_raise(w, WA_CONSTITUTION);
-            wizard_raise(w, WA_STAMINA);
-        }
-        for (i = 0; i < 10; i++)
-            wizard_raise(w, WA_MAGIC_RES);
-        for (i = 0; i < 6; i++)
-            wizard_mana_raise(w);
-        for (i = 0; i < 5; i++)
-            wizard_ap_raise(w);
+    for (i = 0; i < sizeof SET / sizeof SET[0]; i++) {
+        uint8_t n;
+        for (n = 0; n < SET[i].level; n++)
+            wizard_spell_raise(w, SET[i].spell);
     }
-    w->xp = 69;            /* what the template leaves from the 600 */
+    do {                               /* attributes, round-robin, until the XP runs out */
+        bought = false;
+        bought |= wizard_raise(w, WA_COMBAT);
+        bought |= wizard_raise(w, WA_DEFENCE);
+        bought |= wizard_raise(w, WA_CONSTITUTION);
+        bought |= wizard_raise(w, WA_STAMINA);
+        if (w->com >= 12 && w->mr < 80)
+            bought |= wizard_raise(w, WA_MAGIC_RES);
+        if (w->com >= 14 && w->mana_max < 90)
+            bought |= wizard_mana_raise(w);
+    } while (bought && w->com < 24);
 }
 
+/* The original random wizard (K3.2): Combat and Defence 6, Magic Resistance
+ * 90, every spell level RND(3) (0..2), no XP to spend. `strength` is kept
+ * for the setup screen and has no effect any more. */
 void wizard_slot_random(uint8_t slot, uint8_t strength, Rng *rng)
 {
-    uint16_t pool;
-    uint8_t rolls, k, spell;
+    uint8_t spell;
     Wizard *w;
+    (void)strength;
     wizard_slot_reset(slot);
     w = &wizard_slots[slot];
     snprintf(w->name, sizeof w->name, "Zufall-%u", slot + 1);
-    /* strength budget: 3 points per strength step on random spells */
-    rolls = (uint8_t)(3 * strength);
-    for (k = 0; k < rolls; k++) {
-        spell = (uint8_t)rng_range(rng, SPELL_COUNT);
-        if (SPELLS[spell].category == SPC_POTION ||
-            SPELLS[spell].category == SPC_AREA)
-            continue;                    /* keep the starters meaningful */
-        if (w->book.level[spell] < SPELL_MAX_LEVEL)
-            w->book.level[spell]++;
-    }
-    pool = (uint16_t)(40 * strength);    /* and XP to spend */
-    w->xp = pool;
+    w->com = w->base_com = 6;
+    w->def = w->base_def = 6;
+    w->mr = w->base_mr = 90;
+    w->level = 1;
+    for (spell = 0; spell < SPELL_COUNT; spell++)
+        w->book.level[spell] = SPELLS[spell].xp_base
+                                   ? (uint8_t)rng_range(rng, 3) : 0;
+    w->xp = 0;
 }
 
 void wizard_apply_to_world(const Wizard *w, World *world, uint8_t unit)

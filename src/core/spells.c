@@ -52,31 +52,9 @@ bool spellbook_load(Spellbook *books, const uint8_t *data, uint16_t len)
     return true;
 }
 
-/* Summons (D34): the book level is the creature's level, not a count.
- * Casting costs the level-1 mana and spends nothing; every other spell
- * pays for its level and uses a charge up. */
 uint8_t spell_cast_mana(uint8_t spell, uint8_t level)
 {
-    if (spell < SPELL_COUNT && SPELLS[spell].category == SPC_SUMMON)
-        return spell_mana(spell, 1);
     return spell_mana(spell, level);
-}
-
-void spell_scale_creature(Unit *u, uint8_t level)
-{
-    uint16_t pct, v;
-    if (level > SPELL_SUMMON_MAX_LEVEL)
-        level = SPELL_SUMMON_MAX_LEVEL;
-    if (level <= 1)
-        return;
-    pct = (uint16_t)(100 + SUMMON_LEVEL_PERCENT * (level - 1));
-    v = (uint16_t)((uint16_t)u->com * pct / 100);
-    u->com = v > 255 ? 255 : (uint8_t)v;
-    v = (uint16_t)((uint16_t)u->def * pct / 100);
-    u->def = v > 255 ? 255 : (uint8_t)v;
-    v = (uint16_t)((uint16_t)u->con_max * pct / 100);
-    u->con_max = v > 255 ? 255 : (uint8_t)v;
-    u->con = u->con_max;
 }
 
 bool spell_can_cast(const World *w, const Spellbook *b, uint8_t wiz, uint8_t spell)
@@ -91,12 +69,12 @@ bool spell_can_cast(const World *w, const Spellbook *b, uint8_t wiz, uint8_t spe
            u->ap >= ACTIONS[ACT_CAST].ap;
 }
 
-uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
+uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell, Rng *rng)
 {
     static const int8_t DX[8] = {0, 1, 1, 1, 0, -1, -1, -1};
     static const int8_t DY[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
-    uint8_t level, mana, want, placed = 0, i, free_count = 0, kind;
-    bool dragon_herb_spend = false;
+    uint8_t level, mana, placed = 0, i, kind, n;
+    bool dragon_herb_spend = false, any_free = false;
     const Unit *u;
     if (!spell_can_cast(w, b, wiz, spell) || SPELLS[spell].category != SPC_SUMMON)
         return 0;
@@ -114,31 +92,33 @@ uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
             dragon_herb_spend = true;
         }
     }
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 8 && !any_free; i++) {
         int16_t x = (int16_t)(u->x + DX[i]), y = (int16_t)(u->y + DY[i]);
         if (world_wrap(w, &x, &y) && !world_blocks(w, x, y) &&
             world_unit_at(w, x, y, UL_GROUND) == NO_UNIT)
-            free_count++;
+            any_free = true;
     }
-    /* one creature of the book's level (D34); without a free field the
-     * mana is lost (GDD 7.2) */
-    want = free_count >= 1 ? 1 : 0;
-    if (want == 0)
+    if (!any_free)
         dragon_herb_spend = false;       /* failed: the herb survives */
     else if (dragon_herb_spend)
         brew_dragon_spend(w, wiz);
     world_pay(w, wiz, ACT_CAST);
     w->units[wiz].mana = (uint8_t)(u->mana - mana);
-    if (want)                             /* summons spend no level (D34) */
-        events_push(EV_SPELL, u->x, u->y, spell, u->owner, 0, 0);
-    for (i = 0; i < 8 && placed < want; i++) {
-        int16_t x = (int16_t)(u->x + DX[i]), y = (int16_t)(u->y + DY[i]);
-        if (world_wrap(w, &x, &y) && !world_blocks(w, x, y) &&
-            world_unit_at(w, x, y, UL_GROUND) == NO_UNIT) {
-            uint8_t slot = world_spawn_unit(w, u->owner, kind, (uint8_t)x, (uint8_t)y);
-            if (slot != NO_UNIT) {
-                spell_scale_creature(&w->units[slot], level);
-                placed++;
+    b->level[spell] = (uint8_t)(level - 1);   /* the level is used up (K5.1) */
+    events_push(EV_SPELL, u->x, u->y, spell, u->owner, 0, 0);
+    /* L creatures, each on a random free neighbour: up to 40 tries (K5.3) */
+    for (n = 0; n < level && any_free; n++) {
+        uint8_t tries;
+        for (tries = 0; tries < 40; tries++) {
+            uint8_t d = (uint8_t)rng_range(rng, 8);
+            int16_t x = (int16_t)(w->units[wiz].x + DX[d]);
+            int16_t y = (int16_t)(w->units[wiz].y + DY[d]);
+            if (world_wrap(w, &x, &y) && !world_blocks(w, x, y) &&
+                world_unit_at(w, x, y, UL_GROUND) == NO_UNIT) {
+                if (world_spawn_unit(w, w->units[wiz].owner, kind, (uint8_t)x,
+                                     (uint8_t)y) != NO_UNIT)
+                    placed++;
+                break;
             }
         }
     }

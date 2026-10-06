@@ -25,3 +25,5 @@
 | F12 | 0e | Die Entzündbarkeits- und Empfänglichkeitswerte unserer Geländefamilien (`terrain_effects.csv`) sind aus den Kachelfamilien des Originals abgeleitet, nicht 1:1. Möbel und Türen brennen mit 8–12. | Bleibt bis zum Playtest. |
 | F13 | 0e | Blob und Feuer auf stark brennbarem Gelände mit hoher Stufe sterben nie aus (so rechnet das Original auch), begrenzt nur durch 48 Felder je Fläche. | Wie im Original. |
 | F14 | 0e | Flieger über Feuer bleiben unverletzt (nicht im Original gelesen, aber „Feuer am Boden“). | Eigene Zusatzregel. |
+| F15 | 0f | Der Setup-Bildschirm kennt eine „Zufallsstärke“ für Zufallszauberer; im Original gibt es nur einen. | Der Wert bleibt in der Oberfläche, wirkt aber nicht mehr. Soll er verschwinden, ist das eine kleine UI-Änderung. |
+| F16 | 0f | Alte Wizard-Dateien auf der SD-Karte mit Ausdauer/Constitution über 90 oder AP über 40 werden als ungültig abgelehnt (neue Höchstwerte). | Slot wird zurückgesetzt; kein Migrationspfad. |

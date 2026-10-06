@@ -226,7 +226,7 @@ static bool wizard_casts(uint8_t unit)
             uint8_t s = SUMMONS[k];
             if (!books[b].level[s] || !spell_can_cast(&world, &books[b], unit, s))
                 continue;
-            if (spell_summon(&world, &books[b], unit, s)) {
+            if (spell_summon(&world, &books[b], unit, s, &rng)) {
                 tally_events();
                 return true;
             }

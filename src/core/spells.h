@@ -28,20 +28,15 @@ bool spellbook_load(Spellbook *books, const uint8_t *data, uint16_t len);
 
 /* Everything needed for a cast: a grounded wizard with a known spell,
  * mana and AP for ACT_CAST. */
-/* Summons (D34): level = creature level, +15 % combat/defence/
- * constitution per level above 1 (capped at 8), fixed level-1 mana,
- * unlimited casts. */
-#define SUMMON_LEVEL_PERCENT 15
-#define SPELL_SUMMON_MAX_LEVEL 8
+/* Mana of a cast at book level L (K5.2): the same for every spell. */
 uint8_t spell_cast_mana(uint8_t spell, uint8_t level);
-void spell_scale_creature(Unit *u, uint8_t level);
 bool spell_can_cast(const World *w, const Spellbook *b, uint8_t wiz, uint8_t spell);
 
-/* Summon `level` creatures of the spell's kind on free ground fields
- * around the wizard (GDD 7.2). Pays AP and mana and burns the level;
- * without enough space the mana is lost and nothing appears. Returns
- * the number of creatures placed. */
-uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell);
+/* Summon L creatures of the spell's kind (K5.3): each tries up to 40 times
+ * for a random free neighbour field. Pays AP and mana and burns one level;
+ * without any free field the mana is lost and nothing appears. Returns the
+ * number of creatures placed. */
+uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell, Rng *rng);
 
 /* Reach of a targeted spell cast at book level L, in distance units of the
  * original (K1, 2 * max + min): 2L + 7, Magic Eye 3L + 10, Teleport 2L + 30. */
