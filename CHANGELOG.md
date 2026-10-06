@@ -2,6 +2,12 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Level 1 in 16 Geländevarianten (D57) (2026-10-06)
+
+### Neu
+- **Jedes neue Spiel von Level 1 hat anderes Gelände:** `tools/gen_variants.py` erzeugt beim Bauen 16 Varianten (`build/maps/mcl_v00..15.map`). Fluss, Brücken, Biome (Zauberwald und Totenwald tauschen die Seiten), Wege, Bäume und Felsen werden gewürfelt; Häuser, Garten, Zauberer, Objekte und Portal kommen unverändert aus der handgemachten Karte. Jede Variante wird geprüft (Wege zusammenhängend, keine Sackgassen außer am Portal, alles erreichbar) und sonst neu gewürfelt. Das Spiel wählt eine zufällig, nie zweimal dieselbe hintereinander; ohne Varianten auf der SD gilt die Basiskarte.
+- `loc_host --map-file` und `map_preview.py file.map` zeigen eine `.map`-Datei.
+
 ## [Unreleased] – Keine Starts auf Brücken (2026-10-06)
 
 ### Behoben

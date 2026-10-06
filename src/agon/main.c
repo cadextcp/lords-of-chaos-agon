@@ -1171,6 +1171,30 @@ static const char *const MENU_ITEMS[] = {
 };
 #define MENU_COUNT 11
 #define MENU_SCENARIOS 3
+/* Scenario 1 comes in MCL_VARIANTS terrain variants (tools/gen_variants.py,
+ * maps/mcl_vNN.map, D57); every new game picks one, never twice in a row.
+ * MCL_VARIANTS must be a power of two and match VARIANTS in the tool. */
+#define MCL_VARIANTS 16
+#define MCL_PREFIX "maps/mcl_v"          /* + two digits + ".map" */
+#define MCL_PREFIX_LEN 10
+
+static const char *scenario1_map(void)
+{
+    static char path[MCL_PREFIX_LEN + 7];   /* "maps/mcl_v07.map" */
+    static uint8_t last = 0xFF;
+    uint8_t v = (uint8_t)(getsysvar_time() & (MCL_VARIANTS - 1));
+    if (v == last)
+        v = (uint8_t)((v + 1) & (MCL_VARIANTS - 1));
+    strcpy(path, MCL_PREFIX);
+    path[MCL_PREFIX_LEN] = (char)('0' + v / 10);
+    path[MCL_PREFIX_LEN + 1] = (char)('0' + v % 10);
+    strcpy(path + MCL_PREFIX_LEN + 2, ".map");
+    if (!mapfile_exists(path))
+        return "maps/many_coloured_land.map";   /* an SD package without variants */
+    last = v;
+    return path;
+}
+
 /* map + book set per scenario (GDD 9.1); the .scn carries the books */
 static const char *menu_scenario_map(uint8_t pick)
 {
@@ -1185,7 +1209,7 @@ static const char *menu_scenario_map(uint8_t pick)
         "scenarios/ragarils_domain.scn",
     };
     scnfile_load(books, SCNS[pick]);
-    return MAPS[pick];
+    return pick == 0 ? scenario1_map() : MAPS[pick];
 }
 
 /* ---------- overlays (GDD 5.1/11.1, M4j) ---------- */
@@ -1828,6 +1852,8 @@ static const char *const SCEN_TITLE[3] = {
 static uint8_t scenario_number(const char *map)
 {
     uint8_t i;
+    if (map && strncmp(map, MCL_PREFIX, MCL_PREFIX_LEN) == 0)
+        return 1;                        /* a terrain variant of scenario 1 */
     for (i = 0; map && i < 3; i++)
         if (strcmp(map, SCEN_MAP[i]) == 0)
             return (uint8_t)(i + 1);

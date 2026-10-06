@@ -6,7 +6,7 @@
 """
 Draw a whole map from the host build's tile layers (graphics review aid).
 
-    uv run tools/art/map_preview.py [map 0-4] [x0 y0 w h] [--viewer X Y]   -> build/map_preview.png
+    uv run tools/art/map_preview.py [map 0-4 | file.map] [x0 y0 w h] [--viewer X Y]   -> build/map_preview.png
 
 Needs build/host/loc_host and build/tiles.bin (uv run tools/build.py --all).
 """
@@ -29,11 +29,12 @@ if "--viewer" in args:                      # --viewer X Y: the roof opens on wh
     del args[k:k + 3]
 sys.argv = [sys.argv[0], *args]
 which = sys.argv[1] if len(sys.argv) > 1 else "3"
+flag = "--map-file" if which.endswith(".map") else "--map-layers"   # a path or a compiled-in index
 if sys.platform == "win32":
     cmd = ["wsl.exe", "-e", "bash", "-c",
-           f"cd /mnt/c/{ROOT.as_posix()[3:]} && build/host/loc_host --map-layers {which} {' '.join(viewer)}"]
+           f"cd /mnt/c/{ROOT.as_posix()[3:]} && build/host/loc_host {flag} {which} {' '.join(viewer)}"]
 else:
-    cmd = [str(ROOT / "build" / "host" / "loc_host"), "--map-layers", which, *viewer]
+    cmd = [str(ROOT / "build" / "host" / "loc_host"), flag, which, *viewer]
 out = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.splitlines()
 mw, mh = map(int, out[0].split())
 x0, y0, w, h = (map(int, sys.argv[2:6]) if len(sys.argv) >= 6 else (0, 0, mw, mh))
