@@ -1657,9 +1657,9 @@ static void test_wild(void)
 
     /* spells reach through tall grass, eyes do not (D36) */
     world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
-    check(world.floor[19][2] == FL_TALL_GRASS &&
-          !sight_has_los(&world, 0, 19, 5, 19) &&
-          sight_has_spell_los(&world, 0, 19, 5, 19),
+    check(world.floor[19][9] == FL_TALL_GRASS &&
+          !sight_has_los(&world, 7, 19, 11, 19) &&
+          sight_has_spell_los(&world, 7, 19, 11, 19),
           "d36: a spell flies through tall grass that blocks the view");
 
     /* herds come only later, then cross and leave */
