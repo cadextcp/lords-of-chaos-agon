@@ -1160,6 +1160,7 @@ static const char *const MENU_ITEMS[] = {
     "The Many Coloured Land (St. 1)",
     "Slayer's Dungeon (St. 2)",
     "Ragaril's Domain (St. 3)",
+    "Zufaellige Karte",
     "Spielstand laden",
     "Zauberer entwerfen",
     "Zauberer zuruecksetzen",
@@ -1169,8 +1170,9 @@ static const char *const MENU_ITEMS[] = {
     "Tutorial",
     "Spiel beenden",
 };
-#define MENU_COUNT 11
+#define MENU_COUNT 12
 #define MENU_SCENARIOS 3
+#define MENU_RANDOM 3               /* starts one of the generated maps (D58) */
 /* Scenario 1 comes in MCL_VARIANTS terrain variants (tools/gen_variants.py,
  * maps/mcl_vNN.map, D57); every new game picks one, never twice in a row.
  * MCL_VARIANTS must be a power of two and match VARIANTS in the tool. */
@@ -1764,8 +1766,9 @@ static const char *menu_loop(bool *free_round1)
             cursor = (uint8_t)((cursor + 1) % MENU_COUNT);
         } else if (e.ascii == 13 || e.vkey == VK_SPACE) {
             sound_play(SND_CONFIRM);
-            if (cursor < MENU_SCENARIOS) {
-                const char *map = menu_scenario_map(cursor);
+            if (cursor <= MENU_RANDOM) {   /* 0-2 scenarios, 3 random map */
+                const char *map = menu_scenario_map(cursor < MENU_SCENARIOS
+                                                        ? cursor : 0);
                 wizard_apply_to_world(&wizard_slots[0], &world, active());
                 memcpy(&books[OWN_P1], wizard_book(&wizard_slots[0]),
                        sizeof(Spellbook));
@@ -1776,7 +1779,7 @@ static const char *menu_loop(bool *free_round1)
                 return map;
             }
             switch (cursor) {
-            case 3:                       /* Spielstand laden (M4i) */
+            case 4:                       /* Spielstand laden (M4i) */
                 if (load_from_sd()) {
                     *free_round1 = false;     /* the saved lock stays */
                     save_loaded = true;   /* world is already restored */
@@ -1787,11 +1790,11 @@ static const char *menu_loop(bool *free_round1)
                 menu_message(C_BRIGHT_RED,
                                  "Kein Spielstand / keine Ladungen.");
                 continue;
-            case 4:
+            case 5:
                 designer_loop(0);
                 full = true;
                 break;
-            case 5:
+            case 6:
                 if (!confirm_reset) {   /* destructive: ask once */
                     confirm_reset = true;
                     menu_message(C_BRIGHT_RED,
@@ -1803,21 +1806,21 @@ static const char *menu_loop(bool *free_round1)
                 wizards_save();
                 full = true;
                 break;
-            case 6:                       /* Setup: F9 strength, F8 loads */
+            case 7:                       /* Setup: F9 strength, F8 loads */
                 designer_setup_loop();
                 full = true;
                 break;
-            case 7:                       /* Hilfe: pages from the SD (M5) */
+            case 8:                       /* Hilfe: pages from the SD (M5) */
                 if (!screen_help("help/keys.hlp"))
                     menu_message(C_BRIGHT_RED,
                                      "help/keys.hlp fehlt auf der SD.");
                 full = true;
                 break;
-            case 8:                       /* Lexikon (M5) */
+            case 9:                       /* Lexikon (M5) */
                 screen_lexicon(&lex);
                 full = true;
                 break;
-            case 9: {                     /* guided tutorial (M5) */
+            case 10: {                    /* guided tutorial (M5) */
                 const char *map = MAP_TUTORIAL;
                 scnfile_load(books, SCN_TUTORIAL);
                 wizard_apply_to_world(&wizard_slots[0], &world, active());
