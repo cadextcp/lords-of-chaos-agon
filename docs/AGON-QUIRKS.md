@@ -48,7 +48,7 @@ Gesammeltes Plattformwissen. Teile stammen aus dem ersten Versuch (BBC BASIC, `L
 | # | Quirk | Status |
 |---|---|---|
 | E1 | `agon-cli-emulator` hat keinen VDP („Tom's Fake VDP“). Textausgabe geht nach stdout, Grafik wird ignoriert. | ✅ |
-| E2 | **Der CLI-Emulator 1.2.5 führt `autoexec.txt` aus.** Die alte AgonPipeline-Notiz (ältere Version) behauptete das Gegenteil. `test.py` schreibt deshalb ein eigenes `autoexec.txt` mit `loc --selftest`. Achtung: Ein liegengebliebenes `autoexec.txt` aus `run.py` würde sonst im Headless-Lauf das Spiel starten. | ✅ (M0) |
+| E2 | **Der CLI-Emulator 1.2.5 führt `autoexec.txt` aus.** Die alte AgonPipeline-Notiz (ältere Version) behauptete das Gegenteil. `test.py` schreibt deshalb ein eigenes `autoexec.txt` mit `loctest` (bis #142: `loc --selftest`). Die Eingabe des Emulators muss offen bleiben, sonst endet er bei EOF mit 0, bevor der Test läuft (#147). Achtung: Ein liegengebliebenes `autoexec.txt` aus `run.py` würde sonst im Headless-Lauf das Spiel starten. | ✅ (M0) |
 | E7 | Die CLI-Ausgabe enthält rohe VDU-Bytes (Fake VDP). Tools dekodieren tolerant (`utf-8`, `errors=replace`) und filtern sie vor der Ausgabe auf Windows-Konsolen (cp1252). | ✅ (M0) |
 | E3 | Ein Schreibzugriff auf **I/O-Port 0** beendet den Emulator mit diesem Exit-Code. Vorher muss der UART leer sein (LSR bit 6, Port `$C5`), sonst fehlt Ausgabe. | ✅ (M0, `src/agon/emu.asm`) |
 | E4 | Die GUI startet standardmäßig mit „platform“-MOS 3.x, die CLI immer mit Console8 MOS 2.3.3. Deshalb pinnen wir die GUI auf `--firmware console8`. | ✅ |
