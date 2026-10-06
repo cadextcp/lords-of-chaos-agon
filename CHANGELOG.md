@@ -5,8 +5,11 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ## [Unreleased] – Level 1: Nachtkarte, Entwurf (D54) (2026-10-06)
 
 ### Geändert
+- Selftests ziehen auf offenes Gelände der neuen Karte um (Löwe d35, Hochgras d36, Bogen, Dach d46), der Dach-Test d46 nutzt eine eigene Wand.
 - GDD D54: Kartengröße 36×36 bleibt, alle Szenarien nachts, Fenster (zwei Felder Einblick), Brücken, Zaun und Tor, Biome mit natürlichen Grenzen. 
 ### Neu
+- **Level 1 neu gezeichnet (Entwurf, `data/maps/many_coloured_land.txt`):** Fluss mit Windungen und drei Brücken, organische Biome (Wald, Magic Wood, Schattenwald, Sumpf mit Pilzen am Fluss, Hochgras, Geröll) statt Rechtecke, verschlungene Wege, Portal-Lichtung mit Steinen. **Haus 1** hat vier Räume mit Innentüren und sechs Fenstern, davor ein eingezäunter Blumengarten mit Tor; **Haus 2** hat zwei Räume und drei Fenster. Alle Koordinaten der alten Häuser (Zauberer, Kessel, Truhen, Türen) bleiben. Vorschau: `docs/design/mockups/level1-night-draft.png`.
+- **Fenster-Einblick zwei Felder tief:** Fenster und das Feld dahinter sind dachfrei; das zweite Feld ist das erste mit Dach (Sichtlinienende).
 - **Neue Elemente (D54), 31 Kacheln (~18 KB VDP-RAM, `tools/art/make_night_set.py`):** `FE_WINDOW` (beleuchtetes Fenster in der Wand, blockiert Bewegung, nicht die Sicht), `FE_FENCE` (Zaun mit 16er-Auto-Tile) mit **Tor** (eine Tür zwischen Zaunpfosten, öffnet/schließt/schließt ab wie jede Tür), `FL_BRIDGE` (begehbar wie Gras, kein Ertrinken, Ausrichtung nach dem Wasser), Blumenbeet (`DE_FLOWERS`, 3 Varianten), leuchtende Pilze (`DE_MUSHROOMS`, 2 Frames) und aufsteigende Blasen im Sumpf (automatisch auf einigen Sumpffeldern). Kartenzeichen: `W` Fenster, `F` Zaun, `b` Brücke, Dekor `f` Blumen, `o` Pilze. `HOUSE_VIEW_HASH` neu (Kachel-IDs verschoben), Checks `d54`.
 - **Nacht-Kacheln (erster Wurf):** `tools/art/night.py` färbt Außenkacheln beim Bauen um (schwarzer Grund mit grünen Tupfen wie im Amiga-Original, graue Wege, dunkler Sumpf, dunklere Bäume); die PNGs bleiben die Tag-Quelle. `map_preview.py` läuft auch ohne WSL.
 

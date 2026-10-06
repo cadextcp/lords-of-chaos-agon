@@ -481,11 +481,11 @@ static bool roof_covered(const World *w, int16_t wx, int16_t wy, bool *wall)
 {
     static const int8_t N[4][2] = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
     uint8_t fe = w->feature[wy][wx], i;
-    *wall = fe == FE_WALL || fe == FE_WINDOW;
+    *wall = fe == FE_WALL;
     if (world_has_roof(w, wx, wy))
         return true;
-    if (fe != FE_WALL && fe != FE_WINDOW && fe != FE_DOOR_CLOSED &&
-        fe != FE_DOOR_OPEN && fe != FE_DOOR_LOCKED)
+    if (fe != FE_WALL && fe != FE_DOOR_CLOSED && fe != FE_DOOR_OPEN &&
+        fe != FE_DOOR_LOCKED)
         return false;
     for (i = 0; i < 4; i++)
         if (world_has_roof(w, (int16_t)(wx + N[i][0]), (int16_t)(wy + N[i][1])))

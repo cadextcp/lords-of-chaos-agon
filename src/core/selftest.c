@@ -1471,10 +1471,10 @@ static void test_wild(void)
     for (i = 0; i < world.unit_count; i++)
         if (world.units[i].owner == OWN_P1)
             wiz = i;
-    world.units[wiz].x = 20;
-    world.units[wiz].y = 12;
+    world.units[wiz].x = 17;
+    world.units[wiz].y = 26;
     {   /* territorial: defends its home, ignores the far wizard */
-        uint8_t l = world_spawn_unit(&world, OWN_NEUTRAL, CR_LION, 29, 12);
+        uint8_t l = world_spawn_unit(&world, OWN_NEUTRAL, CR_LION, 26, 26);
         ai_set_post(&world, l);
         events_reset();
         rounds_of_neutrals(&r, 3);
@@ -1482,8 +1482,8 @@ static void test_wild(void)
         for (i = 0; i < world.unit_count; i++)
             if (world.units[i].owner == OWN_P1)
                 wiz = i;
-        world.units[wiz].x = 27;             /* two fields from its home */
-        world.units[wiz].y = 12;
+        world.units[wiz].x = 24;             /* two fields from its home */
+        world.units[wiz].y = 26;
         events_reset();
         rounds_of_neutrals(&r, 2);
         check(swung(CR_LION), "d35: an intruder in the territory is attacked");
@@ -1607,9 +1607,9 @@ static void test_wild(void)
 
     /* spells reach through tall grass, eyes do not (D36) */
     world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
-    check(world.floor[17][12] == FL_TALL_GRASS &&
-          !sight_has_los(&world, 10, 17, 15, 17) &&
-          sight_has_spell_los(&world, 10, 17, 15, 17),
+    check(world.floor[19][2] == FL_TALL_GRASS &&
+          !sight_has_los(&world, 0, 19, 5, 19) &&
+          sight_has_spell_los(&world, 0, 19, 5, 19),
           "d36: a spell flies through tall grass that blocks the view");
 
     /* herds come only later, then cross and leave */
@@ -2025,8 +2025,8 @@ static void test_review_fixes(void)
         uint8_t s, tg, hits = 0, n;
         world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
         world.unit_count = 0;
-        s = world_spawn_unit(&world, OWN_P1, CR_DWARF, 2, 0);
-        tg = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 5, 0);
+        s = world_spawn_unit(&world, OWN_P1, CR_DWARF, 2, 1);
+        tg = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 5, 1);
         world.units[s].items[0] = OBJ_BOW;
         world.units[s].item_count = 1;
         world.units[s].in_use = 0;
@@ -2035,7 +2035,7 @@ static void test_review_fixes(void)
         for (n = 0; n < 100; n++) {
             uint8_t dmg = 0;
             world.units[s].ap = 40;
-            if (items_fire(&world, &rng, s, 5, 0, &dmg) && dmg)
+            if (items_fire(&world, &rng, s, 5, 1, &dmg) && dmg)
                 hits++;
         }
         check(hits > 0 && hits < 30, "fix: bow hits at least 10 % (D16 clamp)");
@@ -3137,17 +3137,21 @@ static void test_m4e(void)
         {   /* the roof keeps the outer wall covered (2026-10-05): a wall
              * field carries its roof even in line of sight - the facade
              * must not go open right in front of the viewer. */
-            view_set_roof_viewer(11, 6);         /* outside, east of it */
-            check(world_has_roof(&world, 8, 6) &&
-                  sight_has_los(&world, 11, 6, 8, 6),
+            view_set_roof_viewer(15, 6);         /* outside, east of the wing */
+            check(world_has_roof(&world, 13, 6) &&
+                  sight_has_los(&world, 15, 6, 13, 6),
                   "d46: premise - the east wall is roofed and in sight");
-            view_compose(&world, 8, 6, &f);
+            view_compose(&world, 13, 6, &f);
             check(has_layer(&f, T_ROOF),
                   "d46: the wall keeps its roof even in line of sight");
             view_set_roof_viewer(-1, 0);
-            view_compose(&world, 28, 22, &f);
+            world.feature[20][20] = FE_WALL;     /* a lone wall far from any roof */
+            world_map_changed(&world);
+            view_compose(&world, 20, 20, &f);
             check(!has_layer(&f, T_ROOF),
                   "d46: a wall away from any roof stays bare");
+            world.feature[20][20] = FE_NONE;
+            world_map_changed(&world);
         }
         {   /* a remembered roof keeps its normal texture (2026-10-05): no
              * dither overlay on roofed fields - from outside the roof read
