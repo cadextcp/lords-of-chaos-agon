@@ -10,8 +10,8 @@
 
 #include "map_def.h"
 
-#define MAP_MAX_W 36
-#define MAP_MAX_H 36
+#define MAP_MAX_W 46   /* D64: Level 1 is 46x46, smaller maps fit inside */
+#define MAP_MAX_H 46
 #define MAX_UNITS 32
 #define MAX_OBJECTS 64
 #define WORLD_DISTURB 6

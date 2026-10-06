@@ -2,6 +2,17 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Motor für 46×46-Karten (D64, Teil 1) (2026-10-06)
+
+### Geändert
+- **Karten bis 46×46** (`MAP_MAX_W/H`). Inhalt noch unverändert; Level 1 folgt in Teil 2.
+- Speicherpuffer 8 → 12 KB, Spielstand v8 (alte Stände werden abgelehnt).
+- Die Gesamtkarte (`m`) zeichnet große Karten mit 4 px je Feld, damit sie ins Fenster passt.
+
+### Intern
+- RAM-Reserve 129 → 100 KB (vor allem der statische Sicht-Cache). Check `d64`: volle 46×46-Welt mit 32 Einheiten, Wrap, Sicht, Speichern/Laden.
+- Merkposten: `gen/maps.c` (die einkompilierten Karten, ~30 KB) braucht nur der Selftest, landet aber auch in `loc.bin`.
+
 ## [Unreleased] – Defensiver KI-Zauberer (D62) (2026-10-06)
 
 ### Geändert

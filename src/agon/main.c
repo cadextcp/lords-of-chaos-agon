@@ -1349,6 +1349,9 @@ static void draw_big_map(void)
 {
     char head[40];
     int16_t x, y;
+    /* 5 px a field fits 36 fields into the overlay (216 x 190 px), the
+     * 46x46 map gets 4 (D64) */
+    uint8_t cell = (world.w > 36 || world.h > 36) ? 4 : 5;
     render_menu_clear();
     snprintf(head, sizeof head, "Gesamtkarte  Runde %u", turns.round);
     render_menu_text(2, 0, C_BRIGHT_YELLOW, head);
@@ -1356,8 +1359,8 @@ static void draw_big_map(void)
         for (x = 0; x < world.w; x++) {
             uint8_t colour;
             uint8_t u = world_unit_at(&world, x, y, UL_GROUND);
-            uint8_t px = (uint8_t)(2 + x * 5);
-            uint8_t py = (uint8_t)(16 + y * 5);
+            uint8_t px = (uint8_t)(2 + x * cell);
+            uint8_t py = (uint8_t)(16 + y * cell);
             if (!sight_explored(&p1_sight, &world, x, y))
                 continue;                  /* unexplored stays black (GDD 3.4) */
             if (u == NO_UNIT)
@@ -1377,12 +1380,12 @@ static void draw_big_map(void)
                          : world_floor(&world, x, y) == FL_FOREST ? C_GREEN
                          : C_GREY;
             vdp_gcol(0, colour);
-            vdp_filled_rectangle(px, py, (int)(px + 3), (int)(py + 3));
+            vdp_filled_rectangle(px, py, (int)(px + cell - 2), (int)(py + cell - 2));
         }
     if (foe_wiz_x >= 0) {                /* C9: where he was last seen */
-        int px = 2 + foe_wiz_x * 5, py = 16 + foe_wiz_y * 5;
+        int px = 2 + foe_wiz_x * cell, py = 16 + foe_wiz_y * cell;
         vdp_gcol(0, C_BRIGHT_YELLOW);
-        vdp_rectangle(px - 1, py - 1, px + 4, py + 4);
+        vdp_rectangle(px - 1, py - 1, px + cell - 1, py + cell - 1);
         snprintf(head, sizeof head, "Gegner zuletzt Runde %u gesehen",
                  foe_wiz_round);
         render_menu_text(2, 26, C_BRIGHT_YELLOW, head);

@@ -21,7 +21,7 @@
 #include "world.h"
 
 #define SAVE_AREAS 4              /* one area per kind at most */
-#define SAVE_BUF_SIZE 8192        /* room for the largest blob */
+#define SAVE_BUF_SIZE 12288       /* room for the largest blob (46x46, D64) */
 
 typedef struct {
     World world;
