@@ -287,7 +287,7 @@ static void test_data(void)
     check(SPELLS[SP_SUPER_POTION].amiga == 0 && SPELLS[SP_BOMB_POTION].known == 0,
           "data: super potion not on Amiga, bomb potion cost unknown");
     check(FLOOR_AP[FL_PATH] == 3 && FLOOR_AP[FL_STONE] == 4, "data: floor costs from costs.csv");
-    check(ACTIONS[ACT_CAST].ap == 10 && ACTIONS[ACT_MELEE].stamina == 4,
+    check(ACTIONS[ACT_CAST].ap == 8 && ACTIONS[ACT_MELEE].stamina == 4,
           "data: action costs from actions.csv");
 }
 
@@ -903,8 +903,8 @@ static void test_flight(void)
           world_unit_at(&world, 14, 2, UL_AIR) == NO_UNIT,
           "fly: bat starts on the ground layer");
     check(!world_take_off(&world, 0), "fly: wizard cannot take off");
-    check(world_take_off(&world, 11) && world.units[11].ap == 20,
-          "fly: take-off costs 4 AP");
+    check(world_take_off(&world, 11) && world.units[11].ap == 18,
+          "fly: take-off costs 6 AP");
     check((world.units[11].flags & UF_FLYING) != 0 &&
           world_unit_at(&world, 14, 2, UL_AIR) == 11 &&
           world_unit_at(&world, 14, 2, UL_GROUND) == NO_UNIT,
@@ -915,12 +915,12 @@ static void test_flight(void)
               "fly: straight over anything");
     }
     check(world.units[11].x == 16 && world.units[11].y == 2 &&
-          world.units[11].ap == 12 && world_floor(&world, 16, 2) == FL_WATER,
+          world.units[11].ap == 10 && world_floor(&world, 16, 2) == FL_WATER,
           "fly: 2 air steps onto the river cost 8 AP");
     check(!world_land(&world, 11), "fly: no landing on water");
     check(world_move_unit(&world, 11, 1, 0) && world_land(&world, 11) &&
-          world.units[11].ap == 4,
-          "fly: landing on grass costs 4 AP");
+          world.units[11].ap == 6,
+          "fly: landing on grass is free");
     check(world_unit_at(&world, 17, 2, UL_GROUND) == 11 &&
           !(world.units[11].flags & UF_FLYING),
           "fly: back on the ground layer");
@@ -1100,7 +1100,7 @@ static void test_combat(void)
         check(a.hit == b.hit && a.damage == b.damage && a.returned == b.returned,
               "combat: same seed, same outcome");
         check(a.returned, "combat: free counter even without AP (D27)");
-        check(world.units[0].ap == 30, "combat: melee costs 10 AP");
+        check(world.units[0].ap == 32, "combat: melee costs 8 AP");
         if (a.returned && !a.attacker_died)
             check(world.units[1].ap == 0, "combat: the counter costs no AP (D27)");
     }
@@ -1406,9 +1406,9 @@ static void test_spells(void)
               world.units[1].con_max == (uint8_t)(bat->con * 115 / 100) &&
               world.units[1].con == world.units[1].con_max,
               "d34: level 2 = +15 % combat, defence, constitution");
-        check(world.units[0].ap == 30 && world.units[0].mana == 73 &&
+        check(world.units[0].ap == 32 && world.units[0].mana == 73 &&
               book.level[SP_GIANT_BAT] == 2,
-              "d34: 10 AP, the level-1 mana (7), the level stays");
+              "d34: 8 AP, the level-1 mana (7), the level stays");
         check(spell_summon(&world, &book, 0, SP_GIANT_BAT) == 1 &&
               world.units[0].mana == 66 && book.level[SP_GIANT_BAT] == 2,
               "d34: summons can be cast again (no charges)");
@@ -1900,14 +1900,14 @@ static void test_items(void)
     check(items_kind_at(&world, 6, 8) == OBJ_SWORD, "items: sword on the ground");
 
     check(items_pick_up(&world, 0) && world.units[0].item_count == 1 &&
-          world.units[0].items[0] == OBJ_SWORD && world.units[0].ap == 34,
-          "items: picking up costs 6 AP");
+          world.units[0].items[0] == OBJ_SWORD && world.units[0].ap == 32,
+          "items: picking up costs 8 AP");
     check(items_kind_at(&world, 6, 8) == NO_ITEM, "items: gone from the ground");
     check(items_combat(&world, 0) == 10 && items_defence(&world, 0) == 12,
           "items: bare-handed values");      /* not wielded yet */
 
     check(items_cycle(&world, 0) && world.units[0].in_use == 0 &&
-          world.units[0].ap == 30, "items: wielding costs 4 AP");
+          world.units[0].ap == 28, "items: wielding costs 4 AP");
     check(items_combat(&world, 0) == 10,
           "d42: a wielded sword leaves the hit value alone");
 
@@ -1980,7 +1980,7 @@ static void test_items(void)
         rng_seed(&rng, 11);
         check(items_fire(&world, &rng, 0, 11, 5, &dmg),
               "items: bow fires in range");
-        check(world.units[0].ap == 28, "items: firing costs 12 AP");
+        check(world.units[0].ap == 32, "items: firing costs 8 AP");
         check(!items_fire(&world, &rng, 0, 20, 5, &dmg),
               "items: out of range rejected");
     }
@@ -2328,7 +2328,7 @@ static void test_m4a(void)
 {
     Rng rng;
 
-    check(OBJECTS[OBJ_APPLE].eat_con == 4 && OBJECTS[OBJ_MAGIC_MUSHROOM].eat_mana == 6 &&
+    check(OBJECTS[OBJ_APPLE].eat_con == 10 && OBJECTS[OBJ_MAGIC_MUSHROOM].eat_mana == 6 &&
           OBJECTS[OBJ_CHEST_KEY].category == OC_KEY,
           "m4a: food and key values from objects.csv");
 
@@ -2345,7 +2345,7 @@ static void test_m4a(void)
         world.units[1].ap = 0;              /* no return blows in this test */
         rng_seed(&rng, 1);
         combat_melee(&world, &rng, 0, 1, &r);
-        check(!r.hit && world.units[1].con == 40 && world.units[0].ap == 30,
+        check(!r.hit && world.units[1].con == 40 && world.units[0].ap == 32,
               "m4a: bare hands clank off the zombie");
         world.units[0].ap = 40;
         world.units[0].items[0] = OBJ_SWORD;
@@ -2409,9 +2409,11 @@ static void test_m4a(void)
         world.units[0].items[0] = OBJ_APPLE;
         world.units[0].item_count = 1;
         world.units[0].in_use = 0;
-        check(items_eat(&world, 0) && world.units[0].con == 14 &&
-              world.units[0].item_count == 0 && world.units[0].ap == 34,
-              "m4a: eating an apple heals 4 Con");
+        world.units[0].sta = 5;
+        check(items_eat(&world, 0) && world.units[0].con == 20 &&
+              world.units[0].sta == 43 &&   /* 5 - 2 for the AP + 40 */
+              world.units[0].item_count == 0 && world.units[0].ap == 36,
+              "m4a: eating an apple heals 10 Con and gives 40 stamina");
         world.units[0].items[0] = OBJ_MAGIC_MUSHROOM;
         world.units[0].item_count = 1;
         world.units[0].in_use = 0;
@@ -2774,8 +2776,8 @@ static void test_m4_review(void)
     effect_grant(u, EFF_FLYING, 1, 2);
     check(world_take_off(&world, 0), "m4r: the potion lets the wizard fly");
     world_new_turn(&world);
-    check((u->flags & UF_FLYING) && u->ap == u->ap_max,
-          "m4r: airborne on a potion keeps the ground AP");
+    check((u->flags & UF_FLYING) && u->ap == 2 * u->ap_max,
+          "m4r: airborne on a potion gets twice the ground AP");
     world_new_turn(&world);
     check(!(u->flags & UF_FLYING), "m4r: lands when the potion wears off");
 
@@ -3154,7 +3156,7 @@ static void test_m4e(void)
           WEAPONS[WEAPON_AXE].dice_n == 2 && WEAPONS[WEAPON_AXE].die == 10,
           "m4e: weapon values from weapons.csv");
     check(OBJECTS[OBJ_SPEAR].weapon == WEAPON_SPEAR &&
-          OBJECTS[OBJ_SLAYER].weight == 6,
+          OBJECTS[OBJ_SLAYER].weight == 9,
           "m4e: the new weapons exist as objects");
     check(strcmp(name_object(T_OBJ_SWORD), "Schwert") == 0 &&
           strcmp(name_object(T_OBJ_RUBY), "Rubin") == 0 &&

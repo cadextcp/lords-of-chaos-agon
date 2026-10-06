@@ -423,6 +423,10 @@ bool items_eat(World *w, uint8_t unit)
         if (heal && u->con < u->con_max)
             u->con = (uint8_t)(u->con + heal > u->con_max ? u->con_max
                                                           : u->con + heal);
+        if (heal && u->sta < u->sta_max) {   /* PM: food gives 4x its Con as stamina */
+            uint16_t sta = (uint16_t)(u->sta + 4 * heal);
+            u->sta = sta > u->sta_max ? u->sta_max : (uint8_t)sta;
+        }
         if (mana && u->mana < u->mana_max)
             u->mana = (uint8_t)(u->mana + mana > u->mana_max ? u->mana_max
                                                              : u->mana + mana);

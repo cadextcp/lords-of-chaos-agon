@@ -362,23 +362,25 @@ Die Daten stehen in `data/costs.csv` (Terrain) und `data/actions.csv` (Aktionen)
 
 | Aktion | AP | Stamina |
 |---|---|---|
-| Zauber wirken | 10 | – |
-| Nahkampf (auch Terrain angreifen) | 10 | 4 |
-| Rückschlag (automatisch im Gegnerzug) | 6 | 3 |
-| Fernwaffe bzw. Flammenatem | 12 | 2 |
-| Werfen | 10 | 3 |
-| Aufheben (pro Objekt) | 6 | 1 |
-| Fallen lassen / Wechseln | 2 / 4 | – |
-| Essen / Trinken / Füllen / Lesen | 6 / 4 / 6 / 8 | – |
+| Zauber wirken | 8 | – |
+| Nahkampf (auch Terrain angreifen) | 8 | 4 |
+| Rückschlag (automatisch im Gegnerzug) | 0 | 0 |
+| Fernwaffe bzw. Flammenatem | 8 | 2 |
+| Werfen | 8 | 3 |
+| Aufheben (pro Objekt) | 8 | 1 |
+| Fallen lassen / Wechseln | 0 / 4 | – |
+| Essen / Trinken / Füllen / Lesen | 4 / 4 / 4 / 8 | – |
 | Tür öffnen bzw. schließen / Aufschließen / Truhe öffnen | 6 / 8 / 8 | 1 |
-| Aufsitzen / Absitzen | 6 / 4 | 1 |
-| Aufsteigen / Landen | 4 / 4 | 2 / 1 |
+| Aufsitzen / Absitzen | 10 / 4 | 1 |
+| Aufsteigen / Landen | 6 / 0 | 2 / 1 |
 
-**Was das in einer Runde bedeutet (Zauberer mit Annahme 40 AP):**
-- 4 Zauber, oder
+Die AP-Werte folgen seit D66 dem Spectrum-Original `[ZX K8.1]`; Tür, Truhe, Absitzen und Rückschlag (D27) sind eigene Regeln. Die Ausdauer-Spalte ist Dokumentation: Die Engine zieht für jede Aktion die halben AP, aufgerundet, ab (`world_spend`); Vorschlag R11 in `docs/REGELVERGLEICH-SPECTRUM.md`.
+
+**Was das in einer Runde bedeutet (Zauberer mit Annahme 40 AP; mit den 34 AP des Designers 4 Zauber wie im Original):**
+- 5 Zauber, oder
 - 10 Schritte auf Boden bzw. 13 auf Wegen, oder
 - Tür öffnen plus 8 Schritte, oder
-- 4 Nahkampfangriffe.
+- 5 Nahkampfangriffe.
 
 Ein langsamer Zombie (24 AP) schafft 2 Angriffe; ein Löwe (54 AP) läuft 13 Felder.
 
@@ -972,6 +974,7 @@ Die Vorschläge sind als **Startwerte** übernommen (D22). Jede Frage wird vor i
 | D63 | Panel: Zwei-Buchstaben-Labels und Tastenzeile (Playtest 2026-10-06) | **Die Balken-Labels stehen in einer Zeile** (`AP AU LE KA VE MA`, je zwei Buchstaben unter dem Balken in dessen Farbe) statt dreizeilig senkrecht (B6); die Balken werden dafür 8 px länger. **Darunter stehen die Tasten, die für die aktive Figur gerade wirken**, hintereinander (`g d w e t q v r f c b < >`, mit Leerzeichen solange höchstens 7 passen). Immer mögliche Tasten (Leertaste, `x`, `E`) fehlen. Die Prüfung ist dieselbe wie im Kontextmenü (`action_possible`, Probe an einer Weltkopie) und läuft nur neu, wenn sich Figur, AP, Gepäck, Feld, Karte oder Runde ändern. Im Look-Modus bleibt die Zeile leer. |
 | D64 | Level 1 auf 46×46, geräumigere Häuser (Nutzer 2026-10-06) | **Ersetzt die Größengrenze aus D54.** Level 1 und seine Varianten werden 46×46 (`MAP_MAX_W/H` = 46; die anderen Szenarien behalten ihre Größe). Möglich durch den ausgelagerten Selftest (Reserve 129 KB); Kosten ~32 KB RAM, vor allem der statische Sicht-Cache. **Häuser:** vier große Räume (innen mindestens 5×4), jede Tür mit eigenem Blattplatz (D61), beide Häuser gleich ausgestattet. **Wildtiere wie bisher** (`MAX_UNITS` 32), Truhen und Funde mit der Fläche. Die Gesamtkarte zeichnet 4 px je Feld. Plan: `docs/PLAN-KARTE-46.md`. |
 | D65 | Türblatt sitzt am Rahmen (Nutzer 2026-10-06) | **Das Blatt einer offenen Tür in einer waagerechten Wand wird im Rahmen gezeichnet,** am Pfosten angeschlagen (Eisenbänder, helle Kante), und nicht mehr als loses Brett auf dem Nachbarfeld, wo es wie ein Schrank aussah. Die Regel aus D61 bleibt: Das Nachbarfeld behält das Blatt (`FE_LEAF_E/W`), blockiert und klemmt wie bisher, wird aber nicht mehr gezeichnet. Vier Rahmenkacheln `door_h_open_e/_w` (Blatt zum Betrachter, Raum südlich) und `door_h_far_e/_w` (Blatt weggeschwenkt, Raum nördlich, kleiner und höher); die Scharnierseite folgt dem Blattfeld (`door_h_open_tile` in `view.c`), ohne Blattfeld bleibt der leere Rahmen. Türen in **senkrechten** Wänden behalten ihr Blatt auf dem Nachbarfeld (es liegt schon an der Wand; es passt nicht in den schmalen Rahmen). Ein Blatt, das über die Ecke zum Nachbarfeld läuft, ginge nicht: Es müsste in die Wandkachel daneben ragen. Bild: `docs/design/mockups/door-leaf-d65.png`. |
+| D66 | Abgleich mit dem Spectrum-Original (Nutzer 2026-10-06) | **Der Nutzer hat die Regelwerte des Spectrum-Originals aus dem Z80-Code gelesen** (`lords-of-chaos-zx-agon/docs/REGELN.md`, im Folgenden `ZX K<Kapitel>`). **Ersetzt D7 für die Werte, die in `docs/REGELVERGLEICH-SPECTRUM.md` §2 stehen:** kleine Abweichungen werden direkt angeglichen, große stehen dort als Vorschlagsliste (R1–R27) mit Einordnung, ob sie vom Spectrum erzwungen sind (nein) oder von unseren Entscheidungen stammen (ja). **Angeglichen:** Wood-Typ für Dwarf/Goblin/Troll, Trank-Verbrauch der Giant Bat (2), Use für Ghost, Tragkraft des Zauberers 36; AP von Zaubern/Nahkampf/Fernwaffe/Werfen (8), Aufheben (8), Fallen lassen (0), Essen/Füllen (4), Aufsitzen (10), Abfliegen (6), Landen (0); Waffen-, Kessel-, Phiolen- und Krautgewichte; Apfel +10 Con; Essen gibt 4 × Con als Ausdauer; Fliegen per Trank gibt 2 × Boden-AP. **Wichtigster Befund:** `mana_base`/`mana_step` in `spells.csv` sind die XP-Preise des Designers, nicht die Mana-Kosten (45/45 Zeilen), das Original rechnet `Basis × (L+1)` mit kleinen Basiswerten (R1, vorher O4 in WinUAE). Die Kampf-, Zauber- und Schildwerte des Originals hängen an seinem Schadensmodell und werden nur zusammen übernommen (R5). |
 | F7 | Dächer: nur Regel oder auch sichtbar? | e | **Entschieden:** sichtbar. Von außen sieht man das Dach; steht eine eigene Einheit im Gebäude, wird das Dach über dem Gebäude ausgeblendet. |
 | F8 | 5-Ladungen-Grenze beibehalten? | i | Ja, aber im Setup abschaltbar. |
 | F9 | Setup-Panel und Timer in v1.0? | i | Nur die Zufalls-Zauberer-Stufe; Spiellänge folgt aus dem Szenario, Timer nach v1.0. |
