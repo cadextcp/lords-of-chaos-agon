@@ -2,6 +2,13 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Selftest als eigenes Programm (2026-10-06)
+
+### Geändert
+- **Der Core-Selftest ist ein eigenes Agon-Programm `loctest.bin`** (`tests/selftest.c`, `tests/loctest_main.c`, gebaut in `build/loctest/`). `loc --selftest` entfällt; auf der Karte heißt es jetzt `loctest`. Host-Test unverändert (`loc_host --selftest`).
+- `loc.bin` 370 → 241 KB, die RAM-Reserve für Heap und Stack steigt von 2,3 auf ~137 KB (QUIRK S6). Mit D59–D62 war sie fast aufgebraucht.
+- `tools/build.py` prüft die Reserve (`.bss`-Ende in `bin/loc.map`) und bricht unter 16 KB ab.
+
 ## [Unreleased] – Türblätter (D61) (2026-10-06)
 
 ### Geändert

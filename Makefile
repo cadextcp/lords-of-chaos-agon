@@ -17,6 +17,7 @@ CFLAGS += -O2
 
 # Cold code is compiled for size (polish round, ADR 0012: the eZ80 RAM is
 # nearly full). The selftest alone was 110 KB of -O2 code; menus, screens
-# and the keyboard spike do no per-frame work. Hot paths (view, render,
+# and the keyboard spike do no per-frame work (the selftest is its own program
+# now, build/loctest, QUIRK S6). Hot paths (view, render,
 # sight, world, ai, combat) keep -O2. The later -Oz wins over -O2.
-obj/core/selftest.o obj/agon/screens.o obj/agon/keytest.o: CFLAGS += -Oz
+obj/agon/screens.o obj/agon/keytest.o: CFLAGS += -Oz

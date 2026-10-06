@@ -25,7 +25,7 @@ uv run tools/run.py --dump --time 8 --free-round1 --keys "dd" --screenshot   # G
 
 - **`src/core` ist plattformfrei.** Keine `agon/`-, MOS- oder VDP-Header, nur `stdint`-Typen (`int` ist auf dem eZ80 24 Bit), Zufall nur über `rng.h`, keine Gleitkommazahlen in Regeln (ADR 0003).
 - **Alles unter `src/` wird von agondev kompiliert.** Host-Code gehört nach `host/`.
-- **Neue Core-Logik bekommt Checks in `src/core/selftest.c`.** Sie laufen auf Host **und** eZ80.
+- **Neue Core-Logik bekommt Checks in `tests/selftest.c`.** Sie laufen auf Host **und** eZ80 (eigenes Programm `loctest.bin`, nicht im Spiel; QUIRK S6). `build.py` bricht ab, wenn die RAM-Reserve des Spiels unter 16 KB fällt.
 - **View-Hash (`HOUSE_VIEW_HASH`)** ändert sich, wenn Karte, Kacheln oder Kompositionsregeln sich ändern. Den neuen Wert aus der Testausgabe übernehmen, aber nur bewusst.
 - **Spieldesign:** `docs/design/GDD.md` ist die Quelle der Wahrheit. Entscheidungen D1–D13 stehen in §14. Keine Originalwerte kopieren (D7), außer sie sind dort ausdrücklich übernommen.
 - **Niemals committen:**

@@ -12,7 +12,7 @@ Ebenen 1 und 2 laufen in CI bei jedem Push und PR.
 
 ## Selftest-Konvention
 
-- **Code:** `core_selftest()` in `src/core/selftest.c`.
+- **Code:** `core_selftest()` in `tests/selftest.c`. Auf dem Agon ist es ein eigenes Programm, `loctest.bin` (`tools/build.py` baut es in `build/loctest/` aus `src/core`, `tests/selftest.c` und `tests/loctest_main.c`). Im Spiel `loc.bin` steckt es nicht mehr (QUIRK S6).
 - **Ausgabe:** eine Zeile pro Check (`ok` bzw. `FAIL`), am Ende `=== TEST PASS ===` oder `=== TEST FAIL ===`.
 - **Exit-Code:**
   - Host: Anzahl der Fehler (begrenzt auf 1).
@@ -47,7 +47,7 @@ Der Agon hängt per USB (CH340, 115200 Baud) am PC. Die Werkzeuge liegen im Luma
 
 1. Bauen: `uv run tools/build.py --all` (oder `tools/test.py`).
 2. Dateien nach `/loc` auf der Karte: `bin/loc.bin`, `build/tiles.bin`, `build/maps/*.map` nach `loc/maps/`, `build/scenarios/*.scn` nach `loc/scenarios/`. Je Datei `python scripts/agonload.py DATEI loc/…  --am-mos-prompt --kein-neustart` (CRC32-geprüft; `loc.bin` dauert etwa 3 Minuten, `tiles.bin` knapp 2).
-3. Selftest: am MOS-Prompt `cd /loc`, `loc --selftest`, Ausgabe über USB lesen (`=== TEST PASS ===`).
+3. Selftest: `build/loctest/bin/loctest.bin` nach `/loc`, am MOS-Prompt `cd /loc`, `loctest`, Ausgabe über USB lesen (`=== TEST PASS ===`).
 4. Bench: `loc --bench`, etwa 45 s warten, dann am Gerät **Esc** drücken (über USB nicht möglich, siehe Quirk H5), danach `TYPE /loc/loc.log`. Messwerte: `docs/AGON-QUIRKS.md`, Abschnitt Hardware.
 
 Das Spiel selbst lässt sich ohne Monitor nicht beurteilen; Grafik, Tastatur und Gefühl der Eingabe prüft der Nutzer am Gerät.
@@ -55,4 +55,4 @@ Das Spiel selbst lässt sich ohne Monitor nicht beurteilen; Grafik, Tastatur und
 ## Bekannte Grenzen
 
 - Der CLI-Emulator hat **keinen VDP**. VDP-Aufrufe, die auf eine Antwort warten (z. B. `vdp_mode`), dürfen im Selftest-Pfad nicht vorkommen.
-- Der CLI-Emulator führt `autoexec.txt` aus. `test.py` schreibt es vor jedem Lauf neu (`cd /loc`, `loc --selftest`), `run.py` ebenso für die GUI. Beide Tools erzeugen es selbst; von Hand bearbeiten ist nicht nötig.
+- Der CLI-Emulator führt `autoexec.txt` aus. `test.py` schreibt es vor jedem Lauf neu (`cd /loc`, `loctest`), `run.py` ebenso für die GUI. Beide Tools erzeugen es selbst; von Hand bearbeiten ist nicht nötig.
