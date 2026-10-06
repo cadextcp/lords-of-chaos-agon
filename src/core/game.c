@@ -21,6 +21,8 @@ void game_init(Game *g, int16_t x, int16_t y, uint8_t rmin, uint8_t rmax,
         g->vp[i] = 0;
         g->kills[i] = 0;
         g->loot_vp[i] = 0;
+        g->home_x[i] = g->home_y[i] = 0xFF;
+        g->rage[i] = g->rage_round[i] = 0;
     }
 }
 

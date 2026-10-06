@@ -177,3 +177,6 @@ objects
 7 6 obj_apple
 6 8 obj_sword
 5 8 obj_shield
+29 28 obj_sword
+30 29 obj_shield
+31 29 obj_scroll
