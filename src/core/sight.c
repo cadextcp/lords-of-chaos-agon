@@ -2,6 +2,9 @@
 
 #include <string.h>
 
+#include "area.h"
+#include "gen/data.h"
+
 /* Blocking bitmap of the whole map, one bit per field: a ray step then
  * costs one 8-bit load instead of two indexed table reads with a row
  * multiply (AGON-QUIRKS T2).
@@ -36,6 +39,15 @@ static void ensure_blk(const World *w)
     for (y8 = 0; y8 < w->h; y8++)
         for (b = 0; b < bytes; b++)
             blk[y8][b] = world_sight_byte(w, y8, (uint8_t)(b << 3));
+    {   /* fire and blob are walls of flame and goo (K11.4) */
+        uint8_t x8;
+        for (y8 = 0; y8 < w->h; y8++)
+            for (x8 = 0; x8 < w->w; x8++) {
+                AreaKind ak = area_kind_at(w, x8, y8);
+                if (ak == AREA_FIRE || ak == AREA_BLOB)
+                    blk[y8][x8 >> 3] |= (uint8_t)(0x80u >> (x8 & 7));
+            }
+    }
     blk_world = w;
     blk_gen = w->generation;
     blk_spell_ready = false;
@@ -142,6 +154,9 @@ static bool path_clear(const World *w, uint8_t sx, uint8_t sy, int8_t dx, int8_t
 typedef struct {
     const World *w;
     uint8_t (*vis)[SIGHT_COLS];    /* fields seen */
+    uint8_t (*vis2)[SIGHT_COLS];   /* ... also seen as ground targets, or NULL */
+    uint8_t (*vis3)[SIGHT_COLS];   /* ... and as objects, or NULL */
+    uint8_t reach;                 /* octagon limit R (K11.1) */
     uint8_t (*expl)[SIGHT_COLS];   /* fields explored too, NULL = not tracked */
     uint8_t ux, uy;        /* source field, already on the map */
     uint8_t radius;
@@ -196,9 +211,15 @@ static void cast_octant(Cast *c, uint8_t row, int16_t lo_n, int16_t lo_d,
             int8_t dx = (int8_t)(m[0] * (int8_t)col + m[1] * (int8_t)row);
             int8_t dy = (int8_t)(m[2] * (int8_t)col + m[3] * (int8_t)row);
             if (cast_cell(c, dx, dy, &ax, &ay)) {
-                set_bit(c->vis, c->w->w, c->w->h, ax, ay);
-                if (c->expl)
-                    set_bit(c->expl, c->w->w, c->w->h, ax, ay);
+                if (2 * (uint8_t)row + col < c->reach) {   /* inside the octagon */
+                    set_bit(c->vis, c->w->w, c->w->h, ax, ay);
+                    if (c->vis2)
+                        set_bit(c->vis2, c->w->w, c->w->h, ax, ay);
+                    if (c->vis3)
+                        set_bit(c->vis3, c->w->w, c->w->h, ax, ay);
+                    if (c->expl)
+                        set_bit(c->expl, c->w->w, c->w->h, ax, ay);
+                }
                 wall = blocked(ax, ay);
             } else {
                 wall = true;
@@ -220,28 +241,69 @@ static void cast_octant(Cast *c, uint8_t row, int16_t lo_n, int16_t lo_d,
         cast_octant(c, (uint8_t)(row + 1), lo_n, lo_d, hi_n, hi_d, oct);
 }
 
-/* Everything within Chebyshev `radius`, ignoring terrain: airborne sources
- * look over it all (GDD 3.4), and so does the Magic Eye. */
-static void mark_square(Sight *s, const World *w, int16_t x, int16_t y,
-                        uint8_t radius)
+bool sight_in_reach(int16_t dx, int16_t dy, uint8_t r)
 {
-    int16_t dx, dy;
-    for (dy = -(int16_t)radius; dy <= (int16_t)radius; dy++)
-        for (dx = -(int16_t)radius; dx <= (int16_t)radius; dx++) {
+    int16_t ax = dx < 0 ? (int16_t)-dx : dx, ay = dy < 0 ? (int16_t)-dy : dy;
+    int16_t big = ax > ay ? ax : ay, small = ax > ay ? ay : ax;
+    return 2 * ax < r && 2 * ay < r && 2 * big + small < r;
+}
+
+/* Bits of one field for the owner. */
+static void mark_field(Sight *s, const World *w, int16_t wx, int16_t wy,
+                       bool terrain, bool ground, bool air, bool obj)
+{
+    if (terrain) {
+        set_bit(s->visible, w->w, w->h, wx, wy);
+        set_bit(s->explored, w->w, w->h, wx, wy);
+    }
+    if (ground)
+        set_bit(s->vis_ground, w->w, w->h, wx, wy);
+    if (air)
+        set_bit(s->vis_air, w->w, w->h, wx, wy);
+    if (obj)
+        set_bit(s->vis_obj, w->w, w->h, wx, wy);
+}
+
+/* A field a flier cannot look into: ground under a canopy (forest, tall
+ * grass, trees) or under a roof (K11.2, K11.4). */
+static bool canopy(const World *w, int16_t x, int16_t y)
+{
+    return FLOOR_SIGHT[w->floor[y][x]] || w->feature[y][x] == FE_TREE;
+}
+
+/* Everything within the octagon R around (x, y), ignoring walls: what an
+ * airborne observer and the Magic Eye see. `eye` also shows ground targets
+ * under roofs and canopy (the Eye ignores the cover rules of the air). */
+static void mark_octagon(Sight *s, const World *w, int16_t x, int16_t y,
+                         uint8_t r, bool eye)
+{
+    int16_t dx, dy, lim = (int16_t)((r + 1) / 2);
+    for (dy = -lim; dy <= lim; dy++)
+        for (dx = -lim; dx <= lim; dx++) {
             int16_t wx = (int16_t)(x + dx), wy = (int16_t)(y + dy);
-            if (!world_wrap(w, &wx, &wy))
+            bool near, roofed, cov;
+            if (!sight_in_reach(dx, dy, r) || !world_wrap(w, &wx, &wy))
                 continue;
-            set_bit(s->visible, w->w, w->h, wx, wy);
-            set_bit(s->explored, w->w, w->h, wx, wy);
+            near = sight_in_reach(dx, dy, 4);
+            roofed = world_has_roof(w, wx, wy);
+            cov = canopy(w, wx, wy);
+            mark_field(s, w, wx, wy, true,
+                       eye || (!roofed && (near || !cov)),
+                       true,
+                       eye || (!roofed && !cov));
         }
 }
 
 void sight_compute(const World *w, Sight *s)
 {
     uint8_t i, oct;
+    int8_t nx, ny;
     Cast c;
 
     memset(s->visible, 0, sizeof s->visible);
+    memset(s->vis_ground, 0, sizeof s->vis_ground);
+    memset(s->vis_air, 0, sizeof s->vis_air);
+    memset(s->vis_obj, 0, sizeof s->vis_obj);
     ensure_blk(w);
     c.w = w;
     c.vis = s->visible;
@@ -251,19 +313,63 @@ void sight_compute(const World *w, Sight *s)
         const Unit *u = &w->units[i];
         if (u->owner != s->owner)
             continue;
-        set_bit(s->visible, w->w, w->h, u->x, u->y);
-        set_bit(s->explored, w->w, w->h, u->x, u->y);
+        mark_field(s, w, u->x, u->y, true, true, true, true);
         if (u->flags & UF_FLYING) {
-            mark_square(s, w, u->x, u->y, SIGHT_AIR);
+            mark_octagon(s, w, u->x, u->y, SIGHT_R_AIR, false);
             continue;
         }
         c.ux = (uint8_t)u->x;
         c.uy = (uint8_t)u->y;
         c.radius = SIGHT_GROUND;
+        c.reach = SIGHT_R_GROUND;
+        c.vis2 = s->vis_ground;
+        c.vis3 = s->vis_obj;
         blk_cur = blk;
         for (oct = 0; oct < 8; oct++)
             cast_octant(&c, 1, 0, 1, 1, 1, oct);
+        for (ny = -1; ny <= 1; ny++)         /* the eight neighbours: always (D < 4) */
+            for (nx = -1; nx <= 1; nx++) {
+                int16_t wx = (int16_t)(u->x + nx), wy = (int16_t)(u->y + ny);
+                if (world_wrap(w, &wx, &wy))
+                    mark_field(s, w, wx, wy, true, true, false, true);
+            }
+        if (!world_has_roof(w, u->x, u->y)) {
+            /* flying targets are always seen within the octagon, over walls;
+             * under a roof the other height is not seen at all (K11.2) */
+            int16_t dx, dy;
+            for (dy = -(SIGHT_R_GROUND / 2); dy <= SIGHT_R_GROUND / 2; dy++)
+                for (dx = -(SIGHT_R_GROUND / 2); dx <= SIGHT_R_GROUND / 2; dx++) {
+                    int16_t wx = (int16_t)(u->x + dx), wy = (int16_t)(u->y + dy);
+                    if (sight_in_reach(dx, dy, SIGHT_R_GROUND) && world_wrap(w, &wx, &wy))
+                        mark_field(s, w, wx, wy, false, false, true, false);
+                }
+        }
     }
+}
+
+bool sight_unit_visible(const Sight *s, const World *w, const Unit *u)
+{
+    if (u->owner == s->owner)
+        return true;
+    return get_bit((u->flags & UF_FLYING) ? s->vis_air : s->vis_ground, w->w, w->h,
+                   u->x, u->y);
+}
+
+bool sight_object_visible(const Sight *s, const World *w, int16_t x, int16_t y)
+{
+    return get_bit(s->vis_obj, w->w, w->h, x, y);
+}
+
+bool sight_shot_clear(const World *w, int16_t x0, int16_t y0, bool fly0,
+                      int16_t x1, int16_t y1, bool fly1)
+{
+    if (!fly0 && !fly1)
+        return sight_has_los(w, x0, y0, x1, y1);
+    if (!fly0 && world_has_roof(w, x0, y0))
+        return false;                    /* a ground shooter indoors cannot shoot up */
+    if (!fly1 && world_has_roof(w, x1, y1))
+        return false;                    /* nor can anything reach a roofed ground target */
+    return true;                         /* only walls of the dungeon scenario stop it */
 }
 
 bool sight_has_los(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1)
@@ -326,10 +432,12 @@ bool sight_look(const World *w, int16_t x0, int16_t y0, int16_t x, int16_t y)
         set_bit(look, w->w, w->h, x0, y0);
         c.w = w;
         c.vis = look;
+        c.vis2 = c.vis3 = NULL;
         c.expl = NULL;
         c.ux = (uint8_t)x0;
         c.uy = (uint8_t)y0;
         c.radius = SIGHT_GROUND;
+        c.reach = SIGHT_R_GROUND;
         blk_cur = blk;
         for (oct = 0; oct < 8; oct++)
             cast_octant(&c, 1, 0, 1, 1, 1, oct);
@@ -341,7 +449,7 @@ bool sight_look(const World *w, int16_t x0, int16_t y0, int16_t x, int16_t y)
     return get_bit(look, w->w, w->h, x, y);
 }
 
-void sight_add_eye(Sight *s, const World *w, int16_t x, int16_t y)
+void sight_add_eye(Sight *s, const World *w, int16_t x, int16_t y, uint8_t range)
 {
-    mark_square(s, w, x, y, SIGHT_GROUND);
+    mark_octagon(s, w, x, y, (uint8_t)(range + 1), true);   /* D <= range */
 }

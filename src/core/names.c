@@ -99,7 +99,7 @@ const char *describe_field(const World *w, const Sight *s, int16_t x, int16_t y,
     if (u != NO_UNIT) {
         const Unit *un = &w->units[u];
         bool own = !s || un->owner == s->owner;
-        if (own || !s || (sight_visible(s, w, wx, wy) && !(un->flags & UF_INVISIBLE))) {
+        if (own || !s || (sight_unit_visible(s, w, un) && !(un->flags & UF_INVISIBLE))) {
             if (un->flags & UF_FLYING)
                 snprintf(buf, len, "%s (Luft)", name_unit(un));
             else

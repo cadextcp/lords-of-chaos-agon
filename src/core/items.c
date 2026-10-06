@@ -304,8 +304,12 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
         return false;
     if (world_range(w, u->x, u->y, tx, ty) > items_fire_range(w, unit))
         return false;
-    if (!sight_has_los(w, u->x, u->y, tx, ty))
-        return false;
+    {   /* the shot line depends on the heights (K11.6) */
+        uint8_t g = world_unit_at(w, tx, ty, UL_GROUND), a = world_unit_at(w, tx, ty, UL_AIR);
+        bool tgt_air = g == NO_UNIT && a != NO_UNIT;
+        if (!sight_shot_clear(w, u->x, u->y, (u->flags & UF_FLYING) != 0, tx, ty, tgt_air))
+            return false;
+    }
     target = world_unit_at(w, tx, ty, UL_GROUND);
     if (target == NO_UNIT)
         target = world_unit_at(w, tx, ty, UL_AIR);

@@ -629,7 +629,7 @@ void render_panel_at(const World *w, const Sight *s, int16_t x, int16_t y)
     if (u != NO_UNIT) {
         const Unit *un = &w->units[u];
         if (!s || un->owner == s->owner ||
-            (sight_visible(s, w, wx, wy) && !(un->flags & UF_INVISIBLE))) {
+            (sight_unit_visible(s, w, un) && !(un->flags & UF_INVISIBLE))) {
             render_panel(w, u);
             return;
         }

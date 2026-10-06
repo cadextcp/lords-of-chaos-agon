@@ -54,12 +54,12 @@ void lexicon_watch(Lexicon *l, const World *w, const Sight *s)
     uint8_t i;
     for (i = 0; i < w->unit_count; i++) {
         const Unit *u = &w->units[i];
-        if (u->owner == s->owner || sight_visible(s, w, u->x, u->y))
+        if (u->owner == s->owner || sight_unit_visible(s, w, u))
             lexicon_see_creature(l, u->kind);
     }
     for (i = 0; i < w->object_count; i++) {
         int16_t kind;
-        if (!sight_visible(s, w, w->objects[i].x, w->objects[i].y))
+        if (!sight_object_visible(s, w, w->objects[i].x, w->objects[i].y))
             continue;
         kind = lexicon_object_kind_of_tile(w->objects[i].tile);
         if (kind >= 0)

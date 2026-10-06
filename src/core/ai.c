@@ -991,7 +991,7 @@ static void wizard_actions(Turns *t, World *w, AiCtx *ctx, uint8_t owner)
             if (f->owner == owner || (f->flags & (UF_FLYING | UF_INVISIBLE)))
                 continue;
             if (chebyshev(w, &w->units[wiz], f) <= 1 &&
-                sight_visible(&sight, w, f->x, f->y)) {
+                sight_unit_visible(&sight, w, f)) {
                 foe = i;
                 break;
             }
@@ -1011,7 +1011,7 @@ static void wizard_actions(Turns *t, World *w, AiCtx *ctx, uint8_t owner)
             const Unit *f = &w->units[i];
             uint8_t d;
             if (f->owner == owner || (f->flags & UF_INVISIBLE) ||
-                !sight_visible(&sight, w, f->x, f->y))
+                !sight_unit_visible(&sight, w, f))
                 continue;
             d = chebyshev(w, &w->units[wiz], f);
             if (d < best_d) {
