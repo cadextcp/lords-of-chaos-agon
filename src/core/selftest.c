@@ -34,7 +34,7 @@
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
  * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures;
  * M5c added the seven fx tiles after "floor_*" (IDs shifted again). */
-#define HOUSE_VIEW_HASH 0x70511CA1UL
+#define HOUSE_VIEW_HASH 0xDD270292UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -420,6 +420,124 @@ static void test_terrain(void)
             for (x = 0; x < 3; x++)
                 world.floor[by + y][bx + x] = save[y][x];
         world.feature[31][11] = save_fe;
+    }
+    {   /* D54: windows, fence and gate, bridge, flowers, mushrooms, bubbles */
+        enum { RX = 8, RY = 26, RW = 9, RH = 6 };
+        uint8_t sfl[RH][RW], sfe[RH][RW], sde[RH][RW];
+        int16_t x, y;
+        FieldLayers f;
+        uint8_t bubbles = 0;
+        for (y = 0; y < RH; y++)
+            for (x = 0; x < RW; x++) {
+                sfl[y][x] = world.floor[RY + y][RX + x];
+                sfe[y][x] = world.feature[RY + y][RX + x];
+                sde[y][x] = world.decor[RY + y][RX + x];
+                world.floor[RY + y][RX + x] = FL_GRASS;
+                world.feature[RY + y][RX + x] = FE_NONE;
+                world.decor[RY + y][RX + x] = DE_NONE;
+            }
+        /* wall row y=RY+1 with a window in the middle, a plain wall field next to it */
+        for (x = 1; x <= 7; x++)
+            world.feature[RY + 1][RX + x] = FE_WALL;
+        world.feature[RY + 1][RX + 4] = FE_WINDOW;
+        world_map_changed(&world);
+        view_compose(&world, RX + 4, RY + 1, &f);
+        check(f.id[f.n - 1] == T_WINDOW_H, "d54: a window in an east-west wall draws the horizontal window");
+        check(world_is_wall_line(&world, RX + 4, RY + 1) && world_blocks(&world, RX + 4, RY + 1),
+              "d54: a window blocks movement and joins the wall line");
+        check(!world_blocks_sight(&world, RX + 4, RY + 1), "d54: a window does not block sight");
+        check(sight_has_los(&world, RX + 4, RY, RX + 4, RY + 2), "d54: you see through a window");
+        check(!sight_has_los(&world, RX + 3, RY, RX + 3, RY + 2), "d54: but not through the wall beside it");
+        world.feature[RY + 1][RX + 4] = FE_NONE;
+        world.feature[RY][RX + 4] = FE_WALL;
+        world.feature[RY + 2][RX + 4] = FE_WALL;
+        world.feature[RY + 1][RX + 4] = FE_WINDOW;
+        view_compose(&world, RX + 4, RY + 1, &f);
+        check(f.id[f.n - 1] == T_WINDOW_V, "d54: a window in a north-south wall draws the vertical window");
+        world.feature[RY][RX + 4] = FE_NONE;
+        world.feature[RY + 2][RX + 4] = FE_NONE;
+        for (x = 0; x < RW; x++)
+            world.feature[RY + 1][RX + x] = FE_NONE;
+        /* fence with a gate */
+        for (x = 1; x <= 7; x++)
+            world.feature[RY + 3][RX + x] = FE_FENCE;
+        view_compose(&world, RX + 3, RY + 3, &f);
+        check(f.id[f.n - 1] == T_FENCE_00 + 10, "d54: a fence joins east and west (mask 10)");
+        check(!world_is_wall_line(&world, RX + 3, RY + 3) && world_blocks(&world, RX + 3, RY + 3) &&
+              !world_blocks_sight(&world, RX + 3, RY + 3), "d54: a fence blocks movement, not sight");
+        world.feature[RY + 3][RX + 4] = FE_DOOR_CLOSED;
+        view_compose(&world, RX + 4, RY + 3, &f);
+        check(f.n == 2 && f.id[f.n - 1] == T_GATE_H_CLOSED,
+              "d54: a door between fence posts is a gate (no half floors)");
+        view_compose(&world, RX + 3, RY + 3, &f);
+        check(f.id[f.n - 1] == T_FENCE_00 + 10, "d54: the fence still joins the gate");
+        world.feature[RY + 3][RX + 4] = FE_DOOR_OPEN;
+        view_compose(&world, RX + 4, RY + 3, &f);
+        check(f.id[f.n - 1] == T_GATE_H_OPEN, "d54: an open gate shows open");
+        world.feature[RY + 3][RX + 4] = FE_DOOR_CLOSED;
+        world.feature[RY + 3][RX + 3] = FE_WALL;
+        view_compose(&world, RX + 4, RY + 3, &f);
+        check(f.id[f.n - 1] == T_DOOR_H_CLOSED, "d54: a door beside a wall stays a door");
+        for (x = 0; x < RW; x++)
+            world.feature[RY + 3][RX + x] = FE_NONE;
+        /* bridge over a river: east-west deck when water lies north/south */
+        for (x = 0; x < RW; x++) {
+            world.floor[RY + 4][RX + x] = FL_WATER;
+            world.floor[RY + 5][RX + x] = FL_WATER;
+        }
+        world.floor[RY + 4][RX + 4] = FL_BRIDGE;
+        view_compose(&world, RX + 4, RY + 4, &f);
+        check(f.id[0] == T_FLOOR_BRIDGE_H, "d54: a bridge with water to the south is an east-west deck");
+        check(FLOOR_AP[FL_BRIDGE] == FLOOR_AP[FL_GRASS] && !FLOOR_DROWN[FL_BRIDGE] &&
+              !FLOOR_SIGHT[FL_BRIDGE], "d54: bridge costs like grass, no drowning, no sight block");
+        view_compose(&world, RX + 5, RY + 4, &f);
+        {
+            uint8_t i, shore_west = 0;
+            for (i = 0; i < f.n; i++)   /* mask bit W (8) = lip on the bridge side */
+                if (f.id[i] >= T_EDGE_SHORE_M01 && f.id[i] < T_EDGE_SHORE_M01 + 15 &&
+                    ((f.id[i] - T_EDGE_SHORE_M01 + 1) & 8))
+                    shore_west = 1;
+            check(!shore_west, "d54: no shore lip against the bridge");
+        }
+        world.floor[RY + 4][RX + 4] = FL_WATER;
+        world.floor[RY + 3][RX + 4] = FL_BRIDGE;
+        world.floor[RY + 4][RX + 3] = FL_GRASS;
+        world.floor[RY + 4][RX + 5] = FL_GRASS;
+        world.floor[RY + 5][RX + 3] = FL_GRASS;
+        world.floor[RY + 5][RX + 5] = FL_GRASS;
+        world.floor[RY + 5][RX + 4] = FL_BRIDGE;
+        world.floor[RY + 4][RX + 4] = FL_BRIDGE;
+        view_compose(&world, RX + 4, RY + 4, &f);
+        check(f.id[0] == T_FLOOR_BRIDGE_V, "d54: a bridge between banks (water gone N/S) runs north-south");
+        /* decor */
+        world.decor[RY][RX] = DE_FLOWERS;
+        world.decor[RY][RX + 1] = DE_MUSHROOMS;
+        view_compose(&world, RX, RY, &f);
+        check(f.id[f.n - 1] >= T_DECOR_FLOWERS_0 && f.id[f.n - 1] <= T_DECOR_FLOWERS_0 + 2,
+              "d54: flower bed draws a flower tile");
+        view_compose(&world, RX + 1, RY, &f);
+        check(f.id[f.n - 1] == T_DECOR_MUSH_0, "d54: mushrooms draw the glowing mushroom tile");
+        /* bubbles: some swamp fields, not all */
+        for (y = 0; y < RH; y++)
+            for (x = 0; x < RW; x++) {
+                world.floor[RY + y][RX + x] = FL_SWAMP;
+                world.feature[RY + y][RX + x] = FE_NONE;
+                world.decor[RY + y][RX + x] = DE_NONE;
+            }
+        for (y = 0; y < RH; y++)
+            for (x = 0; x < RW; x++) {
+                view_compose(&world, RX + x, RY + y, &f);
+                if (f.id[f.n - 1] == T_DECOR_BUBBLE_0)
+                    bubbles++;
+            }
+        check(bubbles >= 1 && bubbles < RW * RH / 2, "d54: swamp bubbles on some fields only");
+        for (y = 0; y < RH; y++)
+            for (x = 0; x < RW; x++) {
+                world.floor[RY + y][RX + x] = sfl[y][x];
+                world.feature[RY + y][RX + x] = sfe[y][x];
+                world.decor[RY + y][RX + x] = sde[y][x];
+            }
+        world_map_changed(&world);
     }
     {   /* variants are a pure function of the position (wrap-stable) */
         uint8_t seen_base = 0, seen_var = 0;

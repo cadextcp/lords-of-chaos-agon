@@ -8,7 +8,7 @@ static const char *const FLOOR_NAMES[FL_COUNT] = {
     [FL_STONE] = "Steinboden", [FL_WOOD] = "Holzdielen",
     [FL_GRASS] = "Gras", [FL_PATH] = "Weg", [FL_TALL_GRASS] = "Hohes Gras",
     [FL_FOREST] = "Wald", [FL_MAGIC_WOOD] = "Zauberwald", [FL_SHADOW_WOOD] = "Schattenwald",
-    [FL_SWAMP] = "Sumpf", [FL_WATER] = "Wasser", [FL_RUBBLE] = "Geroell",
+    [FL_SWAMP] = "Sumpf", [FL_WATER] = "Wasser", [FL_RUBBLE] = "Geroell", [FL_BRIDGE] = "Bruecke",
 };
 
 static const char *const FEATURE_NAMES[FE_COUNT] = {
@@ -16,7 +16,8 @@ static const char *const FEATURE_NAMES[FE_COUNT] = {
     [FE_DOOR_OPEN] = "Tuer (offen)", [FE_BED] = "Bett", [FE_BOOKSHELF] = "Regal",
     [FE_CANDLE] = "Kerzenstaender", [FE_CAULDRON] = "Kessel", [FE_TABLE] = "Tisch",
     [FE_CHAIR] = "Stuhl", [FE_DRAWERS] = "Kommode", [FE_CHEST] = "Truhe",
-    [FE_TREE] = "Baum", [FE_ROCK] = "Fels", [FE_DOOR_LOCKED] = "Tuer (abgeschl.)",
+    [FE_TREE] = "Baum", [FE_ROCK] = "Fels", [FE_DOOR_LOCKED] = "Tuer (abgeschl.)", [FE_WINDOW] = "Fenster",
+    [FE_FENCE] = "Zaun",
     [FE_CHEST_FREE] = "Truhe (offen)",
 };
 
@@ -61,6 +62,8 @@ const char *name_decor(uint8_t decor)
     switch (decor) {
     case DE_RUG: return "Teppich";
     case DE_PENTACLE: return "Pentakel";
+    case DE_FLOWERS: return "Blumen";
+    case DE_MUSHROOMS: return "Pilze";
     default: return "";
     }
 }

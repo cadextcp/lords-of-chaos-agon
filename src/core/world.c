@@ -18,7 +18,7 @@ static const bool FEATURE_BLOCKS[FE_COUNT] = {
     [FE_CANDLE] = false, [FE_CAULDRON] = false, [FE_TABLE] = true,
     [FE_CHAIR] = false, [FE_DRAWERS] = true, [FE_CHEST] = true,
     [FE_TREE] = true, [FE_ROCK] = true, [FE_DOOR_LOCKED] = true,
-    [FE_CHEST_FREE] = true,
+    [FE_CHEST_FREE] = true, [FE_WINDOW] = true, [FE_FENCE] = true,
 };
 
 /* Tall features that block ground sight (GDD 3.4). A table rather than an
@@ -85,7 +85,7 @@ bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
     for (k = 0; k < cells; k++) {
         if (b[MAPBIN_HEADER + k] >= FL_COUNT ||
             b[MAPBIN_HEADER + cells + k] >= FE_COUNT ||
-            b[MAPBIN_HEADER + 2u * cells + k] > DE_PENTACLE)
+            b[MAPBIN_HEADER + 2u * cells + k] > DE_MUSHROOMS)
             return false;
     }
     n = b[pos++];
@@ -221,7 +221,7 @@ bool world_is_wall_line(const World *w, int16_t x, int16_t y)
     uint8_t f = world_feature(w, x, y);
     static const bool WALL_LINE[FE_COUNT] = {   /* table, not ||: AGON-QUIRKS T7 */
         [FE_WALL] = true, [FE_DOOR_CLOSED] = true, [FE_DOOR_OPEN] = true,
-        [FE_DOOR_LOCKED] = true,
+        [FE_DOOR_LOCKED] = true, [FE_WINDOW] = true,
     };
     return f < FE_COUNT && WALL_LINE[f];
 }
@@ -759,11 +759,12 @@ char world_char(const World *w, int16_t x, int16_t y)
         [FE_BED] = 'B', [FE_BOOKSHELF] = 'S', [FE_CANDLE] = 'K', [FE_CAULDRON] = 'C',
         [FE_TABLE] = 'T', [FE_CHAIR] = 'h', [FE_DRAWERS] = 'M', [FE_CHEST] = 'X',
         [FE_TREE] = 't', [FE_ROCK] = 'R', [FE_DOOR_LOCKED] = 'L',
-        [FE_CHEST_FREE] = 'x'};
+        [FE_CHEST_FREE] = 'x', [FE_WINDOW] = 'W', [FE_FENCE] = 'F'};
     static const char FLOOR_CHARS[FL_COUNT] = {
         [FL_STONE] = '.', [FL_WOOD] = ',', [FL_GRASS] = '"', [FL_PATH] = ':',
         [FL_TALL_GRASS] = ';', [FL_FOREST] = 'f', [FL_MAGIC_WOOD] = 'm',
-        [FL_SHADOW_WOOD] = 'n', [FL_SWAMP] = 'u', [FL_WATER] = '~', [FL_RUBBLE] = 'r'};
+        [FL_SHADOW_WOOD] = 'n', [FL_SWAMP] = 'u', [FL_WATER] = '~', [FL_RUBBLE] = 'r',
+        [FL_BRIDGE] = '='};
     uint8_t u, f;
     if (!world_wrap(w, &x, &y))
         return ' ';

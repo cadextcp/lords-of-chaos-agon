@@ -31,7 +31,8 @@ OUT_CR = ROOT / "src" / "core" / "gen" / "creatures.h"
 FLOOR_TERRAIN = [("FL_STONE", "floor"), ("FL_WOOD", "floor"), ("FL_GRASS", "grass"),
                  ("FL_PATH", "road"), ("FL_TALL_GRASS", "tall_grass"), ("FL_FOREST", "forest"),
                  ("FL_MAGIC_WOOD", "magic_wood"), ("FL_SHADOW_WOOD", "shadow_wood"),
-                 ("FL_SWAMP", "swamp"), ("FL_WATER", "water"), ("FL_RUBBLE", "rubble")]
+                 ("FL_SWAMP", "swamp"), ("FL_WATER", "water"), ("FL_RUBBLE", "rubble"),
+                 ("FL_BRIDGE", "bridge")]
 NATIVE = {"": "0", "wood": "NATIVE_WOOD", "water": "NATIVE_WATER", "rock": "NATIVE_ROCK"}
 CATEGORIES = {"summon": "SPC_SUMMON", "potion": "SPC_POTION", "area": "SPC_AREA",
               "other": "SPC_OTHER"}
@@ -146,7 +147,7 @@ def main() -> int:
           "const uint8_t FEATURE_TOUGH[FE_COUNT] = {"]
     feat_ids = ["none", "wall", "door_closed", "door_open", "bed", "bookshelf",
                 "candle", "cauldron", "table", "chair", "drawers", "chest",
-                "tree", "rock", "door_locked", "chest_free"]
+                "tree", "rock", "door_locked", "chest_free", "window", "fence"]
     assert set(feat_ids) == set(features), sorted(set(feat_ids) ^ set(features))
     c += [f"    [{i}] = {int(features[f]['toughness'])},   /* {f} */"
           for i, f in enumerate(feat_ids)]
