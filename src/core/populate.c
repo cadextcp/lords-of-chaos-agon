@@ -142,6 +142,17 @@ static void spawn_animal(World *w, Rng *rng)
     }
 }
 
+/* Chests and finds grow with the map beyond 36x36 (D64: Level 1 is
+ * 46x46, 1.6 times the area); smaller maps keep their counts. Wild
+ * animals stay as they are - MAX_UNITS caps them anyway. */
+static uint8_t by_area(const World *w, uint8_t n)
+{
+    uint16_t cells = (uint16_t)(w->w * w->h);
+    if (cells <= 36u * 36u)
+        return n;
+    return (uint8_t)((uint32_t)n * cells / (36u * 36u));
+}
+
 void populate_scenario(World *w, Rng *rng)
 {
     uint8_t i, n;
@@ -151,18 +162,18 @@ void populate_scenario(World *w, Rng *rng)
     for (i = 0; i < n; i++)
         spawn_animal(w, rng);
 
-    n = (uint8_t)(POP_CHESTS_MIN + rng_range(rng, 3));
+    n = by_area(w, (uint8_t)(POP_CHESTS_MIN + rng_range(rng, 3)));
     for (i = 0; i < n; i++)
         if (random_field(w, rng, POP_CHEST_GAP, &x, &y)) {
             w->feature[y][x] = rng_range(rng, 2) ? FE_CHEST : FE_CHEST_FREE;
             world_map_changed(w);
         }
 
-    for (i = 0; i < POP_KEYS; i++)
+    for (i = 0; i < by_area(w, POP_KEYS); i++)
         if (random_field(w, rng, POP_CHEST_GAP, &x, &y))
             put_object(w, OBJ_CHEST_KEY, x, y);
 
-    n = (uint8_t)(POP_FINDS_MIN + rng_range(rng, 4));
+    n = by_area(w, (uint8_t)(POP_FINDS_MIN + rng_range(rng, 4)));
     for (i = 0; i < n; i++) {
         uint8_t f;
         if (!random_field(w, rng, POP_CHEST_GAP, &x, &y))

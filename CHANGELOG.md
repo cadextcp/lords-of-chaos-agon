@@ -2,6 +2,20 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Level 1 auf 46×46 mit geräumigen Häusern (D64, Teil 2) (2026-10-06)
+
+### Geändert
+- **Level 1 ist 46×46 groß.** Das Gelände der Basiskarte ist aus der 36er-Karte hochskaliert, die 16 Varianten würfelt `gen_variants.py` jetzt auf 46×46 (Biom-Startpunkte, Fluss, Brücken und Wege skaliert, das Rauschen wiederholt sich nahtlos über den Rand).
+- **Beide Häuser haben vier große Räume** (15×11 statt 11×9, Räume innen mindestens 6×5 bzw. 6×3). Jede Tür hat Platz für ihr Blatt. Das Gegnerhaus ist gespiegelt und hat eine Tür nach Westen und eine nach Süden. Der Blumengarten ist so breit wie das Haus.
+- Beide Häuser haben dieselbe Ausstattung (Kessel, Apfel, Schwert, Schild, Schriftrolle, Truhe).
+- Portal bei (33,3), Zauberer starten bei (6,6) und (40,30).
+- **Mehr Truhen, Schlüssel und Funde** auf Karten über 36×36, im Verhältnis der Fläche; Wildtiere wie bisher.
+- Bilder: `docs/design/mockups/level1-46*.png`.
+
+### Intern
+- Selftests auf die neuen Koordinaten umgestellt; der D36-Hochgras-Test setzt sein Gelände selbst. `loc_host --map-file` liest Karten bis 16 KB.
+- RAM-Reserve 97 KB.
+
 ## [Unreleased] – Motor für 46×46-Karten (D64, Teil 1) (2026-10-06)
 
 ### Geändert

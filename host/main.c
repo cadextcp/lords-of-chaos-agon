@@ -83,7 +83,7 @@ static void map_layers(int which)
 /* A .map file from disk, e.g. build/maps/mcl_v03.map (map variants, D57). */
 static int map_layers_file(const char *path)
 {
-    static uint8_t buf[8192];
+    static uint8_t buf[16384];        /* a 46x46 map is ~8.5 KB (D64) */
     FILE *f = fopen(path, "rb");
     size_t n;
     if (!f)

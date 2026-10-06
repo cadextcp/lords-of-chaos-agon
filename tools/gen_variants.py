@@ -43,26 +43,35 @@ import gen_maps  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 BASE = ROOT / "data" / "maps" / "many_coloured_land.txt"
 VARIANTS = 16          # keep in step with MCL_VARIANTS in src/agon/main.c
-W = H = 36
+W = H = 46                     # D64 (was 36)
+S = W / 36                     # the woods, river and paths were laid out on 36x36
 
-HOUSE1 = (3, 2, 14, 16)        # house with east wing and the fenced garden
-HOUSE2 = (28, 22, 33, 30)
-CLEAR_BOXES = [(1, 0, 16, 18), (25, 20, 35, 33)]    # no woods or swamp here
-NEAR_BOXES = [(3, 2, 14, 17), (27, 21, 34, 31)]     # no trees here
-PORTAL = (26, 3)
-GATE_PATH = (11, 17)           # south of the garden gate
-STUBS = [(27, 25), (26, 25)]   # in front of house 2's west door
-PROTECT = {(26, 4), *STUBS}    # path ends that are meant to end
 
-# char, x, y, reach; "W" and "E" are the two slots of the enchanted/dead wood
-SEED_TEMPLATE = [
+def sc(v: float) -> int:
+    return int(round(v * S))
+
+
+HOUSE1 = (3, 2, 17, 20)        # four-room house and the fenced garden below
+HOUSE2 = (29, 26, 43, 36)      # the rival's house, mirrored
+CLEAR_BOXES = [(1, 0, 19, 22), (27, 24, 45, 38)]    # no woods or swamp here
+NEAR_BOXES = [(3, 2, 17, 21), (28, 25, 44, 37)]     # no trees here
+PORTAL = (33, 3)
+GATE_PATH = (13, 21)           # south of the garden gate
+DOORS1 = [(13, 12), (13, 20)]  # house door and garden gate (on the path)
+STUBS = [(28, 31), (27, 31)]   # in front of house 2's west door
+STUBS_S = [(33, 37)]           # below house 2's south door
+PROTECT = {(PORTAL[0], PORTAL[1] + 1), *STUBS, *STUBS_S}   # path ends meant to end
+
+# char, x, y, reach on the old 36x36 layout (scaled below); "W" and "E"
+# are the two slots of the enchanted/dead wood
+SEED_TEMPLATE = [(c, sc(x), sc(y), sc(r)) for c, x, y, r in [
     ("f", 29, 6, 9), ("f", 8, 33, 7), ("f", 23, 33, 4),
     ("W", 6, 25, 7), ("E", 31, 14, 6),
     ("u", 24, 16, 6),
     ('"', 4, 18, 6), ('"', 13, 28, 4), ('"', 20, 2, 4),
     ("r", 33, 34, 4),
-]
-LAT = 6
+]]
+LATN = 8                       # noise lattice cells across the map (wraps seamlessly)
 
 
 class Reject(Exception):
@@ -80,15 +89,15 @@ def smooth(t: float) -> float:
 
 class Noise:
     def __init__(self, rng: random.Random):
-        self.lat = {(i, j): rng.random() for i in range(W // LAT) for j in range(H // LAT)}
+        self.lat = {(i, j): rng.random() for i in range(LATN) for j in range(LATN)}
 
     def __call__(self, x: float, y: float) -> float:
-        gx, gy = x / LAT, y / LAT
+        gx, gy = x * LATN / W, y * LATN / H
         i0, j0 = math.floor(gx), math.floor(gy)
         fx, fy = smooth(gx - i0), smooth(gy - j0)
 
         def v(i: int, j: int) -> float:
-            return self.lat[(i % (W // LAT), j % (H // LAT))]
+            return self.lat[(i % LATN, j % LATN)]
         a = v(i0, j0) * (1 - fx) + v(i0 + 1, j0) * fx
         b = v(i0, j0 + 1) * (1 - fx) + v(i0 + 1, j0 + 1) * fx
         return a * (1 - fy) + b * fy
@@ -132,7 +141,7 @@ def build(base: dict, rng: random.Random) -> dict:
                 floor[y][x] = '"'          # tall-grass fringe around the woods
 
     # ---- the river: a sine course, 2 wide, one 3-wide pool, three bridges
-    c0, a1, a2 = rng.uniform(18.4, 19.8), rng.uniform(1.2, 2.2), rng.uniform(0.3, 0.9)
+    c0, a1, a2 = rng.uniform(18.4 * S, 19.8 * S), rng.uniform(1.2 * S, 2.2 * S), rng.uniform(0.3 * S, 0.9 * S)
     p1, p2 = rng.uniform(0, 2 * math.pi), rng.uniform(0, 2 * math.pi)
     pool = rng.randrange(H)
     river: dict[int, list[int]] = {}
@@ -144,11 +153,11 @@ def build(base: dict, rng: random.Random) -> dict:
     for y in range(H):
         for x in river[y]:
             floor[y][x] = "~"
-    for y in range(0, 19):                 # keep the house 1 side free
-        if min(river[y]) < 17:
+    for y in range(0, 24):                 # keep the house 1 side free
+        if min(river[y]) < 21:
             raise Reject("river too close to house 1")
-    for y in range(20, 34):                # and the house 2 side
-        if max(river[y]) > 22:
+    for y in range(24, 40):                # and the house 2 side
+        if max(river[y]) > 26:
             raise Reject("river too close to house 2")
 
     def bridge_row(lo: int, hi: int) -> int:
@@ -157,7 +166,7 @@ def build(base: dict, rng: random.Random) -> dict:
         if not ok:
             raise Reject("no bridge row")
         return rng.choice(ok)
-    b1, b2, b3 = bridge_row(8, 11), bridge_row(19, 23), bridge_row(29, 33)
+    b1, b2, b3 = bridge_row(10, 14), bridge_row(23, 28), bridge_row(37, 42)
     for y in (b1, b2, b3):
         for x in river[y]:
             floor[y][x] = "b"
@@ -223,21 +232,23 @@ def build(base: dict, rng: random.Random) -> dict:
     def wb(y: int) -> int: return min(river[y]) - 2
     def eb(y: int) -> int: return max(river[y]) + 2
 
-    slot_w = next(s for s in seeds if s[0] in "mn" and s[1] < 18)
-    slot_e = next(s for s in seeds if s[0] in "mn" and s[1] >= 18)
+    slot_w = next(s for s in seeds if s[0] in "mn" and s[1] < sc(18))
+    slot_e = next(s for s in seeds if s[0] in "mn" and s[1] >= sc(18))
     sw_forest = seeds[1]
     g = GATE_PATH
-    road([g, (15, 17), (15, 13), (wb(b1), b1)], .25)                 # north branch
+    portal_end = (PORTAL[0], PORTAL[1] + 1)
+    road([g, (19, 22), (19, 17), (wb(b1), b1)], .25)                 # north branch
     cross(b1)
-    road([(eb(b1), b1), (24, 7), (25, 5), (26, 4)], .45)             # to the portal
-    road([g, (12, 19), (wb(b2), b2)], .4)                            # centre crossing
+    road([(eb(b1), b1), (31, 9), (32, 6), portal_end], .45)          # to the portal
+    road([g, (15, 24), (wb(b2), b2)], .4)                            # centre crossing
     cross(b2)
-    road([(eb(b2), b2), (24, 23), (26, 25)], .4)                     # to house 2
-    road([(26, 25), (24, 28), (eb(b3), b3)], .4)                     # south crossing
+    road([(eb(b2), b2), (27, 28), STUBS[1]], .4)                     # to house 2
+    road([STUBS[1], (26, 35), (eb(b3), b3)], .4)                     # south crossing
+    road([STUBS_S[0], (30, 39), (eb(b3), b3)], .4)                   # house 2's south door
     cross(b3)
-    road([(wb(b3), b3), sw_forest[1:3], slot_w[1:3], (7, 21), (8, 18), g], .4)   # west woods
-    road([(24, 23), (26, 19), slot_e[1:3], (35, 17), (2, 18), (7, 18)], .4)      # east woods, over the edge
-    for (x, y) in STUBS:
+    road([(wb(b3), b3), sw_forest[1:3], slot_w[1:3], (9, 27), (10, 23), g], .4)  # west woods
+    road([(27, 25), (33, 23), slot_e[1:3], (45, 22), (3, 23), (9, 23)], .4)      # east woods, over the edge
+    for (x, y) in STUBS + STUBS_S:
         if feat[y][x] == ".":
             floor[y][x] = "p"
 
@@ -261,8 +272,8 @@ def build(base: dict, rng: random.Random) -> dict:
     if left:
         raise Reject(f"dead ends {left}")
     net = {(x, y) for y in range(H) for x in range(W) if floor[y][x] in "pb" and feat[y][x] == "."}
-    net |= {(11, 10), (11, 16)}
-    seen_p = {(11, 11)}
+    net |= set(DOORS1)
+    seen_p = {(DOORS1[0][0], DOORS1[0][1] + 1)}
     dq = collections.deque(seen_p)
     while dq:
         x, y = dq.popleft()
@@ -329,7 +340,7 @@ def build(base: dict, rng: random.Random) -> dict:
     if not goals <= seen:
         raise Reject("a wizard or the portal cannot be reached")
     area = collections.Counter(c for row in floor for c in row)
-    for ch, need in (("m", 25), ("n", 20), ("u", 35), ("f", 150), ('"', 40), ("p", 80)):
+    for ch, need in (("m", 41), ("n", 33), ("u", 57), ("f", 245), ('"', 65), ("p", 130)):
         if area[ch] < need:
             raise Reject(f"too little {ch!r} ({area[ch]})")
     m = {k: base[k] for k in ("w", "h", "wrap", "units", "objects", "portal")}
