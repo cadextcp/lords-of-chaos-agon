@@ -359,15 +359,19 @@ bool brew_throw_vial(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
 
     x = u->x;
     y = u->y;
-    for (dist = 0; dist < 6; dist++) {   /* flies until wall or unit */
+    {
+        uint16_t flown = 0, reach = items_throw_range(w, unit, OBJECTS[kind].weight);
+    for (dist = 0; dist < 36; dist++) {   /* flies until wall, unit or its reach */
         int16_t nx = (int16_t)(x + dx), ny = (int16_t)(y + dy);
-        if (!world_wrap(w, &nx, &ny) || world_blocks(w, nx, ny))
+        flown = (uint16_t)(flown + (dx != 0 && dy != 0 ? 3 : 2));
+        if (flown > reach || !world_wrap(w, &nx, &ny) || world_blocks(w, nx, ny))
             break;
         x = nx;
         y = ny;
         if (world_unit_at(w, x, y, UL_GROUND) != NO_UNIT ||
             world_unit_at(w, x, y, UL_AIR) != NO_UNIT)
             break;                       /* shatters on the target */
+    }
     }
     {   /* the vial's flight (presentation) */
         int16_t fx, fy;

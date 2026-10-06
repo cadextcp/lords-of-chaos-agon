@@ -122,8 +122,18 @@ static uint8_t target_cursor_colour(void)
         if (!spell_in_range(&world, u, target_spell,
                             books[OWN_P1].level[target_spell], target_x, target_y))
             return CURSOR_RED;
-    } else if (dx > 6 || dx < -6 || dy > 6 || dy < -6)
-        return CURSOR_RED;               /* throws and arrows: 6 fields (until 0e) */
+    } else if (target_kind == TA_FIRE) {
+        if (world_range(&world, u->x, u->y, target_x, target_y) >
+            items_fire_range(&world, active()))
+            return CURSOR_RED;
+    } else {
+        uint8_t wt = u->in_use != NO_ITEM && u->in_use < u->item_count
+                         ? OBJECTS[u->items[u->in_use]].weight : 1;
+        if (world_range(&world, u->x, u->y, target_x, target_y) >
+            items_throw_range(&world, active(), wt))
+            return CURSOR_RED;
+    }
+    (void)dx; (void)dy;
     if (!sight_has_spell_los(&world, u->x, u->y, target_x, target_y))
         return CURSOR_RED;
     if (world_unit_at(&world, target_x, target_y, UL_AIR) != NO_UNIT)
@@ -608,7 +618,12 @@ static void cast_targeted(bool dump)
                           : target_spell == SP_GOOEY_BLOB ? AREA_BLOB
                           : target_spell == SP_TANGLE_VINE ? AREA_VINE
                           : AREA_FLOOD;
-            /* range, sight, terrain and payment: spell_apply */
+            /* range, terrain dice and payment: spell_apply */
+            if (!shot.hit) {
+                render_message(1, C_GREY, "Nichts faengt an.");
+                frame(dump);
+                return;
+            }
             render_message(1, C_BRIGHT_MAGENTA,
                            kind == AREA_FIRE ? "Es brennt!"
                            : kind == AREA_BLOB ? "Klebriger Brei!"
@@ -828,9 +843,20 @@ bump:
         case BUMP_BOUND:
             render_message(1, C_BRIGHT_RED, "Gebunden: Gegner nebenan - kaempfen.");
             return;
-        case BUMP_HELD:
-            render_message(1, C_BRIGHT_RED, "Brei oder Ranken versperren den Weg.");
+        case BUMP_HELD: {              /* blob and vine: tear through (K8.4) */
+            bool torn = false;
+            uint8_t hit = combat_terrain(&world, &turns.rng, active(), nx, ny, &torn);
+            if (!hit)
+                render_message(1, C_BRIGHT_RED, "Brei oder Ranken: zu schwer zu zerreissen.");
+            else if (torn)
+                render_message(1, C_BRIGHT_YELLOW, "Zerrissen!");
+            else
+                render_message(1, C_GREY, "Es haelt noch.");
+            settle();
+            update_sight();
+            frame(dump);
             return;
+        }
         case BUMP_UNIT: {
             CombatResult r;
             char msg[48], name[16], aname[16];
@@ -1011,10 +1037,10 @@ static void bench(void)
         uint8_t k2;
         Rng brng;
         area_reset();
-        area_cast(&world, AREA_FIRE, 4, OWN_P1, 5, 20);
-        area_cast(&world, AREA_BLOB, 4, OWN_P2, 13, 20);
-        area_cast(&world, AREA_VINE, 4, OWN_NEUTRAL, 25, 20);
-        area_cast(&world, AREA_FLOOD, 4, OWN_P2, 30, 20);
+        area_set(&world, AREA_FIRE, 4, OWN_P1, 5, 20);
+        area_set(&world, AREA_BLOB, 4, OWN_P2, 13, 20);
+        area_set(&world, AREA_VINE, 4, OWN_NEUTRAL, 25, 20);
+        area_set(&world, AREA_FLOOD, 4, OWN_P2, 30, 20);
         rng_seed(&brng, 4);
         t0 = getsysvar_time();
         for (k2 = 0; k2 < 20; k2++)
@@ -1217,8 +1243,7 @@ static bool action_possible(char key)
         return ride_actor_kind(u) == CR_WIZARD && !(u->flags & UF_FLYING) &&
                u->ap >= ACTIONS[ACT_CAST].ap;
     case 'f':
-        return weapon != WEAPON_NONE && WEAPONS[weapon].ranged != 0 &&
-               u->ap >= ACTIONS[ACT_FIRE].ap;
+        return items_can_fire(&world, a) && u->ap >= ACTIONS[ACT_FIRE].ap;
     case 't':
         return in_hand && u->ap >= ACTIONS[ACT_THROW].ap;
     default:
@@ -2663,12 +2688,7 @@ dispatch:
             } else if (e.ascii == 'f') {            /* fire bow in use */
                 confirm_end = false;
                 {
-                    const Unit *u = &world.units[active()];
-                    uint8_t weapon = u->in_use != NO_ITEM &&
-                                     u->in_use < u->item_count
-                                         ? OBJECTS[u->items[u->in_use]].weapon
-                                         : WEAPON_NONE;
-                    if (weapon == WEAPON_NONE || WEAPONS[weapon].ranged == 0)
+                    if (!items_can_fire(&world, active()))
                         render_message(1, C_BRIGHT_RED, "Kein Bogen in der Hand.");
                     else {
                         targeting = true;

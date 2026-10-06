@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 
+#include "area.h"
 #include "combat.h"
 #include "effect.h"
 #include "events.h"
@@ -208,8 +209,12 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
     y = u->y;
     {
         uint8_t target = NO_UNIT, steps = 0;
-        for (dist = 0; dist < 6; dist++) {
+        uint16_t flown = 0, reach = items_throw_range(w, unit, OBJECTS[kind].weight);
+        for (dist = 0; dist < 36; dist++) {
             int16_t nx = (int16_t)(x + dx), ny = (int16_t)(y + dy);
+            flown = (uint16_t)(flown + (dx != 0 && dy != 0 ? 3 : 2));
+            if (flown > reach)
+                break;
             if (!world_wrap(w, &nx, &ny) || world_blocks(w, nx, ny))
                 break;
             target = world_unit_at(w, nx, ny, UL_GROUND);
@@ -248,47 +253,73 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
     return true;
 }
 
+static bool is_dragon(uint8_t kind)
+{
+    return kind == CR_GOLD_DRAGON || kind == CR_GREEN_DRAGON || kind == CR_RED_DRAGON;
+}
+
+uint8_t items_throw_range(const World *w, uint8_t unit, uint8_t weight)
+{
+    uint16_t r = (uint16_t)(2u * items_combat(w, unit) / (weight ? weight : 1) + 5u);
+    return r > 36 ? 36 : (uint8_t)r;
+}
+
+bool items_can_fire(const World *w, uint8_t unit)
+{
+    const Unit *u;
+    uint8_t weapon;
+    if (unit >= w->unit_count)
+        return false;
+    u = &w->units[unit];
+    if (is_dragon(ride_actor_kind(u)))
+        return true;
+    weapon = items_in_use_weapon(u);
+    return weapon != WEAPON_NONE && WEAPONS[weapon].ranged != 0;
+}
+
+uint8_t items_fire_range(const World *w, uint8_t unit)
+{
+    const Unit *u = &w->units[unit];
+    if (is_dragon(ride_actor_kind(u)))
+        return 12;
+    return (u->flags & UF_MAGIC_WEAPON) ? 22 : 16;
+}
+
 bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
                 uint8_t *damage)
 {
     Unit *u;
-    uint8_t weapon, target;
+    uint8_t target, attack;
+    bool dragon;
     int16_t dx, dy;
     if (damage)
         *damage = 0;
     if (unit >= w->unit_count || !world_wrap(w, &tx, &ty))
         return false;
     u = &w->units[unit];
-    weapon = items_in_use_weapon(u);
-    if (weapon == WEAPON_NONE || WEAPONS[weapon].ranged == 0)
-        return false;                    /* no bow in hand */
-    if (u->ap < ACTIONS[ACT_FIRE].ap)
+    if (!items_can_fire(w, unit))
+        return false;                    /* no bow in hand, no dragon */
+    dragon = is_dragon(ride_actor_kind(u));
+    if (!world_can_pay(w, unit, ACT_FIRE))
         return false;
-    dx = (int16_t)(tx - u->x);
-    dy = (int16_t)(ty - u->y);
-    if (w->wrap) {
-        if (dx > w->w / 2) dx = (int16_t)(dx - w->w);
-        if (dx < -w->w / 2) dx = (int16_t)(dx + w->w);
-        if (dy > w->h / 2) dy = (int16_t)(dy - w->h);
-        if (dy < -w->h / 2) dy = (int16_t)(dy + w->h);
-    }
-    if (dx > 6 || dx < -6 || dy > 6 || dy < -6)
+    if (world_range(w, u->x, u->y, tx, ty) > items_fire_range(w, unit))
         return false;
     if (!sight_has_los(w, u->x, u->y, tx, ty))
         return false;
     target = world_unit_at(w, tx, ty, UL_GROUND);
     if (target == NO_UNIT)
         target = world_unit_at(w, tx, ty, UL_AIR);
-    if (target == NO_UNIT)
-        return false;
+    if (target == NO_UNIT && !dragon)
+        return false;                    /* a bow needs something to hit */
+    world_delta(w, u->x, u->y, tx, ty, &dx, &dy);
     world_pay(w, unit, ACT_FIRE);
-    events_push(EV_PROJECTILE, u->x, u->y, PJ_ARROW, u->owner,
+    events_push(EV_PROJECTILE, u->x, u->y, dragon ? PJ_BOLT : PJ_ARROW, u->owner,
                 (uint8_t)(int8_t)dx, (uint8_t)(int8_t)dy);
-    {
+    attack = dragon ? 35 : (uint8_t)magic_scale(u, items_in_use_weapon(u), BOW_ATTACK);
+    if (target != NO_UNIT) {
         uint8_t dmg = 0;
-        if (items_can_harm_undead(w, unit, target))
-            dmg = combat_roll(rng, magic_scale(u, weapon, BOW_ATTACK),
-                              items_defence(w, target));
+        if (dragon || items_can_harm_undead(w, unit, target))
+            dmg = combat_roll(rng, attack, items_defence(w, target));
         if (dmg) {
             if (damage)
                 *damage = dmg;
@@ -296,6 +327,8 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
         } else
             events_push(EV_MISS, tx, ty, u->kind, u->owner, 0, 0);
     }
+    if (dragon && rng_range(rng, 20) < area_susceptibility(w, AREA_FIRE, tx, ty))
+        area_set(w, AREA_FIRE, area_level(AREA_FIRE, u->owner), u->owner, tx, ty);
     return true;
 }
 

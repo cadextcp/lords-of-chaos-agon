@@ -44,6 +44,20 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ### Intern
 - `world_range`, `spell_range`, `spell_in_range`, `spell_attack_value`. Test `test_0d`.
 
+## [Unreleased] – Regeln wie im Original, Schritt 0e: Flächen und Fernwaffen (D67) (2026-10-07)
+
+### Geändert
+- **Magic Fire und Gooey Blob (K5.3):** Der Zauber entzündet das Zielfeld, wenn `RND(10−L) < Entzündbarkeit` (Gelände und Möbel, neue Tabelle `data/terrain_effects.csv` und Spalte `fire` in `features.csv`). Jede Runde breitet sich das Feld auf Nachbarn aus (`RND(70−3·Lv)+1 ≤ f`) und überlebt mit `RND(T) < ⌊S/4⌋+40` (Tabellen T je Stufe). Verbranntes Gelände wird zu festem Boden, Bäume und Möbel in erloschenem Feuer sind Asche. Schaden je Runde: Feuer `25+2F`, Blob `16+2(B−1)`, ohne Defence; eigene Kreaturen sind verschont, Flieger über dem Feuer auch.
+- **Tangle Vine und Flood:** füllen ein 9×9-Feld um das Ziel (`D ≤ L+3`, `RND(18−2L+2D) < Empfänglichkeit`). Vine verwundet mit 8 je Runde und bleibt. Flood ist Wasser: Betreten kostet 12 AP, Treten im Wasser ermüdet wie D48 (der Sofort-Tod mit 50 % entfällt).
+- **Eine Fläche je Art und Zauberer;** ihre Stufe ist die des letzten Zaubers (ein schwächerer späterer Zauber schwächt das ganze Feuer). Feuer-Felder kosten 16 AP beim Betreten.
+- **Gegenstände am Boden:** Feuer vernichtet alles außer Schätzen, Schlüsseln, Kesseln und dem Magie-Slayer; Flood spült alles weg.
+- **Blob und Vine** sperren immer, lassen sich aber zerreißen (Zähigkeit 40/50, Angriff 6 AP + 6 Ausdauer, `1,5·Combat_eff ≥ Zähigkeit`).
+- Flächenzauber brauchen keine Sichtlinie, nur Reichweite; der Zauber kann wirkungslos verpuffen (Mana ist weg).
+- **Wurfweite (K6.4):** `min(36, ⌊2·Combat_eff/Gewicht⌋+5)` Einheiten, auch für Phiolen. **Bogen:** 16 Einheiten, verzaubert 22 (Angriff 15 bzw. 30). **Drachenfeuer** als Aktion (`f`): 12 Einheiten, Angriff 35, trifft auch Untote, entzündet das Zielfeld mit `RND(20) < Entzündbarkeit`, ohne Bogen.
+
+### Intern
+- `area.c` neu geschrieben (`area_set`, `area_cast` mit Zufall, `area_level`, `area_toughness`, `area_remove_field`); `items_can_fire`, `items_fire_range`, `items_throw_range`; `test_m4d` und `test_0e`.
+
 ## [Unreleased] – Regeln wie im Original, Schritt 0a: Mana (D67) (2026-10-07)
 
 ### Geändert

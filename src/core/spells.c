@@ -467,12 +467,13 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
         AreaKind kind = spell == SP_MAGIC_FIRE ? AREA_FIRE
                       : spell == SP_GOOEY_BLOB ? AREA_BLOB
                       : spell == SP_TANGLE_VINE ? AREA_VINE : AREA_FLOOD;
-        if (!reachable(w, u, spell, level, &x, &y))
+        /* range only, no line of sight needed (K5.3) */
+        if (!world_wrap(w, &x, &y) || !spell_in_range(w, u, spell, level, x, y))
             return CAST_REJECTED;
-        if (!area_cast(w, kind, level, u->owner, x, y))
-            return CAST_BAD_TERRAIN;     /* field refuses: nothing paid */
         pay_for_spell(w, b, wiz, spell, x, y);
+        out->splash_hits = area_cast(w, rng, kind, level, u->owner, x, y);
         out->allowed = true;
+        out->hit = out->splash_hits > 0;
         return CAST_OK;
     }
 

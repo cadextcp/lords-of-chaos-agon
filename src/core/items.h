@@ -40,8 +40,16 @@ bool items_cycle(World *w, uint8_t unit);
  * there is room and he can carry the weight. False: it falls down. */
 bool items_catch(World *w, uint8_t unit, uint8_t kind);
 bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy);
-/* Fire the bow in use at a field (ACT_FIRE): range 6, line of sight,
- * ground and air targets, Defence counts. */
+/* Throw range in distance units (K6.4): min(36, 2 Combat_eff / weight + 5). */
+uint8_t items_throw_range(const World *w, uint8_t unit, uint8_t weight);
+/* Can the unit fire at all: a bow in hand, or a dragon's breath (K6.4)? */
+bool items_can_fire(const World *w, uint8_t unit);
+/* Its reach in distance units: bow 16, enchanted bow 22, dragon 12. */
+uint8_t items_fire_range(const World *w, uint8_t unit);
+/* Fire the bow in use or the dragon's breath at a field (ACT_FIRE): bow
+ * 16 / 22 units with attack 15 / 30, dragon 12 units with attack 35 and an
+ * ignition of the target field; line of sight, ground and air targets,
+ * Defence counts. */
 bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
                 uint8_t *damage);
 /* Effective values (K6.1): Combat plus the weapon in use, Defence plus the
