@@ -40,10 +40,10 @@
 
 ## Warum zwei Builds?
 
-Der **Selftest** (`src/core/selftest.c`) wird in beide Builds kompiliert:
+Der **Selftest** (`tests/selftest.c`) wird in beide Test-Builds kompiliert:
 
 - **Host:** schnell, mit gcc-Warnungen als Fehler (`-Werror`).
-- **Agon:** derselbe Test als echter eZ80-Code im Headless-Emulator (`loc --selftest`). Er findet Probleme mit Integer-Breite, Codegen und libc, die der Host nie sehen würde.
+- **Agon:** derselbe Test als echter eZ80-Code im Headless-Emulator, als eigenes Programm `loctest.bin` (nicht im Spiel, QUIRK S6). Er findet Probleme mit Integer-Breite, Codegen und libc, die der Host nie sehen würde.
 
 Beispiel: Der Szenen-Hash (`DEMO_HASH`) muss auf beiden Plattformen bitgleich sein.
 
