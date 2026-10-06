@@ -2,6 +2,11 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – eZ80-Selftest prüft wieder (2026-10-06)
+
+### Behoben
+- **Der eZ80-Selftest war seit #142 blind:** `test.py` gab dem Emulator eine geschlossene Eingabe; bei EOF beendet sich der CLI-Emulator mit Code 0, bevor das große `loctest.bin` überhaupt anlief, und das galt als PASS. Jetzt bleibt die Eingabe offen, und PASS zählt nur mit der Emulator-Meldung „shutdown triggered by writing 0x0“ (Fehlerzahl 0 über Port 0). Nachgeprüft: `main` besteht auf dem eZ80 wirklich.
+
 ## [Unreleased] – Defensiver KI-Zauberer (D62) (2026-10-06)
 
 ### Geändert
