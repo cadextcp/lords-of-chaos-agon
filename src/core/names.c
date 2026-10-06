@@ -18,6 +18,8 @@ static const char *const FEATURE_NAMES[FE_COUNT] = {
     [FE_CHAIR] = "Stuhl", [FE_DRAWERS] = "Kommode", [FE_CHEST] = "Truhe",
     [FE_TREE] = "Baum", [FE_ROCK] = "Fels", [FE_DOOR_LOCKED] = "Tuer (abgeschl.)", [FE_WINDOW] = "Fenster",
     [FE_FENCE] = "Zaun",
+    [FE_LEAF_N] = "Tuerblatt", [FE_LEAF_E] = "Tuerblatt",
+    [FE_LEAF_S] = "Tuerblatt", [FE_LEAF_W] = "Tuerblatt",
     [FE_CHEST_FREE] = "Truhe (offen)",
 };
 

@@ -34,7 +34,7 @@
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
  * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures;
  * M5c added the seven fx tiles after "floor_*" (IDs shifted again). */
-#define HOUSE_VIEW_HASH 0x84601F62UL
+#define HOUSE_VIEW_HASH 0x080AA4F8UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -3222,6 +3222,71 @@ static void test_m4e(void)
         check(ride_dismount(&world, mount) && world.unit_count == 2 &&
               !(world.units[mount].flags & UF_RIDDEN),
               "m4e: dismounting brings the rider back");
+    }
+
+    {   /* D61: an open door's leaf stands beside the doorway and blocks */
+        static const uint8_t *const MAPS[6] = {
+            MAPBIN_MANY_COLOURED_LAND, MAPBIN_RAGARILS_DOMAIN, MAPBIN_SLAYERS_DUNGEON,
+            MAPBIN_TESTLAND, MAPBIN_TUTORIAL, MAPBIN_WIZARD_HOUSE};
+        const uint16_t LENS[6] = {
+            MAPBIN_MANY_COLOURED_LAND_LEN, MAPBIN_RAGARILS_DOMAIN_LEN,
+            MAPBIN_SLAYERS_DUNGEON_LEN, MAPBIN_TESTLAND_LEN, MAPBIN_TUTORIAL_LEN,
+            MAPBIN_WIZARD_HOUSE_LEN};
+        uint8_t m, jammed = 0, open_bare = 0, u, leaf = FE_NONE;
+        int16_t x, y, lx, ly;
+        for (m = 0; m < 6; m++) {
+            world_load_bin(&world, MAPS[m], LENS[m]);
+            for (y = 0; y < world.h; y++)
+                for (x = 0; x < world.w; x++) {
+                    uint8_t fe = world.feature[y][x];
+                    if (world_is_gate(&world, x, y))
+                        continue;
+                    if (fe == FE_DOOR_CLOSED &&
+                        !world_leaf_spot(&world, x, y, -1, -1, &lx, &ly, &leaf))
+                        jammed++;
+                    if (fe == FE_DOOR_OPEN) {
+                        int16_t dx, dy;
+                        bool found = false;
+                        for (dy = -1; dy <= 1; dy += 2)
+                            for (dx = -1; dx <= 1; dx += 2) {
+                                uint8_t f2 = world_feature(&world, (int16_t)(x + dx),
+                                                           (int16_t)(y + dy));
+                                if (f2 >= FE_LEAF_N && f2 <= FE_LEAF_W)
+                                    found = true;
+                            }
+                        if (!found)
+                            open_bare++;
+                    }
+                }
+        }
+        check(jammed == 0, "d61: no door on any map starts jammed");
+        check(open_bare == 0, "d61: doors that start open have their leaf");
+
+        /* testland: candles stand inside on both sides of the east door,
+         * so the leaf swings out; opened from outside it stands NE/SE */
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 0;
+        u = world_spawn_unit(&world, OWN_P1, CR_GOBLIN, 9, 5);
+        world.units[u].ap = 40;
+        check(world_open_door(&world, u, 8, 5) &&
+              world.feature[5][8] == FE_DOOR_OPEN &&
+              world.feature[4][9] == FE_LEAF_S && world_blocks(&world, 9, 4),
+              "d61: the leaf swings out past the candles and blocks its field");
+        check(!world_blocks(&world, 8, 5) && !world_blocks(&world, 9, 5),
+              "d61: the doorway itself stays free");
+        check(world_close_door(&world, u, 8, 5) &&
+              world.feature[4][9] == FE_NONE && world.feature[5][8] == FE_DOOR_CLOSED,
+              "d61: closing folds the leaf back");
+        world.feature[4][9] = FE_ROCK;
+        world.feature[6][9] = FE_ROCK;
+        check(world_door_jammed(&world, 8, 5, 9, 5) &&
+              !world_open_door(&world, u, 8, 5) && world.units[u].ap == 28,
+              "d61: no room for the leaf anywhere - the door is jammed");
+        world.feature[4][9] = FE_NONE;
+        world.feature[6][9] = FE_NONE;
+        world.feature[4][7] = FE_NONE;            /* clear the inner candle */
+        check(world_open_door(&world, u, 8, 5) && world.feature[4][7] == FE_LEAF_S,
+              "d61: with room inside, opened from outside it swings in");
     }
 
     {   /* D60: the rider acts from the saddle and keeps his own values */
