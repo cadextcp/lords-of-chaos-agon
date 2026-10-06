@@ -19,9 +19,10 @@ from PIL import Image
 
 BLACK = (0, 0, 0)
 RULES: list[tuple[str, dict[tuple[int, int, int], tuple[int, int, int]]]] = [
-    # grass: black ground, bright tufts stay
-    ("floor_grass", {(0, 85, 0): BLACK}),
-    ("edge_path_", {(0, 85, 0): BLACK}),
+    # grass: black ground, dim tufts
+    # tufts are dim: the bright greens would make the ground restless
+    ("floor_grass", {(0, 85, 0): BLACK, (0, 170, 0): (0, 85, 0), (85, 170, 0): (0, 85, 0)}),
+    ("edge_path_", {(0, 85, 0): BLACK, (0, 170, 0): (0, 85, 0), (85, 255, 85): (0, 85, 0)}),
     # trees and forest floor: one step darker, highlights become mid green
     ("tree", {(0, 85, 0): BLACK, (0, 170, 0): (0, 85, 0), (85, 255, 85): (0, 170, 0)}),
     ("floor_forest", {(0, 85, 0): BLACK, (0, 170, 0): (0, 85, 0), (85, 255, 85): (0, 170, 0)}),
