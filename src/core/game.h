@@ -26,6 +26,10 @@ typedef struct {
     uint8_t eye_rounds;           /* ticks down each round */
     uint8_t kills[OWN_NEUTRAL];   /* credited kills (end screen, M5a) */
     uint16_t loot_vp[OWN_NEUTRAL];/* treasure VP carried through the portal */
+    /* wizard AI (D62): where each wizard started (0xFF = not yet seen),
+     * rounds of rage left and the round the rage was last rolled */
+    uint8_t home_x[OWN_NEUTRAL], home_y[OWN_NEUTRAL];
+    uint8_t rage[OWN_NEUTRAL], rage_round[OWN_NEUTRAL];
 } Game;
 
 typedef enum { OUT_RUNNING, OUT_WIN, OUT_LOSE } GameOutcome;

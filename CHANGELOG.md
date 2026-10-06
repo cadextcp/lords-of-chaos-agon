@@ -2,6 +2,18 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Defensiver KI-Zauberer (D62) (2026-10-06)
+
+### Geändert
+- **Der gegnerische Zauberer bleibt zunächst zu Hause:** Er beschwört bis zu 5 Kreaturen (ein Viertel Mana bleibt Reserve), plündert sein Haus und geht erst raus, wenn höchstens eine Kreatur übrig ist oder ihn ein seltener Wutanfall packt. Zum offenen Portal geht er immer.
+- **Behoben:** Er lief schon in Runde 1 zum Portal-*Standort* und damit aus dem Haus.
+- **Seine Kreaturen:** Zwei bewachen das Haus, die übrigen ziehen zum Haus des Spielers und sammeln Schätze. Wer Waffen tragen kann, nimmt Schwert oder Schild aus dem Haus. Schriftrollen nimmt der Zauberer.
+- KI-Figuren finden Wege durch Türen (Breitensuche im 21×21-Fenster) statt an Wänden hängen zu bleiben.
+- Level 1: Das Gegnerhaus hat jetzt Schwert, Schild und Schriftrolle wie das eigene.
+
+### Intern
+- `Game.home_x/y`, `rage`, `rage_round`; Spielstand v7. Checks `d62`.
+
 ## [Unreleased] – Selftest als eigenes Programm (2026-10-06)
 
 ### Geändert

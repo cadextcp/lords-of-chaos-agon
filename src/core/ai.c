@@ -1,10 +1,21 @@
 #include "ai.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #include "combat.h"
 #include "items.h"
+#include "ride.h"
 #include "sight.h"
+
+/* Wizard AI (D62): the wizard keeps to his house until it is looted and
+ * his creatures are mostly gone (or in a rare rage); the creatures guard
+ * the house or march on the rival's. */
+#define HOME_RANGE 6        /* the house: roofed fields this close to home */
+#define AI_SUMMON_MAX 5     /* creatures he summons up to */
+#define AI_GUARDS 2         /* the first creatures stay home */
+#define AI_RAGE_CHANCE 12   /* one round in 12 a rage starts ... */
+#define AI_RAGE_ROUNDS 3    /* ... and lasts this long */
 
 static bool ai_clear_feature(World *w, Rng *rng, uint8_t unit,
                              int16_t x, int16_t y);
@@ -595,19 +606,376 @@ void ai_run_hunters(World *w, Rng *rng, uint8_t owner, uint8_t skip_id)
     }
 }
 
+
+/* ---------- walking with a path (D62) ---------- */
+
+#define PATH_R 10                 /* the search window reaches this far */
+#define PATH_W (2 * PATH_R + 1)
+
+/* Can a walker cross this field? Closed doors count: it opens them. */
+static bool path_open(const World *w, int16_t x, int16_t y, uint8_t owner)
+{
+    uint8_t fe = world_feature(w, x, y);
+    if (world_blocks(w, x, y) && fe != FE_DOOR_CLOSED && fe != FE_DOOR_LOCKED)
+        return false;
+    return world_blocking_unit_at(w, x, y, UL_GROUND, owner) == NO_UNIT;
+}
+
+/* First step towards (tx, ty): breadth-first from the unit through the
+ * window around it (8 directions) to the reachable field closest to the
+ * target - the target itself when it lies inside and can be reached, so
+ * a far goal still finds the door out of a house. The target field may
+ * be blocked (a chest to open, a door). The buffers live on the stack:
+ * 1.3 KB only while the AI walks. */
+static bool path_step(const World *w, uint8_t unit, int16_t tx, int16_t ty,
+                      int8_t *sdx, int8_t *sdy)
+{
+    static const int8_t DX[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+    static const int8_t DY[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
+    uint8_t first[PATH_W * PATH_W];       /* 1 + direction of the first step */
+    uint8_t qx[PATH_W * PATH_W], qy[PATH_W * PATH_W];
+    uint16_t head = 0, tail = 0;
+    const Unit *u = &w->units[unit];
+    int16_t gx, gy;                       /* target relative to the unit */
+    uint8_t best_first = 0;
+    int16_t best_d;
+    world_delta(w, u->x, u->y, tx, ty, &gx, &gy);
+    best_d = (int16_t)((gx < 0 ? -gx : gx) > (gy < 0 ? -gy : gy)
+                           ? (gx < 0 ? -gx : gx) : (gy < 0 ? -gy : gy));
+    if (best_d == 0)
+        return false;
+    memset(first, 0, sizeof first);
+    first[PATH_R * PATH_W + PATH_R] = 0xFF;   /* the start */
+    qx[tail] = PATH_R;
+    qy[tail++] = PATH_R;
+    while (head < tail) {
+        uint8_t cx = qx[head], cy = qy[head], d;
+        uint8_t from = first[cy * PATH_W + cx];
+        head++;
+        for (d = 0; d < 8; d++) {
+            int16_t nx = (int16_t)(cx + DX[d]), ny = (int16_t)(cy + DY[d]);
+            int16_t rx, ry, dist;
+            uint16_t c;
+            uint8_t step;
+            if (nx < 0 || ny < 0 || nx >= PATH_W || ny >= PATH_W)
+                continue;
+            c = (uint16_t)(ny * PATH_W + nx);
+            if (first[c])
+                continue;
+            step = from == 0xFF ? (uint8_t)(d + 1) : from;
+            rx = (int16_t)(gx - (nx - PATH_R));
+            ry = (int16_t)(gy - (ny - PATH_R));
+            if (rx == 0 && ry == 0) {          /* the target: done */
+                *sdx = DX[step - 1];
+                *sdy = DY[step - 1];
+                return true;
+            }
+            first[c] = 0xFE;                   /* seen */
+            if (!path_open(w, (int16_t)(u->x + nx - PATH_R),
+                           (int16_t)(u->y + ny - PATH_R), u->owner))
+                continue;
+            first[c] = step;
+            dist = (int16_t)((rx < 0 ? -rx : rx) > (ry < 0 ? -ry : ry)
+                                 ? (rx < 0 ? -rx : rx) : (ry < 0 ? -ry : ry));
+            if (dist < best_d) {
+                best_d = dist;
+                best_first = step;
+            }
+            qx[tail] = (uint8_t)nx;
+            qy[tail++] = (uint8_t)ny;
+        }
+    }
+    if (!best_first)
+        return false;                     /* nothing gets closer */
+    *sdx = DX[best_first - 1];
+    *sdy = DY[best_first - 1];
+    return true;
+}
+
+/* One step in a fixed direction; an enemy left behind gets its free
+ * swing (D26). Returns the unit's index afterwards, NO_UNIT when it
+ * died, 0xFE when the step was blocked. */
+#define AI_BLOCKED 0xFE
+static uint8_t ai_move(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
+{
+    uint8_t id = w->units[unit].id;
+    bool was_adjacent = world_enemy_adjacent(w, unit);
+    CombatResult fs;
+    if (!world_move_unit(w, unit, dx, dy))
+        return AI_BLOCKED;
+    if (was_adjacent && combat_disengage_swings(w, rng, unit, NULL, &fs) && fs.hit)
+        return world_find_unit(w, id);
+    return unit;
+}
+
+/* Walk up to `steps` steps towards (tx, ty) - along a path when it is
+ * near, greedily when far - opening closed doors on the way. Stops on
+ * the target, or next to it with `beside`. Returns the unit's index,
+ * NO_UNIT when it died. */
+static uint8_t walk_to(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
+                       uint8_t steps, bool beside)
+{
+    uint8_t id = w->units[unit].id;
+    while (steps-- > 0) {
+        int8_t dx, dy;
+        uint8_t dist, r;
+        if (w->units[unit].ap < 4)
+            break;
+        dist = world_distance(w, w->units[unit].x, w->units[unit].y, tx, ty);
+        if (dist == 0 || (beside && dist <= 1))
+            break;
+        if (path_step(w, unit, tx, ty, &dx, &dy)) {
+            int16_t nx = (int16_t)(w->units[unit].x + dx);
+            int16_t ny = (int16_t)(w->units[unit].y + dy);
+            uint8_t fe = world_feature(w, nx, ny);
+            if (fe == FE_DOOR_CLOSED || fe == FE_DOOR_LOCKED ||
+                fe == FE_CHEST || fe == FE_CHEST_FREE) {   /* open it */
+                if (!ai_clear_feature(w, rng, unit, nx, ny))
+                    break;
+                continue;
+            }
+            r = ai_move(w, rng, unit, dx, dy);
+            if (r == AI_BLOCKED)
+                break;
+            if (r == NO_UNIT)
+                return NO_UNIT;
+            unit = r;
+        } else {
+            if (!ai_step_toward(w, rng, unit, tx, ty))
+                break;
+            unit = world_find_unit(w, id);
+            if (unit == NO_UNIT)
+                return NO_UNIT;
+        }
+    }
+    return unit;
+}
+
+/* ---------- the wizard's house (D62) ---------- */
+
+static bool at_home(const World *w, const Game *g, uint8_t owner, int16_t x, int16_t y)
+{
+    return g->home_x[owner] != 0xFF && world_has_roof(w, x, y) &&
+           world_distance(w, x, y, g->home_x[owner], g->home_y[owner]) <= HOME_RANGE;
+}
+
+/* What the wizard takes for himself: treasure, scrolls, keys, vials.
+ * Weapons and shields are left to his creatures. */
+static bool wizard_wants(uint8_t kind)
+{
+    uint8_t cat = OBJECTS[kind].category;
+    return cat == OC_TREASURE || cat == OC_SCROLL || cat == OC_KEY ||
+           (cat == OC_POTION && kind != OBJ_CAULDRON_EMPTY &&
+            kind != OBJ_CAULDRON_FULL);
+}
+
+static bool can_carry(const World *w, uint8_t unit, uint8_t kind)
+{
+    const Unit *u = &w->units[unit];
+    return u->item_count < UNIT_ITEMS &&
+           (uint16_t)items_weight(w, unit) + OBJECTS[kind].weight <=
+               CREATURES[ride_actor_kind(u)].carry;
+}
+
+/* Nearest thing left to loot in the wizard's house: an object he wants
+ * and can carry, or an unopened chest. He knows his own house - no sight
+ * needed there. */
+static bool home_loot(const World *w, const Game *g, uint8_t owner, uint8_t wiz,
+                      int16_t *tx, int16_t *ty, bool *chest)
+{
+    const Unit *u = &w->units[wiz];
+    uint8_t best = 0xFF, i;
+    int16_t x, y;
+    for (i = 0; i < w->object_count; i++) {
+        const Object *o = &w->objects[i];
+        uint8_t kind = items_kind_of_tile(o->tile), d;
+        if (kind == NO_ITEM || !wizard_wants(kind) || !can_carry(w, wiz, kind) ||
+            !at_home(w, g, owner, o->x, o->y))
+            continue;
+        d = world_distance(w, u->x, u->y, o->x, o->y);
+        if (d < best) {
+            best = d;
+            *tx = o->x;
+            *ty = o->y;
+            *chest = false;
+        }
+    }
+    if (g->home_x[owner] == 0xFF)
+        return best != 0xFF;
+    for (y = (int16_t)(g->home_y[owner] - HOME_RANGE); y <= g->home_y[owner] + HOME_RANGE; y++)
+        for (x = (int16_t)(g->home_x[owner] - HOME_RANGE); x <= g->home_x[owner] + HOME_RANGE; x++) {
+            int16_t cx = x, cy = y;
+            uint8_t fe, d;
+            if (!world_wrap(w, &cx, &cy))
+                continue;
+            fe = w->feature[cy][cx];
+            if ((fe != FE_CHEST && fe != FE_CHEST_FREE) || !at_home(w, g, owner, cx, cy))
+                continue;
+            d = world_distance(w, u->x, u->y, cx, cy);
+            if (d < best) {
+                best = d;
+                *tx = cx;
+                *ty = cy;
+                *chest = true;
+            }
+        }
+    return best != 0xFF;
+}
+
+/* The nearest home of another wizard (where the creatures march). */
+static bool rival_home(const World *w, const Game *g, uint8_t owner, uint8_t unit,
+                       int16_t *tx, int16_t *ty)
+{
+    uint8_t o, best = 0xFF;
+    for (o = 0; o < OWN_NEUTRAL; o++) {
+        uint8_t d;
+        if (o == owner || g->home_x[o] == 0xFF)
+            continue;
+        d = world_distance(w, w->units[unit].x, w->units[unit].y,
+                           g->home_x[o], g->home_y[o]);
+        if (d < best) {
+            best = d;
+            *tx = g->home_x[o];
+            *ty = g->home_y[o];
+        }
+    }
+    return best != 0xFF;
+}
+
+/* Remember where every wizard on the map stands the first time the AI
+ * looks - that is his house (the map is no secret, the units are). */
+static void note_homes(const World *w, Game *g)
+{
+    uint8_t i;
+    for (i = 0; i < w->unit_count; i++) {
+        const Unit *u = &w->units[i];
+        if (u->owner < OWN_NEUTRAL && ride_actor_kind(u) == CR_WIZARD &&
+            g->home_x[u->owner] == 0xFF) {
+            g->home_x[u->owner] = u->x;
+            g->home_y[u->owner] = u->y;
+        }
+    }
+}
+
+/* ---------- the wizard's creatures (D62) ---------- */
+
+static bool weapon_in_hand(const Unit *u)
+{
+    return u->in_use != NO_ITEM && u->in_use < u->item_count &&
+           OBJECTS[u->items[u->in_use]].category == OC_WEAPON;
+}
+
+/* A creature with weapon hands and none in hand takes up a weapon or
+ * shield from the house or one it sees within 8 fields. True when it
+ * did something about it this phase. */
+static bool equip(World *w, Rng *rng, uint8_t *unit, const Game *g, uint8_t owner)
+{
+    Unit *u = &w->units[*unit];
+    uint8_t i, best = 0xFF, pick = 0xFF;
+    if (!(CREATURES[ride_actor_kind(u)].flags & CF_WEAPONS) || weapon_in_hand(u))
+        return false;
+    for (i = 0; i < u->item_count; i++)       /* carried but not held */
+        if (OBJECTS[u->items[i]].category == OC_WEAPON) {
+            u->in_use = i;
+            return false;
+        }
+    for (i = 0; i < w->object_count; i++) {
+        const Object *o = &w->objects[i];
+        uint8_t kind = items_kind_of_tile(o->tile), d;
+        if (kind == NO_ITEM || OBJECTS[kind].category != OC_WEAPON ||
+            !can_carry(w, *unit, kind))
+            continue;
+        d = world_distance(w, u->x, u->y, o->x, o->y);
+        if (d >= best || (!at_home(w, g, owner, o->x, o->y) &&
+                          (d > 8 || !sight_has_los(w, u->x, u->y, o->x, o->y))))
+            continue;
+        best = d;
+        pick = i;
+    }
+    if (pick == 0xFF)
+        return false;
+    if (best > 1) {
+        *unit = walk_to(w, rng, *unit, w->objects[pick].x, w->objects[pick].y, 3, true);
+        if (*unit == NO_UNIT)
+            return true;
+        if (world_distance(w, w->units[*unit].x, w->units[*unit].y,
+                           w->objects[pick].x, w->objects[pick].y) > 1)
+            return true;                  /* on its way */
+    }
+    if (items_pick_up_object(w, *unit, pick)) {
+        u = &w->units[*unit];
+        u->in_use = (uint8_t)(u->item_count - 1);
+    }
+    return true;
+}
+
+/* One creature of an AI wizard: fight what it sees, arm itself, then
+ * guard the house or march on the rival, picking up treasure in sight. */
+static void ai_minion(World *w, Rng *rng, uint8_t unit, const Game *g,
+                      uint8_t owner, bool guard)
+{
+    int16_t tx, ty;
+    uint8_t prey = ai_nearest_enemy(w, unit, guard ? 5 : SIGHT_GROUND);
+    if (prey != NO_UNIT) {
+        ai_hunter(w, rng, unit);
+        return;
+    }
+    if (equip(w, rng, &unit, g, owner) || unit == NO_UNIT)
+        return;
+    if (guard) {
+        if (g->home_x[owner] != 0xFF &&
+            world_distance(w, w->units[unit].x, w->units[unit].y,
+                           g->home_x[owner], g->home_y[owner]) > 2)
+            walk_to(w, rng, unit, g->home_x[owner], g->home_y[owner], 3, true);
+        return;
+    }
+    if (nearest_treasure(w, unit, &tx, &ty)) {
+        unit = walk_to(w, rng, unit, tx, ty, 3, false);
+        if (unit != NO_UNIT && w->units[unit].x == tx && w->units[unit].y == ty)
+            items_pick_up(w, unit);
+        return;
+    }
+    if (rival_home(w, g, owner, unit, &tx, &ty) &&
+        world_distance(w, w->units[unit].x, w->units[unit].y, tx, ty) > 2) {
+        walk_to(w, rng, unit, tx, ty, 3, true);
+        return;
+    }
+    ai_hunter(w, rng, unit);              /* arrived: roam and hunt */
+}
+
+/* Every creature of the AI wizard (all units of `owner` but him); the
+ * AI_GUARDS oldest (lowest id) stay home. Id snapshot as in
+ * ai_run_hunters. */
+static void ai_run_minions(World *w, Rng *rng, const Game *g, uint8_t owner,
+                           uint8_t skip_id)
+{
+    uint8_t ids[MAX_UNITS], n = 0, i, k;
+    for (i = 0; i < w->unit_count; i++)
+        if (w->units[i].owner == owner && w->units[i].id != skip_id)
+            ids[n++] = w->units[i].id;
+    for (i = 0; i < n; i++) {
+        uint8_t u = world_find_unit(w, ids[i]), older = 0;
+        if (u == NO_UNIT)
+            continue;
+        for (k = 0; k < n; k++)
+            if (ids[k] < ids[i])
+                older++;
+        ai_minion(w, rng, u, g, owner, older < AI_GUARDS);
+    }
+}
+
 /* The wizard's own actions; returns early once he is gone. Unit indices
  * change with every death, so the wizard is re-found by id after each
  * step that may kill. */
 static void wizard_actions(Turns *t, World *w, AiCtx *ctx, uint8_t owner)
 {
     static Sight sight;
-    uint8_t wiz = NO_UNIT, wiz_id, i, own = 0;
+    uint8_t wiz = NO_UNIT, wiz_id, i;
 
     for (i = 0; i < w->unit_count; i++) {
         if (w->units[i].owner != owner)
             continue;
-        own++;
-        if (w->units[i].kind == CR_WIZARD)
+        if (ride_actor_kind(&w->units[i]) == CR_WIZARD)
             wiz = i;
     }
     if (wiz == NO_UNIT) {                 /* leaderless creatures still hunt */
@@ -615,7 +983,15 @@ static void wizard_actions(Turns *t, World *w, AiCtx *ctx, uint8_t owner)
         return;
     }
     wiz_id = w->units[wiz].id;
-    ai_run_hunters(w, &t->rng, owner, wiz_id);   /* own creatures first */
+    note_homes(w, ctx->game);
+    if (ctx->game->rage_round[owner] != t->round) {   /* once a round */
+        ctx->game->rage_round[owner] = t->round;
+        if (ctx->game->rage[owner])
+            ctx->game->rage[owner]--;
+        else if (rng_range(&t->rng, AI_RAGE_CHANCE) == 0)
+            ctx->game->rage[owner] = AI_RAGE_ROUNDS;
+    }
+    ai_run_minions(w, &t->rng, ctx->game, owner, wiz_id);   /* creatures first */
     wiz = world_find_unit(w, wiz_id);
     if (wiz == NO_UNIT)
         return;
@@ -671,90 +1047,90 @@ static void wizard_actions(Turns *t, World *w, AiCtx *ctx, uint8_t owner)
         }
     }
 
-    {   /* M4k: open an adjacent chest - the loot lies on the field and
-         * is picked up by the treasure walk below (or next round) */
-        static const int8_t DX2[8] = {0, 1, 1, 1, 0, -1, -1, -1};
-        static const int8_t DY2[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
-        uint8_t d;
-        for (d = 0; d < 8; d++)
-            if (world_feature(w, (int16_t)(w->units[wiz].x + DX2[d]),
-                              (int16_t)(w->units[wiz].y + DY2[d])) == FE_CHEST ||
-                world_feature(w, (int16_t)(w->units[wiz].x + DX2[d]),
-                              (int16_t)(w->units[wiz].y + DY2[d])) == FE_CHEST_FREE) {
-                                ai_clear_feature(w, &t->rng, wiz,
-                                 (int16_t)(w->units[wiz].x + DX2[d]),
-                                 (int16_t)(w->units[wiz].y + DY2[d]));
+    {   /* D62: summon first - up to AI_SUMMON_MAX creatures, the dearest
+         * he can afford while a quarter of his mana stays in reserve */
+        uint8_t tried[(SPELL_COUNT + 7) / 8];
+        uint8_t n = 0;
+        memset(tried, 0, sizeof tried);
+        for (i = 0; i < w->unit_count; i++)
+            if (w->units[i].owner == owner && w->units[i].id != wiz_id)
+                n++;
+        while (n < AI_SUMMON_MAX && w->units[wiz].ap >= ACTIONS[ACT_CAST].ap) {
+            uint8_t pick = 0xFF, k, best = 0, reserve = w->units[wiz].mana_max / 4;
+            for (k = 0; k < SPELL_COUNT; k++) {
+                uint8_t cost = spell_cast_mana(k, ctx->books[owner].level[k]);
+                if (ctx->books[owner].level[k] == 0 ||
+                    SPELLS[k].category != SPC_SUMMON ||
+                    (tried[k >> 3] & (1u << (k & 7))) ||
+                    w->units[wiz].mana < cost + reserve || cost <= best)
+                    continue;
+                best = cost;
+                pick = k;
+            }
+            if (pick == 0xFF)
                 break;
-            }
-    }
-
-    {   /* M4h: walk to the nearest treasure in sight and take it.
-         * Only while there is no way out yet - once the portal stands open,
-         * escaping beats collecting, and the AP go there (C9). */
-        int16_t tx, ty;
-        uint8_t steps;
-        if (ctx->game->portal_x < 0 && nearest_treasure(w, wiz, &tx, &ty)) {
-            /* Walk, do not shuffle: this used to break on the FIRST
-             * successful step, so the wizard crept one field a round
-             * towards loot while holding ten steps' worth of AP. The
-             * portal walk below always did it right. */
-            for (steps = 0; steps < 8; steps++) {
-                if (w->units[wiz].ap < 4 ||
-                    (w->units[wiz].x == tx && w->units[wiz].y == ty))
-                    break;
-                if (!ai_step_toward(w, &t->rng, wiz, tx, ty))
-                    break;
-            }
-            if (w->units[wiz].x != tx || w->units[wiz].y != ty) {
-                /* stuck: open a door/chest between wizard and treasure */
-                int8_t dx = tx > w->units[wiz].x ? 1 : (tx < w->units[wiz].x ? -1 : 0);
-                int8_t dy = ty > w->units[wiz].y ? 1 : (ty < w->units[wiz].y ? -1 : 0);
-                ai_clear_feature(w, &t->rng, wiz,
-                                 (int16_t)(w->units[wiz].x + dx),
-                                 (int16_t)(w->units[wiz].y + dy));
-            }
-            if (w->units[wiz].x == tx && w->units[wiz].y == ty)
-                items_pick_up(w, wiz);
+            tried[pick >> 3] |= (uint8_t)(1u << (pick & 7));
+            if (spell_summon(w, &ctx->books[owner], wiz, pick) > 0)
+                n++;                      /* spawning appends: wiz stays */
         }
     }
 
-    own = 0;                              /* recount after the hunt */
-    for (i = 0; i < w->unit_count; i++)
-        if (w->units[i].owner == owner)
-            own++;
-    while (own < 3 && w->units[wiz].ap >= ACTIONS[ACT_CAST].ap) {
-        uint8_t pick = 0xFF, k, best = 0xFF;   /* summon company */
-        for (k = 0; k < SPELL_COUNT; k++) {
-            uint8_t cost = spell_cast_mana(k, ctx->books[owner].level[k]);
-            if (ctx->books[owner].level[k] == 0 ||
-                SPELLS[k].category != SPC_SUMMON ||
-                w->units[wiz].mana < cost || cost >= best)
-                continue;
-            best = cost;
-            pick = k;
-        }
-        if (pick == 0xFF || spell_summon(w, &ctx->books[owner], wiz, pick) == 0)
-            break;                        /* spawning appends: wiz stays */
-        own++;
-    }
+    {
+        Game *g = ctx->game;
+        uint8_t creatures = 0;
+        int16_t tx = 0, ty = 0;
+        bool chest = false, looted, leave;
+        for (i = 0; i < w->unit_count; i++)
+            if (w->units[i].owner == owner && w->units[i].id != wiz_id)
+                creatures++;
+        looted = !home_loot(w, g, owner, wiz, &tx, &ty, &chest);
+        leave = looted && (creatures <= 1 || g->rage[owner]);
 
-    if (ctx->game->portal_x >= 0) {
-        uint8_t k;
-        for (k = 0; k < 8; k++) {         /* walk, and step through */
-            if (w->units[wiz].ap < 4)
-                break;
-            if (game_try_enter_portal(ctx->game, w, wiz))
+        if (g->portal_open && g->portal_x >= 0) {   /* escape beats all */
+            uint8_t k;
+            for (k = 0; k < 8; k++) {
+                if (game_try_enter_portal(g, w, wiz))
+                    return;
+                if (w->units[wiz].ap < 4)
+                    break;
+                wiz = walk_to(w, &t->rng, wiz, g->portal_x, g->portal_y, 1, false);
+                if (wiz == NO_UNIT)
+                    return;
+            }
+            return;
+        }
+        if (!looted) {                    /* his own house first */
+            wiz = walk_to(w, &t->rng, wiz, tx, ty, 8, chest);
+            if (wiz == NO_UNIT)
                 return;
-            if (!ai_step_toward(w, &t->rng, wiz, ctx->game->portal_x,
-                                     ctx->game->portal_y))
-                break;
+            if (chest && world_distance(w, w->units[wiz].x, w->units[wiz].y, tx, ty) <= 1)
+                ai_clear_feature(w, &t->rng, wiz, tx, ty);
+            else if (!chest && w->units[wiz].x == tx && w->units[wiz].y == ty)
+                items_pick_up(w, wiz);
+            return;
         }
+        if (!leave) {                     /* stay in: back home if outside */
+            if (!at_home(w, g, owner, w->units[wiz].x, w->units[wiz].y) &&
+                g->home_x[owner] != 0xFF)
+                walk_to(w, &t->rng, wiz, g->home_x[owner], g->home_y[owner], 8, false);
+            return;
+        }
+        /* out: treasure in sight, else on to the rival's house */
+        if (nearest_treasure(w, wiz, &tx, &ty)) {
+            wiz = walk_to(w, &t->rng, wiz, tx, ty, 8, false);
+            if (wiz != NO_UNIT && w->units[wiz].x == tx && w->units[wiz].y == ty)
+                items_pick_up(w, wiz);
+            return;
+        }
+        if (rival_home(w, g, owner, wiz, &tx, &ty))
+            walk_to(w, &t->rng, wiz, tx, ty, 8, true);
     }
 }
 
-/* One wizard phase (GDD 10): own creatures hunt, then the wizard melees
- * an adjacent enemy, summons while under company and walks to the
- * portal - through it as soon as it is open. */
+/* One wizard phase (GDD 10, D62): own creatures guard or march, the
+ * wizard melees an adjacent enemy, bolts the nearest one, summons, loots
+ * his house and stays in until his creatures are mostly gone or a rage
+ * takes him; an open portal always calls him. */
 void ai_wizard_phase(Turns *t, World *w, void *ctx_ptr)
 {
     AiCtx *ctx = ctx_ptr;

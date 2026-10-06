@@ -3983,6 +3983,89 @@ static void test_m4k_ai(void)
         (void)w1;
     }
 
+    {   /* D62: the AI wizard summons, loots his house, arms his creatures
+         * and stays in; alone and with nothing left to loot he goes out */
+        static Game g;
+        static Spellbook bk[OWN_NEUTRAL];
+        AiCtx ctx;
+        Turns t;
+        uint8_t r, i, wz, creatures, armed;
+        int16_t hx = 31, hy = 26;
+        world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+        area_reset();
+        memset(bk, 0, sizeof bk);
+        bk[OWN_P2].level[SP_GOBLIN] = 1;
+        bk[OWN_P2].level[SP_TROLL] = 1;
+        game_init(&g, -1, -1, 1, 1, &rng);
+        ctx.books = bk;
+        ctx.game = &g;
+        memset(&t, 0, sizeof t);
+        t.phase = OWN_P2;
+        rng_seed(&t.rng, 9);
+        for (r = 1; r <= 8; r++) {
+            t.round = r;
+            for (i = 0; i < world.unit_count; i++)
+                if (world.units[i].owner == OWN_P2)
+                    world.units[i].ap = world.units[i].ap_max;
+            ai_wizard_phase(&t, &world, &ctx);
+        }
+        wz = NO_UNIT;
+        creatures = armed = 0;
+        for (i = 0; i < world.unit_count; i++) {
+            const Unit *u = &world.units[i];
+            if (u->owner != OWN_P2)
+                continue;
+            if (u->kind == CR_WIZARD)
+                wz = i;
+            else {
+                creatures++;
+                if (u->in_use != NO_ITEM && u->in_use < u->item_count &&
+                    OBJECTS[u->items[u->in_use]].category == OC_WEAPON)
+                    armed++;
+            }
+        }
+        check(g.home_x[OWN_P2] == hx && g.home_y[OWN_P2] == hy &&
+              g.home_x[OWN_P1] == 6 && g.home_y[OWN_P1] == 6,
+              "d62: the AI notes where both wizards live");
+        check(wz != NO_UNIT && creatures >= 2 && creatures <= 5,
+              "d62: the wizard summons company (up to 5)");
+        check(wz != NO_UNIT && world_has_roof(&world, world.units[wz].x, world.units[wz].y) &&
+              world_distance(&world, world.units[wz].x, world.units[wz].y, hx, hy) <= 6,
+              "d62: with company the wizard stays in his house");
+        check(world.feature[29][32] == FE_NONE, "d62: he opened his own chest");
+        {
+            uint8_t k, scroll = 0;
+            for (k = 0; wz != NO_UNIT && k < world.units[wz].item_count; k++)
+                if (world.units[wz].items[k] == OBJ_SCROLL)
+                    scroll = 1;
+            check(scroll, "d62: the wizard takes the scroll, not the weapons");
+        }
+        check(armed >= 1, "d62: a creature took up the sword or the shield");
+
+        /* alone, the house bare: he goes out towards the rival */
+        {
+            uint8_t before;
+            for (i = world.unit_count; i-- > 0;)
+                if (world.units[i].owner == OWN_P2 && world.units[i].kind != CR_WIZARD)
+                    world_remove_unit(&world, i);
+            world.object_count = 0;
+            memset(bk, 0, sizeof bk);
+            wz = NO_UNIT;
+            for (i = 0; i < world.unit_count; i++)
+                if (world.units[i].owner == OWN_P2)
+                    wz = i;
+            world.units[wz].ap = world.units[wz].ap_max;
+            before = world_distance(&world, world.units[wz].x, world.units[wz].y, 6, 6);
+            t.round = 9;
+            ai_wizard_phase(&t, &world, &ctx);
+            for (i = 0; i < world.unit_count; i++)
+                if (world.units[i].owner == OWN_P2)
+                    wz = i;
+            check(world_distance(&world, world.units[wz].x, world.units[wz].y, 6, 6) < before,
+                  "d62: alone with the house looted he heads out");
+        }
+    }
+
     {   /* the wizard AI pries open a chest on the treasure path */
         world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
         world.unit_count = 0;
