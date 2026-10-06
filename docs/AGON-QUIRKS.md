@@ -130,6 +130,21 @@ billigsten geworden (Shadowcasting, D39); die KI-Phase war zu rund 7/8 der immer
 gebaute Blockier-Bitmap (Audit B1). Der volle Redraw bleibt der dickste Posten und fällt
 nur beim Kameraschwenk an — dort liegt der nächste Hebel (B8, Viewport-Scroll).
 
+**Messwerte `loc --bench` mit Level 1 auf 46×46** (2026-10-06, Stand `c1c7390`, echter Agon Light 2, 9×9-Fenster, D64). Vergleich mit 36×36 (Stand nach dem Audit, siehe oben):
+
+| Messung | 36×36 | 46×46 |
+|---|---|---|
+| Karte laden | 100 ms | 220 ms |
+| Cursor blinken | 0 ms | 2 ms |
+| Fenster komponieren (81 Felder) | 38 ms | 36 ms |
+| Sichtberechnung | 12 ms | 14 ms |
+| 20 Flächen-Ticks | 40 ms | 60 ms |
+| KI-Phase | 20 ms | 80 ms |
+| Voller Redraw (81 Felder) | 100 ms | 96 ms |
+| Nur Kerzenanimation | 6 ms | 6 ms |
+
+Einordnung: Alles, was am 9×9-Fenster hängt (komponieren, Sicht, Redraw, Kerzen), bleibt gleich; die größere Karte kostet im normalen Zug nichts. Nur Laden (einmalig), Flächen-Ticks (etwa 3 ms je Tick) und die KI-Phase wachsen. Die KI-Phase ist viermal so lang, aber der Bench ist ein frischer Start mit wenigen Kreaturen. Der Sprung kommt nicht allein von der Fläche: Seit D62 sucht die KI Wege per Breitensuche und rüstet sich aus. Beides ist nicht getrennt gemessen. Ein Worst Case (KI-Zauberer mit 5 Beschwörungen, mehrere Runden) steht noch aus.
+
 **Messwerte `loc --bench` auf dem echten Agon Light 2** (2026-10-03, Stand `037521f`, Szenario 1, 9×9-Fenster):
 
 | Messung | Zeit |
