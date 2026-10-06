@@ -70,6 +70,8 @@ def main() -> int:
          "#ifndef LOC_GEN_DATA_H", "#define LOC_GEN_DATA_H", "",
          "#include <stdint.h>", "",
          '#include "../world.h"', "",
+         "extern const uint8_t HABITAT[CR_COUNT][FL_COUNT];   /* wild spawn weight per ground (D55) */",
+         "extern const uint8_t HABITAT_SHORE[CR_COUNT];        /* extra weight next to water */",
          "extern const uint8_t FLOOR_AP[FL_COUNT];",
          "extern const uint8_t FLOOR_SIGHT[FL_COUNT];   /* blocks ground sight */",
          "enum { NATIVE_WOOD = 1, NATIVE_WATER = 2, NATIVE_ROCK = 4 };",
@@ -143,6 +145,16 @@ def main() -> int:
     c += [f"    [{fl}] = {NATIVE[costs[t]['native']]}," for fl, t in FLOOR_TERRAIN]
     c += ["};", "", "const uint8_t FLOOR_DROWN[FL_COUNT] = {"]
     c += [f"    [{fl}] = {1 if costs[t]['hazard'] == 'drown' else 0}," for fl, t in FLOOR_TERRAIN]
+    habitats = rows("habitats.csv")
+    cids = [r["id"] for r in creatures]
+    for r in habitats:
+        assert r["creature"] in cids, r["creature"]
+    c += ["};", "", "const uint8_t HABITAT[CR_COUNT][FL_COUNT] = {"]
+    for r in habitats:
+        cells = ", ".join(f"[{fl}] = {int(r[fl[3:].lower()])}" for fl, _ in FLOOR_TERRAIN)
+        c.append(f"    [CR_{r['creature'].upper()}] = {{{cells}}},")
+    c += ["};", "", "const uint8_t HABITAT_SHORE[CR_COUNT] = {"]
+    c += [f"    [CR_{r['creature'].upper()}] = {int(r['shore'])}," for r in habitats]
     c += ["};", "",
           "const uint8_t FEATURE_TOUGH[FE_COUNT] = {"]
     feat_ids = ["none", "wall", "door_closed", "door_open", "bed", "bookshelf",

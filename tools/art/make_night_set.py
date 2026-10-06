@@ -271,11 +271,130 @@ def bubbles(only):
         save(f"decor_bubble_{f}", c, only)
 
 
+# --- woods ---------------------------------------------------------------
+# The dead wood (shadow wood floor) is a graveyard of bare trees, stumps and
+# bones; the enchanted wood (magic wood floor) has twisted violet trunks with
+# glowing teal crowns and glow mushrooms. Both are full 24x24 floor tiles.
+
+def line(c: Canvas, x0: int, y0: int, x1: int, y1: int, col) -> None:
+    n = max(abs(x1 - x0), abs(y1 - y0), 1)
+    for i in range(n + 1):
+        c.px(round(x0 + (x1 - x0) * i / n), round(y0 + (y1 - y0) * i / n), col)
+
+
+def bare_tree(c: Canvas, x: int, base: int, h: int, rng: random.Random) -> None:
+    """A dead tree: forked trunk, no leaves."""
+    top = base - h
+    for y in range(top + 3, base + 1):           # trunk, 2 px wide
+        c.px(x, y, DGREY)
+        c.px(x + 1, y, (85, 85, 85) if y % 3 else BLACK)
+        c.px(x - 1 if y > base - 3 else x, y, DGREY)   # root flare
+    c.px(x, top + 3, GREY)
+    for side in (-1, 1):                          # two main limbs, each forking
+        fx = x + (1 if side > 0 else 0)
+        fy = top + 4 + rng.randint(0, 2)
+        ex, ey = fx + side * rng.randint(4, 6), top - rng.randint(0, 2)
+        line(c, fx, fy, ex, ey, GREY)
+        mx, my = (fx + ex) // 2, (fy + ey) // 2
+        line(c, mx, my, mx + side * 3, my - 3, DGREY)
+        line(c, ex, ey, ex - side, ey - 3, DGREY)
+    line(c, x, top + 3, x, top - 1, GREY)         # leader
+
+
+def stump(c: Canvas, x: int, y: int) -> None:
+    c.rect(x, y, x + 4, y + 3, (85, 85, 85))
+    c.rect(x, y, x + 4, y, GREY)
+    c.rect(x + 1, y + 1, x + 3, y + 1, DBROWN)    # the cut face
+    c.px(x - 1, y + 3, (85, 85, 85))
+    c.px(x + 5, y + 3, (85, 85, 85))
+
+
+def bones(c: Canvas, x: int, y: int) -> None:
+    c.rect(x, y, x + 3, y + 1, WHITE)             # skull
+    c.px(x, y + 1, BLACK)
+    c.px(x + 2, y + 1, BLACK)
+    line(c, x - 3, y + 4, x + 6, y + 3, GREY)     # a long bone
+    c.px(x - 3, y + 3, GREY)
+    c.px(x + 6, y + 4, GREY)
+
+
+def deadwood(variant: int, only):
+    rng = random.Random(540 + variant)
+    c = Canvas()
+    c.rect(0, 0, 23, 23, BLACK)
+    for _ in range(14):                           # dark earth specks
+        c.px(rng.randint(0, 23), rng.randint(0, 23), DBROWN)
+    layouts = [[(6, 21, 15), (17, 15, 12)], [(5, 15, 11), (14, 23, 16), (20, 12, 8)],
+               [(8, 20, 14), (19, 22, 13), (2, 12, 8)]]
+    for (x, base, h) in layouts[variant]:
+        bare_tree(c, x, base, h, rng)
+    if variant == 0:
+        stump(c, 14, 19)
+    elif variant == 1:
+        bones(c, 3, 19)
+    else:
+        stump(c, 2, 20)
+        bones(c, 14, 4)
+    name = "floor_shadowwood" if variant == 0 else f"floor_shadowwood_{variant}"
+    save(name, c, only)
+
+
+def glow_tree(c: Canvas, x: int, base: int, r: int, rng: random.Random) -> None:
+    """A twisted trunk under a glowing teal crown with sparkles."""
+    for y in range(base - 9, base + 1):
+        sway = 1 if y < base - 5 else 0
+        c.px(x + sway, y, (170, 85, 255))
+        c.px(x + sway + 1, y, (85, 0, 170))
+    line(c, x + 1, base - 7, x - 3, base - 11, (170, 85, 255))
+    line(c, x + 1, base - 6, x + 5, base - 10, (170, 85, 255))
+    cy = base - 12
+    for dy in range(-r + 1, r):                   # the crown: a lumpy disc
+        for dx in range(-r - 2, r + 3):
+            if dx * dx / ((r + 2) ** 2) + dy * dy / (r * r) <= 1:
+                col = (0, 170, 170)
+                if dy + dx // 2 < -r // 2:
+                    col = (0, 255, 255)
+                elif dy > r // 2:
+                    col = (0, 85, 85)
+                c.px(x + dx, cy + dy, col)
+    for _ in range(7):                            # sparkles
+        c.px(x + rng.randint(-r - 3, r + 3), cy + rng.randint(-r - 2, r + 3), WHITE)
+    c.rect(x - 1, base + 1, x + 2, base + 1, (0, 85, 85))
+
+
+def glow_mushroom(c: Canvas, x: int, y: int) -> None:
+    c.px(x, y + 1, GREY)
+    c.rect(x - 1, y, x + 1, y, (255, 85, 255))
+    c.px(x, y - 1, (255, 85, 255))
+    c.px(x - 1, y, WHITE)
+
+
+def enchanted(variant: int, only):
+    rng = random.Random(780 + variant)
+    c = Canvas()
+    c.rect(0, 0, 23, 23, BLACK)
+    for _ in range(16):
+        c.px(rng.randint(0, 23), rng.randint(0, 23), (0, 85, 85) if rng.random() < .5 else (0, 0, 85))
+    layouts = [[(7, 22, 5), (17, 17, 4)], [(5, 17, 4), (15, 23, 5)], [(10, 21, 5), (19, 14, 3)]]
+    for (x, base, r) in layouts[variant]:
+        glow_tree(c, x, base, r, rng)
+    for (x, y) in ((3, 22), (13, 22), (20, 19))[: 2 + variant % 2]:
+        glow_mushroom(c, x, y)
+    name = "floor_magicwood" if variant == 0 else f"floor_magicwood_{variant}"
+    save(name, c, only)
+
+
+def woods(only):
+    for v in range(3):
+        deadwood(v, only)
+        enchanted(v, only)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", help="redraw tiles whose name starts with this")
     a = ap.parse_args()
-    for fn in (windows, fences, gate, bridge, flowers, mushrooms, bubbles):
+    for fn in (windows, fences, gate, bridge, flowers, mushrooms, bubbles, woods):
         fn(a.only)
     return 0
 

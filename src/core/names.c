@@ -7,7 +7,7 @@
 static const char *const FLOOR_NAMES[FL_COUNT] = {
     [FL_STONE] = "Steinboden", [FL_WOOD] = "Holzdielen",
     [FL_GRASS] = "Gras", [FL_PATH] = "Weg", [FL_TALL_GRASS] = "Hohes Gras",
-    [FL_FOREST] = "Wald", [FL_MAGIC_WOOD] = "Zauberwald", [FL_SHADOW_WOOD] = "Schattenwald",
+    [FL_FOREST] = "Wald", [FL_MAGIC_WOOD] = "Zauberwald", [FL_SHADOW_WOOD] = "Totenwald",
     [FL_SWAMP] = "Sumpf", [FL_WATER] = "Wasser", [FL_RUBBLE] = "Geroell", [FL_BRIDGE] = "Bruecke",
 };
 

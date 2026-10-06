@@ -37,8 +37,6 @@ RULES: list[tuple[str, dict[tuple[int, int, int], tuple[int, int, int]]]] = [
     ("floor_path", {(170, 170, 85): (85, 85, 85), (85, 85, 85): BLACK, (85, 85, 0): BLACK}),
     # shore: dull sand lip
     ("edge_shore_", {(170, 170, 85): (85, 85, 0)}),
-    # magic wood: the cyan glows on black
-    ("floor_magicwood", {(0, 85, 0): BLACK}),
     # rubble
     ("floor_rubble", {(85, 85, 0): BLACK}),
 ]

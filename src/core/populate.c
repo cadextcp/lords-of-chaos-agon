@@ -2,19 +2,25 @@
 
 #include "gen/data.h"
 
-/* Which wild animals live where (D35). Kinds by habitat; crocodiles want
- * wet ground, the others open land or woods. */
-static const uint8_t LAND_ANIMALS[] = {
+/* Which wild animals live where (D35, D55): the ground under the spawn
+ * field picks the animal by the weights in data/habitats.csv - crocodiles in
+ * the swamp and on the shore, bears in the forest, spiders in the dead wood.
+ * Listed in the order of the table. */
+static const uint8_t WILD_KINDS[] = {
     CR_LION, CR_BEAR, CR_GORILLA, CR_UNICORN, CR_GIANT_BAT, CR_GIANT_SPIDER,
-    CR_ELEPHANT, CR_PEGASUS, CR_GRYPHON,
+    CR_ELEPHANT, CR_PEGASUS, CR_GRYPHON, CR_CROCODILE,
 };
 static const uint8_t HERD_ANIMALS[] = {CR_ELEPHANT, CR_UNICORN, CR_PEGASUS};
 
 /* Loose finds by ground (most treasure is in chests, items.c). */
 static const uint8_t FINDS_OPEN[] = {OBJ_APPLE, OBJ_APPLE, OBJ_CLOVER, OBJ_CRYSTAL};
-static const uint8_t FINDS_WOOD[] = {OBJ_MUSHROOM, OBJ_MISTLETOE, OBJ_FAIRYWING,
-                                     OBJ_MAGIC_MUSHROOM, OBJ_MAGIC_APPLE};
+static const uint8_t FINDS_WOOD[] = {OBJ_MUSHROOM, OBJ_MISTLETOE, OBJ_APPLE,
+                                     OBJ_DRAGON_HERB};
+static const uint8_t FINDS_MAGIC[] = {OBJ_FAIRYWING, OBJ_MAGIC_MUSHROOM,
+                                      OBJ_MAGIC_APPLE, OBJ_MISTLETOE};
+static const uint8_t FINDS_DEAD[] = {OBJ_SULPH, OBJ_NITRO, OBJ_RUNE_STONE};
 static const uint8_t FINDS_WET[] = {OBJ_SULPH, OBJ_NITRO, OBJ_MUSHROOM};
+static const uint8_t FINDS_ROCK[] = {OBJ_CRYSTAL, OBJ_CRYSTAL, OBJ_NITRO};
 
 static const int8_t DIR_X[8] = {0, 1, 1, 1, 0, -1, -1, -1};
 static const int8_t DIR_Y[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
@@ -71,9 +77,23 @@ static bool wet(uint8_t floor)
     return floor == FL_SWAMP;
 }
 
-static bool woods(uint8_t floor)
+/* Water on one of the eight sides (the crocodile's shore). */
+static bool by_water(const World *w, int16_t x, int16_t y)
 {
-    return floor == FL_FOREST || floor == FL_MAGIC_WOOD || floor == FL_SHADOW_WOOD;
+    int8_t dx, dy;
+    for (dy = -1; dy <= 1; dy++)
+        for (dx = -1; dx <= 1; dx++)
+            if ((dx || dy) && world_floor(w, (int16_t)(x + dx), (int16_t)(y + dy)) == FL_WATER)
+                return true;
+    return false;
+}
+
+static uint8_t habitat_weight(const World *w, uint8_t kind, int16_t x, int16_t y)
+{
+    uint8_t wt = HABITAT[kind][w->floor[y][x]];
+    if (by_water(w, x, y))
+        wt = (uint8_t)(wt + HABITAT_SHORE[kind]);
+    return wt;
 }
 
 static void put_object(World *w, uint8_t kind, int16_t x, int16_t y)
@@ -89,16 +109,30 @@ static void put_object(World *w, uint8_t kind, int16_t x, int16_t y)
 static void spawn_animal(World *w, Rng *rng)
 {
     int16_t x, y;
-    uint8_t kind, slot;
+    uint8_t kind = CR_COUNT, slot, tries, i;
     if (w->unit_count + HERD_ROOM >= MAX_UNITS)
         return;
-    if (!random_field(w, rng, POP_WIZARD_GAP, &x, &y))
+    /* a field whose ground suits somebody; the ground picks the animal */
+    for (tries = 0; tries < 12 && kind == CR_COUNT; tries++) {
+        uint16_t total = 0, roll;
+        if (!random_field(w, rng, POP_WIZARD_GAP, &x, &y))
+            return;
+        for (i = 0; i < sizeof WILD_KINDS; i++)
+            total = (uint16_t)(total + habitat_weight(w, WILD_KINDS[i], x, y));
+        if (!total)
+            continue;
+        roll = (uint16_t)rng_range(rng, total);
+        for (i = 0; i < sizeof WILD_KINDS; i++) {
+            uint8_t wt = habitat_weight(w, WILD_KINDS[i], x, y);
+            if (roll < wt) {
+                kind = WILD_KINDS[i];
+                break;
+            }
+            roll = (uint16_t)(roll - wt);
+        }
+    }
+    if (kind == CR_COUNT)
         return;
-    /* the ground picks the animal: swamp and water's edge = crocodile */
-    if (wet(w->floor[y][x]) && rng_range(rng, 2) == 0)
-        kind = CR_CROCODILE;
-    else
-        kind = LAND_ANIMALS[rng_range(rng, sizeof LAND_ANIMALS)];
     slot = world_spawn_unit(w, OWN_NEUTRAL, kind, (uint8_t)x, (uint8_t)y);
     if (slot != NO_UNIT && CREATURES[kind].wild == WILD_TERRITORIAL) {
         w->units[slot].post_x = (uint8_t)x;   /* its territory */
@@ -132,8 +166,14 @@ void populate_scenario(World *w, Rng *rng)
         if (!random_field(w, rng, POP_CHEST_GAP, &x, &y))
             continue;
         f = w->floor[y][x];
-        if (woods(f))
+        if (f == FL_FOREST)
             put_object(w, FINDS_WOOD[rng_range(rng, sizeof FINDS_WOOD)], x, y);
+        else if (f == FL_MAGIC_WOOD)
+            put_object(w, FINDS_MAGIC[rng_range(rng, sizeof FINDS_MAGIC)], x, y);
+        else if (f == FL_SHADOW_WOOD)
+            put_object(w, FINDS_DEAD[rng_range(rng, sizeof FINDS_DEAD)], x, y);
+        else if (f == FL_RUBBLE)
+            put_object(w, FINDS_ROCK[rng_range(rng, sizeof FINDS_ROCK)], x, y);
         else if (wet(f))
             put_object(w, FINDS_WET[rng_range(rng, sizeof FINDS_WET)], x, y);
         else

@@ -1,0 +1,15 @@
+# Where wild animals start (D55): spawn weight per ground, own design (D7).
+# populate.c picks a random free field and then chooses the animal by these weights
+# (0 = never there); `shore` is added on any field next to water (crocodile!).
+# Creatures not listed never spawn as wild animals. Ids follow creatures.csv.
+creature,stone,wood,grass,path,tall_grass,forest,magic_wood,shadow_wood,swamp,water,rubble,bridge,shore
+lion,0,0,5,1,6,1,0,0,0,0,1,0,0
+bear,0,0,1,0,2,6,1,1,0,0,0,0,0
+gorilla,0,0,0,0,1,5,2,0,0,0,0,0,0
+unicorn,0,0,2,0,2,0,6,0,0,0,0,0,0
+giant_bat,0,0,1,0,0,2,0,5,0,0,3,0,0
+giant_spider,0,0,0,0,1,3,1,5,0,0,2,0,0
+elephant,0,0,4,1,3,0,0,0,1,0,0,0,1
+pegasus,0,0,3,0,2,0,2,0,0,0,1,0,0
+gryphon,0,0,1,0,0,0,0,1,0,0,5,0,0
+crocodile,0,0,0,0,0,0,0,0,7,0,0,0,5

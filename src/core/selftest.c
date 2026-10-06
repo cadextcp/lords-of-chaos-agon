@@ -34,7 +34,7 @@
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
  * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures;
  * M5c added the seven fx tiles after "floor_*" (IDs shifted again). */
-#define HOUSE_VIEW_HASH 0xDD270292UL
+#define HOUSE_VIEW_HASH 0x84601F62UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -1436,6 +1436,56 @@ static void test_wild(void)
     rng_seed(&r, 6);
     populate_scenario(&world, &r);
     check(world_digest() != d1, "d35: another seed, another world");
+
+    {   /* D55: the ground picks the animal (data/habitats.csv) */
+        uint8_t seed, k, valid = 1, finds_ok = 1;
+        unsigned croc = 0, bear = 0, spider = 0, lion = 0, total = 0;
+        for (seed = 1; seed <= 60; seed++) {
+            world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+            strip_neutrals();
+            rng_seed(&r, seed);
+            populate_scenario(&world, &r);
+            for (k = 0; k < world.unit_count; k++) {
+                const Unit *u = &world.units[k];
+                uint8_t wt;
+                bool water_near = false;
+                int8_t dx, dy;
+                if (u->kind == CR_WIZARD)
+                    continue;
+                for (dy = -1; dy <= 1; dy++)
+                    for (dx = -1; dx <= 1; dx++)
+                        if ((dx || dy) && world_floor(&world, (int16_t)(u->x + dx),
+                                                      (int16_t)(u->y + dy)) == FL_WATER)
+                            water_near = true;
+                wt = (uint8_t)(HABITAT[u->kind][world.floor[u->y][u->x]] +
+                               (water_near ? HABITAT_SHORE[u->kind] : 0));
+                if (!wt)
+                    valid = 0;
+                total++;
+                if (u->kind == CR_CROCODILE) croc++;
+                if (u->kind == CR_BEAR) bear++;
+                if (u->kind == CR_GIANT_SPIDER) spider++;
+                if (u->kind == CR_LION) lion++;
+            }
+            for (k = 0; k < world.object_count; k++) {
+                uint16_t t = world.objects[k].tile;
+                uint8_t f = world.floor[world.objects[k].y][world.objects[k].x];
+                if (t == OBJECTS[OBJ_CHEST_KEY].tile)
+                    continue;
+                if (f == FL_MAGIC_WOOD && t != OBJECTS[OBJ_FAIRYWING].tile &&
+                    t != OBJECTS[OBJ_MAGIC_MUSHROOM].tile && t != OBJECTS[OBJ_MAGIC_APPLE].tile &&
+                    t != OBJECTS[OBJ_MISTLETOE].tile && world.objects[k].x > 12)
+                    finds_ok = 0;   /* x > 12: the houses' own equipment is fixed */
+                if (f == FL_SHADOW_WOOD && t != OBJECTS[OBJ_SULPH].tile &&
+                    t != OBJECTS[OBJ_NITRO].tile && t != OBJECTS[OBJ_RUNE_STONE].tile)
+                    finds_ok = 0;
+            }
+        }
+        check(valid, "d55: every wild animal starts on ground that suits it");
+        check(croc > 0 && bear > 0 && spider > 0 && lion > 0 && total > 200,
+              "d55: crocodiles, bears, spiders and lions all turn up over 60 seeds");
+        check(finds_ok, "d55: loose finds fit the wood they lie in");
+    }
 
     /* behaviour on the open road (row 12 is path) */
     world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
