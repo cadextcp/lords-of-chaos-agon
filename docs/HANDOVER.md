@@ -1,6 +1,6 @@
 # Übergabe: Stand und nächste Schritte
 
-> Stand: 2026-10-04 · **M0–M5 vollständig**, **Polish-Runde** gemergt (#113–#117), dazu #118 (D34) und #119 (D35–D37) · CI grün · `loc.bin` 299 KB
+> Stand: 2026-10-06 · **M0–M5 vollständig**, **Polish-Runde** gemergt (#113–#119), danach Playtest-Korrekturen und Gelände-Politur (D38–D53, siehe GDD §14 und `CHANGELOG.md`) und **Level 1 als Nachtkarte (D54–D56, #132–#134)** · CI grün · `tiles.bin` 300 KB (540 Kacheln)
 > Für die nächste Person bzw. den nächsten Agenten. Zuerst `CLAUDE.md` lesen (Regeln, Befehle), dann dieses Dokument.
 
 ---
@@ -16,6 +16,7 @@
 | **M4 Classic komplett (v1.0)** | ✅ 10 von 10 Teilen (#43–#52) |
 | **M5 Präsentationsrunde** | ✅ #88–#92: Endbildschirm mit Menü-Rücksprung/Kampagne, Hilfeseiten (SD), geführtes Tutorial, Lexikon (persistent), Ereignis-Ring mit Kampf-/Todesanimation, 16 Sound-Effekte mit Wellenformen/ADSR, KI sichtbar, Titelbild (Streaming) + Titelmusik (3 Kanäle) |
 | **Polish-Runde** | ✅ #113 Bildschirmreste/Titelbild-Loader · #114 VDP-Spike (ADR 0012) · #115 Audio (Samples, Musik, Jingles) · #116 Titelbild, Zierschrift, Menü-/Endbilder, Tränke · #117 Sprite-Effekte · #118 Beschwörungsstufen (D34) · #119 Rundenende, Zufallswelt, Wildtiere, Phasenbildschirm, Aufheben-Auswahl (D35–D37). Plan: `C:\Users\cadex\.claude\plans\schau-mal-das-spiel-soft-dongarra.md` (Nutzer-Entscheide dort) |
+| **Level 1 Nachtkarte** | ✅ #132 (D54 Nacht, Fenster/Zaun/Tor/Brücke, neue Karte; D55 Biom-Habitate, Totenwald/Zauberwald) · #133 (D56 echte Sichtlinien durch Fenster und Türen) · #134 (keine Starts auf Brücken). Details in §1a |
 | M6+ Chaos | geplant, siehe `docs/ROADMAP.md` |
 
 **Was heute läuft (Emulator, Stand Polish-Runde):**
@@ -58,6 +59,26 @@
 
 ---
 
+## 1a. Level 1: Nachtkarte (D54–D56, #132–#134)
+
+Auftrag des Nutzers (2026-10-06): Level 1 soll wie die Amiga-Karte glaubwürdig wirken — Nacht, verschlungene Wege, Haus mit mehreren Zimmern, Fenster mit Sichtlinie, Biome mit natürlichen Grenzen, Brücken, Blumengarten mit Zaun und Tor. Kartengröße bleibt **36×36** (RAM ≈ 24 B je Feld, Reserve ~30 KB, QUIRK S6). Alles Weitere steht im GDD (D54–D56) und im CHANGELOG.
+
+- **Nacht (D54):** `tools/art/night.py` färbt Außenkacheln beim Bauen um (`build_tiles.collect`): schwarzer Grund, gedämpfte Grastupfen, graue Wege, dunkler Sumpf. **Die PNGs in `assets/tiles` bleiben die Tag-Quelle**, Lichtquellen und Innenräume bleiben unberührt. Regeln sind pro Namenspräfix in `RULES`.
+- **Neue Elemente:** Fenster (`FE_WINDOW`, Kartenzeichen `W`), Zaun (`FE_FENCE`, `F`, 16er-Auto-Tile) mit **Tor** (eine Tür zwischen Zaunpfosten, `is_gate` in `view.c`; schließbar/abschließbar wie jede Tür, blockiert geschlossen die Sicht), Brücke (`FL_BRIDGE`, `b`, Ausrichtung nach dem Wasser), Blumen (`DE_FLOWERS`, `f`), Glühpilze (`DE_MUSHROOMS`, `o`), Sumpfblasen (automatisch). Alle Kacheln erzeugt `tools/art/make_night_set.py` (`--only NAME` für einzelne; die PNGs sind danach Quelle).
+- **Karte:** `data/maps/many_coloured_land.txt` ist jetzt von Hand pflegbarer Text. Entstanden aus einem einmaligen Entwurfsskript (nicht im Repo): Fluss mit drei Brücken, Biome per verzerrtem Voronoi, Wege ohne Sackgassen (nur das Portal ist Endpunkt), Haus 1 mit vier Räumen, sechs Fenstern und Blumengarten, Haus 2 mit zwei Räumen. **Die alten Hauskoordinaten sind unverändert** (Zauberer 6,6 und 31,26, Kessel, Truhen, Türen), weil Selftests daran hängen. Vorschau: `uv run tools/art/map_preview.py 0 [x0 y0 w h] [--viewer X Y]` (Host-Build nötig), Bilder in `docs/design/mockups/`.
+- **Wälder (D55):** Totenwald (`FL_SHADOW_WOOD`, kahle Baumleichen, Stümpfe, Knochen) und Zauberwald (`FL_MAGIC_WOOD`, violette Stämme, türkise Kronen, Glühpilze), je 3 Varianten per Positions-Hash (`FLOOR_VAR`).
+- **Wildtiere und Funde nach Biom (D55):** `data/habitats.csv` → `HABITAT[][]`/`HABITAT_SHORE[]`. `populate.c` würfelt ein freies Feld gleichverteilt und wählt dann das Tier nach den Gewichten des Bodens (Krokodil im Sumpf und am Ufer, Bär im Wald, Spinne/Fledermaus im Totenwald …). **Das Biom bestimmt nur welches Tier, nicht wie viele** (so vom Nutzer gewollt). Funde passen zum Wald. Brücken sind keine Startfelder (#134).
+- **Sicht (D56, ersetzt D44):** Dächer sind nur Anzeige und blockieren keine Sicht. Das Dach öffnet sich auf den Feldern, die die aktive Figur sieht (`sight_look`, gleicher Schattenwurf wie die Sichtregel, gecacht). Fenster sind vom Dach ausgenommen (`roof_covered`). Fenster und offene Türen geben echte Sichtkeile; KI, Zauber und Fernwaffen zielen entsprechend.
+
+**Selftests:** neue Checks `d54`, `d55`, `d56`. Einige ältere Checks hängen an Koordinaten der neuen Karte und brechen, wenn man dort Gelände ändert: Löwe d35 (Reihe 26, x 16–27), Hochgras d36 (Reihe 19, x 7–11), Bogen (2,1)–(5,1), Dach d46 (Betrachter 15,6 und Wand 20,20). `HOUSE_VIEW_HASH` ändert sich mit jeder neuen oder umbenannten Kachel (IDs sind alphabetisch).
+
+**Offen:**
+- **Hardware:** VDP-RAM mit den ~40 neuen Kacheln (QUIRK S2) und die Optik der Nacht auf echtem Bildschirm; Sichtkeile an Hausecken im Emulator anspielen (die CI prüft nur Selftests).
+- **Optik:** offene Tor-Kachel (`gate_h_open`) noch grob; Dach nachts evtl. dunkler; einzelne Wege klumpig.
+- **Spiel:** Truhen, Schlüssel und Herden sind noch nicht an Biome gebunden; Löwen und Elefanten starten auch auf Wegen (Gewichte in `data/habitats.csv` anpassbar); Haus 2 hat nur zwei Räume.
+
+---
+
 ## 2. Zusammenarbeit mit dem Nutzer (wichtig)
 
 - **Sprache:** Deutsch im Chat und in den Docs, Code und Kommentare auf Englisch.
@@ -86,6 +107,12 @@
   - `reference/`: Handbuch-PDFs, Screenshots, Spectrum-Kartenbogen; urheberrechtlich geschützt, **nie committen**
   - `emulator/`, `toolchain/`, `sdcard/`, `.cache/`, `build/`, `bin/`, `obj/`, `src/core/gen/`
 - Frischer Clone: `uv run tools/setup.py` (lädt Emulator 1.2.5 und agondev v0.22, SHA-geprüft).
+- **macOS:** `setup.py` unterstützt nur Windows und Linux. Der **Host-Build** läuft trotzdem mit dem System-`cc` (Kommandos unten), damit gehen Host-Selftest, `map_preview.py` und alle Python-Werkzeuge. eZ80-Selftest und Emulator laufen dort nicht; die CI prüft sie.
+  ```bash
+  for s in build_tiles gen_data gen_maps gen_scenarios; do uv run tools/$s.py; done
+  cc -std=c99 -O1 -o build/host/loc_host $(find src/core -name '*.c') host/main.c
+  build/host/loc_host --selftest
+  ```
 - Alte Projekte, nur als Archiv: `C:\Users\cadex\projekte\LordsOfChaos` (gescheiterter BASIC-Versuch), `AgonBasics`, `AgonPipeline`.
 
 ---
@@ -133,8 +160,9 @@ src/core/  plattformfrei (Host + eZ80):
   tutorial.[ch] Schritt-Engine des geführten Tutorials (M5b)
   lexicon.[ch]  entdeckte Kreaturen/Objekte als Bitmasken (M5b)
   ai.[ch]       Jäger und Zauberer-KI
-  sight.[ch]    Sichtlinie (Bresenham) und Hidden Map
-  view.[ch]     9x9-Fenster: Ebenen pro Feld, Auto-Tiling, Dirty-Felder, Cache, Animation
+  sight.[ch]    Sichtlinie (Schattenwurf), Hidden Map, sight_look (Figur-Sicht fürs Dach, D56)
+  view.[ch]     9x9-Fenster: Ebenen pro Feld, Auto-Tiling (Wand, Zaun/Tor, Übergänge), Dirty-Felder, Cache, Animation, Dach
+  populate.[ch] Wildtiere nach Biom (HABITAT), Truhen, Funde, Herden (D35, D55)
   chord.[ch]    Pfeil-Akkorde und Tastenwiederholung
   names.[ch]    alle Anzeigetexte (deutsch, ohne Umlaute)
   selftest.c    läuft auf Host UND eZ80
@@ -151,8 +179,8 @@ host/      PC-Frontend (--selftest, --dump, --layers)
 
 | Quelle | Werkzeug | Ergebnis |
 |---|---|---|
-| `assets/tiles/*.png`, `assets/icons/*.png` | `build_tiles.py` | `build/tiles.bin` (291 Kacheln, 162 KB), `gen/tiles.h` |
-| `data/*.csv` | `gen_data.py` | `gen/data.[ch]`, `gen/creatures.h` |
+| `assets/tiles/*.png`, `assets/icons/*.png` | `build_tiles.py` (inkl. `art/night.py`, D54) | `build/tiles.bin` (540 Kacheln, 300 KB), `gen/tiles.h` |
+| `data/*.csv` (inkl. `habitats.csv`, D55) | `gen_data.py` | `gen/data.[ch]`, `gen/creatures.h` |
 | `data/maps/*.txt` | `gen_maps.py` | `build/maps/*.map` (Format v4) und `gen/maps.[ch]` |
 | `data/scenarios/*.txt` | `gen_scenarios.py` | `build/scenarios/*.scn` (Zauberbücher, „LOCS“ v1) und `gen/scenarios.[ch]` |
 | `data/help/*.txt` | `gen_help.py` | `build/help/*.hlp` (Seiten, Umlaut-Codes; Lexikon-Seitenzahl = Kreaturen+Objekte) |
@@ -186,6 +214,9 @@ Die vollständige Liste steht in `docs/AGON-QUIRKS.md`. Die wichtigsten:
     - Im Frontend nach jeder Aktion `settle()` aufrufen.
 12. **Zielzauber brauchen Reichweite 6 und Sichtlinie (D17).** Tests, die durch die Haustür im Testland zielen, öffnen sie vorher (`feature[5][8] = FE_DOOR_OPEN`).
 13. **Der Kessel-Zustand folgt dem Kessel-Objekt** (`brew_cauldron_at`). Volle Kessel lassen sich nicht tragen; Phiolen wirken vorerst mit Stufe 2.
+14. **Generierte Dateien nach Kachel- oder Datenänderungen neu erzeugen** (`build_tiles`, `gen_data`, `gen_maps`), bevor man den Host-Build startet. Veraltete `gen/maps.c` oder `gen/tiles.h` ergaben schon einen scheinbar hängenden Selftest mit vielen Fehlern, die mit dem Code nichts zu tun hatten.
+15. **Tag-PNG und Nacht:** `assets/tiles/*.png` sind die Tagfassung; was nachts anders aussieht, steht in `tools/art/night.py`. Neue Außenkacheln brauchen dort eine Regel, sonst bleiben sie hell.
+16. **Dächer blockieren keine Sicht (D56).** Eine Dachbitmap in der Blockierkarte wäre ein Rückschritt; wer ein Dach „öffnen“ will, tut das in `view.c` über `sight_look`.
 
 ---
 
@@ -236,8 +267,10 @@ Danach: M6/Chaos laut `docs/ROADMAP.md` (GDD §12), oder Politur aus §8.
 
 | Thema | Datei |
 |---|---|
-| Spieldesign, Entscheidungen D1–D22, M4-Plan | `docs/design/GDD.md` (§14, §16) |
+| Spieldesign, Entscheidungen D1–D56, M4-Plan | `docs/design/GDD.md` (§14, §16) |
 | Amiga-Beobachtungen | `docs/design/amiga-observations.md` |
+| Dächer und Sicht (Entscheidungsvorlage, überholt durch D56) | `docs/design/VORLAGE-daecher-und-sicht.md` |
+| Mockups, Kartenvorschauen (Nacht, Fenster-Sicht) | `docs/design/mockups/` |
 | Roadmap und Arbeitsweise | `docs/ROADMAP.md` |
 | Architektur | `docs/ARCHITECTURE.md` |
 | Architekturentscheidungen | `docs/adr/0001` bis `0011` (Rendering 0006, Eingabe 0007, Daten 0008, Sicht 0009, SD-Daten 0011) |
