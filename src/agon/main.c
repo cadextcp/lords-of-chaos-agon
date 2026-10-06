@@ -1089,10 +1089,7 @@ static uint8_t loads_left = LOADS_LIMIT;
 static bool loads_unlimited = false;   /* F8: setup toggle */
 static uint8_t random_strength = 2;    /* F9 setup value */
 static char saved_map[32];             /* map of the stored savegame */
-static SaveGame save_state;
 static bool save_loaded;              /* the menu restored the savegame */
-
-static uint8_t save_buf[SAVE_BUF_SIZE];
 
 /* Bounded copy that also tolerates src == dst. */
 static void copy_name(char *dst, size_t cap, const char *src)
@@ -1135,20 +1132,24 @@ static void save_apply(const SaveGame *sg)
 
 static bool save_to_sd(void)
 {
+    uint8_t *buf;
+    SaveGame *sg = screens_borrow_save(&buf);
     uint16_t len;
-    save_fill(&save_state);
-    len = save_serialize(&save_state, save_buf, sizeof save_buf);
-    return len && savegame_write(save_buf, len);
+    save_fill(sg);
+    len = save_serialize(sg, buf, SAVE_BUF_SIZE);
+    return len && savegame_write(buf, len);
 }
 
 static bool load_from_sd(void)
 {
-    uint16_t len = savegame_read(save_buf, sizeof save_buf);
-    if (!len || !save_deserialize(&save_state, save_buf, len))
+    uint8_t *buf;
+    SaveGame *sg = screens_borrow_save(&buf);
+    uint16_t len = savegame_read(buf, SAVE_BUF_SIZE);
+    if (!len || !save_deserialize(sg, buf, len))
         return false;
-    if (!save_may_load(&save_state))
+    if (!save_may_load(sg))
         return false;                    /* no charges left (GDD 2.3) */
-    save_apply(&save_state);             /* 0xFF = unlimited stays */
+    save_apply(sg);             /* 0xFF = unlimited stays */
     if (!loads_unlimited)
         loads_left--;                    /* this load uses a charge */
     return true;

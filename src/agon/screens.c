@@ -154,8 +154,27 @@ void screen_phase(const char *who, uint8_t round, uint8_t n,
 #define HELP_PAGES_MAX 72
 #define LEXICON_MAX 6656
 
-static uint8_t help_buf[HELP_MAX];
-static uint8_t lex_buf[LEXICON_MAX];     /* lexicon.hlp is ~6 KB */
+#define SPELLS_MAX 4600
+
+/* One arena for the big buffers that are never needed together (QUIRK
+ * S6): saving and loading borrow all of it; the help, spell and lexicon
+ * texts live side by side the rest of the time. A save drops the cached
+ * texts, they reload from the SD card the next time they are shown. */
+static union {
+    struct {
+        SaveGame state;
+        uint8_t buf[SAVE_BUF_SIZE];
+    } save;
+    struct {
+        uint8_t help[HELP_MAX];
+        uint8_t lex[LEXICON_MAX];        /* lexicon.hlp is ~6 KB */
+        uint8_t spells[SPELLS_MAX];
+    } text;
+} arena;
+#define help_buf arena.text.help
+#define lex_buf arena.text.lex
+#define spells_buf arena.text.spells
+
 static uint24_t lex_len;                 /* bytes of lexicon.hlp read */
 static uint16_t help_page[HELP_PAGES_MAX];
 static uint8_t help_count;
@@ -522,11 +541,17 @@ static void lexicon_draw_detail(uint16_t entry)
 
 /* ---------- spell descriptions (designer shop, M5) ---------- */
 
-#define SPELLS_MAX 4600
-static uint8_t spells_buf[SPELLS_MAX];
 static uint24_t spells_len;
 static uint8_t spell_count;              /* pages = spells, csv order */
 static uint16_t spell_page[HELP_PAGES_MAX];
+
+SaveGame *screens_borrow_save(uint8_t **buf)
+{
+    lex_len = 0;                         /* the texts are overwritten */
+    spells_len = 0;
+    *buf = arena.save.buf;
+    return &arena.save.state;
+}
 
 bool spells_texts_load(void)
 {

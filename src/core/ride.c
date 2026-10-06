@@ -9,6 +9,11 @@ uint8_t ride_rider_kind(const Unit *mounted)
     return (mounted->flags & UF_RIDDEN) ? mounted->rider_kind : 0xFF;
 }
 
+uint8_t ride_actor_kind(const Unit *u)
+{
+    return (u->flags & UF_RIDDEN) ? u->rider_kind : u->kind;
+}
+
 bool ride_mount(World *w, uint8_t rider, int16_t x, int16_t y)
 {
     Unit *r, *m;

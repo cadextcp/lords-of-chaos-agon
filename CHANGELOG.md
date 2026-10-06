@@ -2,6 +2,16 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Friedliche Tiere, Fangen, RAM-Arena (D59) (2026-10-06)
+
+### Geändert
+- **Grasende Wildtiere schlagen nicht mehr im Vorbeigehen zu:** Den freien Schlag beim Wegziehen bekommt ein Wildtier nur noch, wenn es einen Groll hegt, gerade angreift oder (Revier-Tiere) man in seinem Revier steht. Kreaturen der Zauberer und Monster schlagen wie bisher.
+- **Werfen auf eigene Figuren:** Sie fangen den Gegenstand (auch Phiolen und die Bombe) und haben ihn im Gepäck, statt verletzt zu werden. Ohne Platz fällt er ihnen vor die Füße.
+
+### Intern
+- RAM: Speichern/Laden und die Hilfe-, Zauber- und Lexikontexte teilen sich eine Arena (−15 KB, Reserve ~24 KB, QUIRK S6). Der eZ80-Selftest war mit wenigen neuen Checks wieder an „water animates“ gescheitert.
+- Checks `D59` (Gorilla, Bär im/außerhalb des Reviers, Monster, Apfel und Bombe gefangen).
+
 ## [Unreleased] – Menüoption „Zufällige Karte" (D58) (2026-10-06)
 
 ### Neu

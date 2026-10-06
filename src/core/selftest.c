@@ -1213,6 +1213,52 @@ static void test_combat(void)
               "combat: the same enemy in plain sight does swing");
     }
 
+    {   /* D59: a grazing wild animal lets a passer-by go; only a grudge,
+         * a charge at the disturber or its territory make it swing */
+        Rng frng;
+        CombatResult r;
+        uint8_t n;
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 2;
+        world.units[0].ap = 40;
+        world.units[1].x = (uint8_t)(world.units[0].x + 1);
+        world.units[1].y = world.units[0].y;
+        world.units[1].owner = OWN_NEUTRAL;
+        world.units[1].kind = CR_GORILLA;              /* peaceful */
+        world.units[1].grudge = 0;
+        world.units[1].alarm = 0;
+        world.units[1].post_x = 0xFF;
+        world.units[1].herd_dir = 0;
+        world.units[1].reacted = false;
+        check(world_move_unit(&world, 0, 0, -1) &&
+              world_enemy_adjacent(&world, 0),
+              "combat: walking past the gorilla keeps contact");
+        rng_seed(&frng, 21);
+        check(combat_disengage_swings(&world, &frng, 0, NULL, &r) == 0,
+              "combat: a peaceful animal does not swing at a passer-by (D59)");
+        world.units[1].grudge = (uint8_t)(1u << OWN_P1);
+        rng_seed(&frng, 21);
+        n = combat_disengage_swings(&world, &frng, 0, NULL, &r);
+        check(n == 1, "combat: an animal with a grudge does swing (D59)");
+        world.units[1].grudge = 0;
+        world.units[1].reacted = false;
+        world.units[1].kind = CR_BEAR;                 /* territorial */
+        world.units[1].post_x = 0;
+        world.units[1].post_y = 0;
+        check(!combat_hostile_to(&world, &world.units[1], OWN_P1,
+                                 world.units[0].x, world.units[0].y),
+              "combat: outside its territory the bear lets you pass (D59)");
+        world.units[1].post_x = world.units[1].x;
+        world.units[1].post_y = world.units[1].y;
+        check(combat_hostile_to(&world, &world.units[1], OWN_P1,
+                                world.units[0].x, world.units[0].y),
+              "combat: inside its territory the bear swings (D59)");
+        world.units[1].kind = CR_GOBLIN;
+        world.units[1].post_x = 0xFF;
+        check(combat_hostile_to(&world, &world.units[1], OWN_P1, 0, 0),
+              "combat: a neutral monster is always hostile (D59)");
+    }
+
     {   /* diagonal slip: leaving all enemies behind avoids the swing (D26) */
         Rng frng;
         CombatResult r;
@@ -1882,6 +1928,35 @@ static void test_items(void)
               "items: throw leaves the hand");
         check(items_kind_at(&world, 16, 8) == OBJ_SCROLL,
               "items: scroll flies six fields east");
+    }
+
+    {   /* D59: an apple thrown at a friend lands in his pack, unhurt */
+        uint8_t f, con, before = world.object_count;
+        world.units[0].x = 10;
+        world.units[0].y = 8;
+        world.units[0].in_use = 0;
+        world.units[0].items[0] = OBJ_APPLE;
+        world.units[0].item_count = 1;
+        world.units[0].ap = 40;
+        f = world_spawn_unit(&world, world.units[0].owner, CR_GOBLIN, 12, 8);
+        check(f != NO_UNIT, "items: a friendly goblin to catch");
+        con = world.units[f].con;
+        rng_seed(&rng, 5);
+        check(items_throw(&world, &rng, 0, 1, 0) &&
+              world.units[f].item_count == 1 &&
+              world.units[f].items[0] == OBJ_APPLE &&
+              world.units[f].con == con && world.object_count == before,
+              "items: a friend catches the thrown apple (D59)");
+        world.units[0].items[0] = OBJ_VIAL_BOMB;
+        world.units[0].item_count = 1;
+        world.units[0].in_use = 0;
+        f = world_find_unit(&world, world.units[f].id);
+        check(brew_throw_vial(&world, &rng, 0, 1, 0) &&
+              world.units[f].item_count == 2 &&
+              world.units[f].items[1] == OBJ_VIAL_BOMB &&
+              world.units[f].con == con,
+              "items: a friend catches a bomb vial whole (D59)");
+        world_remove_unit(&world, f);
     }
 
     {   /* bow: pick up, wield, fire at the goblin (9,6) from outside */

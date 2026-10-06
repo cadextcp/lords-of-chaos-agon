@@ -237,7 +237,6 @@ void ai_hunter(World *w, Rng *rng, uint8_t unit)
 
 /* ---------- wild animals (D35) ---------- */
 
-#define TERRITORY 3        /* a territorial animal defends this far */
 #define WILD_DIRS 8
 static const int8_t WDX[WILD_DIRS] = {0, 1, 1, 1, 0, -1, -1, -1};
 static const int8_t WDY[WILD_DIRS] = {-1, -1, 0, 1, 1, 1, 0, -1};
