@@ -40,7 +40,7 @@ D59–D64 sind durch Selftests (Host und eZ80) und Vorschaubilder (`tools/art/ma
 
 ### Offen
 
-- **`loc --bench` 36×36 gegen 46×46:** noch nicht gemessen. Die Werte schreibt das Spiel erst nach Esc in `loc.log`; `send_keys.py` wählt das Fenster nur über den Titel (siehe Fallstrick 19).
+- **Bench 46×46 (erledigt):** Auf der Hardware am 2026-10-06 gemessen, Werte und Vergleich in `docs/AGON-QUIRKS.md` (Hardware-Abschnitt). Fenster-Kosten unverändert, KI-Phase 20 → 80 ms. Offen bleibt ein Worst Case (KI-Zauberer mit 5 Beschwörungen über mehrere Runden). Die Werte schreibt das Spiel erst nach Esc in `loc.log`; `send_keys.py` wählt das Fenster nur über den Titel (siehe Fallstrick 19).
 - **D33 Schriftrollen lehren Zauber:** Schriftrollen geben bisher nur einen Hinweistext. Die KI sammelt sie (D62), liest sie aber erst, wenn D33 steht. Nutzer gefragt, noch keine Antwort.
 - In engen Häusern können sich Nachbartüren einen Blattplatz teilen; in Level 1 ist das durch die neuen Häuser behoben, in anderen Karten möglich (die zweite Tür klemmt dann, bis die erste zu ist).
 - Aus der Milestone-Liste unverändert: Original-Zauberpreise, Spinne/Vampir-Rebalance, VP-Vorschläge.
