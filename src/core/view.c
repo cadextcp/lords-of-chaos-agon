@@ -405,15 +405,13 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
     }
 }
 
-/* F7 (M4e): a building loses its whole roof while an OWN ground unit
- * stands under it (the player sees his building from within). The
- * building is the 4-connected region of roofed fields; it is flooded
- * once per change of the own units under roofs, not once per field. */
 /* Whose eyes decide whether a roof is lifted: only the currently active
  * figure. Under a roof (D46) nothing is drawn at all; outside, the roof
- * opens along its line of sight (playtest 2026-10-05, D41): an open door
- * gives a glimpse - exactly as far as the line of sight reaches. Negative
- * x switches it off.
+ * opens on every field that figure sees (D41, D56): through an open door
+ * or a window you look into the room as far as the walls let you, along
+ * the same shadowcast the sight rules use (sight_look). Whatever it does
+ * not see stays roofed again - the interior is then only a remembered
+ * field. Negative x switches it off.
  *
  * Replaces the old flood fill, which lifted the whole connected roof as
  * soon as one own unit stood anywhere under it (F7, M4e) - and with it
@@ -452,14 +450,9 @@ void view_set_roof_viewer(int16_t x, int16_t y)
 
 static bool roof_lifted(const World *w, int16_t wx, int16_t wy)
 {
-    int16_t dx, dy;
     if (roof_vx < 0)
         return false;
-    world_delta(w, roof_vx, roof_vy, wx, wy, &dx, &dy);
-    if (dx > SIGHT_GROUND || dx < -SIGHT_GROUND ||
-        dy > SIGHT_GROUND || dy < -SIGHT_GROUND)
-        return false;
-    return sight_has_los(w, roof_vx, roof_vy, wx, wy);
+    return sight_look(w, roof_vx, roof_vy, wx, wy);
 }
 
 /* D46 (playtest 2026-10-05): indoors no roof is drawn at all. The
@@ -484,6 +477,8 @@ static bool roof_covered(const World *w, int16_t wx, int16_t wy, bool *wall)
     static const int8_t N[4][2] = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
     uint8_t fe = w->feature[wy][wx], i;
     *wall = fe == FE_WALL;
+    if (fe == FE_WINDOW)
+        return false;                    /* the pane stays visible (D56) */
     if (world_has_roof(w, wx, wy))
         return true;
     if (fe != FE_WALL && fe != FE_DOOR_CLOSED && fe != FE_DOOR_OPEN &&

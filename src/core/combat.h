@@ -70,8 +70,9 @@ bool combat_free_swing(World *w, Rng *rng, uint8_t att, uint8_t def,
  * An enemy the moving side cannot see does not get the swing (playtest
  * 2026-10-05). `seen` is that side's field of view; without one - the AI
  * keeps no per-turn map - a direct line of sight between the two decides
- * instead. Since D44 that line counts roofs, so a creature inside a closed
- * house no longer swings at someone walking past outside. */
+ * instead. Walls, closed doors and bushes in between hide the enemy, so a
+ * creature inside a closed house does not swing at someone walking past
+ * outside - but one that sees out of a window does (D56). */
 uint8_t combat_disengage_swings(World *w, Rng *rng, uint8_t unit,
                                 const Sight *seen, CombatResult *out);
 

@@ -539,6 +539,69 @@ static void test_terrain(void)
             }
         world_map_changed(&world);
     }
+    {   /* D56: the roof opens on what the active figure sees - a window or an
+         * open door gives a real view into the room, not a patch */
+        enum { SX = 8, SY = 26, Y0 = 21, ROWS = 14 };   /* cleared: y 21..34 */
+        static uint8_t sfl[ROWS][9], sfe[ROWS][9], sde[ROWS][9], sroof[sizeof world.roof];
+        int16_t x, y;
+        FieldLayers f;
+        memcpy(sroof, world.roof, sizeof sroof);
+        for (y = 0; y < ROWS; y++)
+            for (x = 0; x < 9; x++) {
+                sfl[y][x] = world.floor[Y0 + y][SX + x];
+                sfe[y][x] = world.feature[Y0 + y][SX + x];
+                sde[y][x] = world.decor[Y0 + y][SX + x];
+                world.floor[Y0 + y][SX + x] = FL_GRASS;
+                world.feature[Y0 + y][SX + x] = FE_NONE;
+                world.decor[Y0 + y][SX + x] = DE_NONE;
+            }
+        /* a room 5 wide, 4 deep: walls y=SY+1 (top, window at x=4) .. y=SY+5,
+         * side walls x=SX+1 and SX+7; everything under one roof */
+        for (y = 1; y <= 5; y++)
+            for (x = 1; x <= 7; x++) {
+                uint16_t cell = (uint16_t)((uint16_t)(SY + y) * world.w + (SX + x));
+                world.roof[cell >> 3] |= (uint8_t)(0x80u >> (cell & 7));
+                if (y == 1 || y == 5 || x == 1 || x == 7)
+                    world.feature[SY + y][SX + x] = FE_WALL;
+            }
+        world.feature[SY + 1][SX + 4] = FE_WINDOW;
+        world_map_changed(&world);
+        view_set_sight(NULL);
+        view_set_roof_viewer(SX + 4, SY - 3);          /* outside, north of the window */
+        check(sight_look(&world, SX + 4, SY - 3, SX + 4, SY + 4) &&
+              sight_look(&world, SX + 4, SY - 3, SX + 4, SY + 2),
+              "d56: through the window the view reaches deep into the room");
+        check(!sight_look(&world, SX + 4, SY - 3, SX + 2, SY + 3),
+              "d56: the walls beside the window cut the view off at an angle");
+        view_compose(&world, SX + 4, SY + 3, &f);
+        check(!has_layer(&f, T_ROOF), "d56: the roof opens on a field seen through the window");
+        view_compose(&world, SX + 2, SY + 3, &f);
+        check(has_layer(&f, T_ROOF), "d56: a roofed field out of sight stays covered");
+        view_compose(&world, SX + 4, SY + 1, &f);
+        check(f.id[f.n - 1] == T_WINDOW_H, "d56: the window itself is never roofed over");
+        view_set_roof_viewer(SX, SY - 3);               /* walks off to one side */
+        view_compose(&world, SX + 4, SY + 3, &f);
+        check(has_layer(&f, T_ROOF), "d56: out of sight the roof closes again");
+        /* an open door works the same way */
+        world.feature[SY + 5][SX + 4] = FE_DOOR_OPEN;
+        world_map_changed(&world);
+        view_set_roof_viewer(SX + 4, SY + 8);           /* south of the door */
+        check(sight_look(&world, SX + 4, SY + 8, SX + 4, SY + 2),
+              "d56: an open door shows the room beyond");
+        world.feature[SY + 5][SX + 4] = FE_DOOR_CLOSED;
+        world_map_changed(&world);
+        check(!sight_look(&world, SX + 4, SY + 8, SX + 4, SY + 3),
+              "d56: a closed door hides it");
+        view_set_roof_viewer(-1, 0);
+        memcpy(world.roof, sroof, sizeof sroof);
+        for (y = 0; y < ROWS; y++)
+            for (x = 0; x < 9; x++) {
+                world.floor[Y0 + y][SX + x] = sfl[y][x];
+                world.feature[Y0 + y][SX + x] = sfe[y][x];
+                world.decor[Y0 + y][SX + x] = sde[y][x];
+            }
+        world_map_changed(&world);
+    }
     {   /* variants are a pure function of the position (wrap-stable) */
         uint8_t seen_base = 0, seen_var = 0;
         int16_t x, y;
@@ -800,8 +863,8 @@ static void test_sight(void)
         check(count_visible(&s, &world) == 9,
               "sight: walled in sees its own field and the walls, nothing else");
 
-        /* D44: the roof alone has to block - no walls anywhere in this
-         * setup, so nothing else can explain the result. */
+        /* D56 (reverses D44): a roof is display only - no walls anywhere in
+         * this setup, so a roof alone hides nothing. */
         {
             uint16_t cell;
             for (y = 0; y < world.h; y++)
@@ -818,15 +881,15 @@ static void test_sight(void)
             world.units[0].y = 18;
             sight_init(&s, OWN_P1);
             sight_compute(&world, &s);
-            check(!sight_visible(&s, &world, 18, 18),
-                  "d44: a roof hides its inside from a viewer in the open");
+            check(sight_visible(&s, &world, 18, 18),
+                  "d56: a roof alone does not hide its inside from a viewer in the open");
             world.units[0].x = 18;                /* now underneath it */
             world.units[0].y = 18;
             sight_init(&s, OWN_P1);
             sight_compute(&world, &s);
             check(sight_visible(&s, &world, 17, 19) &&
                   sight_visible(&s, &world, 12, 18),
-                  "d44: from under the roof it sees its room and out again");
+                  "d56: from under the roof it sees its room and out again");
         }
     }
 }
@@ -3246,7 +3309,7 @@ static void test_m4e(void)
               "d42: axe vs goblin hits 55 % - the blade only adds damage");
     }
 
-    {   /* enemy in the roofed house is hidden from outside rays */
+    {   /* enemy in the walled house is hidden from outside rays */
         world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND,
                        MAPBIN_MANY_COLOURED_LAND_LEN);
         world.unit_count = 0;
@@ -3257,7 +3320,7 @@ static void test_m4e(void)
             sight_init(&s, OWN_P1);
             sight_compute(&world, &s);
             check(!sight_visible(&s, &world, 5, 5),
-                  "m4e: the roof hides the enemy inside");
+                  "m4e: the walls hide the enemy inside");
         }
         view_set_sight(NULL);
     }

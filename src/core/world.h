@@ -155,12 +155,12 @@ bool world_blocks_sight(const World *w, int16_t x, int16_t y);
  * path; see world.c). */
 /* Only the feature on (x, y) (wall, tree, closed door ...) blocks sight. */
 bool world_feature_blocks_sight(const World *w, uint8_t x, uint8_t y);
-/* Roof of the field (v4 maps): blocks sight and landing (GDD 3.2). */
+/* Roof of the field (v4 maps): blocks landing (GDD 3.2) and is drawn over
+ * the building until a figure sees the field (D56); it does not block sight. */
 bool world_has_roof(const World *w, int16_t x, int16_t y);
 /* Eight blocking flags of row y starting at column x, packed MSB-first;
  * see world.c. */
-uint8_t world_sight_byte(const World *w, uint8_t y, uint8_t x,
-                         bool with_roof);
+uint8_t world_sight_byte(const World *w, uint8_t y, uint8_t x);
 /* Feature blocks ground movement (GDD 3.3 furniture table). */
 bool world_blocks(const World *w, int16_t x, int16_t y);
 

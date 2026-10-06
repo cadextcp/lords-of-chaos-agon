@@ -2,6 +2,15 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Echte Sichtlinien durch Fenster und Türen (D56) (2026-10-06)
+
+### Geändert
+- **Dächer sind wieder nur Anzeige (ersetzt D44):** Sie blockieren keine Sicht mehr. Das Dach öffnet sich auf den Feldern, die die aktive Figur sieht (`sight_look`, derselbe Schattenwurf wie die Sichtregel). Durch Fenster und offene Türen blickt man als Keil in den Raum; was nicht gesehen wird, ist wieder überdacht. Fenster bleiben vom Dach frei. Das Dachloch hinter den Fenstern aus #132 entfällt, die Karte ist entsprechend angepasst.
+- KI, Zauber und Fernwaffen zielen durch Fenster und offene Türen entlang der echten Linie.
+- RAM: eine Blockier-Bitmap statt zwei (−360 B), 180 B Cache für die Figur-Sicht.
+- `map_preview.py --viewer X Y` zeigt, was eine Figur sieht (Dach geöffnet); `docs/design/mockups/window-sightline.png`.
+- Checks `d56`; der D44-Test (Dach versteckt Inneres) kehrt sich um.
+
 ## [Unreleased] – Level 1: Nachtkarte, Entwurf (D54) (2026-10-06)
 
 ### Geändert
@@ -12,7 +21,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 - **Wildtiere und Funde nach Biom (D55):** neue Tabelle `data/habitats.csv` (generiert nach `HABITAT[][]`): Krokodile im Sumpf und am Ufer, Bären im Wald, Spinnen und Fledermäuse im Totenwald, Löwen auf Wiesen, Einhörner im Zauberwald, Greife im Geröll. Funde passen zum Wald (Zauberwald: Feenflügel, Zauberpilz; Totenwald: Schwefel, Nitro, Runenstein). Checks `d55` über 60 Seeds.
 - **Erkennbare Wälder:** Totenwald (früher Schattenwald) mit kahlen Baumleichen, Stümpfen und Knochen, Zauberwald mit verdrehten violetten Stämmen, türkis leuchtenden Kronen und Glühpilzen; je 3 Varianten. Der Weg im Südwesten führt durch den Wald.
 - **Level 1 neu gezeichnet (Entwurf, `data/maps/many_coloured_land.txt`):** Fluss mit Windungen und drei Brücken, organische Biome (Wald, Magic Wood, Schattenwald, Sumpf mit Pilzen am Fluss, Hochgras, Geröll) statt Rechtecke, verschlungene Wege, Portal-Lichtung mit Steinen. **Haus 1** hat vier Räume mit Innentüren und sechs Fenstern, davor ein eingezäunter Blumengarten mit Tor; **Haus 2** hat zwei Räume und drei Fenster. Alle Koordinaten der alten Häuser (Zauberer, Kessel, Truhen, Türen) bleiben. Vorschau: `docs/design/mockups/level1-night-draft.png`.
-- **Fenster-Einblick zwei Felder tief:** Fenster und das Feld dahinter sind dachfrei; das zweite Feld ist das erste mit Dach (Sichtlinienende).
+- **Fenster-Einblick:** in #132 zunächst als Dachloch zwei Felder tief gelöst, ab D56 echte Sichtlinie (siehe oben).
 - **Neue Elemente (D54), 31 Kacheln (~18 KB VDP-RAM, `tools/art/make_night_set.py`):** `FE_WINDOW` (beleuchtetes Fenster in der Wand, blockiert Bewegung, nicht die Sicht), `FE_FENCE` (Zaun mit 16er-Auto-Tile) mit **Tor** (eine Tür zwischen Zaunpfosten, öffnet/schließt/schließt ab wie jede Tür), `FL_BRIDGE` (begehbar wie Gras, kein Ertrinken, Ausrichtung nach dem Wasser), Blumenbeet (`DE_FLOWERS`, 3 Varianten), leuchtende Pilze (`DE_MUSHROOMS`, 2 Frames) und aufsteigende Blasen im Sumpf (automatisch auf einigen Sumpffeldern). Kartenzeichen: `W` Fenster, `F` Zaun, `b` Brücke, Dekor `f` Blumen, `o` Pilze. `HOUSE_VIEW_HASH` neu (Kachel-IDs verschoben), Checks `d54`.
 - **Nacht-Kacheln (erster Wurf):** `tools/art/night.py` färbt Außenkacheln beim Bauen um (schwarzer Grund mit grünen Tupfen wie im Amiga-Original, graue Wege, dunkler Sumpf, dunklere Bäume); die PNGs bleiben die Tag-Quelle. `map_preview.py` läuft auch ohne WSL.
 

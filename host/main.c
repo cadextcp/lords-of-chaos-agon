@@ -4,7 +4,7 @@
  *   loc_host --selftest   run core self-test, exit code 1 on failure
  *   loc_host --dump       print the wizard house as ASCII and exit
  *   loc_host --layers     print the tile layers of every view field
- *   loc_host --map-layers <n>  tile layers of every field of map n (0 many coloured
+ *   loc_host --map-layers <n> [x y]  tile layers of every field of map n (0 many coloured
  *                         land, 1 ragaril, 2 slayer, 3 testland, 4 tutorial); tools/art/map_preview.py draws them
  *   loc_host              line-based play: w/a/s/d + Enter, q quits
  */
@@ -84,6 +84,8 @@ int main(int argc, char **argv)
         return fails ? 1 : 0;
     }
     if (argc > 2 && strcmp(argv[1], "--map-layers") == 0) {
+        if (argc > 4)                    /* optional viewer: the roof opens on what it sees */
+            view_set_roof_viewer((int16_t)atoi(argv[3]), (int16_t)atoi(argv[4]));
         map_layers(atoi(argv[2]));
         return 0;
     }
