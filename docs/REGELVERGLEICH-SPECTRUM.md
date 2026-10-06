@@ -12,7 +12,7 @@ Kennzeichen in den Tabellen: ✅ gleich · 🔧 in diesem PR angeglichen · 📋
 - **Drei große Unterschiede** tragen den Rest: das **Kampfmodell** (Trefferchance plus Würfel gegen eine einzige Zufallszahl), die **Zauberformeln** (Mana-Tabelle, Reichweite, Schaden, Schild) und das **Ausdauer-/Wundenmodell**.
 - **Kein großer Unterschied ist durch Spectrum-Hardware erzwungen.** Wir haben die Regeln bewusst anders gebaut (D16, D26–D30, D34, D40, D42 und weitere, fast alle auf Wunsch des Nutzers oder nach Playtest). Die Spectrum-Grenzen, die es gibt, betreffen etwas anderes (§4).
 - **Werte lassen sich nicht einzeln herauslösen.** Die Boni des Originals (Trank +20/+25, Waffen +10, Schild +20 und mehr, Bolt-Stärke 4·L+25) sind auf sein Schadensmodell `RND(2·(C+1)) − Def` geeicht. In unser Modell (`50 + 5·(C − Def)` Prozent, dann Würfel) eingesetzt, wären sie zu stark. Sie gehören mit dem Modell zusammen übernommen oder gar nicht (R5).
-- **Wichtigster Einzelfund: Unsere „Mana-Kosten“ sind sehr wahrscheinlich die XP-Preise des Zauberer-Designers.** Alle 45 Zeilen von `data/spells.csv` (`mana_base`, `mana_step`) sind identisch mit der Designer-Tabelle `$DC84` (Basis, Inkrement je Stufe); mit der Mana-Basis `$B4BE` des Originals stimmt keine einzige überein. Das Original rechnet Mana als `Basis × (L+1)` mit kleinen Basiswerten (R1). Die Gegenprobe am Amiga ist noch offen (Beobachtung O4).
+- **Wichtigster Einzelfund: Unsere „Mana-Kosten“ sind sehr wahrscheinlich die XP-Preise des Zauberer-Designers.** Alle 45 Zeilen von `data/spells.csv` (`mana_base`, `mana_step`) sind identisch mit der Designer-Tabelle `$DC84` (Basis, Inkrement je Stufe); mit der Mana-Basis `$B4BE` des Originals stimmt keine einzige überein. Das Original rechnet Mana als `Basis × (L+1)` mit kleinen Basiswerten (R1). **Bestätigt** vom Nutzer im Z80-Quellcode (2026-10-06): Giant Bat Stufe 1 kostet 4 Mana, die Zauberliste im Spiel zeigt dieselbe Zahl (`SUB_816E` ruft `SUB_81D4`), die 7 steht nur in der Designer-Liste (`SUB_DBA7`). Im Emulator nicht nachgesehen.
 
 ---
 
@@ -161,12 +161,14 @@ Aufwand: S ≤ 1 Tag, M einige Tage, L eine Woche und mehr. Ursache: „Grundsat
 
 | # | Regel | Original (K) | Wir | Ursache | Aufwand | Anmerkung |
 |---|---|---|---|---|---|---|
-| R1 | **Mana-Kosten** | `Basis × (L+1)`, Basis z. B. Bat 2, Harpy 5, Bolt 1, Shield 2 (K5.1, K5.2) | `base + L·step` mit den Zahlen der XP-Tabelle | **Daten** (45/45 Zeilen identisch mit `$DC84`) | S (Formel + neue Spalte) | **Erst O4 in WinUAE:** Giant Bat Stufe 1 kostet 4 Mana (Original) oder 7 (unsere Tabelle)? Dann übernehmen; KI-Wahl „günstigster Zauber“ und alle Mana-Tests ziehen mit |
+| R1 | **Mana-Kosten** | `Basis × (L+1)`, Basis z. B. Bat 2, Harpy 5, Bolt 1, Shield 2 (K5.1, K5.2) | `base + L·step` mit den Zahlen der XP-Tabelle | **Daten** (45/45 Zeilen identisch mit `$DC84`) | S (Formel + neue Spalte) | **Quellcode bestätigt (2026-10-06), Nutzer will es wie im Original:** erster PR von `docs/PLAN-KI.md` (0a). KI-Wahl „günstigster Zauber“ und alle Mana-Tests ziehen mit |
 | R2 | **Designer-Preise für Zauber** | Stufe L→L+1 kostet `Basis + Inkrement·L` XP, bis Stufe 8, alle 45 Zauber (K3.3, K5.2) | nur Beschwörungen kaufbar, erste Stufe `design_cost`, jede weitere 50 % davon | Grundsatz (F6, Nutzer-Anker) | S | Unsere heutigen `mana_base`/`mana_step` sind genau diese XP-Zahlen und können nach R1 in die XP-Spalten wandern. Die Nutzer-Anker der Beschwörungen (Bat 4, Harpy 12, Spider 28, Ghost 22, Vampire 50, Spectre 44, Demon 58) weichen von den Spectrum-Basiswerten ab (5, 11, 22, 14, 29, 29, 40); Entscheidung nötig |
 | R3 | **Attributpreise steigen mit dem Wert** | Preis je Punkt `⌊Wert/Divisor⌋` (Mana 10, AP 4, Stamina 8, Con 10, Combat 2, Defence 2, MR 16); Maxima Mana 200, AP 40, Stamina 90, Con 90, Combat 30, Defence 30, MR 100 (K3.3) | feste Preise (2/2/4/2/4, Mana 9, AP 8); Maxima Mana 250, AP 120, Stamina 100, Con 60 | Grundsatz | S | Unsere festen Preise sind die Original-Preise beim Startwert, steigen aber nicht. Maxima so hoch machen Fernkämpfer-Zauberer möglich, die es im Original nicht gibt |
 | R4 | **Startwerte des Zauberers** | Con 34, Mana 80 | – | – | – | **Erledigt** (§2). Offen bleibt der Zufallszauberer des Originals (Combat/Defence 6, MR 90, Zauberlevel `RND(3)`) |
 
-### 6.3 Ein Block: das Kampfmodell (Entscheidung nötig, Aufwand L)
+### 6.3 Ein Block: das Kampfmodell (entschieden: Weg B, Aufwand L)
+
+**Entscheidung des Nutzers 2026-10-06: „wie im Original“, also Weg B**, GDD D67. Die Umsetzung steht in `docs/PLAN-KI.md` §3.
 
 R5, R6, R15, R16 und R17 hängen zusammen. Sie ändern nichts einzeln, sondern entweder alle oder keines.
 
@@ -248,8 +250,8 @@ Nicht verglichen: die KI der Computergegner und Torquemadas (im Original nicht g
 
 ## 7. Empfohlene Reihenfolge
 
-1. **O4 in WinUAE** (Giant Bat und Magic Bolt Mana auf Stufe 1 ablesen). Das entscheidet R1/R2 und kostet eine Viertelstunde.
-2. **Eine Entscheidung zum Kampfmodell** (A, B oder C, §6.3). Sie bestimmt, ob R5, R6, R15, R16, R17 überhaupt anfallen.
+1. ~~O4 in WinUAE~~ Erledigt: Der Quellcode bestätigt R1 (§1).
+2. ~~Entscheidung zum Kampfmodell~~ Erledigt: Weg B. Der Plan dazu und zur KI steht in `docs/PLAN-KI.md`.
 3. **Die kleinen Regeln R9, R10 (AP-Teil), R12, R13, R19, R23, R24** in einem oder zwei PRs; sie sind unabhängig voneinander und vom Kampfmodell.
 4. **R33 (Werte und Bücher der Gegner-Zauberer)**: Datenänderung, die den Schwierigkeitsgrad sofort anhebt; unabhängig vom Kampfmodell.
 5. **R3** (steigende Attributpreise) mit dem Nutzer klären; R4 ist erledigt.
