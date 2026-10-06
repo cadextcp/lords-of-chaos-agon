@@ -961,6 +961,172 @@ static void test_0b(void)
     check(!world_land(&world, 11), "0b: no landing on an occupied field");
 }
 
+/* D67 0d: ranges, attack values, resistance spells, teleport, potions. */
+static void test_0d(void)
+{
+    Spellbook book;
+    SpellShot shot;
+    Rng rng;
+    uint8_t k, ok;
+    Unit *u;
+
+    check(spell_range(SP_MAGIC_BOLT, 1) == 9 && spell_range(SP_MAGIC_BOLT, 8) == 23 &&
+          spell_range(SP_MAGIC_EYE, 2) == 16 && spell_range(SP_TELEPORT, 3) == 36,
+          "0d: ranges 2L+7, eye 3L+10, teleport 2L+30");
+    check(spell_attack_value(SP_MAGIC_BOLT, 3) == 37 &&
+          spell_attack_value(SP_MAGIC_LIGHTNING, 3) == 42,
+          "0d: bolt 4L+25, lightning 4L+30");
+    check(world_range(&world, 0, 0, 3, 1) == 7 && world_range(&world, 0, 0, 0, 4) == 8 &&
+          world_range(&world, 2, 2, 5, 5) == 9,
+          "0d: distance is 2 max + min (K1)");
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 2;
+    world.feature[5][8] = FE_DOOR_OPEN;
+    world_map_changed(&world);
+    u = &world.units[0];
+    world.units[1].kind = CR_GOBLIN;
+    world.units[1].owner = OWN_P2;
+    world.units[1].x = 9;
+    world.units[1].y = 5;
+    world.units[1].con = world.units[1].con_max = 32;
+    memset(&book, 0, sizeof book);
+
+    /* a bolt reaches only 2L+7 distance units: wizard (6,6), goblin (9,5): D=7 */
+    book.level[SP_MAGIC_BOLT] = 0;
+    u->ap = 40;
+    check(spell_in_range(&world, u, SP_MAGIC_BOLT, 0, 9, 5),
+          "0d: level 0 reaches 7 units, the goblin is at 7");
+    check(!spell_in_range(&world, u, SP_MAGIC_BOLT, 0, 11, 6) &&
+          !spell_in_range(&world, u, SP_MAGIC_BOLT, 1, 11, 6) &&
+          spell_in_range(&world, u, SP_MAGIC_BOLT, 2, 11, 6),
+          "0d: a field 10 units away needs level 2 (reach 11)");
+
+    /* Curse: RND(8L+55)+10 >= MR sets seven wounds */
+    ok = 0;
+    for (k = 0; k < 100; k++) {
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 2;
+        world.feature[5][8] = FE_DOOR_OPEN;
+        world_map_changed(&world);
+        world.units[1].kind = CR_GOBLIN;
+        world.units[1].owner = OWN_P2;
+        world.units[1].x = 9;
+        world.units[1].y = 5;
+        world.units[1].mr = 46;
+        memset(&book, 0, sizeof book);
+        book.level[SP_CURSE] = 1;
+        world.units[0].ap = 40;
+        world.units[0].mana = 80;
+        rng_seed(&rng, 300 + k);
+        if (spell_apply(&world, &book, 0, SP_CURSE, 9, 5, &rng, &shot) == CAST_OK &&
+            world.units[1].wounds == 7)
+            ok++;
+    }
+    /* n = 63, needs roll >= 36 -> 27/63 = 43 % */
+    check(ok > 30 && ok < 58, "0d: curse at level 1 against MR 46 succeeds about 43 %");
+
+    /* Subversion: wizards and wizard-riders are immune; MR 46: RND(63) >= 46 */
+    ok = 0;
+    for (k = 0; k < 100; k++) {
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 2;
+        world.feature[5][8] = FE_DOOR_OPEN;
+        world_map_changed(&world);
+        world.units[1].kind = CR_GOBLIN;
+        world.units[1].owner = OWN_P2;
+        world.units[1].x = 9;
+        world.units[1].y = 5;
+        world.units[1].mr = 46;
+        memset(&book, 0, sizeof book);
+        book.level[SP_SUBVERSION] = 1;
+        world.units[0].ap = 40;
+        world.units[0].mana = 80;
+        rng_seed(&rng, 700 + k);
+        if (spell_apply(&world, &book, 0, SP_SUBVERSION, 9, 5, &rng, &shot) == CAST_OK &&
+            world.units[1].owner == OWN_P1)
+            ok++;
+    }
+    check(ok > 15 && ok < 40, "0d: subversion at level 1 against MR 46 succeeds about 27 %");
+    world.units[1].kind = CR_UNICORN;                  /* a mount carrying a wizard */
+    world.units[1].rider_kind = CR_WIZARD;
+    world.units[1].owner = OWN_P2;
+    book.level[SP_SUBVERSION] = 1;
+    world.units[0].ap = 40;
+    world.units[0].mana = 80;
+    check(spell_apply(&world, &book, 0, SP_SUBVERSION, 9, 5, &rng, &shot) == CAST_REJECTED,
+          "0d: a mount with a wizard on its back cannot be subverted");
+    world.units[1].rider_kind = 0xFF;
+    world.units[1].flags |= UF_MOUNT;
+    world.units[1].mr = 0;
+    book.level[SP_SUBVERSION] = 1;
+    world.units[0].ap = 40;
+    check(spell_apply(&world, &book, 0, SP_SUBVERSION, 9, 5, &rng, &shot) == CAST_OK &&
+          world.units[1].owner == OWN_P1,
+          "0d: mounts can be subverted now");
+
+    /* Magic Shield: Defence + 4 (L+1) + 12 for L+1 rounds, fixed */
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    u = &world.units[0];
+    memset(&book, 0, sizeof book);
+    book.level[SP_MAGIC_SHIELD] = 1;
+    u->ap = 40;
+    u->mana = 80;
+    spell_apply(&world, &book, 0, SP_MAGIC_SHIELD, u->x, u->y, &rng, &shot);
+    check(effect_power(u, EFF_SHIELD) == 20 && items_defence(&world, 0) == 12 + 20,
+          "0d: shield level 1 adds 20 Defence");
+    check(items_magic_res(&world, 0) == u->mr,
+          "0d: shields no longer add to magic resistance");
+
+    /* Enchant lasts L+3 rounds */
+    book.level[SP_ENCHANT] = 2;
+    u->ap = 40;
+    spell_apply(&world, &book, 0, SP_ENCHANT, u->x, u->y, &rng, &shot);
+    check(u->effects[1].kind == EFF_MAGIC_WEAPON && u->effects[1].rounds == 5,
+          "0d: enchant at level 2 lasts 5 rounds");
+
+    /* Teleport: within D < 2L it lands exactly; the target must be free */
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 1;
+    u = &world.units[0];
+    memset(&book, 0, sizeof book);
+    book.level[SP_TELEPORT] = 5;                       /* exact up to D 9 */
+    u->ap = 40;
+    u->mana = 80;
+    check(spell_apply(&world, &book, 0, SP_TELEPORT, u->x, (int16_t)(u->y + 2), &rng,
+                      &shot) == CAST_OK && u->x == 6 && u->y == 8 && u->ap == 0,
+          "0d: a short teleport lands exactly, AP are gone");
+    u->ap = 40;
+    book.level[SP_TELEPORT] = 5;
+    world.feature[10][6] = FE_WALL;
+    world_map_changed(&world);
+    check(spell_apply(&world, &book, 0, SP_TELEPORT, 6, 10, &rng, &shot) == CAST_REJECTED &&
+          u->y == 8,
+          "0d: teleporting into a wall fails");
+    check(book.level[SP_TELEPORT] == 4, "0d: and the cast is spent");
+
+    /* potions: fixed +20/+25, duration floor((3 (L-1) + 10) / consumption) */
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 1;
+    u = &world.units[0];
+    memset(&book, 0, sizeof book);
+    book.level[SP_PROTECTION_POTION] = 1;
+    u->ap = 40;
+    u->mana = 80;
+    brew_set_cauldron(&world, u->x, u->y, false, 0xFF);
+    world.objects[world.object_count].x = u->x;
+    world.objects[world.object_count].y = u->y;
+    world.objects[world.object_count].tile = T_OBJ_CLOVER;
+    world.object_count++;
+    brew_cast(&world, &book, 0, SP_PROTECTION_POTION);
+    u->ap = 40;
+    check(brew_drink(&world, 0) && effect_power(u, EFF_PROTECT) == 25 &&
+          items_defence(&world, 0) == 12 + 25,
+          "0d: a protection potion adds 25 Defence");
+    check(u->effects[0].rounds == 10 / CREATURES[CR_WIZARD].potion,
+          "0d: a level-1 draught lasts 10 / consumption rounds");
+}
+
 static void test_flight(void)
 {
     FieldLayers f;
@@ -1943,7 +2109,7 @@ static void test_bolt(void)
         }
         check(all_cast, "bolt: 50 casts all go through");
     }
-    check(hits > 10 && hits < 40, "bolt: hits around the 55 % mark");
+    check(hits > 38, "bolt: a level-8 bolt (A 57) hits a goblin in about 92 %");
     check(book.level[SP_MAGIC_BOLT] == 7, "bolt: every cast burns one level");
 
     {   /* lightning: splash + terrain + wall rejection */
@@ -1955,14 +2121,32 @@ static void test_bolt(void)
         world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, 9, 5);
         check(!spell_lightning(&world, &book, 0, 3, 2, &rng, &shot),
               "bolt: lightning rejects massive targets");
-        world.feature[5][9] = FE_ROCK;  /* destructible terrain at the target */
-        world_map_changed(&world);
-        rng_seed(&rng, 77);
-        check(spell_lightning(&world, &book, 0, 9, 5, &rng, &shot),
-              "bolt: lightning strikes");
-        check(shot.terrain_smashed && world.feature[5][9] == FE_NONE,
-              "bolt: lightning smashes terrain at the target");
-        check(book.level[SP_MAGIC_LIGHTNING] == 0, "bolt: level used up");
+        {   /* RND(2A) >= toughness: a rock (200) never breaks, a table (60) sometimes */
+            uint8_t n;
+            bool rock_broke = false, table_broke = false;
+            for (n = 0; n < 30; n++) {
+                book.level[SP_MAGIC_LIGHTNING] = 8;      /* A = 62 */
+                world.units[0].ap = 40;
+                world.units[0].mana = 80;
+                world.feature[5][9] = FE_ROCK;
+                world_map_changed(&world);
+                rng_seed(&rng, 77 + n);
+                spell_lightning(&world, &book, 0, 9, 5, &rng, &shot);
+                if (world.feature[5][9] == FE_NONE)
+                    rock_broke = true;
+                book.level[SP_MAGIC_LIGHTNING] = 8;
+                world.units[0].ap = 40;
+                world.units[0].mana = 80;
+                world.feature[5][9] = FE_TABLE;
+                world_map_changed(&world);
+                rng_seed(&rng, 177 + n);
+                spell_lightning(&world, &book, 0, 9, 5, &rng, &shot);
+                if (shot.terrain_smashed && world.feature[5][9] == FE_NONE)
+                    table_broke = true;
+            }
+            check(!rock_broke, "bolt: lightning cannot break a rock (toughness 200)");
+            check(table_broke, "bolt: lightning smashes a table now and then");
+        }
     }
 }
 
@@ -2593,8 +2777,9 @@ static void test_m4b(void)
         rng_seed(&rng, 1);
         check(spell_apply(&world, &book, 0, SP_MAGIC_SHIELD, u->x, u->y, &rng,
                           &shot) == CAST_OK &&
-              effect_active(u, EFF_SHIELD) && effect_power(u, EFF_SHIELD) == 6,
-              "m4b: magic shield +6 for 6 rounds");
+              effect_active(u, EFF_SHIELD) && effect_power(u, EFF_SHIELD) == 28 &&
+              u->effects[0].rounds == 4,
+              "m4b: magic shield at level 3: +4 (L+1) + 12 = 28 for 4 rounds");
         check(book.level[SP_MAGIC_SHIELD] == 2, "m4b: one level down");
     }
 
@@ -2800,8 +2985,8 @@ static void test_m4c(void)
         u->ap = 40;
         check(brew_drink(&world, 0) && effect_active(u, EFF_STRENGTH),
               "m4c: drinking grants the strength effect");
-        check(items_combat(&world, 0) == 10 + 2,
-              "m4c: brewed at level 1: strength +2 (F1)");
+        check(items_combat(&world, 0) == 10 + 20,
+              "m4c: a strength potion adds 20 Combat (K8.2)");
     }
 
     {   /* bomb vial explodes in the area */
@@ -4850,15 +5035,16 @@ static void test_m5e_balance(void)
                     kills8++;
             }
         }
-        check(hits1 >= 35, "m5e: the bolt connects over many seeds");
-        check(kills1 * 10 <= hits1 && !kills1_without_crit,
-              "m5e: a level-1 bolt one-shots only on a lucky crit (D30)");
+        (void)kills1_without_crit;
+        check(hits1 >= 70, "m5e: the bolt connects over many seeds");
+        check(kills1 < hits1 && kills1 * 10 >= hits1 * 2,
+              "m5e: a level-1 bolt (A 29) kills a goblin on some hits, not all");
         {
             uint8_t avg = (uint8_t)(dmg1 / (hits1 ? hits1 : 1));
-            check(avg >= 10 && avg <= 18,
-                  "m5e: level-1 bolt averages about 4d6 (D29)");
+            check(avg >= 15 && avg <= 32,
+                  "m5e: a level-1 bolt averages about 25 damage");
         }
-        check(hits8 >= 35 && kills8 * 10 > hits8 * 7,
+        check(hits8 >= 85 && kills8 * 10 > hits8 * 5,
               "m5e: a level-8 bolt kills the goblin on most hits");
     }
 
@@ -4906,29 +5092,17 @@ static void test_m5e_balance(void)
               "m5f: AP raises and refunds with exactly 8");
     }
 
-    {   /* D32: spell attacks ignore the carried shield */
+    {   /* K5.3: bolts roll against Defence like a blow - the shield counts */
+        uint16_t k;
+        uint8_t hits_shield = 0, hits_bare = 0, pass;
         load_house();
-        world.units[1].owner = OWN_P2;
-        world.units[1].x = 4;
-        world.units[1].y = 3;
         world.units[1].items[0] = OBJ_SHIELD;
         world.units[1].item_count = 1;
         check(items_defence(&world, 1) ==
               CREATURES[CR_GOBLIN].defence + WEAPONS[WEAPON_SHIELD].defence &&
               items_magic_res(&world, 1) == CREATURES[CR_GOBLIN].magic_res,
-              "m5e: shield counts in melee defence, not against magic (D32/D40)");
-        /* D40: the spell roll knows magic resistance and nothing else. The
-         * giant spider is the case that brought this up - under the old
-         * rule the wizard's melee combat 10 against her defence 24 pinned
-         * every bolt to the 10 % floor. */
-        check(combat_spell_hit_chance(CREATURES[CR_GIANT_SPIDER].magic_res) ==
-                  100 - CREATURES[CR_GIANT_SPIDER].magic_res &&
-              combat_spell_hit_chance(0) == 100 - COMBAT_CRIT_PERCENT &&
-              combat_spell_hit_chance(100) == COMBAT_CRIT_PERCENT,
-              "d40: spell hit chance follows magic resistance alone");
-        {   /* the bolt rolls against magic resistance only */
-            uint16_t k;
-            uint8_t hits = 0;
+              "m5e: shield counts in Defence; resistance is the creature's own");
+        for (pass = 0; pass < 2; pass++)
             for (k = 0; k < 200; k++) {
                 Spellbook b;
                 SpellShot shot;
@@ -4936,20 +5110,24 @@ static void test_m5e_balance(void)
                 world.units[1].owner = OWN_P2;
                 world.units[1].x = 4;
                 world.units[1].y = 3;
-                world.units[1].items[0] = OBJ_SHIELD;
-                world.units[1].item_count = 1;
+                world.units[1].con = world.units[1].con_max = 250;
+                if (pass == 0) {
+                    world.units[1].items[0] = OBJ_SHIELD;
+                    world.units[1].item_count = 1;
+                }
                 memset(&b, 0, sizeof b);
-                b.level[SP_MAGIC_BOLT] = 1;
+                b.level[SP_MAGIC_BOLT] = 1;          /* A = 29 */
                 rng_seed(&rng, 4000 + k);
                 spell_bolt(&world, &b, 0, SP_MAGIC_BOLT, 4, 3, &rng, &shot);
-                if (shot.hit)
-                    hits++;
+                if (shot.hit) {
+                    if (pass == 0) hits_shield++; else hits_bare++;
+                }
             }
-            /* goblin magic resistance 46 -> 54 % expected. Neither the
-             * shield nor the goblin's defence takes part any more (D40). */
-            check(hits >= 80 && hits <= 130,
-                  "m5e: the bolt hits a shielded goblin like an unshielded one");
-        }
+        /* A 29: 60 rolls; Defence 22 -> 62 %, Defence 9 -> 83 % */
+        check(hits_shield >= 105 && hits_shield <= 145,
+              "m5e: a shielded goblin is hit in about 62 % of the bolts");
+        check(hits_bare >= 150 && hits_bare <= 180 && hits_bare > hits_shield,
+              "m5e: without the shield about 83 %");
     }
 
     {   /* K6.2: the sword in hand adds 10 Combat: a goblin takes more, more often */
@@ -4999,6 +5177,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_sight();
     test_flight();
     test_0b();
+    test_0d();
     test_bump_and_look();
     test_combat();
     test_spells();

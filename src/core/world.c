@@ -393,6 +393,15 @@ uint8_t world_distance(const World *w, int16_t x0, int16_t y0, int16_t x1, int16
     return (uint8_t)(dx > dy ? dx : dy);
 }
 
+uint16_t world_range(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1)
+{
+    int16_t dx, dy;
+    world_delta(w, x0, y0, x1, y1, &dx, &dy);
+    if (dx < 0) dx = (int16_t)-dx;
+    if (dy < 0) dy = (int16_t)-dy;
+    return dx > dy ? (uint16_t)(2 * dx + dy) : (uint16_t)(2 * dy + dx);
+}
+
 uint8_t world_find_unit(const World *w, uint8_t id)
 {
     uint8_t i;

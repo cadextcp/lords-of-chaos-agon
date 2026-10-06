@@ -13,7 +13,7 @@
  * the earlier cap 8 was our own placeholder. */
 #define SPELL_MAX_LEVEL 10
 
-/* Mana cost at a level (0..8): base + level * step (observation B3.5). */
+/* Mana cost at a level L (K5.2): mana base * (L + 1). */
 uint8_t spell_mana(uint8_t spell, uint8_t level);
 
 /* Known spells of one wizard: the level drops by one per cast, at 0 the
@@ -43,13 +43,18 @@ bool spell_can_cast(const World *w, const Spellbook *b, uint8_t wiz, uint8_t spe
  * the number of creatures placed. */
 uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell);
 
-/* Spell range in fields (own design until WinUAE says more, GDD 13). */
-#define SPELL_RANGE 6
+/* Reach of a targeted spell cast at book level L, in distance units of the
+ * original (K1, 2 * max + min): 2L + 7, Magic Eye 3L + 10, Teleport 2L + 30. */
+uint8_t spell_range(uint8_t spell, uint8_t level);
+bool spell_in_range(const World *w, const Unit *u, uint8_t spell, uint8_t level,
+                    int16_t x, int16_t y);
+/* Attack value of Magic Bolt (4L + 25) and Lightning (4L + 30). */
+uint8_t spell_attack_value(uint8_t spell, uint8_t level);
 
 typedef struct {
     bool allowed;       /* cast went through (range, LOS, wall) */
     bool hit;
-    bool crit;          /* attack roll <= 5: damage dice doubled (D30) */
+    bool crit;          /* unused since D67 (no critical hits), always false */
     uint8_t damage;
     bool died;          /* the target died and is removed */
     uint8_t splash_hits;/* lightning: neighbours hit */

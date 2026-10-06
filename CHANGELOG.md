@@ -30,6 +30,20 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ### Intern
 - `combat_roll`, neue `combat_hit_chance(A, Def)` (für die KI); `combat_free_swing`, `combat_disengage_swings`, `items_attack_damage` entfallen. Die Kampf-Selftests sind neu geschrieben.
 
+## [Unreleased] – Regeln wie im Original, Schritt 0d: Zauber, Tränke, Schild (D67) (2026-10-07)
+
+### Geändert
+- **Magic Bolt und Lightning (K5.3):** Angriffswert `4L+25` bzw. `4L+30`, Schaden wie im Nahkampf gegen die Defence des Ziels (Schild zählt, Untote werden getroffen). Der Widerstandswurf gegen MR (D40) und die Würfel (D28/D29) entfallen. Lightning wirkt auf das Zielfeld und die 8 Nachbarfelder; Gelände dort bricht bei `RND(2A) ≥ Zähigkeit`.
+- **Reichweite (K1, K5.1):** Entfernung ist `2·max(dx,dy) + min(dx,dy)` mit Umbruch; Zauber reichen `2L+7`, Magic Eye `3L+10`, Teleport `2L+30` Einheiten (Stufe 1: 4 Felder gerade, 3 diagonal). Das Zielkreuz färbt sich rot außerhalb.
+- **Magic Shield:** Defence `+4(L+1)+12` für `L+1` Runden, fest. **Enchant** hält `L+3` Runden.
+- **Curse, Subversion, Magic Attack:** Erfolg bei `RND(8L+55) + Bonus ≥ MR` (Curse +10). Curse setzt 7 Wunden. Subversion wirkt jetzt auch auf **Reittiere** (das höhere MR von Tier und Reiter zählt), Wizards und Tiere mit Wizard im Sattel sind immun. Magic Attack trifft alle Wesen derselben Art im Abstand `D < 2L+1` einzeln (auch eigene).
+- **Teleport (K5.3):** Landepunkt streut ab `D ≥ 2L` um `RND(n) − ⌊n/2⌋` je Achse (`n = ⌊(D−2L)/2⌋+1`); ist das Feld belegt oder fest, scheitert der Zauber (Mana verbraucht). Danach 0 AP.
+- **Tränke (K8.2):** Strength +20 Combat, Protection +25 Defence (fest), Dauer `⌊(3(L−1)+10)/Verbrauch⌋` Runden. Der Super-Trank (Stärke+Schutz+Tempo) ist implementiert, aber noch ohne Zutat zum Brauen. Magic Resistance ist der reine Kreaturenwert; Schilde und Tränke wirken auf Defence.
+- Entfallen: Spalten `dice_n`, `die`, `splash_*` in `data/spells.csv`, `combat_spell_hit_chance`, `COMBAT_CRIT_PERCENT`.
+
+### Intern
+- `world_range`, `spell_range`, `spell_in_range`, `spell_attack_value`. Test `test_0d`.
+
 ## [Unreleased] – Regeln wie im Original, Schritt 0a: Mana (D67) (2026-10-07)
 
 ### Geändert

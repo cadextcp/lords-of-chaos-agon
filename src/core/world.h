@@ -238,6 +238,9 @@ uint8_t world_distance(const World *w, int16_t x0, int16_t y0, int16_t x1, int16
 /* Offset from (x0, y0) to (x1, y1), the shortest way on wrapping maps. */
 void world_delta(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1,
                  int16_t *dx, int16_t *dy);
+/* Distance of the original (K1): 2 * max(dx, dy) + min(dx, dy), with wrap-around.
+ * Ranges and radii of spells, throws and shots use it. */
+uint16_t world_range(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1);
 /* Index of the unit with this id, NO_UNIT when it is gone. */
 uint8_t world_find_unit(const World *w, uint8_t id);
 /* Bound (K11.7): the unit moved next to a visible enemy on its own height

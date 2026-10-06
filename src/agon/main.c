@@ -118,8 +118,12 @@ static uint8_t target_cursor_colour(void)
         if (dy > world.h / 2) dy = (int16_t)(dy - world.h);
         if (dy < -world.h / 2) dy = (int16_t)(dy + world.h);
     }
-    if (dx > SPELL_RANGE || dx < -SPELL_RANGE || dy > SPELL_RANGE || dy < -SPELL_RANGE)
-        return CURSOR_RED;
+    if (target_kind == TA_SPELL) {
+        if (!spell_in_range(&world, u, target_spell,
+                            books[OWN_P1].level[target_spell], target_x, target_y))
+            return CURSOR_RED;
+    } else if (dx > 6 || dx < -6 || dy > 6 || dy < -6)
+        return CURSOR_RED;               /* throws and arrows: 6 fields (until 0e) */
     if (!sight_has_spell_los(&world, u->x, u->y, target_x, target_y))
         return CURSOR_RED;
     if (world_unit_at(&world, target_x, target_y, UL_AIR) != NO_UNIT)

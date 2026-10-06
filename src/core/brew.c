@@ -6,6 +6,7 @@
 #include "gen/data.h"
 #include "gen/tiles.h"
 #include "items.h"
+#include "ride.h"
 
 /* Which ingredient brews which potion (GDD 7.2). Dragon herb also
  * unlocks the dragon summons. */
@@ -44,12 +45,14 @@ static uint8_t vial_potion(uint8_t vial)
     return 0xFF;
 }
 
-/* F1: rounds = 8 * level / potion consumption, at least 1. */
+/* Duration in rounds (K8.2): floor((3 (L-1) + 10) / potion consumption of
+ * the drinker), at least 1. L is the level the potion was brewed at. */
 static uint8_t potion_rounds(const Unit *u, uint8_t level)
 {
-    uint16_t pc = CREATURES[u->kind].potion;
-    uint16_t r = pc ? (uint16_t)(8u * level / pc) : level;
-    return r == 0 ? 1 : (uint8_t)r;
+    uint16_t pc = CREATURES[ride_actor_kind(u)].potion;
+    uint16_t base = (uint16_t)(3u * (level ? level - 1 : 0) + 10u);
+    uint16_t r = pc ? base / pc : base;
+    return r == 0 ? 1 : (r > 255 ? 255 : (uint8_t)r);
 }
 
 static bool ground_has(const World *w, int16_t x, int16_t y, uint8_t kind)
@@ -176,10 +179,10 @@ static bool apply_potion(World *w, uint8_t unit, uint8_t potion, uint8_t level)
     Unit *u = &w->units[unit];
     switch (potion) {
     case SP_STRENGTH_POTION:
-        return effect_grant(u, EFF_STRENGTH, (uint8_t)(2 * level),
+        return effect_grant(u, EFF_STRENGTH, POTION_STRENGTH_BONUS,
                             potion_rounds(u, level));
     case SP_PROTECTION_POTION:
-        return effect_grant(u, EFF_PROTECT, (uint8_t)(2 * level),
+        return effect_grant(u, EFF_PROTECT, POTION_PROTECTION_BONUS,
                             potion_rounds(u, level));
     case SP_INVISIBILITY_POTION:
         return effect_grant(u, EFF_INVISIBLE, level, potion_rounds(u, level));
@@ -187,6 +190,12 @@ static bool apply_potion(World *w, uint8_t unit, uint8_t potion, uint8_t level)
         return effect_grant(u, EFF_SPEED, level, potion_rounds(u, level));
     case SP_FLYING_POTION:
         return effect_grant(u, EFF_FLYING, level, potion_rounds(u, level));
+    case SP_SUPER_POTION:                /* strength + protection + speed (K8.2) */
+        return effect_grant(u, EFF_STRENGTH, POTION_STRENGTH_BONUS,
+                            potion_rounds(u, level)) &&
+               effect_grant(u, EFF_PROTECT, POTION_PROTECTION_BONUS,
+                            potion_rounds(u, level)) &&
+               effect_grant(u, EFF_SPEED, level, potion_rounds(u, level));
     case SP_HEALING_POTION:
         u->con = u->con_max;             /* heals wounds too (GDD 7.2) */
         u->sta = u->sta_max;

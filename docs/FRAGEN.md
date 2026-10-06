@@ -18,3 +18,6 @@
 | F5 | 0c | Zähigkeiten der Möbel und Türen (Skala des Originals 40–200) sind nur in groben Zügen übernommen: Türen 60/80, Möbel 60–65, Baum 80, Fels 200, Zaun 40. | Bleibt, bis das Playtest-Feedback anderes sagt. Folge: Kreaturen unter Combat 40 brechen keine Tür auf. |
 | F6 | 0c | Nahkampf zwischen Boden und Luft: Das Original trifft nur auf gleicher Höhe (Eigenheit, K10.3). Bei uns darf ein Flieger Bodenziele weiter angreifen, bis 2d (Abheben/Landen der KI) steht. | Wie bisher; wird in 2d umgestellt. |
 | F7 | 0c | Kritische Treffer (D30) und `reacted` (D29) sind weg; die Felder `crit`/`return_crit` in `CombatResult` bleiben für die Anzeige, sind aber immer `false`. | Aufräumen später (S). |
+| F8 | 0d | Zaubern aus der Luft (CAST-A, Teleport nur unter Flying-Trank) kennt das Original; bei uns kann ein fliegender Zauberer nicht zaubern. | Bleibt gesperrt; die Teleport-Bedingung ist damit gegenstandslos. Soll das Zaubern aus der Luft kommen, ist das eine eigene Aufgabe (Ziele je Höhe). |
+| F9 | 0d | Der Super-Trank (Ambergris) hat keine Zutat und keine Phiole. Wir haben statt dessen die Bombe der Amiga-Fassung (Nitro). | Beides bleibt; Ambergris bräuchte eine neue Objektkachel. |
+| F10 | 0d | Magic Attack trifft im Original auch Reiter einzeln; bei uns steckt der Reiter im Reittier. | Das Reittier stirbt, der Reiter wird abgeworfen (D60). |

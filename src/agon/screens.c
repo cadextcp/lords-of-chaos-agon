@@ -597,11 +597,9 @@ void spell_panel(uint8_t spell, uint8_t top)
     snprintf(buf, sizeof buf, "Mana L1:%u  x(Stufe+1)", s->mana);
     render_menu_text(1, (uint8_t)(top + 1), C_BRIGHT_WHITE, buf);
     if (spell == SP_MAGIC_BOLT)
-        snprintf(buf, sizeof buf, "Schaden (3+St)w6");
+        snprintf(buf, sizeof buf, "Angriff 4xSt+25");
     else if (spell == SP_MAGIC_LIGHTNING)
-        snprintf(buf, sizeof buf, "Schaden (5+St)w6 +2w6");
-    else if (s->dice_n)
-        snprintf(buf, sizeof buf, "Schaden %uw%u", s->dice_n, s->die);
+        snprintf(buf, sizeof buf, "Angriff 4xSt+30, Fels 3x3");
     else
         snprintf(buf, sizeof buf, "kein Direktschaden");
     render_menu_text(1, (uint8_t)(top + 2), C_BRIGHT_CYAN, buf);

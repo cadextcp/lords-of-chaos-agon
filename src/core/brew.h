@@ -50,4 +50,8 @@ uint8_t brew_ingredient_potion(uint8_t object_kind);
 bool brew_dragon_ready(World *w, uint8_t wiz);
 void brew_dragon_spend(World *w, uint8_t wiz);
 
+/* Fixed potion bonuses of the original (K8.2). */
+#define POTION_STRENGTH_BONUS 20
+#define POTION_PROTECTION_BONUS 25
+
 #endif

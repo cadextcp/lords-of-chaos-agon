@@ -30,15 +30,6 @@ typedef struct {
     bool attacker_died;   /* the return blow killed the attacker */
 } CombatResult;
 
-/* Attack rolls at or below this percentile are critical (D30): the
- * damage dice count twice (flat bonuses do not - D&D style). */
-#define COMBAT_CRIT_PERCENT 5
-/* Spell hit chance (D40): magic ignores armour and defence completely -
- * only magic resistance counts. The clamp keeps a critical failure
- * possible against the weakest resistance and a hit possible against the
- * strongest, so nothing is ever immune or automatic. */
-uint8_t combat_spell_hit_chance(uint8_t magic_res);
-
 /* One attack roll (K6.2): RND(min(255, 2 (A + 1))) - Defence_eff, never
  * below 0; 0 means a miss. Used by melee, return blows, throws, bow. */
 uint8_t combat_roll(Rng *rng, uint8_t attack, uint8_t defence);
