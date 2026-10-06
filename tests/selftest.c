@@ -1646,16 +1646,22 @@ static void test_wild(void)
     /* picking up from the own field or a neighbour, not further */
     world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
     {
-        uint8_t k, apple = 0xFF, sword = 0xFF, w0 = 0, before;
-        for (k = 0; k < world.object_count; k++) {
-            if (world.objects[k].tile == T_OBJ_APPLE)
-                apple = k;
-            if (world.objects[k].tile == T_OBJ_SWORD)
-                sword = k;
-        }
+        uint8_t k, apple = 0xFF, sword = 0xFF, w0 = 0, before, da = 0xFF, ds = 0xFF;
         for (k = 0; k < world.unit_count; k++)
             if (world.units[k].owner == OWN_P1)
                 w0 = k;
+        for (k = 0; k < world.object_count; k++) {   /* the own house's */
+            uint8_t d = world_distance(&world, world.units[w0].x, world.units[w0].y,
+                                       world.objects[k].x, world.objects[k].y);
+            if (world.objects[k].tile == T_OBJ_APPLE && d < da) {
+                apple = k;
+                da = d;
+            }
+            if (world.objects[k].tile == T_OBJ_SWORD && d < ds) {
+                sword = k;
+                ds = d;
+            }
+        }
         world.units[w0].ap = 40;
         check(sword != 0xFF && !items_pick_up_object(&world, w0, sword),
               "pickup: two fields away is out of reach");
@@ -1761,6 +1767,14 @@ static void test_wild(void)
 
     /* spells reach through tall grass, eyes do not (D36) */
     world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+    {   /* its own strip of ground: grass, three tall grass, grass */
+        int16_t x;
+        for (x = 7; x <= 11; x++) {
+            world.floor[19][x] = (x >= 8 && x <= 10) ? FL_TALL_GRASS : FL_GRASS;
+            world.feature[19][x] = FE_NONE;
+        }
+        world_map_changed(&world);
+    }
     check(world.floor[19][9] == FL_TALL_GRASS &&
           !sight_has_los(&world, 7, 19, 11, 19) &&
           sight_has_spell_los(&world, 7, 19, 11, 19),
@@ -2279,9 +2293,9 @@ static void test_review_fixes(void)
 static void test_scenario(void)
 {
     world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
-    check(world.w == 36 && world.h == 36 && world.wrap,
-          "scn: 36x36, wraps");
-    check(world.portal_x == 26 && world.portal_y == 3 &&
+    check(world.w == 46 && world.h == 46 && world.wrap,
+          "scn: 46x46, wraps (D64)");
+    check(world.portal_x == 33 && world.portal_y == 3 &&
           world.portal_rmin == 12 && world.portal_rmax == 15,
           "scn: portal from the map (v3)");
     {
@@ -3441,11 +3455,11 @@ static void test_m4e(void)
         {   /* the roof keeps the outer wall covered (2026-10-05): a wall
              * field carries its roof even in line of sight - the facade
              * must not go open right in front of the viewer. */
-            view_set_roof_viewer(15, 6);         /* outside, east of the wing */
-            check(world_has_roof(&world, 13, 6) &&
-                  sight_has_los(&world, 15, 6, 13, 6),
+            view_set_roof_viewer(19, 6);         /* outside, east of the house */
+            check(world_has_roof(&world, 17, 6) &&
+                  sight_has_los(&world, 19, 6, 17, 6),
                   "d46: premise - the east wall is roofed and in sight");
-            view_compose(&world, 13, 6, &f);
+            view_compose(&world, 17, 6, &f);
             check(has_layer(&f, T_ROOF),
                   "d46: the wall keeps its roof even in line of sight");
             view_set_roof_viewer(-1, 0);
@@ -3934,6 +3948,29 @@ static void test_d64(void)
           "d64: the 46x46 save parses back");
 }
 
+/* D64: on the 46x46 Level 1 chests and finds grow with the area. */
+static void test_d64_populate(void)
+{
+    Rng r;
+    int16_t x, y;
+    uint8_t chests = 0, fixed = 0;
+    world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+    for (y = 0; y < world.h; y++)
+        for (x = 0; x < world.w; x++)
+            if (world.feature[y][x] == FE_CHEST || world.feature[y][x] == FE_CHEST_FREE)
+                fixed++;
+    rng_seed(&r, 7);
+    populate_scenario(&world, &r);
+    for (y = 0; y < world.h; y++)
+        for (x = 0; x < world.w; x++)
+            if (world.feature[y][x] == FE_CHEST || world.feature[y][x] == FE_CHEST_FREE)
+                chests++;
+    check((uint8_t)(chests - fixed) >= POP_CHESTS_MIN * 46u * 46u / (36u * 36u) - 1,
+          "d64: the big map gets more chests (area scaled)");
+    check(world.object_count < MAX_OBJECTS - 16,
+          "d64: room left in the object list for chest loot and drops");
+}
+
 static void test_m4i(void)
 {
     SaveGame a, b;
@@ -4025,7 +4062,7 @@ static void test_m4k_ai(void)
         AiCtx ctx;
         Turns t;
         uint8_t r, i, wz, creatures, armed;
-        int16_t hx = 31, hy = 26;
+        int16_t hx = 40, hy = 30;           /* the rival's start (D64 map) */
         world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
         area_reset();
         memset(bk, 0, sizeof bk);
@@ -4067,7 +4104,7 @@ static void test_m4k_ai(void)
         check(wz != NO_UNIT && world_has_roof(&world, world.units[wz].x, world.units[wz].y) &&
               world_distance(&world, world.units[wz].x, world.units[wz].y, hx, hy) <= 6,
               "d62: with company the wizard stays in his house");
-        check(world.feature[29][32] == FE_NONE, "d62: he opened his own chest");
+        check(world.feature[34][42] == FE_NONE, "d62: he opened his own chest");
         {
             uint8_t k, scroll = 0;
             for (k = 0; wz != NO_UNIT && k < world.units[wz].item_count; k++)
@@ -4091,8 +4128,13 @@ static void test_m4k_ai(void)
                     wz = i;
             world.units[wz].ap = world.units[wz].ap_max;
             before = world_distance(&world, world.units[wz].x, world.units[wz].y, 6, 6);
-            t.round = 9;
-            ai_wizard_phase(&t, &world, &ctx);
+            for (r = 9; r <= 11; r++) {     /* out of the door, then away */
+                t.round = r;
+                for (i = 0; i < world.unit_count; i++)
+                    if (world.units[i].owner == OWN_P2)
+                        world.units[i].ap = world.units[i].ap_max;
+                ai_wizard_phase(&t, &world, &ctx);
+            }
             for (i = 0; i < world.unit_count; i++)
                 if (world.units[i].owner == OWN_P2)
                     wz = i;
@@ -4916,6 +4958,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m5a();
     test_m4i();
     test_d64();
+    test_d64_populate();
     test_m4k_ai();
     test_m4_review();
     test_m5b_tutorial();

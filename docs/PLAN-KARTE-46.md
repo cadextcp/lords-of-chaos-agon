@@ -70,3 +70,9 @@ W..C...D...hT.#
 1. **46×46.**
 2. **Vier große Räume** wie in der Skizze.
 3. **Wildtiere wie heute**, `MAX_UNITS` bleibt 32.
+
+## Stand
+
+- Teil 1 (Motor) und Teil 2 (Karte, Häuser, Varianten) sind gebaut; PR 2 und 3 aus dem Plan wurden zusammengelegt, weil der Variantengenerator die Basiskarte direkt liest.
+- Bevölkerung: Truhen, Schlüssel und Funde werden auf Karten über 36×36 mit der Fläche hochgerechnet (`by_area` in `populate.c`, ×1,63); kleinere Szenarien behalten ihre Mengen, Wildtiere bleiben wie bisher.
+- Offen: `loc --bench` vor/nach (braucht einen Esc-Tastendruck im GUI-Emulator).
