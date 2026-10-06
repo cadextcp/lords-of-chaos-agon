@@ -26,9 +26,11 @@ RULES: list[tuple[str, dict[tuple[int, int, int], tuple[int, int, int]]]] = [
     # trees and forest floor: one step darker, highlights become mid green
     ("tree", {(0, 85, 0): BLACK, (0, 170, 0): (0, 85, 0), (85, 255, 85): (0, 170, 0)}),
     ("floor_forest", {(0, 85, 0): BLACK, (0, 170, 0): (0, 85, 0), (85, 255, 85): (0, 170, 0)}),
-    # tall grass: black ground, stalks stay
-    ("floor_tallgrass", {(85, 85, 0): BLACK, (170, 170, 85): (85, 85, 0)}),
-    ("edge_tall_", {(85, 255, 85): (0, 170, 0), (0, 170, 0): (0, 85, 0)}),
+    # tall grass: black ground, dim stalks, flowers one step darker
+    ("floor_tallgrass", {(85, 85, 0): BLACK, (85, 170, 0): (0, 85, 0),
+                         (170, 170, 85): (85, 85, 0), (255, 255, 85): (170, 170, 0)}),
+    ("edge_tall_", {(85, 255, 85): (0, 85, 0), (0, 170, 0): (0, 85, 0),
+                    (255, 255, 85): (170, 170, 0)}),
     # swamp: stagnant dark blue, teal and green specks stay
     ("floor_swamp", {(85, 85, 0): (0, 0, 85)}),
     # path: grey earth
