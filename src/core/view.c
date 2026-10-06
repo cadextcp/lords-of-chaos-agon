@@ -115,6 +115,7 @@ static const uint16_t FEATURE_TILE[FE_COUNT] = {
     [FE_CAULDRON] = T_CAULDRON, [FE_TABLE] = T_TABLE, [FE_CHAIR] = T_CHAIR,
     [FE_DRAWERS] = T_DRAWERS, [FE_CHEST] = T_CHEST, [FE_TREE] = T_TREE,
     [FE_ROCK] = T_ROCK, [FE_CHEST_FREE] = T_CHEST,
+    [FE_LEAF_E] = T_DOOR_LEAF_E, [FE_LEAF_W] = T_DOOR_LEAF_W,
 };
 
 /* Fence and gate (D54): a low fence joins its neighbours like a wall line
@@ -125,27 +126,7 @@ static bool fence_at(const World *w, int16_t x, int16_t y)
     return world_feature(w, x, y) == FE_FENCE;
 }
 
-static bool is_door_feature(uint8_t fe)
-{
-    return fe == FE_DOOR_CLOSED || fe == FE_DOOR_OPEN || fe == FE_DOOR_LOCKED;
-}
-
-static bool solid_wall_at(const World *w, int16_t x, int16_t y)
-{
-    uint8_t fe = world_feature(w, x, y);
-    return fe == FE_WALL || fe == FE_WINDOW;
-}
-
-static bool is_gate(const World *w, int16_t x, int16_t y)
-{
-    if (!is_door_feature(world_feature(w, x, y)))
-        return false;
-    if (solid_wall_at(w, x, (int16_t)(y - 1)) || solid_wall_at(w, x, (int16_t)(y + 1)) ||
-        solid_wall_at(w, (int16_t)(x - 1), y) || solid_wall_at(w, (int16_t)(x + 1), y))
-        return false;
-    return fence_at(w, x, (int16_t)(y - 1)) || fence_at(w, x, (int16_t)(y + 1)) ||
-           fence_at(w, (int16_t)(x - 1), y) || fence_at(w, (int16_t)(x + 1), y);
-}
+#define is_gate world_is_gate
 
 static uint8_t fence_mask(const World *w, int16_t x, int16_t y)
 {
@@ -398,6 +379,11 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
                         world_is_wall_line(w, wx, (int16_t)(wy + 1));
         push(out, vertical ? (fe == FE_DOOR_OPEN ? T_DOOR_V_OPEN : T_DOOR_V_CLOSED)
                            : (fe == FE_DOOR_OPEN ? T_DOOR_H_OPEN : T_DOOR_H_CLOSED));
+    } else if (fe == FE_LEAF_N || fe == FE_LEAF_S) {
+        /* D61: hinged at the wall - the door is diagonally east or west */
+        bool wall_east = world_feature(w, (int16_t)(wx + 1), (int16_t)(wy + (fe == FE_LEAF_S ? 1 : -1))) == FE_DOOR_OPEN;
+        push(out, fe == FE_LEAF_S ? (wall_east ? T_DOOR_LEAF_SE : T_DOOR_LEAF_SW)
+                                  : (wall_east ? T_DOOR_LEAF_NE : T_DOOR_LEAF_NW));
     } else if (fe == FE_CANDLE) {
         push(out, T_CANDLE_0);
     } else if (fe != FE_NONE) {

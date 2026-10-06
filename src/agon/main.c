@@ -848,6 +848,9 @@ bump:
                 update_sight();        /* the open door changes lines of sight */
             } else if (!(CREATURES[ride_actor_kind(&world.units[active()])].flags & CF_USE)) {
                 render_message(1, C_BRIGHT_RED, "Keine Haende fuer die Tuer.");
+            } else if (world_door_jammed(&world, nx, ny, world.units[active()].x,
+                                         world.units[active()].y)) {
+                render_message(1, C_BRIGHT_RED, "Die Tuer klemmt: kein Platz.");
             } else {
                 render_message(1, C_BRIGHT_RED, "Zu wenig AP fuer die Tuer.");
             }

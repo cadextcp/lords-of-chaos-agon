@@ -19,6 +19,7 @@ static const bool FEATURE_BLOCKS[FE_COUNT] = {
     [FE_CHAIR] = false, [FE_DRAWERS] = true, [FE_CHEST] = true,
     [FE_TREE] = true, [FE_ROCK] = true, [FE_DOOR_LOCKED] = true,
     [FE_CHEST_FREE] = true, [FE_WINDOW] = true, [FE_FENCE] = true,
+    [FE_LEAF_N] = true, [FE_LEAF_E] = true, [FE_LEAF_S] = true, [FE_LEAF_W] = true,
 };
 
 /* Tall features that block ground sight (GDD 3.4). A table rather than an
@@ -167,6 +168,15 @@ bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
         for (k2 = 0; k2 < cells; k2++)
             if (b[pos + k2])
                 w->roof[k2 >> 3] |= (uint8_t)(0x80u >> (k2 & 7));
+    }
+    {   /* doors that start open get their leaf (D61, needs the roof) */
+        int16_t x, y, lx, ly;
+        uint8_t leaf;
+        for (y = 0; y < w->h; y++)
+            for (x = 0; x < w->w; x++)
+                if (w->feature[y][x] == FE_DOOR_OPEN && !world_is_gate(w, x, y) &&
+                    world_leaf_spot(w, x, y, -1, -1, &lx, &ly, &leaf))
+                    w->feature[ly][lx] = leaf;
     }
     return true;
 }
@@ -683,8 +693,123 @@ BumpKind world_bump_kind(const World *w, uint8_t unit, int8_t dx, int8_t dy)
     return u->ap >= cost ? BUMP_OK : BUMP_NO_AP;
 }
 
+static bool is_door_feature(uint8_t fe)
+{
+    return fe == FE_DOOR_CLOSED || fe == FE_DOOR_OPEN || fe == FE_DOOR_LOCKED;
+}
+
+static bool solid_wall_at(const World *w, int16_t x, int16_t y)
+{
+    uint8_t fe = world_feature(w, x, y);
+    return fe == FE_WALL || fe == FE_WINDOW;
+}
+
+static bool fence_at(const World *w, int16_t x, int16_t y)
+{
+    return world_feature(w, x, y) == FE_FENCE;
+}
+
+bool world_is_gate(const World *w, int16_t x, int16_t y)
+{
+    if (!is_door_feature(world_feature(w, x, y)))
+        return false;
+    if (solid_wall_at(w, x, (int16_t)(y - 1)) || solid_wall_at(w, x, (int16_t)(y + 1)) ||
+        solid_wall_at(w, (int16_t)(x - 1), y) || solid_wall_at(w, (int16_t)(x + 1), y))
+        return false;
+    return fence_at(w, x, (int16_t)(y - 1)) || fence_at(w, x, (int16_t)(y + 1)) ||
+           fence_at(w, (int16_t)(x - 1), y) || fence_at(w, (int16_t)(x + 1), y);
+}
+
+/* D61: a field a door leaf can swing onto - bare, dry, nobody on it. */
+static bool leaf_room(const World *w, int16_t *x, int16_t *y)
+{
+    if (!world_wrap(w, x, y))
+        return false;
+    return w->feature[*y][*x] == FE_NONE && !FLOOR_DROWN[w->floor[*y][*x]] &&
+           world_unit_at(w, *x, *y, UL_GROUND) == NO_UNIT;
+}
+
+/* Which side of the door at (x, y) is the room (+1 = south or east): the
+ * roofed one; with a roof on both sides or none, away from whoever opens
+ * it (fx < 0: unknown, south or east). */
+static int8_t leaf_side(const World *w, int16_t x, int16_t y, bool vertical,
+                        int16_t fx, int16_t fy)
+{
+    bool plus = vertical ? world_has_roof(w, (int16_t)(x + 1), y)
+                         : world_has_roof(w, x, (int16_t)(y + 1));
+    bool minus = vertical ? world_has_roof(w, (int16_t)(x - 1), y)
+                          : world_has_roof(w, x, (int16_t)(y - 1));
+    if (plus != minus)
+        return plus ? 1 : -1;
+    if (fx >= 0) {
+        int16_t dx, dy;
+        world_delta(w, x, y, fx, fy, &dx, &dy);
+        if ((vertical ? dx : dy) > 0)
+            return -1;                   /* the opener stands south/east */
+    }
+    return 1;
+}
+
+bool world_leaf_spot(const World *w, int16_t x, int16_t y, int16_t fx,
+                     int16_t fy, int16_t *lx, int16_t *ly, uint8_t *leaf)
+{
+    bool vertical = world_is_wall_line(w, x, (int16_t)(y - 1)) ||
+                    world_is_wall_line(w, x, (int16_t)(y + 1));
+    int8_t s = leaf_side(w, x, y, vertical, fx, fy), k, pass;
+    for (pass = 0; pass < 2; pass++, s = (int8_t)-s)   /* room side first */
+        for (k = -1; k <= 1; k += 2) {   /* north / west of the way first */
+            int16_t cx = vertical ? (int16_t)(x + s) : (int16_t)(x + k);
+            int16_t cy = vertical ? (int16_t)(y + k) : (int16_t)(y + s);
+            if (leaf_room(w, &cx, &cy)) {
+                *lx = cx;
+                *ly = cy;
+                *leaf = vertical ? (k < 0 ? FE_LEAF_S : FE_LEAF_N)
+                                 : (k < 0 ? FE_LEAF_E : FE_LEAF_W);
+                return true;
+            }
+        }
+    return false;
+}
+
+/* Fold back the leaf of the door at (x, y): it stands diagonally next to
+ * the door, on the edge that faces the doorway. */
+static void leaf_remove(World *w, int16_t x, int16_t y)
+{
+    static const int8_t DX[4] = {-1, 1, -1, 1};
+    static const int8_t DY[4] = {-1, -1, 1, 1};
+    uint8_t i;
+    bool vertical = world_is_wall_line(w, x, (int16_t)(y - 1)) ||
+                    world_is_wall_line(w, x, (int16_t)(y + 1));
+    for (i = 0; i < 4; i++) {
+        int16_t cx = (int16_t)(x + DX[i]), cy = (int16_t)(y + DY[i]);
+        uint8_t fe;
+        bool mine;
+        if (!world_wrap(w, &cx, &cy))
+            continue;
+        fe = w->feature[cy][cx];
+        mine = vertical ? ((fe == FE_LEAF_S && DY[i] < 0) || (fe == FE_LEAF_N && DY[i] > 0))
+                        : ((fe == FE_LEAF_E && DX[i] < 0) || (fe == FE_LEAF_W && DX[i] > 0));
+        if (mine) {
+            w->feature[cy][cx] = FE_NONE;
+            return;
+        }
+    }
+}
+
+bool world_door_jammed(const World *w, int16_t x, int16_t y, int16_t fx, int16_t fy)
+{
+    int16_t lx, ly;
+    uint8_t leaf;
+    if (!world_wrap(w, &x, &y) || w->feature[y][x] != FE_DOOR_CLOSED ||
+        world_is_gate(w, x, y))
+        return false;
+    return !world_leaf_spot(w, x, y, fx, fy, &lx, &ly, &leaf);
+}
+
 bool world_open_door(World *w, uint8_t unit, int16_t x, int16_t y)
 {
+    int16_t lx = -1, ly = -1;
+    uint8_t leaf = FE_NONE;
     Unit *u;
     if (unit >= w->unit_count)
         return false;
@@ -695,8 +820,13 @@ bool world_open_door(World *w, uint8_t unit, int16_t x, int16_t y)
         return false;                    /* creature without hands */
     if (u->ap < ACTIONS[ACT_OPEN_DOOR].ap)
         return false;
+    if (!world_is_gate(w, x, y) &&       /* gates fold flat (D61) */
+        !world_leaf_spot(w, x, y, u->x, u->y, &lx, &ly, &leaf))
+        return false;                    /* jammed: no room for the leaf */
     world_spend(w, unit, ACTIONS[ACT_OPEN_DOOR].ap);
     w->feature[y][x] = FE_DOOR_OPEN;
+    if (leaf != FE_NONE)
+        w->feature[ly][lx] = leaf;
     world_map_changed(w);                /* static view layers change */
     return true;
 }
@@ -740,8 +870,11 @@ bool world_close_door(World *w, uint8_t unit, int16_t x, int16_t y)
         world_unit_at(w, cx, cy, UL_GROUND) != NO_UNIT ||
         world_unit_at(w, cx, cy, UL_AIR) != NO_UNIT)
         return false;                    /* somebody stands in the doorway */
-    return door_change(w, unit, x, y, FE_DOOR_OPEN, FE_DOOR_CLOSED,
-                       ACT_OPEN_DOOR);
+    if (!door_change(w, unit, x, y, FE_DOOR_OPEN, FE_DOOR_CLOSED,
+                     ACT_OPEN_DOOR))
+        return false;
+    leaf_remove(w, cx, cy);              /* the leaf swings back (D61) */
+    return true;
 }
 
 bool world_lock_door(World *w, uint8_t unit, int16_t x, int16_t y)
@@ -765,7 +898,8 @@ char world_char(const World *w, int16_t x, int16_t y)
         [FE_BED] = 'B', [FE_BOOKSHELF] = 'S', [FE_CANDLE] = 'K', [FE_CAULDRON] = 'C',
         [FE_TABLE] = 'T', [FE_CHAIR] = 'h', [FE_DRAWERS] = 'M', [FE_CHEST] = 'X',
         [FE_TREE] = 't', [FE_ROCK] = 'R', [FE_DOOR_LOCKED] = 'L',
-        [FE_CHEST_FREE] = 'x', [FE_WINDOW] = 'W', [FE_FENCE] = 'F'};
+        [FE_CHEST_FREE] = 'x', [FE_WINDOW] = 'W', [FE_FENCE] = 'F',
+        [FE_LEAF_N] = '/', [FE_LEAF_E] = '/', [FE_LEAF_S] = '/', [FE_LEAF_W] = '/'};
     static const char FLOOR_CHARS[FL_COUNT] = {
         [FL_STONE] = '.', [FL_WOOD] = ',', [FL_GRASS] = '"', [FL_PATH] = ':',
         [FL_TALL_GRASS] = ';', [FL_FOREST] = 'f', [FL_MAGIC_WOOD] = 'm',

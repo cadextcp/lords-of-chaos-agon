@@ -21,3 +21,7 @@ door_locked,8
 chest_free,6
 window,0
 fence,3
+leaf_n,0
+leaf_e,0
+leaf_s,0
+leaf_w,0

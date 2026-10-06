@@ -2,6 +2,16 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Türblätter (D61) (2026-10-06)
+
+### Geändert
+- **Offene Türen schwenken ihr Blatt auf das Feld neben dem Durchgang** und blockieren es: in den Raum, sonst nach außen. Ohne Platz klemmt die Tür. Schließen klappt das Blatt zurück, Tore im Zaun bleiben flach.
+- **Der offene Rahmen ist innen dunkel.** Vorher schienen die Dielen durch, und die offene Tür sah aus wie eine geschlossene.
+- Level 1: In beiden Häusern sind Kerze, Regal und Kommoden gerückt, damit jede Tür Platz für ihr Blatt hat.
+
+### Intern
+- `FE_LEAF_N/E/S/W`, `world_leaf_spot`, `world_door_jammed`, `world_is_gate` (aus view.c). 6 neue Kacheln (`tools/art/make_door_leaf.py`), View-Hash neu. Checks `d61`. Vorschau: `docs/design/mockups/door-leaf-d61.png`.
+
 ## [Unreleased] – Panel: Tastenzeile (D63) (2026-10-06)
 
 ### Geändert
