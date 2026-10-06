@@ -2,6 +2,12 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Panel: Tastenzeile (D63) (2026-10-06)
+
+### Geändert
+- **Balken-Labels mit zwei Buchstaben in einer Zeile** (`AP AU LE KA VE MA`), die Balken sind 8 px länger.
+- **Neue Zeile darunter mit den Tasten, die gerade wirken** (z. B. `g c`: Aufheben, Zaubern). Sie wird nur neu berechnet, wenn sich an der Figur oder der Karte etwas ändert.
+
 ## [Unreleased] – Handeln vom Reittier aus (D60) (2026-10-06)
 
 ### Neu

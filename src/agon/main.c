@@ -197,6 +197,7 @@ static void glide(uint8_t id, int16_t old_x, int16_t old_y)
 }
 
 static void frame(bool dump);
+static void panel_keys(void);
 static void game_redraw(bool dump);
 
 /* ---------- picking up: own field and neighbours ---------- */
@@ -380,6 +381,7 @@ static void frame(bool dump)
         cursor_on = true;
         place_cursor();
         render_panel(&world, active());
+        panel_keys();
         show_status();
         if (tutorial_on)
             render_message(2, C_BRIGHT_CYAN, tutorial_hint_line(tut.step));
@@ -1275,6 +1277,42 @@ static bool action_possible(char key)
     default:
         return false;
     }
+}
+
+/* The keys that act right now, back to back under the bars (D63). Every
+ * probe copies the world, so the row is only worked out again when the
+ * unit, its AP, pack, field, the map or the round changed. */
+static void panel_keys(void)
+{
+    static const char KEYS[] = "gdwetqvrfcb<>";
+    static uint32_t last_sig = 0xFFFFFFFFUL;
+    static char row[2 * sizeof KEYS];
+    const Unit *u = &world.units[active()];
+    uint32_t sig = (uint32_t)u->id;
+    uint8_t i, n = 0;
+    sig = sig * 31u + u->ap;
+    sig = sig * 31u + u->item_count;
+    sig = sig * 31u + u->in_use;
+    sig = sig * 31u + u->flags;
+    sig = sig * 31u + (uint32_t)(u->x * 64u + u->y);
+    sig = sig * 31u + world.object_count;
+    sig = sig * 31u + world.generation;
+    sig = sig * 31u + turns.round;
+    if (sig != last_sig) {
+        last_sig = sig;
+        char found[sizeof KEYS];
+        uint8_t k = 0;
+        for (i = 0; KEYS[i]; i++)
+            if (action_possible(KEYS[i]))
+                found[k++] = KEYS[i];
+        for (i = 0; i < k; i++) {        /* spaced while they fit (13 cols) */
+            if (i && k <= 7)
+                row[n++] = ' ';
+            row[n++] = found[i];
+        }
+        row[n] = 0;
+    }
+    render_panel_keys(row);
 }
 
 /* The overlay area is the 27 text columns (216 px) left of the stat panel:

@@ -405,19 +405,20 @@ static void text_at(uint8_t col, uint8_t row, uint8_t colour, const char *s)
 }
 
 /* Fill colour and outline colour per bar (Amiga order, B2.4). The icons
- * gave way to stacked letters (B6). */
+ * gave way to letters (B6), two per bar in one row (D63). */
 static const uint8_t BAR_FILL[6] = {C_BRIGHT_GREEN, C_BRIGHT_YELLOW, C_BRIGHT_RED,
                                     C_WHITE, C_BRIGHT_BLUE, C_BRIGHT_MAGENTA};
 static const uint8_t BAR_EDGE[6] = {C_GREEN, C_YELLOW, C_RED, C_GREY, C_BLUE, C_MAGENTA};
-static const char *const BAR_LABEL[6] = {"AP", "AUS", "LEB", "KAM", "VER", "MAN"};
+static const char *const BAR_LABEL[6] = {"AP", "AU", "LE", "KA", "VE", "MA"};
 /* Status icons (PM 11) in UF_* bit order. */
 static const uint16_t STATUS_ICON[5] = {T_ICON_ST_UNDEAD, T_ICON_ST_FLY, T_ICON_ST_MOUNT,
                                        T_ICON_ST_WOUND, T_ICON_ST_INVISIBLE};
-/* The bars were shortened by 24 px to make room for three stacked letters
- * under each one; "Am Boden:" starts at text row 23 and cannot move. */
+/* Under the bars: one row of two-letter labels (D63), then the keys that
+ * act right now; "Am Boden:" starts at text row 23 and cannot move. */
 #define BAR_TOP 58
-#define BAR_BOTTOM 144
-#define BAR_LABEL_ROW 19          /* rows 19..21, one letter each */
+#define BAR_BOTTOM 152
+#define BAR_LABEL_ROW 20
+#define KEYS_ROW 21
 #define BAR_BUFF_SPACE 10         /* reserved above the bar for a buff */
 
 static void black(int x0, int y0, int x1, int y1)
@@ -500,19 +501,18 @@ static void bar(uint8_t i, uint8_t value, uint8_t max, uint8_t cap,
     }
 }
 
-/* The letters that replaced the icons (B6), stacked under the bar. */
+/* The letters that replaced the icons (B6): two under each bar (D63). */
 static void bar_label(uint8_t i)
 {
-    const char *s = BAR_LABEL[i];
-    uint8_t col = (uint8_t)((PANEL_X + 8 + i * 16) / 8), k;
-    char one[2];
-    one[1] = 0;
-    for (k = 0; k < 3; k++) {
-        one[0] = s[k] ? s[k] : ' ';
-        text_at(col, (uint8_t)(BAR_LABEL_ROW + k), BAR_EDGE[i], one);
-        if (!s[k])
-            break;
-    }
+    text_at((uint8_t)((PANEL_X + 8 + i * 16) / 8), BAR_LABEL_ROW, BAR_EDGE[i],
+            BAR_LABEL[i]);
+}
+
+void render_panel_keys(const char *keys)
+{
+    char buf[16];
+    snprintf(buf, sizeof buf, "%-13.13s", keys);
+    text_at(TEXT_COL_PANEL, KEYS_ROW, C_BRIGHT_CYAN, buf);
 }
 
 /* Panel (GDD 11.1), 104 px = text columns 27..39:
@@ -651,6 +651,7 @@ void render_panel_at(const World *w, const Sight *s, int16_t x, int16_t y)
         bar(i, 0, 0, 1, 0);
         bar_label(i);
     }
+    render_panel_keys("");
     text_at(TEXT_COL_PANEL, 23, C_GREY, "Am Boden:");
     n = ground_names(w, wx, wy, ground);
     for (i = 0; i < GROUND_MAX; i++) {
