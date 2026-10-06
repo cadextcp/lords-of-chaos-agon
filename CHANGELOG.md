@@ -2,6 +2,22 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Abgleich mit dem Spectrum-Original (D66) (2026-10-06)
+
+### Geändert
+- **Aktionskosten (AP) wie im Original:** Zaubern, Nahkampf, Fernwaffe und Werfen 8; Aufheben 8; Fallen lassen 0; Essen und Füllen 4; Aufsitzen 10; Abfliegen 6; Landen 0. Rückschlag, Tür und Truhe bleiben eigene Regeln.
+- **Kreaturen:** Dwarf, Goblin und Troll sind Wood-Typ, Giant Bat hat Trank-Verbrauch 2, der Ghost hat Use; der Zauberer trägt 36.
+- **Gewichte:** Schwert 10, Messer 3, Schild 8, Bogen 4, Keule 9, Axt 7, Wurfstern 4, Slayer 9, leerer Kessel 15, leere Phiole 2, volle Phiole 4, Drachenkraut 2.
+- **Essen:** Apfel heilt 10 Con; jede Nahrung gibt zusätzlich das Vierfache ihrer Heilung als Ausdauer.
+- **Fliegen per Trank** gibt 2 × Boden-AP je Runde (vorher 1 ×).
+- **Zauberer-Designer:** Start-Constitution 34 (vorher 25) und Start-Mana 80 (vorher 90) wie im Original; ein Punkt Constitution kostet 3 XP, ein Punkt Mana 8 XP (vorher 2 und 9). Die Standardvorlage kostet 531 XP und lässt 69 übrig.
+
+### Neu
+- `docs/REGELVERGLEICH-SPECTRUM.md`: Vergleich aller Regeln mit dem Spectrum-Original, gerechnete Beispiele und eine Vorschlagsliste R1–R39, mit dem Vergleich der KI (K10). Wichtigster Befund: Unsere Mana-Tabelle sind die Designer-XP-Preise (R1).
+
+### Intern
+- Selftests auf die neuen Zahlen umgestellt, eine neue Erwartung für Essen und Trankflug.
+
 ## [Unreleased] – Türblatt am Rahmen (D65) (2026-10-06)
 
 ### Geändert

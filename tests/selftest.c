@@ -287,7 +287,7 @@ static void test_data(void)
     check(SPELLS[SP_SUPER_POTION].amiga == 0 && SPELLS[SP_BOMB_POTION].known == 0,
           "data: super potion not on Amiga, bomb potion cost unknown");
     check(FLOOR_AP[FL_PATH] == 3 && FLOOR_AP[FL_STONE] == 4, "data: floor costs from costs.csv");
-    check(ACTIONS[ACT_CAST].ap == 10 && ACTIONS[ACT_MELEE].stamina == 4,
+    check(ACTIONS[ACT_CAST].ap == 8 && ACTIONS[ACT_MELEE].stamina == 4,
           "data: action costs from actions.csv");
 }
 
@@ -903,8 +903,8 @@ static void test_flight(void)
           world_unit_at(&world, 14, 2, UL_AIR) == NO_UNIT,
           "fly: bat starts on the ground layer");
     check(!world_take_off(&world, 0), "fly: wizard cannot take off");
-    check(world_take_off(&world, 11) && world.units[11].ap == 20,
-          "fly: take-off costs 4 AP");
+    check(world_take_off(&world, 11) && world.units[11].ap == 18,
+          "fly: take-off costs 6 AP");
     check((world.units[11].flags & UF_FLYING) != 0 &&
           world_unit_at(&world, 14, 2, UL_AIR) == 11 &&
           world_unit_at(&world, 14, 2, UL_GROUND) == NO_UNIT,
@@ -915,12 +915,12 @@ static void test_flight(void)
               "fly: straight over anything");
     }
     check(world.units[11].x == 16 && world.units[11].y == 2 &&
-          world.units[11].ap == 12 && world_floor(&world, 16, 2) == FL_WATER,
+          world.units[11].ap == 10 && world_floor(&world, 16, 2) == FL_WATER,
           "fly: 2 air steps onto the river cost 8 AP");
     check(!world_land(&world, 11), "fly: no landing on water");
     check(world_move_unit(&world, 11, 1, 0) && world_land(&world, 11) &&
-          world.units[11].ap == 4,
-          "fly: landing on grass costs 4 AP");
+          world.units[11].ap == 6,
+          "fly: landing on grass is free");
     check(world_unit_at(&world, 17, 2, UL_GROUND) == 11 &&
           !(world.units[11].flags & UF_FLYING),
           "fly: back on the ground layer");
@@ -1100,7 +1100,7 @@ static void test_combat(void)
         check(a.hit == b.hit && a.damage == b.damage && a.returned == b.returned,
               "combat: same seed, same outcome");
         check(a.returned, "combat: free counter even without AP (D27)");
-        check(world.units[0].ap == 30, "combat: melee costs 10 AP");
+        check(world.units[0].ap == 32, "combat: melee costs 8 AP");
         if (a.returned && !a.attacker_died)
             check(world.units[1].ap == 0, "combat: the counter costs no AP (D27)");
     }
@@ -1406,9 +1406,9 @@ static void test_spells(void)
               world.units[1].con_max == (uint8_t)(bat->con * 115 / 100) &&
               world.units[1].con == world.units[1].con_max,
               "d34: level 2 = +15 % combat, defence, constitution");
-        check(world.units[0].ap == 30 && world.units[0].mana == 73 &&
+        check(world.units[0].ap == 32 && world.units[0].mana == 73 &&
               book.level[SP_GIANT_BAT] == 2,
-              "d34: 10 AP, the level-1 mana (7), the level stays");
+              "d34: 8 AP, the level-1 mana (7), the level stays");
         check(spell_summon(&world, &book, 0, SP_GIANT_BAT) == 1 &&
               world.units[0].mana == 66 && book.level[SP_GIANT_BAT] == 2,
               "d34: summons can be cast again (no charges)");
@@ -1900,14 +1900,14 @@ static void test_items(void)
     check(items_kind_at(&world, 6, 8) == OBJ_SWORD, "items: sword on the ground");
 
     check(items_pick_up(&world, 0) && world.units[0].item_count == 1 &&
-          world.units[0].items[0] == OBJ_SWORD && world.units[0].ap == 34,
-          "items: picking up costs 6 AP");
+          world.units[0].items[0] == OBJ_SWORD && world.units[0].ap == 32,
+          "items: picking up costs 8 AP");
     check(items_kind_at(&world, 6, 8) == NO_ITEM, "items: gone from the ground");
     check(items_combat(&world, 0) == 10 && items_defence(&world, 0) == 12,
           "items: bare-handed values");      /* not wielded yet */
 
     check(items_cycle(&world, 0) && world.units[0].in_use == 0 &&
-          world.units[0].ap == 30, "items: wielding costs 4 AP");
+          world.units[0].ap == 28, "items: wielding costs 4 AP");
     check(items_combat(&world, 0) == 10,
           "d42: a wielded sword leaves the hit value alone");
 
@@ -1980,7 +1980,7 @@ static void test_items(void)
         rng_seed(&rng, 11);
         check(items_fire(&world, &rng, 0, 11, 5, &dmg),
               "items: bow fires in range");
-        check(world.units[0].ap == 28, "items: firing costs 12 AP");
+        check(world.units[0].ap == 32, "items: firing costs 8 AP");
         check(!items_fire(&world, &rng, 0, 20, 5, &dmg),
               "items: out of range rejected");
     }
@@ -2328,7 +2328,7 @@ static void test_m4a(void)
 {
     Rng rng;
 
-    check(OBJECTS[OBJ_APPLE].eat_con == 4 && OBJECTS[OBJ_MAGIC_MUSHROOM].eat_mana == 6 &&
+    check(OBJECTS[OBJ_APPLE].eat_con == 10 && OBJECTS[OBJ_MAGIC_MUSHROOM].eat_mana == 6 &&
           OBJECTS[OBJ_CHEST_KEY].category == OC_KEY,
           "m4a: food and key values from objects.csv");
 
@@ -2345,7 +2345,7 @@ static void test_m4a(void)
         world.units[1].ap = 0;              /* no return blows in this test */
         rng_seed(&rng, 1);
         combat_melee(&world, &rng, 0, 1, &r);
-        check(!r.hit && world.units[1].con == 40 && world.units[0].ap == 30,
+        check(!r.hit && world.units[1].con == 40 && world.units[0].ap == 32,
               "m4a: bare hands clank off the zombie");
         world.units[0].ap = 40;
         world.units[0].items[0] = OBJ_SWORD;
@@ -2409,9 +2409,11 @@ static void test_m4a(void)
         world.units[0].items[0] = OBJ_APPLE;
         world.units[0].item_count = 1;
         world.units[0].in_use = 0;
-        check(items_eat(&world, 0) && world.units[0].con == 14 &&
-              world.units[0].item_count == 0 && world.units[0].ap == 34,
-              "m4a: eating an apple heals 4 Con");
+        world.units[0].sta = 5;
+        check(items_eat(&world, 0) && world.units[0].con == 20 &&
+              world.units[0].sta == 43 &&   /* 5 - 2 for the AP + 40 */
+              world.units[0].item_count == 0 && world.units[0].ap == 36,
+              "m4a: eating an apple heals 10 Con and gives 40 stamina");
         world.units[0].items[0] = OBJ_MAGIC_MUSHROOM;
         world.units[0].item_count = 1;
         world.units[0].in_use = 0;
@@ -2774,8 +2776,8 @@ static void test_m4_review(void)
     effect_grant(u, EFF_FLYING, 1, 2);
     check(world_take_off(&world, 0), "m4r: the potion lets the wizard fly");
     world_new_turn(&world);
-    check((u->flags & UF_FLYING) && u->ap == u->ap_max,
-          "m4r: airborne on a potion keeps the ground AP");
+    check((u->flags & UF_FLYING) && u->ap == 2 * u->ap_max,
+          "m4r: airborne on a potion gets twice the ground AP");
     world_new_turn(&world);
     check(!(u->flags & UF_FLYING), "m4r: lands when the potion wears off");
 
@@ -3154,7 +3156,7 @@ static void test_m4e(void)
           WEAPONS[WEAPON_AXE].dice_n == 2 && WEAPONS[WEAPON_AXE].die == 10,
           "m4e: weapon values from weapons.csv");
     check(OBJECTS[OBJ_SPEAR].weapon == WEAPON_SPEAR &&
-          OBJECTS[OBJ_SLAYER].weight == 6,
+          OBJECTS[OBJ_SLAYER].weight == 9,
           "m4e: the new weapons exist as objects");
     check(strcmp(name_object(T_OBJ_SWORD), "Schwert") == 0 &&
           strcmp(name_object(T_OBJ_RUBY), "Rubin") == 0 &&
@@ -3612,7 +3614,7 @@ static void test_m4f(void)
     {   /* stock wizard: minimums, 600 XP, EMPTY books (user rule) */
         uint16_t s, sum = 0;
         check(w->level == 1 && w->xp == 600 && w->com == 5 && w->sta == 34 &&
-              w->mana_max == 90 && w->ap == 34,
+              w->mana_max == 80 && w->ap == 34,
               "m4f: stock wizard: minimums and 600 XP (F6)");
         for (s = 0; s < SPELL_COUNT; s++)
             sum += w->book.level[s];
@@ -3623,9 +3625,9 @@ static void test_m4f(void)
               w->book.level[SP_HEALING_POTION] == 4 &&
               w->book.level[SP_GIANT_BAT] == 2 && w->book.level[SP_GRYPHON] == 1,
               "m4f: the standard template fills spells + 8 creatures");
-        check(w->com == 20 && w->def == 20 && w->mr == 80 && w->con == 40 &&
-              w->sta == 49 && w->mana_max == 96 && w->ap == 39 && w->xp == 78,
-              "m4f: the template costs 522 of the 600 XP (no cheating)");
+        check(w->com == 20 && w->def == 20 && w->mr == 80 && w->con == 49 &&
+              w->sta == 49 && w->mana_max == 86 && w->ap == 39 && w->xp == 69,
+              "m4f: the template costs 531 of the 600 XP (no cheating)");
         wizard_apply_standard_set(w);   /* idempotent: bolt already there */
         check(w->book.level[SP_MAGIC_BOLT] == 4,
               "m4f: the standard set never overwrites designed books");
@@ -3634,9 +3636,9 @@ static void test_m4f(void)
     check(wizard_attr_cost(WA_COMBAT, 5) == 2 &&
           wizard_attr_cost(WA_DEFENCE, 5) == 2 &&
           wizard_attr_cost(WA_MAGIC_RES, 70) == 4 &&
-          wizard_attr_cost(WA_CONSTITUTION, 25) == 2 &&
+          wizard_attr_cost(WA_CONSTITUTION, 34) == 3 &&
           wizard_attr_cost(WA_STAMINA, 34) == 4 &&
-          wizard_mana_cost() == 9 && wizard_ap_cost() == 8,
+          wizard_mana_cost() == 8 && wizard_ap_cost() == 8,
           "m4f: anchor point costs 2/2/4/2/4, mana 9, AP 8 (F6)");
 
     w->xp = 50;
@@ -3653,16 +3655,16 @@ static void test_m4f(void)
         wizard_slot_reset(3);
         b = wizard_slots[3];            /* minimums + 600 XP */
         check(b.xp == 600 && b.com == 5 && b.def == 5 && b.mr == 70 &&
-              b.con == 25 && b.sta == 34 && b.mana_max == 90 && b.ap == 34,
+              b.con == 34 && b.sta == 34 && b.mana_max == 80 && b.ap == 34,
               "m4f: fresh wizard = minimums + 600 XP");
         /* buy combat to the cap 30: 25 points x 2 XP = 50 spent */
         while (wizard_raise(&b, WA_COMBAT))
             raise_count++;
         check(raise_count == 25 && b.com == 30 && b.xp == 550,
               "m4f: combat caps at 30 after 25 points (50 XP)");
-        /* mana at 9 and AP at 8 still work from 550 */
-        check(wizard_mana_raise(&b) && b.mana_max == 91 && b.xp == 541 &&
-              wizard_mana_lower(&b) && b.mana_max == 90 && b.xp == 550,
+        /* mana at 8 and AP at 8 still work from 550 */
+        check(wizard_mana_raise(&b) && b.mana_max == 81 && b.xp == 542 &&
+              wizard_mana_lower(&b) && b.mana_max == 80 && b.xp == 550,
               "m4f: mana raises/refunds alongside");
         /* lower it back: every lowering refunds the full price */
         {
@@ -3682,7 +3684,7 @@ static void test_m4f(void)
             wizard_raise(&b, WA_CONSTITUTION);
         for (rows = 0; rows < 66; rows++)
             wizard_raise(&b, WA_STAMINA);
-        check(b.xp == 600 - 50 - 70 - 264 && b.def == 30 && b.con == 60 &&
+        check(b.xp == 600 - 50 - 78 - 264 && b.def == 30 && b.con == 60 &&
               b.sta == 100,
               "m4f: 600 XP drain exactly over the three rows");
         /* and the whole thing stays a valid wizard */
@@ -4853,14 +4855,14 @@ static void test_m5e_balance(void)
               "m5f: lowering refunds base/half exactly");
         check(!wizard_spell_lower(&t, SP_TELEPORT),
               "m5f: nothing bought - lowering is refused");
-        check(wizard_mana_cost() == 9 && t.mana_max == 90 && t.ap == 34,
-              "m5f: mana starts at 90, AP at 34 (F6)");
-        t.xp = 9;
-        check(wizard_mana_raise(&t) && t.mana_max == 91 && t.xp == 0 &&
-              wizard_mana_lower(&t) && t.mana_max == 90 && t.xp == 9,
-              "m5f: mana raises and refunds with 9 XP");
+        check(wizard_mana_cost() == 8 && t.mana_max == 80 && t.ap == 34,
+              "m5f: mana starts at 80, AP at 34 (F6)");
         t.xp = 8;
-        check(!wizard_mana_raise(&t), "m5f: one mana point costs exactly 9");
+        check(wizard_mana_raise(&t) && t.mana_max == 81 && t.xp == 0 &&
+              wizard_mana_lower(&t) && t.mana_max == 80 && t.xp == 8,
+              "m5f: mana raises and refunds with 8 XP");
+        t.xp = 7;
+        check(!wizard_mana_raise(&t), "m5f: one mana point costs exactly 8");
         t.xp = 7;
         check(!wizard_ap_raise(&t), "m5f: no AP without 8 XP");
         t.xp = 8;
