@@ -2,6 +2,11 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Level 1: Nachtkarte, Entwurf (D54) (2026-10-06)
+
+### Geändert
+- GDD D54: Kartengröße 36×36 bleibt, alle Szenarien nachts, Fenster (zwei Felder Einblick), Brücken, Zaun und Tor, Biome mit natürlichen Grenzen. Noch kein Code.
+
 ## [Unreleased] – Gelände-Politur 3: Kreaturen-Idle (D53) (2026-10-06)
 
 ### Neu
