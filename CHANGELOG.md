@@ -12,6 +12,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ### Intern
 - RAM-Reserve 129 → 100 KB (vor allem der statische Sicht-Cache). Check `d64`: volle 46×46-Welt mit 32 Einheiten, Wrap, Sicht, Speichern/Laden.
 - Merkposten: `gen/maps.c` (die einkompilierten Karten, ~30 KB) braucht nur der Selftest, landet aber auch in `loc.bin`.
+
 ## [Unreleased] – eZ80-Selftest prüft wieder (2026-10-06)
 
 ### Behoben
