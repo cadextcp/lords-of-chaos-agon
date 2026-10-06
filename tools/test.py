@@ -22,6 +22,7 @@ Both stages must print "=== TEST PASS ===" and exit with code 0.
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import time
@@ -32,6 +33,11 @@ import agon_env as env  # noqa: E402
 import build  # noqa: E402
 
 PASS = "=== TEST PASS ==="
+# loctest ends the emulator through I/O port 0 with its fail count; the
+# emulator reports that itself. Only this line proves the test ran: with
+# its input at EOF the CLI emulator also quits with 0 on its own, before a
+# large program has even started (that hid every eZ80 result from #142).
+EMU_PASS = "shutdown triggered by writing 0x0 IO 0x0"
 # The CLI emulator (1.2.5) runs autoexec.txt at boot, so the selftest is
 # started from there; it ends the emulator itself via I/O port 0.
 AUTOEXEC = f"cd /{env.GAME_DIR}\nloctest\n"
@@ -67,22 +73,26 @@ def test_emu(verbose: bool, timeout: int) -> bool:
     env.stage_game()
     (env.SDCARD / "autoexec.txt").write_bytes(AUTOEXEC.encode())  # LF only
     start = time.monotonic()
+    stdin_r, stdin_w = os.pipe()          # held open: no EOF until it is done
     try:
         r = subprocess.run(
             [str(env.CLI_EMULATOR), "--sdcard", str(env.SDCARD.resolve()), "-u"],
-            cwd=env.EMU_DIR, stdin=subprocess.DEVNULL, capture_output=True,
+            cwd=env.EMU_DIR, stdin=stdin_r, capture_output=True,
             timeout=timeout,
         )
     except subprocess.TimeoutExpired as e:
         print((e.stdout or b"").decode("utf-8", errors="replace"))
         log(f"emulator selftest: FAIL (timeout after {timeout}s)")
         return False
+    finally:
+        os.close(stdin_w)
+        os.close(stdin_r)
     # Emulator output contains raw VDU bytes, so decode leniently.
     out = (r.stdout + r.stderr).decode("utf-8", errors="replace")
     # The port-0 exit code is the verdict (emu_exit writes the fail count);
     # the console tail (including the PASS line) can get lost on the CI
-    # emulator, so rc==0 without any FAIL line counts as a pass.
-    ok = r.returncode == 0 and "FAIL" not in out
+    # emulator, so the emulator's own shutdown line with code 0 counts.
+    ok = r.returncode == 0 and EMU_PASS in out and "FAIL" not in out
     if not ok or verbose:
         print(printable(out).rstrip())
     log(f"emulator selftest: {'PASS' if ok else f'FAIL (exit {r.returncode})'}")
