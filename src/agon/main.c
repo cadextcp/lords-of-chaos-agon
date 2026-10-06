@@ -850,8 +850,8 @@ bump:
                 render_message(1, C_BRIGHT_RED, "Da geht es nicht weiter.");
                 return;
             }
-            if (world.units[att].ap < ACTIONS[ACT_MELEE].ap) {
-                snprintf(msg, sizeof msg, "Zu wenig AP: Angriff kostet %u.",
+            if (!world_can_pay(&world, att, ACT_MELEE)) {
+                snprintf(msg, sizeof msg, "Zu wenig AP/Ausdauer: Angriff kostet %u.",
                          ACTIONS[ACT_MELEE].ap);
                 render_message(1, C_BRIGHT_RED, msg);
                 return;

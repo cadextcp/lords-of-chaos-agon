@@ -46,6 +46,7 @@ static void init_unit(Unit *u, uint8_t x, uint8_t y, uint8_t kind, uint8_t owner
     u->ap_fly = k->ap_fly;
     u->sta = u->sta_max = k->stamina;
     u->con = u->con_max = k->con;
+    u->wounds = 0;
     u->com = k->combat;
     u->def = k->defence;
     u->mr = k->magic_res;
@@ -333,6 +334,43 @@ void world_spend(World *w, uint8_t unit, uint8_t ap)
     u->sta = u->sta > st ? (uint8_t)(u->sta - st) : 0;
 }
 
+void world_spend_ap(World *w, uint8_t unit, uint8_t ap)
+{
+    w->units[unit].ap = (uint8_t)(w->units[unit].ap - ap);
+}
+
+bool world_can_pay(const World *w, uint8_t unit, uint8_t action)
+{
+    const Unit *u = &w->units[unit];
+    return u->ap >= ACTIONS[action].ap && u->sta >= ACTIONS[action].stamina;
+}
+
+void world_pay(World *w, uint8_t unit, uint8_t action)
+{
+    Unit *u = &w->units[unit];
+    u->ap = (uint8_t)(u->ap - ACTIONS[action].ap);
+    u->sta = u->sta > ACTIONS[action].stamina
+                 ? (uint8_t)(u->sta - ACTIONS[action].stamina) : 0;
+}
+
+void world_set_wounds(Unit *u, uint8_t n)
+{
+    u->wounds = n > 7 ? 7 : n;
+    if (u->wounds)
+        u->flags |= UF_WOUNDED;
+    else
+        u->flags &= (uint8_t)~UF_WOUNDED;
+}
+
+uint8_t world_con_factor(const Unit *u)
+{
+    uint8_t f;
+    if (u->con == 0 || u->con >= u->con_max)
+        return 1;
+    f = (uint8_t)(u->con_max / u->con);
+    return f ? f : 1;
+}
+
 void world_delta(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1,
                  int16_t *dx, int16_t *dy)
 {
@@ -489,9 +527,29 @@ bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
     return true;
 }
 
+/* Another being (any layer) on the unit's field stops take-off and
+ * landing (K8.1). */
+static bool field_shared(const World *w, uint8_t unit)
+{
+    uint8_t i;
+    for (i = 0; i < w->unit_count; i++)
+        if (i != unit && w->units[i].x == w->units[unit].x &&
+            w->units[i].y == w->units[unit].y)
+            return true;
+    return false;
+}
+
+/* The AP budget of a creature in the air: its flying AP, or twice the
+ * ground AP under a flying potion (K8.1, K2). */
+static uint16_t air_budget(const Unit *u)
+{
+    return u->ap_fly ? u->ap_fly : (uint16_t)(u->ap_max * 2);
+}
+
 bool world_take_off(World *w, uint8_t unit)
 {
     Unit *u;
+    AreaKind ak;
     if (unit >= w->unit_count)
         return false;
     u = &w->units[unit];
@@ -499,11 +557,20 @@ bool world_take_off(World *w, uint8_t unit)
         return false;
     if (u->ap_fly == 0 && !effect_active(u, EFF_FLYING))
         return false;                         /* no wings, no flying potion */
-    if (world_unit_at(w, u->x, u->y, UL_AIR) != NO_UNIT)
-        return false;                         /* air slot taken */
     if (u->ap < ACTIONS[ACT_TAKE_OFF].ap)
+        return false;                         /* at least 6 AP (K8.1) */
+    if (world_engaged(w, unit))
+        return false;                         /* bound in melee */
+    if (field_shared(w, unit))
+        return false;                         /* nobody else on the field */
+    if (world_has_roof(w, u->x, u->y))
+        return false;                         /* indoors: no take-off bit */
+    ak = area_kind_at(w, u->x, u->y);
+    if (ak == AREA_VINE || ak == AREA_BLOB)
         return false;
-    world_spend(w, unit, ACTIONS[ACT_TAKE_OFF].ap);
+    world_pay(w, unit, ACT_TAKE_OFF);
+    /* the AP are converted in proportion between the two budgets (K2) */
+    u->ap = (uint8_t)((uint16_t)u->ap * air_budget(u) / u->ap_max);
     u->flags |= UF_FLYING;
     return true;
 }
@@ -511,57 +578,64 @@ bool world_take_off(World *w, uint8_t unit)
 bool world_land(World *w, uint8_t unit)
 {
     Unit *u;
+    AreaKind ak;
     if (unit >= w->unit_count)
         return false;
     u = &w->units[unit];
     if (!(u->flags & UF_FLYING))
         return false;
-    if (world_unit_at(w, u->x, u->y, UL_GROUND) != NO_UNIT)
+    if (field_shared(w, unit))
         return false;                         /* no free ground slot */
     if (world_has_roof(w, u->x, u->y))
         return false;                         /* landing under a roof (GDD 3.2) */
     if (FLOOR_DROWN[w->floor[u->y][u->x]])
         return false;                         /* drowning floor (own rule) */
+    ak = area_kind_at(w, u->x, u->y);
+    if (ak == AREA_FIRE || ak == AREA_BLOB)
+        return false;                         /* no-landing bit */
     if (u->ap < ACTIONS[ACT_LAND].ap)
         return false;
-    world_spend(w, unit, ACTIONS[ACT_LAND].ap);
+    world_pay(w, unit, ACT_LAND);             /* free */
+    u->ap = (uint8_t)((uint16_t)u->ap * u->ap_max / air_budget(u));
     u->flags &= (uint8_t)~UF_FLYING;
     return true;
 }
 
-/* Round end (GDD 2.1.4): refill AP - the layer budget while flying
- * (ap_fly) -, recover 25 % stamina (GDD 5.3), regenerate 4 % mana.
- * Exhausted creatures (stamina under 25 % of the maximum) get only half
- * AP next round (PM 12) - tested before the recovery, so one quiet
- * round cures the exhaustion. */
+/* Round start of a unit's side (K4, R9-R12): wounds bleed 2 con each; a
+ * flyer pays half of the AP it left unspent in stamina; the AP refill
+ * is halved when exhausted (stamina under max/6) and divided by the
+ * constitution factor; stamina recovers max/6 (max/2 with speed). */
 void world_new_turn(World *w)
 {
     uint8_t i;
     for (i = 0; i < w->unit_count; i++) {
         Unit *u = &w->units[i];
         /* airborne on a flying potion (no wings): twice the ground budget */
-        uint8_t full = u->ap_max;
-        if ((u->flags & UF_FLYING) && u->ap_fly)
-            full = u->ap_fly;
-        else if (u->flags & UF_FLYING)      /* the potion: twice the ground AP (PM 20) */
-            full = u->ap_max > 127 ? 255 : (uint8_t)(u->ap_max * 2);
-        u->reacted = false;                 /* new round, new reaction (D29) */
-        if (u->flags & UF_WOUNDED)         /* bleeds until death (PM 17) */
-            u->con = u->con > 0 ? (uint8_t)(u->con - 1) : 0;
+        uint16_t full = u->ap_max;
         uint16_t sta;
-        if (effect_active(u, EFF_SPEED))
-            sta = (uint16_t)(u->sta + 3 * (u->sta_max / 4));
-        else
-            sta = (uint16_t)(u->sta + u->sta_max / 4);
-        u->ap = u->sta < u->sta_max / 4 ? (uint8_t)(full / 2) : full;
-        if (u->con < u->con_max / 2)      /* badly hurt (GDD 4.1) */
-            u->ap = (uint8_t)(u->ap / 2);
-        if (effect_active(u, EFF_SPEED))  /* Speed (potion): AP x2 */
-            u->ap = (uint8_t)(u->ap * 2);
+        uint8_t bleed;
+        bool speed = effect_active(u, EFF_SPEED);
+        if (u->flags & UF_FLYING)
+            full = air_budget(u);
+        u->reacted = false;                 /* new round, new reaction (D29) */
+        bleed = (uint8_t)(2 * u->wounds);
+        u->con = u->con > bleed ? (uint8_t)(u->con - bleed) : 0;
+        if (u->flags & UF_FLYING) {         /* hovering is not free (R12) */
+            uint8_t hover = (uint8_t)(u->ap / 2);
+            u->sta = u->sta > hover ? (uint8_t)(u->sta - hover) : 0;
+        }
+        if (speed)
+            full = (uint16_t)(full * 2);
+        if (u->sta < u->sta_max / 6)        /* exhausted: half the AP */
+            full = (uint16_t)(full / 2);
+        full = (uint16_t)(full / world_con_factor(u));
+        u->ap = full > 255 ? 255 : (uint8_t)full;
+        sta = (uint16_t)(u->sta + (speed ? u->sta_max / 2 : u->sta_max / 6));
         u->sta = (uint8_t)(sta > u->sta_max ? u->sta_max : sta);
         if (FLOOR_DROWN[w->floor[u->y][u->x]] &&   /* treading water (C5) */
             !(u->native & NATIVE_WATER) && !(u->flags & UF_FLYING)) {
-            uint8_t cost = (uint8_t)(u->sta_max / 2);   /* net -25 % a round */
+            /* net -25 % a round on top of the max/6 recovery */
+            uint8_t cost = (uint8_t)((uint16_t)u->sta_max * 5 / 12);
             uint8_t hurt = (uint8_t)(u->con_max / 5 > 1 ? u->con_max / 5 : 1);
             u->sta = u->sta > cost ? (uint8_t)(u->sta - cost) : 0;
             if (u->sta == 0)               /* spent: drowning, like bleeding */
@@ -827,7 +901,7 @@ bool world_open_door(World *w, uint8_t unit, int16_t x, int16_t y)
     if (!world_is_gate(w, x, y) &&       /* gates fold flat (D61) */
         !world_leaf_spot(w, x, y, u->x, u->y, &lx, &ly, &leaf))
         return false;                    /* jammed: no room for the leaf */
-    world_spend(w, unit, ACTIONS[ACT_OPEN_DOOR].ap);
+    world_pay(w, unit, ACT_OPEN_DOOR);
     w->feature[y][x] = FE_DOOR_OPEN;
     if (leaf != FE_NONE)
         w->feature[ly][lx] = leaf;
@@ -861,7 +935,7 @@ static bool door_change(World *w, uint8_t unit, int16_t x, int16_t y,
         return false;
     if (w->units[unit].ap < ACTIONS[action].ap)
         return false;
-    world_spend(w, unit, ACTIONS[action].ap);
+    world_pay(w, unit, action);
     w->feature[y][x] = to;
     world_map_changed(w);
     return true;

@@ -72,6 +72,7 @@ typedef struct {
     uint8_t ap, ap_max, ap_fly;
     uint8_t sta, sta_max;     /* stamina */
     uint8_t con, con_max;     /* constitution */
+    uint8_t wounds;           /* 0..7, each costs 2 con per round (R9) */
     uint8_t com, def;         /* combat, defence */
     uint8_t mr;               /* magic resistance */
     uint8_t mana, mana_max;   /* wizards only */
@@ -200,8 +201,18 @@ bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy);
  * (GDD 3.1, deferred). */
 bool world_take_off(World *w, uint8_t unit);
 bool world_land(World *w, uint8_t unit);
-/* Spend AP and half of it as stamina (GDD 5.3). */
+/* Movement payment: AP and half of it (rounded up) as stamina (K8.1). */
 void world_spend(World *w, uint8_t unit, uint8_t ap);
+/* AP only (no stamina). */
+void world_spend_ap(World *w, uint8_t unit, uint8_t ap);
+/* Pay the AP and stamina of an action (data/actions.csv, K8.1). */
+void world_pay(World *w, uint8_t unit, uint8_t action);
+/* Can the unit afford the action? */
+bool world_can_pay(const World *w, uint8_t unit, uint8_t action);
+/* Wounds (R9): set the counter (capped at 7) and keep UF_WOUNDED in step. */
+void world_set_wounds(Unit *u, uint8_t n);
+/* Constitution factor floor(ConMax / ConAct), at least 1 (K4, K6.1). */
+uint8_t world_con_factor(const Unit *u);
 /* Remove a unit (swap with the last): indices of other units may change,
  * so callers re-find units by id (world_find_unit, turn_revalidate). */
 void world_remove_unit(World *w, uint8_t unit);

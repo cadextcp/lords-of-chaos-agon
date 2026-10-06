@@ -2,6 +2,20 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Regeln wie im Original, Schritt 0b: Zustände (D67) (2026-10-07)
+
+### Geändert
+- **Wunden als Zähler 0–7 (R9):** Jede Wunde kostet 2 Constitution je Runde, Curse setzt sofort 7. `UF_WOUNDED` zeigt nur noch an, ob der Zähler über 0 steht. Eine neue Wunde gibt es bei Schaden über einem Viertel von ConMax.
+- **Constitution-Faktor (R10):** Die AP der Runde werden durch `⌊ConMax/Con⌋` geteilt (halb unter 50 %, ein Drittel unter 33 %). Combat und Defence folgen in 0c.
+- **Ausdauer (R11):** Erschöpft ist, wer unter einem Sechstel des Maximums liegt (halbe AP); Erholung je Runde ein Sechstel, mit Speed die Hälfte. Nahkampf kostet 8 AP **und 8 Ausdauer**, Zaubern, Werfen, Schießen, Aufheben, Essen, Trinken, Lesen nur AP. Bewegung kostet weiter die Hälfte der AP als Ausdauer. Die Spalte `stamina` in `data/actions.csv` wird jetzt gelesen (`world_pay`).
+- **Schweben kostet Ausdauer (R12):** Wer fliegt, zahlt je Runde die Hälfte seiner nicht ausgegebenen AP als Ausdauer.
+- **Abheben und Landen (R20):** Abheben braucht 6 AP, darf nicht gebunden sein, kein anderes Wesen auf dem Feld, kein Dach, nicht auf Vine oder Blob. Landen ist kostenlos, nicht auf Feuer oder Blob, nicht mit einem anderen Wesen auf dem Feld. Die AP werden beim Wechsel **anteilig** umgerechnet (z. B. Giant Bat: 18 von 24 am Boden werden 46 von 62 in der Luft). Das Budget je Ebene (D15) entfällt.
+- **Ertrinken (D48)** rechnet mit der neuen Erholung: Das Treten im Wasser kostet 5/12 des Maximums, netto weiter etwa ein Viertel je Runde.
+- **Spielstand v9** (alte Stände werden abgelehnt).
+
+### Intern
+- Neue Hilfen `world_pay`, `world_can_pay`, `world_spend_ap`, `world_set_wounds`, `world_con_factor`. Test `test_0b`, mehrere ältere Selftests auf die neuen Zahlen umgestellt.
+
 ## [Unreleased] – Regeln wie im Original, Schritt 0a: Mana (D67) (2026-10-07)
 
 ### Geändert
