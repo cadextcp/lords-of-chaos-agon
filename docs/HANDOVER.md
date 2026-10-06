@@ -22,6 +22,7 @@
 | #145 | Plan `docs/PLAN-KARTE-46.md` (D64) |
 | #147 | **Fix:** Der eZ80-Selftest war seit #142 blind (Emulator endete bei EOF mit 0). Jetzt zählt nur „shutdown triggered by writing 0x0“ |
 | #146, #148 | **D64:** Karten bis 46×46; Level 1 neu mit zwei Vier-Raum-Häusern (15×11), 16 Varianten auf 46×46, Truhen/Funde mit der Fläche |
+| D65 | **D65:** Das Blatt offener Türen in waagerechten Wänden sitzt im Rahmen am Pfosten (vier Rahmenkacheln), das Blattfeld blockiert nur noch. Senkrechte Wände unverändert. Im Emulator angespielt (Zauberer-Haus), auf der Hardware nicht |
 
 Die Rückmeldungen des Playtests stehen mit Befund und Entscheidung in `docs/PLAYTEST-2026-10-06.md`.
 
@@ -32,7 +33,7 @@ Die Rückmeldungen des Playtests stehen mit Befund und Entscheidung in `docs/PLA
 - **Spielstand v8.** Alte Stände werden abgelehnt.
 - **Level 1 (46×46):** Zauberer starten bei (6,6) und (40,30), Portal (33,3), Gegner-Truhe (42,34). Selftests hängen an diesen Koordinaten (d62, d46, Pickup, Szenario). Die Karte entstand aus einem Entwurfsskript (hochskaliertes Gelände + Häuser nach Skizze); seitdem ist `data/maps/many_coloured_land.txt` die Quelle.
 - **Varianten:** `tools/gen_variants.py` hat feste Kästen für Häuser, Garten, Portal, Türstummel (`HOUSE1/2`, `CLEAR_BOXES`, `STUBS`, …). Wer die Häuser verschiebt, muss sie dort nachziehen.
-- **Türen (D61):** Jede Tür braucht ein freies Feld neben dem Durchgang für ihr Blatt; Check `d61` prüft alle Karten. Möbel nicht diagonal neben Türen stellen.
+- **Türen (D61, D65):** Jede Tür braucht ein freies Feld neben dem Durchgang für ihr Blatt; Check `d61` prüft alle Karten. Gezeichnet wird das Blatt seit D65 bei waagerechten Wänden im Rahmen (`door_h_open_tile`), bei senkrechten auf dem Blattfeld. Möbel nicht diagonal neben Türen stellen.
 
 ### Nicht im Spiel geprüft
 

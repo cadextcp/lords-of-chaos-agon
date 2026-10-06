@@ -115,8 +115,29 @@ static const uint16_t FEATURE_TILE[FE_COUNT] = {
     [FE_CAULDRON] = T_CAULDRON, [FE_TABLE] = T_TABLE, [FE_CHAIR] = T_CHAIR,
     [FE_DRAWERS] = T_DRAWERS, [FE_CHEST] = T_CHEST, [FE_TREE] = T_TREE,
     [FE_ROCK] = T_ROCK, [FE_CHEST_FREE] = T_CHEST,
-    [FE_LEAF_E] = T_DOOR_LEAF_E, [FE_LEAF_W] = T_DOOR_LEAF_W,
 };
+
+/* D65: the leaf of an open door in an east-west wall stands in the frame,
+ * hinged at one jamb. Its field (D61) lies diagonally next to the door:
+ * leaf field west of the door = hinge west; field on the viewer's side
+ * (south) = swung towards us, else seen through the opening. No leaf field
+ * (a door that started open under no roof): the bare frame. */
+static uint16_t door_h_open_tile(const World *w, int16_t x, int16_t y)
+{
+    static const int8_t DX[4] = {-1, 1, -1, 1};
+    static const int8_t DY[4] = {-1, -1, 1, 1};
+    uint8_t i;
+    for (i = 0; i < 4; i++) {
+        bool east = DX[i] > 0;
+        if (world_feature(w, (int16_t)(x + DX[i]), (int16_t)(y + DY[i])) !=
+            (east ? FE_LEAF_W : FE_LEAF_E))
+            continue;
+        if (DY[i] > 0)
+            return east ? T_DOOR_H_OPEN_E : T_DOOR_H_OPEN_W;
+        return east ? T_DOOR_H_FAR_E : T_DOOR_H_FAR_W;
+    }
+    return T_DOOR_H_OPEN;
+}
 
 /* Fence and gate (D54): a low fence joins its neighbours like a wall line
  * does, but it is its own family - it does not hide the floor and does not
@@ -378,7 +399,9 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
         bool vertical = world_is_wall_line(w, wx, (int16_t)(wy - 1)) ||
                         world_is_wall_line(w, wx, (int16_t)(wy + 1));
         push(out, vertical ? (fe == FE_DOOR_OPEN ? T_DOOR_V_OPEN : T_DOOR_V_CLOSED)
-                           : (fe == FE_DOOR_OPEN ? T_DOOR_H_OPEN : T_DOOR_H_CLOSED));
+                           : (fe == FE_DOOR_OPEN ? door_h_open_tile(w, wx, wy) : T_DOOR_H_CLOSED));
+    } else if (fe == FE_LEAF_E || fe == FE_LEAF_W) {
+        /* D65: drawn in the door frame, the field only keeps room for it */
     } else if (fe == FE_LEAF_N || fe == FE_LEAF_S) {
         /* D61: hinged at the wall - the door is diagonally east or west */
         bool wall_east = world_feature(w, (int16_t)(wx + 1), (int16_t)(wy + (fe == FE_LEAF_S ? 1 : -1))) == FE_DOOR_OPEN;
