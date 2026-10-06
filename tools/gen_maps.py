@@ -129,8 +129,8 @@ def parse(path: Path) -> dict:
 
 
 def encode(m: dict, enums: dict[str, int]) -> bytes:
-    if not (1 <= m["w"] <= 36 and 1 <= m["h"] <= 36):
-        raise SystemExit("map size must be 1..36")
+    if not (1 <= m["w"] <= 46 and 1 <= m["h"] <= 46):
+        raise SystemExit("map size must be 1..46 (MAP_MAX_W/H, D64)")
     out = bytearray(b"LOCM")
     out += struct.pack("<BHBBB", 2, enums["TILE_COUNT"], m["w"], m["h"], m["wrap"])
     for key, legend in (("floor", FLOOR), ("feature", FEATURE), ("decor", DECOR)):

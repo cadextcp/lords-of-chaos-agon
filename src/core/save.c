@@ -3,7 +3,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC "LOCSG"
-#define SAVE_VERSION 7   /* v7: AI homes and rage in Game (D62); v6: rider values (D60) */
+#define SAVE_VERSION 8   /* v8: 46x46 maps (D64); v7: AI homes and rage (D62) */
 
 /* Length of the blob: header + the member images (no struct padding). */
 static uint16_t blob_size(void)

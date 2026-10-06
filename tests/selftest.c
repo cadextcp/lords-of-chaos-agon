@@ -3899,6 +3899,41 @@ static void test_m4h(void)
     area_reset();
 }
 
+/* D64: a full 46x46 world - wrap at the far edge, sight, a save blob that
+ * fits SAVE_BUF_SIZE and parses back. */
+static void test_d64(void)
+{
+    static SaveGame a, b;
+    static uint8_t buf[SAVE_BUF_SIZE];
+    static Sight sg;
+    uint16_t len, i;
+    int16_t x = 46, y = -1;
+    memset(&a, 0, sizeof a);
+    a.world.w = a.world.h = MAP_MAX_W;
+    a.world.wrap = 1;
+    memset(a.world.floor, FL_GRASS, sizeof a.world.floor);
+    for (i = 0; i < MAX_UNITS; i++) {           /* the fullest world there is */
+        world_spawn_unit(&a.world, (uint8_t)(i & 3), CR_GOBLIN,
+                         (uint8_t)(45 - i), (uint8_t)(45 - i));
+    }
+    a.world.object_count = MAX_OBJECTS;
+    check(MAP_MAX_W == 46 && MAP_MAX_H == 46, "d64: maps reach 46x46");
+    check(world_wrap(&a.world, &x, &y) && x == 0 && y == 45,
+          "d64: the far edges wrap around");
+    check(world_unit_at(&a.world, 45, 45, UL_GROUND) != NO_UNIT,
+          "d64: a unit stands on the last field");
+    sight_init(&sg, OWN_P1);
+    sight_compute(&a.world, &sg);
+    check(sight_visible(&sg, &a.world, 0, 45) && sight_visible(&sg, &a.world, 45, 0),
+          "d64: sight reaches the far fields of a 46x46 map");
+    len = save_serialize(&a, buf, sizeof buf);
+    check(len > 0 && len <= SAVE_BUF_SIZE, "d64: the fullest 46x46 save fits the buffer");
+    check(save_deserialize(&b, buf, len) && b.world.w == 46 &&
+          b.world.unit_count == MAX_UNITS &&
+          memcmp(b.world.floor, a.world.floor, sizeof a.world.floor) == 0,
+          "d64: the 46x46 save parses back");
+}
+
 static void test_m4i(void)
 {
     SaveGame a, b;
@@ -4880,6 +4915,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_m4h();
     test_m5a();
     test_m4i();
+    test_d64();
     test_m4k_ai();
     test_m4_review();
     test_m5b_tutorial();
