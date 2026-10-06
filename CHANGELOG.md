@@ -2,6 +2,11 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Keine Starts auf Brücken (2026-10-06)
+
+### Behoben
+- **Krokodile (und alles andere) konnten auf Brücken starten:** Brücken liegen neben Wasser, der Ufer-Zuschlag der Krokodile griff dort. `open_field` schließt Brücken jetzt aus (Tiere, Truhen, Funde, Herden-Eintritt). Check `d55` prüft es über 60 Seeds.
+
 ## [Unreleased] – Echte Sichtlinien durch Fenster und Türen (D56) (2026-10-06)
 
 ### Geändert

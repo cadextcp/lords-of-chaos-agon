@@ -1522,8 +1522,8 @@ static void test_wild(void)
                             water_near = true;
                 wt = (uint8_t)(HABITAT[u->kind][world.floor[u->y][u->x]] +
                                (water_near ? HABITAT_SHORE[u->kind] : 0));
-                if (!wt)
-                    valid = 0;
+                if (!wt || world.floor[u->y][u->x] == FL_BRIDGE)
+                    valid = 0;               /* no habitat, or on a bridge */
                 total++;
                 if (u->kind == CR_CROCODILE) croc++;
                 if (u->kind == CR_BEAR) bear++;
@@ -1544,7 +1544,7 @@ static void test_wild(void)
                     finds_ok = 0;
             }
         }
-        check(valid, "d55: every wild animal starts on ground that suits it");
+        check(valid, "d55: every wild animal starts on ground that suits it, never on a bridge");
         check(croc > 0 && bear > 0 && spider > 0 && lion > 0 && total > 200,
               "d55: crocodiles, bears, spiders and lions all turn up over 60 seeds");
         check(finds_ok, "d55: loose finds fit the wood they lie in");
