@@ -11,6 +11,8 @@
 /* Path relative to the current directory, e.g. "maps/wizard_house.map".
  * False if the file is missing, too large or invalid (world unchanged). */
 bool mapfile_load(World *w, const char *path);
+/* Is there a file at this path? (map variants may be missing on an old SD) */
+bool mapfile_exists(const char *path);
 
 #endif
 

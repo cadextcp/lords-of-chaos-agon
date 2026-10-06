@@ -30,6 +30,15 @@ bool mapfile_load(World *w, const char *path)
     return world_load_bin(w, buf, (uint16_t)len);
 }
 
+bool mapfile_exists(const char *path)
+{
+    uint8_t fh = mos_fopen(path, FA_READ);
+    if (!fh)
+        return false;
+    mos_fclose(fh);
+    return true;
+}
+
 bool scnfile_load(Spellbook *books, const char *path)
 {
     uint8_t fh = mos_fopen(path, FA_READ);
