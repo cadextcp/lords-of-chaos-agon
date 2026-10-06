@@ -215,29 +215,27 @@ FLOWER_COLOURS = [((255, 85, 170), YELLOW), (WHITE, (255, 85, 85)), ((170, 85, 2
 
 
 def flower(c: Canvas, x: int, y: int, petal, heart) -> None:
-    c.px(x, y + 3, (0, 170, 0))
-    c.px(x, y + 2, (0, 170, 0))
-    c.px(x, y + 1, (0, 85, 0))
+    """One flower with stem, leaf and a little mound of earth."""
+    c.rect(x - 1, y + 5, x + 1, y + 5, DBROWN)
+    c.rect(x, y + 1, x, y + 4, (0, 170, 0))
+    c.px(x + 1, y + 3, (0, 85, 0))
+    c.px(x - 1, y + 2, (0, 85, 0))
     c.px(x - 1, y, petal)
     c.px(x + 1, y, petal)
     c.px(x, y - 1, petal)
-    c.px(x, y + 1 if False else y, heart)
+    c.px(x, y + 1, petal if False else (0, 170, 0))
+    c.px(x, y, heart)
 
 
 def flowers(only):
     rng = random.Random(54)
     for v in range(3):
         c = Canvas()
-        c.rect(1, 3, 22, 21, DBROWN)             # a bed of dark earth
-        for x in range(1, 23):
-            for y in (3, 21):
-                if rng.random() < 0.4:
-                    c.px(x, y, BLACK)
-        spots = [(5, 8), (12, 6), (19, 9), (7, 15), (15, 14), (20, 18), (4, 19)]
+        spots = [(4, 6), (11, 4), (18, 7), (7, 13), (15, 12), (20, 17), (3, 18), (11, 18)]
         rng.shuffle(spots)
-        for i, (x, y) in enumerate(spots[:6]):
+        for i, (x, y) in enumerate(spots[:7]):
             petal, heart = FLOWER_COLOURS[(i + v) % len(FLOWER_COLOURS)]
-            flower(c, x, y, petal, heart)
+            flower(c, x + rng.randint(-1, 1), y, petal, heart)
         save(f"decor_flowers_{v}", c, only)
 
 
