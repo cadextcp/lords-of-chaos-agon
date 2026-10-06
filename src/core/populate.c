@@ -25,7 +25,8 @@ static const uint8_t FINDS_ROCK[] = {OBJ_CRYSTAL, OBJ_CRYSTAL, OBJ_NITRO};
 static const int8_t DIR_X[8] = {0, 1, 1, 1, 0, -1, -1, -1};
 static const int8_t DIR_Y[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
 
-/* Not under a roof (houses), no water, nothing standing or lying there.
+/* Not under a roof (houses), no water, not on a bridge (an animal or a
+ * chest would block the crossing), nothing standing or lying there.
  * Dungeon corridors count as open. */
 static bool open_field(const World *w, int16_t x, int16_t y)
 {
@@ -33,7 +34,8 @@ static bool open_field(const World *w, int16_t x, int16_t y)
     if (x < 0 || y < 0 || x >= w->w || y >= w->h)
         return false;
     f = w->floor[y][x];
-    if (f == FL_WATER || world_blocks(w, x, y) || world_has_roof(w, x, y))
+    if (f == FL_WATER || f == FL_BRIDGE || world_blocks(w, x, y) ||
+        world_has_roof(w, x, y))
         return false;
     if (world_unit_at(w, x, y, UL_GROUND) != NO_UNIT ||
         world_unit_at(w, x, y, UL_AIR) != NO_UNIT)
