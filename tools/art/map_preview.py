@@ -22,9 +22,12 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 which = sys.argv[1] if len(sys.argv) > 1 else "3"
-out = subprocess.run(["wsl.exe", "-e", "bash", "-c",
-                      f"cd /mnt/c/{ROOT.as_posix()[3:]} && build/host/loc_host --map-layers {which}"],
-                     capture_output=True, text=True, check=True).stdout.splitlines()
+if sys.platform == "win32":
+    cmd = ["wsl.exe", "-e", "bash", "-c",
+           f"cd /mnt/c/{ROOT.as_posix()[3:]} && build/host/loc_host --map-layers {which}"]
+else:
+    cmd = [str(ROOT / "build" / "host" / "loc_host"), "--map-layers", which]
+out = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.splitlines()
 mw, mh = map(int, out[0].split())
 x0, y0, w, h = (map(int, sys.argv[2:6]) if len(sys.argv) >= 6 else (0, 0, mw, mh))
 

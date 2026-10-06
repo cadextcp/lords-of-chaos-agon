@@ -33,6 +33,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools" / "art"))
+from night import nightify  # noqa: E402
 from palette import KEY_DARK, KEY_LIGHT, OWNERS, PALETTE  # noqa: E402
 
 TILES = ROOT / "assets" / "tiles"
@@ -90,6 +91,7 @@ def collect() -> list[tuple[str, Image.Image]]:
     for p in sorted(TILES.glob("*.png")):
         im = Image.open(p).convert("RGBA")
         check(p.name, im)
+        im = nightify(p.stem, im)          # D54: the game plays at night
         if im.size != (24, 24):
             raise SystemExit(f"{p.name}: expected 24x24, got {im.size}")
         frame = re.fullmatch(r"(.+)_f[12]", p.stem)     # idle frames of a creature

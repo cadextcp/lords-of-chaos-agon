@@ -14,14 +14,16 @@ static const uint16_t FLOOR_TILE[FL_COUNT] = {
     [FL_PATH] = T_FLOOR_PATH, [FL_TALL_GRASS] = T_FLOOR_TALLGRASS,
     [FL_FOREST] = T_FLOOR_FOREST, [FL_MAGIC_WOOD] = T_FLOOR_MAGICWOOD,
     [FL_SHADOW_WOOD] = T_FLOOR_SHADOWWOOD, [FL_SWAMP] = T_FLOOR_SWAMP,
-    [FL_WATER] = T_FLOOR_WATER_0, [FL_RUBBLE] = T_FLOOR_RUBBLE};
+    [FL_WATER] = T_FLOOR_WATER_0, [FL_RUBBLE] = T_FLOOR_RUBBLE,
+    [FL_BRIDGE] = T_FLOOR_BRIDGE_H};   /* v: see compose_static */
 static const uint16_t FLOOR_HALF[FL_COUNT] = {
     [FL_STONE] = T_FLOOR_STONE_HALF_N, [FL_WOOD] = T_FLOOR_WOOD_HALF_N,
     [FL_GRASS] = T_FLOOR_GRASS_HALF_N, [FL_PATH] = T_FLOOR_PATH_HALF_N,
     [FL_TALL_GRASS] = T_FLOOR_TALLGRASS_HALF_N, [FL_FOREST] = T_FLOOR_FOREST_HALF_N,
     [FL_MAGIC_WOOD] = T_FLOOR_MAGICWOOD_HALF_N,
     [FL_SHADOW_WOOD] = T_FLOOR_SHADOWWOOD_HALF_N, [FL_SWAMP] = T_FLOOR_SWAMP_HALF_N,
-    [FL_WATER] = T_FLOOR_WATER_0_HALF_N, [FL_RUBBLE] = T_FLOOR_RUBBLE_HALF_N};
+    [FL_WATER] = T_FLOOR_WATER_0_HALF_N, [FL_RUBBLE] = T_FLOOR_RUBBLE_HALF_N,
+    [FL_BRIDGE] = T_FLOOR_GRASS_HALF_N};
 enum { HALF_N, HALF_S, HALF_W, HALF_E };
 
 /* Per-field floor variants (graphics polish, D51): a hash of the world
@@ -32,6 +34,8 @@ static const uint16_t FLOOR_VAR[FL_COUNT][4] = {
     [FL_PATH] = {0, T_FLOOR_PATH_1, T_FLOOR_PATH_2, T_FLOOR_PATH_1},
     [FL_TALL_GRASS] = {0, T_FLOOR_TALLGRASS_1, 0, T_FLOOR_TALLGRASS_1},
     [FL_SWAMP] = {0, T_FLOOR_SWAMP_1, 0, T_FLOOR_SWAMP_1},
+    [FL_MAGIC_WOOD] = {0, T_FLOOR_MAGICWOOD_1, T_FLOOR_MAGICWOOD_2, T_FLOOR_MAGICWOOD_1},
+    [FL_SHADOW_WOOD] = {0, T_FLOOR_SHADOWWOOD_1, T_FLOOR_SHADOWWOOD_2, T_FLOOR_SHADOWWOOD_1},
     [FL_WATER] = {0, T_FLOOR_WATERB_0, 0, T_FLOOR_WATERB_0},
 };
 /* Half the fields keep the base texture. */
@@ -50,7 +54,7 @@ static const uint8_t TR_FAMILY[FL_COUNT] = {
 #define FLBIT(f) ((uint16_t)(1u << (f)))
 /* which neighbouring floors a family reacts to */
 static const uint16_t TR_NEIGH[4] = {
-    [TR_SHORE] = (uint16_t)~FLBIT(FL_WATER),
+    [TR_SHORE] = (uint16_t)~(FLBIT(FL_WATER) | FLBIT(FL_BRIDGE)),
     [TR_PATH] = FLBIT(FL_GRASS) | FLBIT(FL_TALL_GRASS) | FLBIT(FL_SWAMP) |
                 FLBIT(FL_FOREST),
     [TR_TALL] = FLBIT(FL_TALL_GRASS)};
@@ -113,6 +117,44 @@ static const uint16_t FEATURE_TILE[FE_COUNT] = {
     [FE_ROCK] = T_ROCK, [FE_CHEST_FREE] = T_CHEST,
 };
 
+/* Fence and gate (D54): a low fence joins its neighbours like a wall line
+ * does, but it is its own family - it does not hide the floor and does not
+ * block sight. A door between fence posts is a gate. */
+static bool fence_at(const World *w, int16_t x, int16_t y)
+{
+    return world_feature(w, x, y) == FE_FENCE;
+}
+
+static bool is_door_feature(uint8_t fe)
+{
+    return fe == FE_DOOR_CLOSED || fe == FE_DOOR_OPEN || fe == FE_DOOR_LOCKED;
+}
+
+static bool solid_wall_at(const World *w, int16_t x, int16_t y)
+{
+    uint8_t fe = world_feature(w, x, y);
+    return fe == FE_WALL || fe == FE_WINDOW;
+}
+
+static bool is_gate(const World *w, int16_t x, int16_t y)
+{
+    if (!is_door_feature(world_feature(w, x, y)))
+        return false;
+    if (solid_wall_at(w, x, (int16_t)(y - 1)) || solid_wall_at(w, x, (int16_t)(y + 1)) ||
+        solid_wall_at(w, (int16_t)(x - 1), y) || solid_wall_at(w, (int16_t)(x + 1), y))
+        return false;
+    return fence_at(w, x, (int16_t)(y - 1)) || fence_at(w, x, (int16_t)(y + 1)) ||
+           fence_at(w, (int16_t)(x - 1), y) || fence_at(w, (int16_t)(x + 1), y);
+}
+
+static uint8_t fence_mask(const World *w, int16_t x, int16_t y)
+{
+    return (uint8_t)(((fence_at(w, x, (int16_t)(y - 1)) || is_gate(w, x, (int16_t)(y - 1))) ? 1 : 0) |
+                     ((fence_at(w, (int16_t)(x + 1), y) || is_gate(w, (int16_t)(x + 1), y)) ? 2 : 0) |
+                     ((fence_at(w, x, (int16_t)(y + 1)) || is_gate(w, x, (int16_t)(y + 1))) ? 4 : 0) |
+                     ((fence_at(w, (int16_t)(x - 1), y) || is_gate(w, (int16_t)(x - 1), y)) ? 8 : 0));
+}
+
 /* Animated tiles: up to 4 frames per group, chosen by the 2-bit phase.
  * Two-frame groups (candles, portal, area effects) repeat A, B, A, B. The
  * water flows over 4 frames; all fields share one phase, so the ripples move
@@ -128,6 +170,8 @@ static const uint16_t ANIM_F[][4] = {
     ANIM_2(T_AREA_FLOOD_0, T_AREA_FLOOD_1),
     {T_FLOOR_WATERB_0, T_FLOOR_WATERB_1, T_FLOOR_WATERB_2, T_FLOOR_WATERB_3},
     ANIM_2(T_DECOR_LILY_0, T_DECOR_LILY_1),
+    ANIM_2(T_DECOR_MUSH_0, T_DECOR_MUSH_1),
+    ANIM_2(T_DECOR_BUBBLE_0, T_DECOR_BUBBLE_1),
 };
 #define ANIM_N (sizeof ANIM_F / sizeof ANIM_F[0])
 
@@ -149,6 +193,8 @@ static const uint8_t anim_pair[TILE_COUNT] = {
     [T_FLOOR_WATERB_0] = 8, [T_FLOOR_WATERB_1] = 8,
     [T_FLOOR_WATERB_2] = 8, [T_FLOOR_WATERB_3] = 8,
     [T_DECOR_LILY_0] = 9,  [T_DECOR_LILY_1] = 9,
+    [T_DECOR_MUSH_0] = 10, [T_DECOR_MUSH_1] = 10,
+    [T_DECOR_BUBBLE_0] = 11, [T_DECOR_BUBBLE_1] = 11,
 };
 
 static uint16_t anim_swap(uint16_t id, uint8_t ph)
@@ -294,8 +340,16 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
     fe = w->feature[wy][wx];
     {
         uint16_t h = field_hash(wx, wy), t = FLOOR_VAR[fl][VAR_PICK[(h >> 3) & 7]];
+        if (fl == FL_BRIDGE)   /* spans the river: water north or south = east-west deck */
+            t = (world_floor(w, wx, (int16_t)(wy - 1)) == FL_WATER ||
+                 world_floor(w, wx, (int16_t)(wy + 1)) == FL_WATER)
+                    ? T_FLOOR_BRIDGE_H : T_FLOOR_BRIDGE_V;
         push(out, t ? t : FLOOR_TILE[fl]);
         push_transition(w, wx, wy, fl, out);
+        /* bubbles rise in the swamp (D54) */
+        if (fl == FL_SWAMP && fe == FE_NONE && w->decor[wy][wx] == DE_NONE &&
+            ((h >> 6) & 15) < 3)
+            push(out, T_DECOR_BUBBLE_0);
         /* A water lily on open water: water on both sides along one axis
          * (a two-field river qualifies, a bank corner does not). */
         if (fl == FL_WATER && out->n == 1 && ((h >> 6) & 15) < 2 && fe == FE_NONE &&
@@ -307,7 +361,7 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
     }
 
     /* Half floors: each side of a wall line shows the neighbour's floor. */
-    if (world_is_wall_line(w, wx, wy)) {
+    if (world_is_wall_line(w, wx, wy) && !is_gate(w, wx, wy)) {
         for (i = 0; i < 4; i++) {
             int16_t nx = (int16_t)(wx + DX[i]), ny = (int16_t)(wy + DY[i]);
             uint8_t nfl = world_floor(w, nx, ny);
@@ -320,9 +374,25 @@ static void compose_static(const World *w, int16_t wx, int16_t wy, FieldLayers *
         push(out, T_DECOR_RUG);
     else if (w->decor[wy][wx] == DE_PENTACLE)
         push(out, T_DECOR_PENTACLE);
+    else if (w->decor[wy][wx] == DE_FLOWERS) {
+        uint8_t v = VAR_PICK[(field_hash(wx, wy) >> 3) & 7];
+        push(out, (uint16_t)(T_DECOR_FLOWERS_0 + (v > 2 ? 2 : v)));
+    } else if (w->decor[wy][wx] == DE_MUSHROOMS)
+        push(out, T_DECOR_MUSH_0);
 
     if (fe == FE_WALL) {
         push(out, (uint16_t)(T_WALL_00 + wall_mask(w, wx, wy)));
+    } else if (fe == FE_WINDOW) {
+        bool vertical = world_is_wall_line(w, wx, (int16_t)(wy - 1)) ||
+                        world_is_wall_line(w, wx, (int16_t)(wy + 1));
+        push(out, vertical ? T_WINDOW_V : T_WINDOW_H);
+    } else if (fe == FE_FENCE) {
+        push(out, (uint16_t)(T_FENCE_00 + fence_mask(w, wx, wy)));
+    } else if (is_gate(w, wx, wy)) {
+        bool vertical = fence_at(w, wx, (int16_t)(wy - 1)) || fence_at(w, wx, (int16_t)(wy + 1));
+        bool open = fe == FE_DOOR_OPEN;
+        push(out, vertical ? (open ? T_GATE_V_OPEN : T_GATE_V_CLOSED)
+                           : (open ? T_GATE_H_OPEN : T_GATE_H_CLOSED));
     } else if (fe == FE_DOOR_CLOSED || fe == FE_DOOR_OPEN || fe == FE_DOOR_LOCKED) {
         bool vertical = world_is_wall_line(w, wx, (int16_t)(wy - 1)) ||
                         world_is_wall_line(w, wx, (int16_t)(wy + 1));

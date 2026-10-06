@@ -20,13 +20,14 @@
 
 typedef enum {
     FL_STONE, FL_WOOD, FL_GRASS, FL_PATH, FL_TALL_GRASS, FL_FOREST, FL_MAGIC_WOOD,
-    FL_SHADOW_WOOD, FL_SWAMP, FL_WATER, FL_RUBBLE, FL_COUNT
+    FL_SHADOW_WOOD, FL_SWAMP, FL_WATER, FL_RUBBLE, FL_BRIDGE /* D54 */, FL_COUNT
 } Floor;
-typedef enum { DE_NONE, DE_RUG, DE_PENTACLE } Decor;
+typedef enum { DE_NONE, DE_RUG, DE_PENTACLE, DE_FLOWERS, DE_MUSHROOMS /* D54 */ } Decor;
 typedef enum {
     FE_NONE, FE_WALL, FE_DOOR_CLOSED, FE_DOOR_OPEN, FE_BED, FE_BOOKSHELF,
     FE_CANDLE, FE_CAULDRON, FE_TABLE, FE_CHAIR, FE_DRAWERS, FE_CHEST, FE_TREE,
     FE_ROCK, FE_DOOR_LOCKED /* C2 */, FE_CHEST_FREE /* C1: opens without a key */,
+    FE_WINDOW /* D54: wall you can see through */, FE_FENCE /* D54: low, see-through */,
     FE_COUNT
 } Feature;
 

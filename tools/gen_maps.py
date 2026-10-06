@@ -40,12 +40,15 @@ CORE = ROOT / "src" / "core"
 # Character legends -> C enum names (values come from the headers).
 FLOOR = {"s": "FL_STONE", "w": "FL_WOOD", "g": "FL_GRASS", "p": "FL_PATH",
          '"': "FL_TALL_GRASS", "f": "FL_FOREST", "m": "FL_MAGIC_WOOD",
-         "n": "FL_SHADOW_WOOD", "u": "FL_SWAMP", "~": "FL_WATER", "r": "FL_RUBBLE"}
+         "n": "FL_SHADOW_WOOD", "u": "FL_SWAMP", "~": "FL_WATER", "r": "FL_RUBBLE",
+         "b": "FL_BRIDGE"}
 FEATURE = {".": "FE_NONE", "#": "FE_WALL", "D": "FE_DOOR_CLOSED", "d": "FE_DOOR_OPEN",
            "B": "FE_BED", "S": "FE_BOOKSHELF", "K": "FE_CANDLE", "C": "FE_CAULDRON",
            "T": "FE_TABLE", "h": "FE_CHAIR", "M": "FE_DRAWERS", "X": "FE_CHEST",
-           "t": "FE_TREE", "R": "FE_ROCK", "L": "FE_DOOR_LOCKED", "x": "FE_CHEST_FREE"}
-DECOR = {".": "DE_NONE", "r": "DE_RUG", "*": "DE_PENTACLE"}
+           "t": "FE_TREE", "R": "FE_ROCK", "L": "FE_DOOR_LOCKED", "x": "FE_CHEST_FREE",
+           "W": "FE_WINDOW", "F": "FE_FENCE"}
+DECOR = {".": "DE_NONE", "r": "DE_RUG", "*": "DE_PENTACLE", "f": "DE_FLOWERS",
+         "o": "DE_MUSHROOMS"}
 ROOF = {".": "0", "R": "1"}                # R = roof tile (blocks sight+landing)
 OWNERS = {"p1": "OWN_P1", "p2": "OWN_P2", "p3": "OWN_P3", "p4": "OWN_P4",
           "neutral": "OWN_NEUTRAL"}
