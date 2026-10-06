@@ -62,7 +62,7 @@ def main() -> int:
         r["xp_base"] = r["xp_base"] or "0"
         r["xp_step"] = r["xp_step"] or "0"
         r.setdefault("design_cost", "0")   # designer XP price, 0 = none
-    for r in spells + weapons:  # damage dice columns (D28), optional
+    for r in spells:  # damage dice columns (D28), optional
         for col in ("dice_n", "die", "splash_n", "splash_die"):
             if not r.get(col):
                 r[col] = "0"
@@ -124,7 +124,7 @@ def main() -> int:
          "/* Creature kind a summon spell calls (0xFF: no summon), by equal id. */",
          "extern const uint8_t SUMMON_KIND[SPELL_COUNT];",
          "typedef struct { const char *name; uint8_t combat, defence, thrown,",
-          "                  ranged, weight, dice_n, die; } WeaponDef;",
+          "                  ranged, weight; } WeaponDef;",
          "enum { WEAPON_SWORD, WEAPON_KNIFE, WEAPON_SHIELD, WEAPON_BOW, WEAPON_SPEAR,",
          "       WEAPON_CLUB, WEAPON_AXE, WEAPON_NINJA_STAR, WEAPON_SLAYER,",
          "       WEAPON_MAGIC_SLAYER, WEAPON_COUNT };",
@@ -185,8 +185,7 @@ def main() -> int:
     c += ["};", "",
           "const WeaponDef WEAPONS[WEAPON_COUNT] = {"]
     c += [f"    [WEAPON_{r['id'].upper()}] = {{{cstr(r['name'])}, {int(r['combat'])}, "
-          f"{int(r['defence'])}, {int(r['thrown'])}, {int(r['ranged'])}, {int(r['weight'])}, "
-          f"{int(r['dice_n'])}, {int(r['die'])}}},"
+          f"{int(r['defence'])}, {int(r['thrown'])}, {int(r['ranged'])}, {int(r['weight'])}}},"
           for r in weapons]
     c += ["};", "",
           "const ObjectDef OBJECTS[OBJ_COUNT] = {"]

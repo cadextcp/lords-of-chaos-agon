@@ -778,29 +778,13 @@ static void step(uint8_t m, bool dump)
     } else {
         char msg[48];
         uint8_t mover_id = world.units[active()].id;
-        bool was_adjacent = world_enemy_adjacent(&world, active());
-        bool fled_died = false;
-        CombatResult fs;
         int16_t old_x = world.units[active()].x, old_y = world.units[active()].y;
         if (!world_move_unit(&world, active(), dx, dy))
             goto bump;                     /* not moved: classify the bump */
         sound_play(SND_STEP);
         if (!dump)
             glide(mover_id, old_x, old_y);
-        if (was_adjacent &&
-            combat_disengage_swings(&world, &turns.rng, active(), &p1_sight, &fs)) {
-            if (fs.hit) {
-                log_push("Freier Schlag erwischt uns.");
-                render_message(1, C_BRIGHT_RED,
-                               "Freier Schlag beim Wegziehen!");
-            } else
-                render_message(1, C_GREY, "Freier Schlag: daneben.");
-            if (fs.hit && fs.wound)
-                render_message(2, C_BRIGHT_RED, "Toedliche Wunde!");
-            fled_died = fs.hit && world_find_unit(&world, mover_id) == NO_UNIT;
-            turn_revalidate(&turns, &world);
-        }
-        if (!fled_died && game_try_enter_portal(&game, &world, active())) {
+        if (game_try_enter_portal(&game, &world, active())) {
             log_push("Gerettet durch das Portal!");
             sound_play(SND_PORTAL);
             snprintf(msg, sizeof msg, "Gerettet! Zauberer-1: %u VP.",
@@ -836,6 +820,9 @@ bump:
             return;
         case BUMP_NO_AP:
             render_message(1, C_BRIGHT_RED, "Zu wenig AP - Leertaste/Tab weiter.");
+            return;
+        case BUMP_BOUND:
+            render_message(1, C_BRIGHT_RED, "Gebunden: Gegner nebenan - kaempfen.");
             return;
         case BUMP_HELD:
             render_message(1, C_BRIGHT_RED, "Brei oder Ranken versperren den Weg.");
@@ -922,7 +909,7 @@ bump:
                     FEATURE_TOUGH[world_feature(&world, nx, ny)] == 0)
                     render_message(1, C_BRIGHT_RED, "Unzerstoerbar.");
                 else if (world_blocks(&world, nx, ny))
-                    render_message(1, C_BRIGHT_RED, "Zu wenig AP zum Zuschlagen.");
+                    render_message(1, C_BRIGHT_RED, "Zu schwach oder zu wenig AP/Ausdauer.");
                 else
                     render_message(1, C_BRIGHT_RED, "Da geht es nicht weiter.");
             } else if (destroyed) {

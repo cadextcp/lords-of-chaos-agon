@@ -1,11 +1,10 @@
 /*
- * Melee combat (GDD 6, decision D16): Combat is rolled against Defence
- * with a random share, damage comes off the Constitution. The defender
- * strikes back while it still has AP and stamina (PM 18). Fatal wounds
- * (a single hit above 25 % of the Constitution, PM 17) bleed one point
- * per round until death or healing. Bumping into impassable terrain
- * attacks it; features have a toughness (data/features.csv), walls are
- * indestructible.
+ * Melee combat (D67, K6): damage = RND(min(255, 2 (Combat_eff + 1))) -
+ * Defence_eff. The defender answers with a return blow every time it has
+ * 4 AP and 4 stamina (it pays them). A single hit above a quarter of the
+ * Constitution opens a wound (2 con per round). Bumping into impassable
+ * terrain attacks it; features have a toughness (data/features.csv),
+ * walls are indestructible.
  */
 #ifndef LOC_COMBAT_H
 #define LOC_COMBAT_H
@@ -40,9 +39,11 @@ typedef struct {
  * strongest, so nothing is ever immune or automatic. */
 uint8_t combat_spell_hit_chance(uint8_t magic_res);
 
-/* Hit chance in percent, for tests and the AI: 50 + 5 per point of
- * Combat over Defence, clamped to 10..90. */
-uint8_t combat_hit_chance(uint8_t com, uint8_t def);
+/* One attack roll (K6.2): RND(min(255, 2 (A + 1))) - Defence_eff, never
+ * below 0; 0 means a miss. Used by melee, return blows, throws, bow. */
+uint8_t combat_roll(Rng *rng, uint8_t attack, uint8_t defence);
+/* Chance in percent that combat_roll yields damage (for the AI, tests). */
+uint8_t combat_hit_chance(uint8_t attack, uint8_t defence);
 
 /* Apply `damage` to a unit (all damage sources share it): a single blow
  * above a quarter of the Constitution opens a fatal wound (PM 17), a
@@ -58,10 +59,6 @@ bool combat_damage(World *w, uint8_t target, uint8_t damage, uint8_t killer_kind
  * immediately; at most one unit dies per exchange. Removal reorders the
  * unit list - re-find units by id afterwards. */
 bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *out);
-/* Free swing (D26): like melee but without AP cost or return attack -
- * the swing a defender gets when its enemy moves out of contact.
- * False when the swing is not possible (not adjacent, same owner,
- * grounded attacker against a flyer, undead immunity). */
 /* A territorial animal defends this far around its home field (D35). */
 #define TERRITORY 3
 /* Does unit `e` take a swing at `owner`'s figures that pass by (D59)?
@@ -70,20 +67,6 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
  * or - territorial - the figure at (x, y) stands in its territory. */
 bool combat_hostile_to(const World *w, const Unit *e, uint8_t owner,
                        int16_t x, int16_t y);
-bool combat_free_swing(World *w, Rng *rng, uint8_t att, uint8_t def,
-                       CombatResult *out);
-/* After `unit` moved out of melee contact (an enemy was adjacent
- * before AND an enemy is adjacent now): one adjacent living enemy gets
- * a free swing. Returns the number of swings (0/1), out filled.
- * An enemy the moving side cannot see does not get the swing (playtest
- * 2026-10-05). `seen` is that side's field of view; without one - the AI
- * keeps no per-turn map - a direct line of sight between the two decides
- * instead. Walls, closed doors and bushes in between hide the enemy, so a
- * creature inside a closed house does not swing at someone walking past
- * outside - but one that sees out of a window does (D56). */
-uint8_t combat_disengage_swings(World *w, Rng *rng, uint8_t unit,
-                                const Sight *seen, CombatResult *out);
-
 /* Terrain attack (GDD 3.3): damage rolled against the feature's
  * toughness; a lucky hit smashes it. Returns the damage, 0 when there
  * is nothing to hit (no feature, walkable, wall) or not enough AP.

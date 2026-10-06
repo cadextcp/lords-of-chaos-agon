@@ -72,6 +72,7 @@ uint8_t ai_nearest_enemy(const World *w, uint8_t unit, uint8_t range)
 bool ai_step_toward(World *w, Rng *rng, uint8_t unit, int16_t x, int16_t y)
 {
     Unit *u;
+    (void)rng;
     int8_t dx, dy;
     if (unit >= w->unit_count)
         return false;
@@ -80,20 +81,8 @@ bool ai_step_toward(World *w, Rng *rng, uint8_t unit, int16_t x, int16_t y)
     dy = y > u->y ? 1 : (y < u->y ? -1 : 0);
     if (dx == 0 && dy == 0)
         return false;
-    {
-        bool was_adjacent = world_enemy_adjacent(w, unit);
-        uint8_t my_id = w->units[unit].id;
-        if (world_move_unit(w, unit, dx, dy)) {
-            CombatResult fs;               /* D26: the player swings back */
-            if (was_adjacent &&
-                combat_disengage_swings(w, rng, unit, NULL, &fs) && fs.hit) {
-                unit = world_find_unit(w, my_id);
-                if (unit == NO_UNIT)
-                    return true;           /* died on the free swing */
-            }
-            return true;
-        }
-    }
+    if (world_move_unit(w, unit, dx, dy))
+        return true;
     if (dx != 0 && world_move_unit(w, unit, dx, 0))   /* sidestep */
         return true;
     if (dy != 0 && world_move_unit(w, unit, 0, dy))
@@ -692,19 +681,14 @@ static bool path_step(const World *w, uint8_t unit, int16_t tx, int16_t ty,
     return true;
 }
 
-/* One step in a fixed direction; an enemy left behind gets its free
- * swing (D26). Returns the unit's index afterwards, NO_UNIT when it
- * died, 0xFE when the step was blocked. */
+/* One step in a fixed direction. Returns the unit's index afterwards,
+ * 0xFE when the step was blocked (also when the unit is bound, K11.7). */
 #define AI_BLOCKED 0xFE
 static uint8_t ai_move(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
 {
-    uint8_t id = w->units[unit].id;
-    bool was_adjacent = world_enemy_adjacent(w, unit);
-    CombatResult fs;
+    (void)rng;
     if (!world_move_unit(w, unit, dx, dy))
         return AI_BLOCKED;
-    if (was_adjacent && combat_disengage_swings(w, rng, unit, NULL, &fs) && fs.hit)
-        return world_find_unit(w, id);
     return unit;
 }
 

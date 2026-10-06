@@ -240,15 +240,15 @@ void world_delta(const World *w, int16_t x0, int16_t y0, int16_t x1, int16_t y1,
                  int16_t *dx, int16_t *dy);
 /* Index of the unit with this id, NO_UNIT when it is gone. */
 uint8_t world_find_unit(const World *w, uint8_t id);
-/* Ground unit that was engaged this turn (UF_ENGAGED) and still stands
- * next to a living enemy: bound (GDD 6), only the attack remains. The
- * binding ends with its owner's next phase. */
+/* Bound (K11.7): the unit moved next to a visible enemy on its own height
+ * or attacked (UF_ENGAGED) and that enemy still stands next to it. A bound
+ * unit does not move, take off or land; attacks stay possible. The binding
+ * ends with its owner's next phase. */
 bool world_engaged(const World *w, uint8_t unit);
-/* Living ground enemy adjacent to the unit (flag-free: for the free
- * swing rule D26, regardless of phase flags). */
+/* Visible enemy on the unit's own height next to it (flag-free). */
 bool world_enemy_adjacent(const World *w, uint8_t unit);
-/* Melee contact: the unit and every ground enemy next to it become bound
- * (a move next to an enemy, an attack). */
+/* After a move or an attack: the unit becomes bound if an enemy stands next
+ * to it (the enemy itself does not, K11.7). */
 void world_engage(World *w, uint8_t unit);
 /* The owner's phase is over: his units are free to move again. */
 void world_release(World *w, uint8_t owner);
@@ -267,6 +267,7 @@ typedef enum {
     BUMP_UNIT,      /* a unit blocks the layer */
     BUMP_TERRAIN,   /* impassable feature (attack on terrain, M3) */
     BUMP_HELD,      /* strong blob or vine on the field (M4d) */
+    BUMP_BOUND,     /* bound by an enemy next to it (K11.7) */
     BUMP_OUTSIDE    /* outside a non-wrapping map */
 } BumpKind;
 BumpKind world_bump_kind(const World *w, uint8_t unit, int8_t dx, int8_t dy);

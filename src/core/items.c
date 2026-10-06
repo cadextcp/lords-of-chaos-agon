@@ -150,36 +150,22 @@ bool items_cycle(World *w, uint8_t unit)
     return true;
 }
 
-/* Damage roll of one weapon (D28/D30): the weapon's dice plus com/5, bare
- * hands and any non-weapon object 1d4; a critical hit rolls the dice
- * twice (the flat com bonus does not - D&D style). */
-static uint8_t weapon_damage(uint8_t weapon, uint8_t com, Rng *rng, bool crit,
-                            bool magic)
+/* Enchanted weapons count double (K7); the Magic Slayer is already the
+ * doubled table entry. */
+static uint16_t magic_scale(const Unit *u, uint8_t weapon, uint16_t value)
 {
-    uint8_t n = 1, die = 4, i;
-    uint16_t d;
-    if (weapon != WEAPON_NONE) {
-        n = WEAPONS[weapon].dice_n;
-        die = WEAPONS[weapon].die;
-        /* An enchanted blade used to double the weapon's combat bonus.
-         * Since D42 took weapons out of the hit chance it doubles the
-         * dice instead - otherwise the flag would do nothing at all. */
-        if (magic)
-            n = (uint8_t)(n * 2);
-    }
-    if (crit)
-        n = (uint8_t)(n * 2);
-    d = (uint16_t)(com / 5);
-    for (i = 0; i < n; i++)
-        d = (uint16_t)(d + rng_range(rng, die) + 1);
-    return d == 0 ? 1 : (uint8_t)d;
+    if ((u->flags & UF_MAGIC_WEAPON) && weapon != WEAPON_MAGIC_SLAYER)
+        return (uint16_t)(value * 2);
+    return value;
 }
 
-uint8_t items_attack_damage(const World *w, uint8_t unit, Rng *rng, bool crit)
+/* Attack value of a thrown object (K6.4): the weapon table's throw value,
+ * other objects weigh nothing as a missile. */
+static uint8_t throw_value(const Unit *u, uint8_t weapon)
 {
-    const Unit *u = &w->units[unit];
-    return weapon_damage(items_in_use_weapon(u), u->com, rng, crit,
-                         (u->flags & UF_MAGIC_WEAPON) != 0);
+    uint16_t v = weapon == WEAPON_NONE ? 0 : WEAPONS[weapon].thrown;
+    v = magic_scale(u, weapon, v);
+    return v > 255 ? 255 : (uint8_t)v;
 }
 
 bool items_catch(World *w, uint8_t unit, uint8_t kind)
@@ -242,19 +228,14 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
                 return true;
             /* no room: it drops at the friend's feet, unhurt */
         } else if (target != NO_UNIT) { /* thrown weapons hit flyers too */
-            if (items_can_harm_undead(w, unit, target)) {
-                uint16_t roll = rng_range(rng, 100);
-                if (roll < combat_hit_chance(items_combat(w, unit),
-                                             items_defence(w, target)))
-                    combat_damage(w, target,
-                                  weapon_damage(weapon, u->com, rng,
-                                                roll < COMBAT_CRIT_PERCENT,
-                                                (u->flags & UF_MAGIC_WEAPON) != 0),
-                                  u->kind, u->owner, false, NULL,
-                                  roll < COMBAT_CRIT_PERCENT);
-                else
-                    events_push(EV_MISS, u->x, u->y, u->kind, u->owner, 0, 0);
-            }
+            uint8_t dmg = 0;
+            if (items_can_harm_undead(w, unit, target))
+                dmg = combat_roll(rng, throw_value(u, weapon),
+                                  items_defence(w, target));
+            if (dmg)
+                combat_damage(w, target, dmg, u->kind, u->owner, false, NULL, false);
+            else
+                events_push(EV_MISS, u->x, u->y, u->kind, u->owner, 0, 0);
             /* it lands in front of the target: x/y stopped there */
         }
     }
@@ -303,27 +284,19 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
     world_pay(w, unit, ACT_FIRE);
     events_push(EV_PROJECTILE, u->x, u->y, PJ_ARROW, u->owner,
                 (uint8_t)(int8_t)dx, (uint8_t)(int8_t)dy);
-    if (items_can_harm_undead(w, unit, target)) {
-        uint16_t roll = rng_range(rng, 100);
-        if (roll < combat_hit_chance(items_combat(w, unit),
-                                     items_defence(w, target))) {
-            uint8_t crit = roll < COMBAT_CRIT_PERCENT;
-            uint8_t dmg = weapon_damage(weapon, u->com, rng, crit != 0,
-                                        (u->flags & UF_MAGIC_WEAPON) != 0);
+    {
+        uint8_t dmg = 0;
+        if (items_can_harm_undead(w, unit, target))
+            dmg = combat_roll(rng, magic_scale(u, weapon, BOW_ATTACK),
+                              items_defence(w, target));
+        if (dmg) {
             if (damage)
                 *damage = dmg;
-            combat_damage(w, target, dmg, u->kind, u->owner, false, NULL,
-                          crit != 0);
+            combat_damage(w, target, dmg, u->kind, u->owner, false, NULL, false);
         } else
             events_push(EV_MISS, tx, ty, u->kind, u->owner, 0, 0);
     }
     return true;
-}
-
-/* Below half Constitution every fighter suffers (GDD 4.1). */
-static uint8_t con_malus(const Unit *u)
-{
-    return u->con < u->con_max / 2 ? 2 : 0;
 }
 
 /* Can this ATTACKER wound an UNDEAD defender (GDD 4.2)? Undead
@@ -342,45 +315,57 @@ bool items_can_harm_undead(const World *w, uint8_t attacker, uint8_t defender)
            (weapon == WEAPON_MAGIC_SLAYER || a->flags & UF_MAGIC_WEAPON);
 }
 
+/* Effective value (K6.1): the basis divided by floor(ConMax/Con), at
+ * least 1. */
+static uint8_t effective(const Unit *u, uint16_t basis)
+{
+    uint16_t v = (uint16_t)(basis / world_con_factor(u));
+    return v < 1 ? 1 : (v > 255 ? 255 : (uint8_t)v);
+}
+
 uint8_t items_combat(const World *w, uint8_t unit)
 {
     const Unit *u;
-    uint8_t com, malus;
+    uint16_t com;
+    uint8_t weapon;
     if (unit >= w->unit_count)
         return 0;
     u = &w->units[unit];
-    /* D42: a weapon changes what a hit costs, not whether it lands. Bare
-     * hands used to be close to useless because the weapon bonus went into
-     * the hit chance. Strength still counts - that is the arm, not the
-     * blade. */
     com = u->com;
     if (effect_active(u, EFF_STRENGTH))
-        com = (uint8_t)(com + effect_power(u, EFF_STRENGTH));
-    malus = con_malus(u);               /* below 50 % Con (GDD 4.1) */
-    return com > malus ? (uint8_t)(com - malus) : 0;
+        com = (uint16_t)(com + effect_power(u, EFF_STRENGTH));
+    weapon = items_in_use_weapon(u);
+    if (weapon != WEAPON_NONE && (CREATURES[ride_actor_kind(u)].flags & CF_WEAPONS))
+        com = (uint16_t)(com + magic_scale(u, weapon, WEAPONS[weapon].combat));
+    return effective(u, com);
 }
 
 uint8_t items_defence(const World *w, uint8_t unit)
 {
     const Unit *u;
-    uint8_t i, def, malus;
+    uint8_t i, best = 0;
+    uint16_t def;
     if (unit >= w->unit_count)
         return 0;
     u = &w->units[unit];
     def = u->def;
-    for (i = 0; i < u->item_count; i++) {   /* ONE carried shield counts (D21) */
-        if (OBJECTS[u->items[i]].weapon == WEAPON_SHIELD) {
-            uint8_t bonus = WEAPONS[WEAPON_SHIELD].defence;
-            def = (uint8_t)(def + ((u->flags & UF_MAGIC_WEAPON) ? 2 * bonus : bonus));
-            break;
+    if (CREATURES[ride_actor_kind(u)].flags & CF_WEAPONS) {
+        /* the best defence of any carried object counts, not the sum (K6.1) */
+        for (i = 0; i < u->item_count; i++) {
+            uint8_t wp = OBJECTS[u->items[i]].weapon;
+            if (wp != WEAPON_NONE) {
+                uint16_t d = magic_scale(u, wp, WEAPONS[wp].defence);
+                if (d > best)
+                    best = d > 255 ? 255 : (uint8_t)d;
+            }
         }
+        def = (uint16_t)(def + best);
     }
     if (effect_active(u, EFF_SHIELD))
-        def = (uint8_t)(def + effect_power(u, EFF_SHIELD));
+        def = (uint16_t)(def + effect_power(u, EFF_SHIELD));
     if (effect_active(u, EFF_PROTECT))
-        def = (uint8_t)(def + effect_power(u, EFF_PROTECT));
-    malus = con_malus(u);
-    return def > malus ? (uint8_t)(def - malus) : 0;
+        def = (uint16_t)(def + effect_power(u, EFF_PROTECT));
+    return effective(u, def);
 }
 
 /* Magic resistance of a unit (D40). A carried shield never helped against

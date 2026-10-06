@@ -16,6 +16,20 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ### Intern
 - Neue Hilfen `world_pay`, `world_can_pay`, `world_spend_ap`, `world_set_wounds`, `world_con_factor`. Test `test_0b`, mehrere ältere Selftests auf die neuen Zahlen umgestellt.
 
+## [Unreleased] – Regeln wie im Original, Schritt 0c: Nahkampf (D67) (2026-10-07)
+
+### Geändert
+- **Nahkampf wie im Original (K6.2):** Schaden = `RND(min(255, 2·(Combat_eff+1))) − Defence_eff`, bei 0 ein Fehlschlag. Die Trefferchance 10–90 % (D16), die Waffenwürfel (D28) und die kritischen Treffer (D30) entfallen.
+- **Waffen (K7):** `data/weapons.csv` trägt die Originalwerte (Combat, Defence, Wurfwert). Die Waffe in der Hand gibt Combat, die **beste** Verteidigung aller getragenen Gegenstände zählt zur Defence (nicht addiert). Verzauberte Waffen zählen doppelt. Kreaturen ohne Waffenflag (Drachen u. a.) bekommen keine Bonuswerte.
+- **Effektive Werte (K6.1):** Combat und Defence werden durch den Constitution-Faktor `⌊ConMax/Con⌋` geteilt, mindestens 1 (löst den Malus −2 ab).
+- **Rückschlag (K6.2):** Der Verteidiger schlägt **jedes Mal** zurück, wenn er noch 4 AP und 4 Ausdauer hat, und zahlt beides. Die einmalige Reaktion je Runde (D29) und der kostenlose Gegenschlag (D27) entfallen.
+- **Gebunden (K11.7), ersetzt D26:** Wer sich neben einen sichtbaren Gegner derselben Höhe bewegt oder angreift, ist gebunden und **zieht nicht mehr** (auch kein Abheben oder Landen); nur der Ziehende bzw. Schlagende, nicht der Gegner, außer er antwortet. Der freie Schlag beim Wegziehen entfällt, die KI flieht nicht mehr aus der Bindung. Unsichtbare werden nicht gebunden. Neue Meldung „Gebunden: Gegner nebenan“.
+- **Gelände angreifen (K6.4):** 6 AP und 6 Ausdauer; versucht wird es nur bei `1,5·Combat_eff ≥ Zähigkeit`, es gelingt bei `RND(2·Combat_eff) ≥ Zähigkeit`. Die Zähigkeiten in `data/features.csv` stehen jetzt auf der Skala des Originals (Tür 60, verschlossen 80, Baum 80, Fels 200, …). Normale Kämpfer brechen damit keine Türen mehr auf, dafür gibt es Schlüssel.
+- Bogen und Wurf nutzen dieselbe Formel (Bogen Angriffswert 15, Wurfwert aus der Waffentabelle).
+
+### Intern
+- `combat_roll`, neue `combat_hit_chance(A, Def)` (für die KI); `combat_free_swing`, `combat_disengage_swings`, `items_attack_damage` entfallen. Die Kampf-Selftests sind neu geschrieben.
+
 ## [Unreleased] – Regeln wie im Original, Schritt 0a: Mana (D67) (2026-10-07)
 
 ### Geändert
