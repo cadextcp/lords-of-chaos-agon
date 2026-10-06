@@ -8,6 +8,7 @@
 #include "events.h"
 #include "gen/data.h"
 #include "items.h"
+#include "ride.h"
 
 uint8_t combat_roll(Rng *rng, uint8_t attack, uint8_t defence)
 {
@@ -91,7 +92,7 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
     if (dmg) {
         out->hit = true;
         out->damage = dmg;
-        out->died = combat_damage(w, def, dmg, a->kind, a->owner, true,
+        out->died = combat_damage(w, def, dmg, ride_actor_kind(a), a->owner, true,
                                   &out->wound, false);
         if (out->died)
             return true;                   /* the dead do not strike back */
@@ -112,7 +113,7 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
         if (rdmg) {
             out->return_hit = true;
             out->return_damage = rdmg;
-            out->attacker_died = combat_damage(w, att, rdmg, d->kind, d->owner,
+            out->attacker_died = combat_damage(w, att, rdmg, ride_actor_kind(d), d->owner,
                                                true, &out->return_wound, false);
         } else
             events_push(EV_MISS, a->x, a->y, d->kind, d->owner, 0, 0);

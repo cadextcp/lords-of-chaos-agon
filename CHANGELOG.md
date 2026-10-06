@@ -70,6 +70,18 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ### Intern
 - Die KI beschwört weiter bis zu 5 Kreaturen (D62), zählt aber jetzt die tatsächlich erschienenen.
 
+## [Unreleased] – Regeln wie im Original, Schritt 0g: Wertung und Sonderfälle (D67) (2026-10-07)
+
+### Geändert
+- **Siegpunkte (K6.5):** Ein Zauberer, der etwas besiegt, bekommt den doppelten Tabellenwert des Opfers (egal ob im Nahkampf oder mit Fernwaffe), eine beschworene Kreatur den einfachen. Ein getöteter Zauberer zählt `4·Level+15` (für Kreaturen als Töter die Hälfte). Der Punktestand stoppt bei 255. Der Level des menschlichen Zauberers kommt aus dem Designer-Slot.
+- **Portal schließt (K4):** Karten (Format v5) tragen die Offen-Dauer: Level 1 12 Runden, Slayer's Dungeon 15, Ragaril's Domain 10 (Tutorial: bleibt offen). Danach ist niemand mehr zu retten und das Spiel endet; wer nicht entkommen ist, verliert.
+- **Pixies sind immer unsichtbar** (auch wenn kein Trank wirkt).
+- **Reiter mit eigenen AP (K6.6):** Wer im Sattel sitzt, behält seine AP und seine Ausdauer. Zaubern, Werfen, Schießen, Aufheben, Ablegen, Essen, Trinken, Lesen, Türen und Truhen kosten den **Reiter**, Bewegen, Kämpfen, Abheben und Landen das **Reittier**. Der Reiter bekommt zur Runde seine eigenen AP zurück (mit seiner Constitution und Ausdauer). Beim Absteigen oder Abwerfen behält er den Stand.
+- Kartenformat **v5** (Portalblock mit fünf Bytes); die SD-Karte muss neu bespielt werden.
+
+### Intern
+- `world_pool_ap`, `world_spend_ap_for`, `world_has_ap`; `game_set_portal_span`, `game_set_wizard_level`; Tests `test_0g` und neue Wertungstests.
+
 ## [Unreleased] – Regeln wie im Original, Schritt 0a: Mana (D67) (2026-10-07)
 
 ### Geändert

@@ -1241,11 +1241,11 @@ static bool action_possible(char key)
         return true;
     case 'c':
         return ride_actor_kind(u) == CR_WIZARD && !(u->flags & UF_FLYING) &&
-               u->ap >= ACTIONS[ACT_CAST].ap;
+               world_can_pay(&world, a, ACT_CAST);
     case 'f':
-        return items_can_fire(&world, a) && u->ap >= ACTIONS[ACT_FIRE].ap;
+        return items_can_fire(&world, a) && world_can_pay(&world, a, ACT_FIRE);
     case 't':
-        return in_hand && u->ap >= ACTIONS[ACT_THROW].ap;
+        return in_hand && world_can_pay(&world, a, ACT_THROW);
     default:
         break;
     }
@@ -2159,7 +2159,9 @@ int main(int argc, char **argv)
         turns.round_ctx = &game;
     }
     game_init(&game, world.portal_x, world.portal_y, world.portal_rmin,
-              world.portal_rmax, &turns.rng);   /* portal from the map (v3) */
+              world.portal_rmax, &turns.rng);   /* portal from the map (v5) */
+    game_set_portal_span(&game, world.portal_span);
+    game_set_wizard_level(&game, OWN_P1, wizard_slots[0].level);
     game_new_round(&game, turns.round);
     view_set_portal(game.portal_open ? game.portal_x : -1, game.portal_y);
     if (free_round1)
@@ -2221,6 +2223,8 @@ menu_start:
             }
             game_init(&game, world.portal_x, world.portal_y, world.portal_rmin,
                       world.portal_rmax, &turns.rng);
+            game_set_portal_span(&game, world.portal_span);
+            game_set_wizard_level(&game, OWN_P1, wizard_slots[0].level);
             game_new_round(&game, turns.round);
             view_set_portal(game.portal_open ? game.portal_x : -1, game.portal_y);
             if (free_round1)
@@ -2666,7 +2670,7 @@ dispatch:
                                        OBJECTS[u->items[u->in_use]].name);
                     else
                         render_message(1, C_GREY, "Leere Haende.");
-                } else if (world.units[active()].ap < ACTIONS[ACT_CHANGE].ap) {
+                } else if (!world_can_pay(&world, active(), ACT_CHANGE)) {
                     render_message(1, C_BRIGHT_RED, "Zu wenig AP.");
                 } else {
                     render_message(1, C_BRIGHT_RED,

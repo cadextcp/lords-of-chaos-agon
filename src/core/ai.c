@@ -1022,7 +1022,7 @@ static void wizard_actions(Turns *t, World *w, AiCtx *ctx, uint8_t owner)
         if (foe != NO_UNIT && book->level[SP_MAGIC_BOLT] > 0 &&
             w->units[wiz].mana >= spell_mana(SP_MAGIC_BOLT,
                                              book->level[SP_MAGIC_BOLT]) &&
-            w->units[wiz].ap >= ACTIONS[ACT_CAST].ap) {
+            world_can_pay(w, wiz, ACT_CAST)) {
             spell_bolt(w, book, wiz, SP_MAGIC_BOLT, w->units[foe].x,
                        w->units[foe].y, &t->rng, &shot);
             wiz = world_find_unit(w, wiz_id);
@@ -1039,7 +1039,7 @@ static void wizard_actions(Turns *t, World *w, AiCtx *ctx, uint8_t owner)
         for (i = 0; i < w->unit_count; i++)
             if (w->units[i].owner == owner && w->units[i].id != wiz_id)
                 n++;
-        while (n < AI_SUMMON_MAX && w->units[wiz].ap >= ACTIONS[ACT_CAST].ap) {
+        while (n < AI_SUMMON_MAX && world_can_pay(w, wiz, ACT_CAST)) {
             uint8_t pick = 0xFF, k, best = 0, reserve = w->units[wiz].mana_max / 4;
             for (k = 0; k < SPELL_COUNT; k++) {
                 uint8_t cost = spell_cast_mana(k, ctx->books[owner].level[k]);

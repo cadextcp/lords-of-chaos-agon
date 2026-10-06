@@ -4,7 +4,7 @@
 
 size 36 36
 wrap 0
-portal 32 32 20 24
+portal 32 32 20 24 15
 
 floor
 ssssssssssssssssssssssssssssssssssss

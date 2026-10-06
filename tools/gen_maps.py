@@ -95,8 +95,10 @@ def parse(path: Path) -> dict:
         elif word == "wrap":
             m["wrap"] = int(line.split()[1])
         elif word == "portal":
-            x, y, rmin, rmax = map(int, line.split()[1:5])
-            m["portal"] = (x, y, rmin, rmax)
+            vals = list(map(int, line.split()[1:6]))
+            if len(vals) == 4:
+                vals.append(0)               # span 0: the portal stays open
+            m["portal"] = tuple(vals)
         elif word in ("floor", "feature", "decor", "roof", "units", "objects") and len(line.split()) == 1:
             section = word
         elif section in grids:
@@ -145,14 +147,11 @@ def encode(m: dict, enums: dict[str, int]) -> bytes:
         if tile not in enums:
             raise SystemExit(f"unknown object tile {tile}")
         out += bytes((x, y)) + struct.pack("<H", enums[tile])
-    if m["portal"] is not None:          # v3: scenario portal
-        out[4] = 3
-        out += bytes(m["portal"])
-    if m["roof"] is not None:            # v4: roof bit per field
-        if m["portal"] is None:          # v4 always carries the portal block
-            out += bytes((0xFF, 0xFF, 0, 0))     # x = 0xFF: no portal
-        out[4] = 4
-        out += bytes(1 if c == "R" else 0 for c in m["roof"])
+    if m["portal"] is not None or m["roof"] is not None:   # v5
+        out[4] = 5
+        out += bytes(m["portal"]) if m["portal"] is not None             else bytes((0xFF, 0xFF, 0, 0, 0))    # x = 0xFF: no portal
+        if m["roof"] is not None:
+            out += bytes(1 if c == "R" else 0 for c in m["roof"])
     return bytes(out)
 
 

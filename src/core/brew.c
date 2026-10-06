@@ -272,7 +272,7 @@ bool brew_drink(World *w, uint8_t unit)
     if (!c || c->doses == 0 || c->potion == 0xFF ||
         c->potion == SP_BOMB_POTION)
         return false;
-    if (u->ap < ACTIONS[ACT_DRINK].ap)
+    if (!world_can_pay(w, unit, ACT_DRINK))
         return false;
     world_pay(w, unit, ACT_DRINK);
     if (!apply_potion(w, unit, c->potion, c->level ? c->level : 1))
@@ -296,7 +296,7 @@ bool brew_fill(World *w, uint8_t unit)
     c = brew_cauldron_at(w, u->x, u->y);
     if (!c || c->doses == 0)
         return false;
-    if (u->ap < ACTIONS[ACT_FILL].ap)
+    if (!world_can_pay(w, unit, ACT_FILL))
         return false;
     world_pay(w, unit, ACT_FILL);
     kind = c->potion == SP_BOMB_POTION ? OBJ_VIAL_BOMB : 0xFF;
@@ -323,7 +323,7 @@ bool brew_drink_vial(World *w, uint8_t unit)
     potion = vial_potion(u->items[u->in_use]);
     if (potion == 0xFF)
         return false;
-    if (u->ap < ACTIONS[ACT_DRINK].ap)
+    if (!world_can_pay(w, unit, ACT_DRINK))
         return false;
     world_pay(w, unit, ACT_DRINK);
     if (!apply_potion(w, unit, potion, 2))
@@ -348,13 +348,13 @@ bool brew_throw_vial(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
     kind = u->items[u->in_use];
     if (kind != OBJ_VIAL_BOMB && vial_potion(kind) == 0xFF)
         return false;
-    if (u->ap < ACTIONS[ACT_THROW].ap)
+    if (!world_can_pay(w, unit, ACT_THROW))
         return false;
     world_pay(w, unit, ACT_THROW);
     u->items[u->in_use] = u->items[u->item_count - 1];
     u->item_count--;
     u->in_use = NO_ITEM;
-    thrower_kind = u->kind;              /* the blast may reorder units */
+    thrower_kind = ride_actor_kind(u);   /* the blast may reorder units */
     thrower_owner = u->owner;
 
     x = u->x;
