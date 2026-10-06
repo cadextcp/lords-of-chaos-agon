@@ -2,6 +2,11 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Menüoption „Zufällige Karte" (D58) (2026-10-06)
+
+### Neu
+- **Hauptmenü hat einen Eintrag `Zufaellige Karte`:** startet sofort eine der 16 generierten Level-1-Varianten (D57) mit dem Bücher-Set von Szenario 1. Die übrigen Menüpunkte rücken um eine Position nach unten.
+
 ## [Unreleased] – Level 1 in 16 Geländevarianten (D57) (2026-10-06)
 
 ### Neu
