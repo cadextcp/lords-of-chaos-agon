@@ -3,7 +3,7 @@
 #include <string.h>
 
 #define SAVE_MAGIC "LOCSG"
-#define SAVE_VERSION 5   /* v5: Unit.reacted (no longer bit 64 = UF_RIDDEN) */
+#define SAVE_VERSION 6   /* v6: rider values in Unit (D60); v5: Unit.reacted */
 
 /* Length of the blob: header + the member images (no struct padding). */
 static uint16_t blob_size(void)

@@ -43,7 +43,7 @@ bool game_try_enter_portal(Game *g, World *w, uint8_t unit)
     u = &w->units[unit];
     if (!g->portal_open || u->x != g->portal_x || u->y != g->portal_y)
         return false;
-    if (u->kind != CR_WIZARD)
+    if (ride_actor_kind(u) != CR_WIZARD)
         return false;                    /* only wizards escape (PM 29) */
     vp = VP_ESCAPE;
     for (i = 0; i < u->item_count; i++)

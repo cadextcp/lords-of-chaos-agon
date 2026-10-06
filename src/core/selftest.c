@@ -3224,6 +3224,62 @@ static void test_m4e(void)
               "m4e: dismounting brings the rider back");
     }
 
+    {   /* D60: the rider acts from the saddle and keeps his own values */
+        Spellbook rb;
+        uint8_t wz, mt, i, before;
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 0;
+        wz = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 20, 19);
+        mt = world_spawn_unit(&world, OWN_P1, CR_UNICORN, 21, 19);
+        world.units[wz].ap = 40;
+        world.units[wz].con = 17;
+        world.units[wz].mana = 33;
+        world.units[wz].items[0] = OBJ_SWORD;
+        world.units[wz].items[1] = OBJ_APPLE;
+        world.units[wz].item_count = 2;
+        check(ride_mount(&world, wz, 21, 19) && world.unit_count == 1,
+              "d60: the wizard mounts");
+        mt = 0;
+        check(world.units[mt].mana == 33 && world.units[mt].rider_con == 17 &&
+              ride_actor_kind(&world.units[mt]) == CR_WIZARD,
+              "d60: the mount carries the rider's mana and values");
+        memset(&rb, 0, sizeof rb);
+        rb.level[SP_MAGIC_BOLT] = 1;
+        world.units[mt].ap = 40;
+        check(spell_can_cast(&world, &rb, mt, SP_MAGIC_BOLT),
+              "d60: the wizard casts from the saddle");
+        world.feature[19][22] = FE_DOOR_CLOSED;
+        check(world_open_door(&world, mt, 22, 19) &&
+              world.feature[19][22] == FE_DOOR_OPEN,
+              "d60: the rider opens a door from the saddle");
+        world.objects[world.object_count].x = 21;
+        world.objects[world.object_count].y = 19;
+        world.objects[world.object_count].tile = OBJECTS[OBJ_KNIFE].tile;
+        world.object_count++;
+        check(items_pick_up(&world, mt) && world.units[mt].item_count == 3,
+              "d60: the rider picks up from the saddle");
+        world.units[mt].ap = 40;
+        check(ride_dismount(&world, mt) && world.unit_count == 2,
+              "d60: dismount");
+        wz = 1;
+        check(world.units[wz].kind == CR_WIZARD && world.units[wz].con == 17 &&
+              world.units[wz].mana == 33 && world.units[wz].item_count == 3 &&
+              world.units[wz].items[1] == OBJ_APPLE &&
+              world.units[mt].mana_max == 0 && world.units[mt].item_count == 0,
+              "d60: the rider gets off with his own values and whole pack");
+        world.units[wz].ap = 40;
+        check(ride_mount(&world, wz, 21, 19) && world.unit_count == 1,
+              "d60: mount again");
+        before = world.object_count;
+        world_kill_unit(&world, 0, CR_GOBLIN, OWN_P2, true);
+        for (i = 0; i < world.unit_count; i++)
+            if (world.units[i].kind == CR_WIZARD)
+                break;
+        check(i < world.unit_count && world.units[i].con == 17 &&
+              world.units[i].item_count == 3 && world.object_count == before,
+              "d60: a dying mount throws its rider off, he keeps his pack");
+    }
+
     {   /* roof: loaded from the v4 map, blocks sight and landing */
         world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND,
                        MAPBIN_MANY_COLOURED_LAND_LEN);

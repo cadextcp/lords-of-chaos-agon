@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "ai.h"
+#include "ride.h"
 
 static bool owner_present(const World *w, uint8_t owner)
 {
@@ -165,8 +166,8 @@ static bool wizards_present(const World *w)
 {
     uint8_t i;
     for (i = 0; i < w->unit_count; i++)
-        if (w->units[i].kind == CR_WIZARD)
-            return true;
+        if (ride_actor_kind(&w->units[i]) == CR_WIZARD)
+            return true;   /* a mounted wizard counts (D60) */
     return false;
 }
 
