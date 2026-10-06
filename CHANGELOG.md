@@ -2,6 +2,15 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Echte Sichtlinien durch Fenster und Türen (D56) (2026-10-06)
+
+### Geändert
+- **Dächer sind wieder nur Anzeige (ersetzt D44):** Sie blockieren keine Sicht mehr. Das Dach öffnet sich auf den Feldern, die die aktive Figur sieht (`sight_look`, derselbe Schattenwurf wie die Sichtregel). Durch Fenster und offene Türen blickt man als Keil in den Raum; was nicht gesehen wird, ist wieder überdacht. Fenster bleiben vom Dach frei. Das Dachloch hinter den Fenstern aus #132 entfällt, die Karte ist entsprechend angepasst.
+- KI, Zauber und Fernwaffen zielen durch Fenster und offene Türen entlang der echten Linie.
+- RAM: eine Blockier-Bitmap statt zwei (−360 B), 180 B Cache für die Figur-Sicht.
+- `map_preview.py --viewer X Y` zeigt, was eine Figur sieht (Dach geöffnet); `docs/design/mockups/window-sightline.png`.
+- Checks `d56`; der D44-Test (Dach versteckt Inneres) kehrt sich um.
+
 ## [Unreleased] – Level 1: Nachtkarte, Entwurf (D54) (2026-10-06)
 
 ### Geändert

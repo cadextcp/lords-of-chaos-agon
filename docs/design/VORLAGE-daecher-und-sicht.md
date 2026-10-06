@@ -3,7 +3,7 @@
 - **Stand:** 2026-10-05, nach D41 (Dächer heben nur für die aktive Figur)
 - **Anlass:** Playtest A4 — „mein Troll wurde im Laufen von etwas getroffen, ich weiß
   aber nicht von was … trotzdem wundert mich, dass ich ihn nicht sehe"
-- **Status:** entschieden am 2026-10-05 — **Weg 2**, umgesetzt als D44.
+- **Status:** entschieden am 2026-10-05 — **Weg 2**, umgesetzt als D44. **Überholt am 2026-10-06 durch D56:** Das Dach blockiert die Sicht nicht mehr; es öffnet sich auf dem, was die aktive Figur sieht (Fenster und offene Türen geben echte Sichtkeile).
 - **Korrektur zur ersten Fassung:** `world_blocks_sight_at()` war nicht tot,
   sondern wurde von `world_blocks_sight()` gerufen. Der Befund bleibt: die
   Bitmap, über die `sight.c` läuft, ließ das Dach weg, diese Funktion nicht.
