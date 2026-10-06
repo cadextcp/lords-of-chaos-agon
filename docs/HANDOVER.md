@@ -315,7 +315,10 @@ Danach: M6/Chaos laut `docs/ROADMAP.md` (GDD §12), oder Politur aus §8.
 
 | Thema | Datei |
 |---|---|
-| Spieldesign, Entscheidungen D1–D64, M4-Plan | `docs/design/GDD.md` (§14, §16) |
+| Spieldesign, Entscheidungen D1–D67, M4-Plan | `docs/design/GDD.md` (§14, §16) |
+| **Originalregeln (Spectrum)**, Quelle der Wahrheit für D66/D67 | `docs/REGELN-ORIGINAL-SPECTRUM.md` (Kopie aus `lords-of-chaos-zx-agon`) |
+| Vergleich unserer Regeln mit dem Original, Vorschläge R1–R39 | `docs/REGELVERGLEICH-SPECTRUM.md` |
+| Plan: Regeln des Originals und schlauere KI | `docs/PLAN-KI.md` |
 | Playtest 2026-10-06 (Befund, Entscheidung, Stand) | `docs/PLAYTEST-2026-10-06.md` |
 | Plan Level 1 auf 46×46 | `docs/PLAN-KARTE-46.md` |
 | Mockups, Kartenvorschauen | `docs/design/mockups/` |

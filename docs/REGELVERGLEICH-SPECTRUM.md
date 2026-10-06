@@ -1,6 +1,6 @@
 # Regelabgleich mit dem Spectrum-Original
 
-Stand 2026-10-06. Quelle der Originalwerte: `lords-of-chaos-zx-agon/docs/REGELN.md` (aus dem Z80-Code gelesen, Szenario 1 geladen, Kapitelnummern „K“ unten beziehen sich darauf). Als Gegenprobe dienten das Amiga-Handbuch (`reference/`) und unser Code (`src/core`, `data/*.csv`). Gerechnete Vergleiche stehen in §5, der Vergleich der KI (K10, nachgereicht) in §6.5.
+Stand 2026-10-06. Quelle der Originalwerte: `docs/REGELN-ORIGINAL-SPECTRUM.md` (Kopie aus `lords-of-chaos-zx-agon`) (aus dem Z80-Code gelesen, Szenario 1 geladen, Kapitelnummern „K“ unten beziehen sich darauf). Als Gegenprobe dienten das Amiga-Handbuch (`reference/`) und unser Code (`src/core`, `data/*.csv`). Gerechnete Vergleiche stehen in §5, der Vergleich der KI (K10, nachgereicht) in §6.5.
 
 Nachtrag 2026-10-07 (zweiter, `24b8c03`): Neu sind Sicht, Schusslinie und „angebunden“ (K11), Abheben und Landen (K8.1, K8.4, K10.3) und die Teleport-Bedingung; die Folgen stehen in §6.7 (R36–R39 neu, R8, R18, R20 ergänzt). Das KI-Kapitel in `REGELN.md` wurde um die Tabellenformate, die Nachbarwahl, die Auslöser und die Prioritäts-Persistenz ergänzt (`ceef8de`). Es hat drei Annahmen dieses Berichts korrigiert: R31 (Beute geht zum eigenen Zauberer), R34 (Auslöser bei Geländeänderung) und R35 (Leibwache). Die Einträge sind angepasst.
 
