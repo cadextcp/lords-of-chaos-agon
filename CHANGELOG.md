@@ -13,7 +13,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 - **Zauberer-Designer:** Start-Constitution 34 (vorher 25) und Start-Mana 80 (vorher 90) wie im Original; ein Punkt Constitution kostet 3 XP, ein Punkt Mana 8 XP (vorher 2 und 9). Die Standardvorlage kostet 531 XP und lässt 69 übrig.
 
 ### Neu
-- `docs/REGELVERGLEICH-SPECTRUM.md`: Vergleich aller Regeln mit dem Spectrum-Original, gerechnete Beispiele und eine Vorschlagsliste R1–R35, mit dem Vergleich der KI (K10). Wichtigster Befund: Unsere Mana-Tabelle sind die Designer-XP-Preise (R1).
+- `docs/REGELVERGLEICH-SPECTRUM.md`: Vergleich aller Regeln mit dem Spectrum-Original, gerechnete Beispiele und eine Vorschlagsliste R1–R39, mit dem Vergleich der KI (K10). Wichtigster Befund: Unsere Mana-Tabelle sind die Designer-XP-Preise (R1).
 
 ### Intern
 - Selftests auf die neuen Zahlen umgestellt, eine neue Erwartung für Essen und Trankflug.

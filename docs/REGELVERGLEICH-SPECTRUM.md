@@ -2,7 +2,7 @@
 
 Stand 2026-10-06. Quelle der Originalwerte: `lords-of-chaos-zx-agon/docs/REGELN.md` (aus dem Z80-Code gelesen, Szenario 1 geladen, Kapitelnummern „K“ unten beziehen sich darauf). Als Gegenprobe dienten das Amiga-Handbuch (`reference/`) und unser Code (`src/core`, `data/*.csv`). Gerechnete Vergleiche stehen in §5, der Vergleich der KI (K10, nachgereicht) in §6.5.
 
-Nachtrag 2026-10-07: Das KI-Kapitel in `REGELN.md` wurde um die Tabellenformate, die Nachbarwahl, die Auslöser und die Prioritäts-Persistenz ergänzt (`ceef8de`). Es hat drei Annahmen dieses Berichts korrigiert: R31 (Beute geht zum eigenen Zauberer), R34 (Auslöser bei Geländeänderung) und R35 (Leibwache). Die Einträge sind angepasst.
+Nachtrag 2026-10-07 (zweiter, `24b8c03`): Neu sind Sicht, Schusslinie und „angebunden“ (K11), Abheben und Landen (K8.1, K8.4, K10.3) und die Teleport-Bedingung; die Folgen stehen in §6.7 (R36–R39 neu, R8, R18, R20 ergänzt). Das KI-Kapitel in `REGELN.md` wurde um die Tabellenformate, die Nachbarwahl, die Auslöser und die Prioritäts-Persistenz ergänzt (`ceef8de`). Es hat drei Annahmen dieses Berichts korrigiert: R31 (Beute geht zum eigenen Zauberer), R34 (Auslöser bei Geländeänderung) und R35 (Leibwache). Die Einträge sind angepasst.
 
 Kennzeichen in den Tabellen: ✅ gleich · 🔧 in diesem PR angeglichen · 📋 Vorschlag (R-Nummer, §6) · ⛔ bewusste eigene Entscheidung (D-Nummer im GDD).
 
@@ -65,7 +65,7 @@ Nicht angeglichen, obwohl klein, weil es mit einer Entscheidung oder mit einem a
 - Brauen: Kessel mit Stufe + 3 Schlucken; Drachen brauchen leeren Kessel plus Drachenkraut; Heiltrank heilt Constitution, Ausdauer und Wunden.
 - Untote nehmen nur Schaden von Untoten, magischen Waffen und Zaubern.
 - Blitz trifft auch die 8 Nachbarfelder; Magic Attack trifft auch eigene Kreaturen; Teleport setzt die AP auf 0.
-- Sichtweite: 9 Felder am Boden, 11 in der Luft (im Original `$13`/`$17` in Entfernungseinheiten, gleiche Größenordnung).
+- Sichtweite in gerader Linie: 9 Felder am Boden, 11 in der Luft (im Original `R` = 19/23, K11.1). Diagonal ist das Original kürzer (6/7), bei uns gilt das Quadrat (R36).
 - Zauberer-Designer: Startwerte Combat 5, Defence 5, MR 70, Ausdauer 34, AP 34 und 600 XP; unsere Punktkosten (2/2/4/2/4, Mana 9, AP 8) sind genau die Original-Kosten `⌊Startwert / Divisor⌋` (K3.3).
 
 ---
@@ -170,7 +170,7 @@ Aufwand: S ≤ 1 Tag, M einige Tage, L eine Woche und mehr. Ursache: „Grundsat
 
 ### 6.3 Ein Block: das Kampfmodell (entschieden: Weg B, Aufwand L)
 
-**Entscheidung des Nutzers 2026-10-06: „wie im Original“, also Weg B**, GDD D67. Am 2026-10-07 ergänzt: **alle Vorschläge R1–R35 wie im Original**, auch die offenen Punkte (Rückschlag 4/4 und Gebunden R7/R8, Beschwören mit `L` Kreaturen R14, Designer-Preise R2, Zauberer läuft Routen, keine Schwierigkeitsstufen). Zusätze ohne Gegenstück im Original bleiben (Wildtiere, Türen mit Blatt, Fenster, Dächer, Nachtkarten, eigene Karten). Die Umsetzung steht in `docs/PLAN-KI.md`.
+**Entscheidung des Nutzers 2026-10-06: „wie im Original“, also Weg B**, GDD D67. Am 2026-10-07 ergänzt: **alle Vorschläge R1–R39 wie im Original**, auch die offenen Punkte (Rückschlag 4/4 und Gebunden R7/R8, Beschwören mit `L` Kreaturen R14, Designer-Preise R2, Zauberer läuft Routen, keine Schwierigkeitsstufen). Zusätze ohne Gegenstück im Original bleiben (Wildtiere, Türen mit Blatt, Fenster, Dächer, Nachtkarten, eigene Karten). Die Umsetzung steht in `docs/PLAN-KI.md`.
 
 R5, R6, R15, R16 und R17 hängen zusammen. Sie ändern nichts einzeln, sondern entweder alle oder keines.
 
@@ -247,6 +247,22 @@ Was bei uns **besser** gelöst ist und bleibt: Wegsuche um Hindernisse, Türen u
 | R27 | **Gelände angreifen** | `RND(2·C_eff) ≥ Zähigkeit` (Wand 80), 6 AP + 6 Ausdauer, nur wenn `1,5·C_eff ≥ Zähigkeit` (K6.4) | Waffenwürfel + Zufall gegen Möbel-Zähigkeit, Kosten wie Nahkampf | Unsere Karten haben Möbel statt Geländekacheln mit eigener Zähigkeit |
 
 Nicht verglichen: die KI der Computergegner und Torquemadas (im Original nicht gelesen), Szenario-Population und -Hooks, Sichtlinienformel, Engaged-Bit (REGELN §9). Die Terrain-Tabellen der drei Szenarien (K8.4) sind per Kachel, wir nutzen eigene Gelände-Familien (`costs.csv`); die Werte sind ähnlich (Boden 4, Wald 6–8, Wasser 12), ein Eins-zu-eins-Vergleich lohnt erst nach R17.
+
+### 6.7 Nachträge aus K8.1, K8.4, K10.3 und K11 (2026-10-07)
+
+Der Nutzer hat `REGELN.md` um die Sicht, die Schusslinie, „angebunden“, Abheben und Landen sowie die Teleport-Bedingung ergänzt. Entschieden ist weiter: **alles wie im Original**. Die Einträge sind in `docs/PLAN-KI.md` (0b, 0c, 0d, 0h, 2d) verplant.
+
+| # | Regel | Original (K) | Wir | Ursache | Aufwand |
+|---|---|---|---|---|---|
+| R20 | **Abheben, Landen, AP-Umrechnung** | Abheben: Flug-AP, mindestens 6 AP, nicht angebunden, kein anderes Wesen auf dem Feld, Gelände ohne Bit „kein Abheben“ (drinnen, unter Dach), nicht auf Vine und Blob. Landen: kostenlos, nicht angebunden, kein anderes Wesen, Gelände ohne Bit „keine Landung“; die AP werden **anteilig** umgerechnet (K2, K8.1, K8.4) | zwei AP-Budgets je Ebene (D15); Abheben 6 (angeglichen), Landen 0 (angeglichen), Landen nicht unter Dach und nicht im Wasser | Grundsatz (nicht Spectrum-bedingt: ein Wert je Kreatur ist beim Original der Grund für die Umrechnung, bei uns gibt es zwei Werte) | M (ersetzt D15; Spielstand v9) |
+| R36 | **Sichtweite als Achteck** | `2·dx < R`, `2·dy < R`, `D < R`, `R` = 19 am Boden, 23 in der Luft: 9 bzw. 11 Felder gerade, 6 bzw. 7 diagonal; Ziele mit `D < 4` immer sichtbar (K11.1, K11.2) | Chebyshev-Quadrat 9 bzw. 11 (D14) | Grundsatz; das Achteck folgt aus der billigen Entfernung des Originals, ist aber eine Regel | S (Maske über unserem Shadowcasting) |
+| R37 | **Höhen, Dächer, Blätterdach, Unsichtbare** | Flieger sehen über Wände; Bodenziele unter Blätterdach (Flag `02`) sind für Flieger ab `D ≥ 4` unsichtbar, Gegenstände dort nie sichtbar; überdachte Felder (`04`) verstecken die jeweils andere Ebene; Unsichtbare nur für den Besitzer, Magic Eye hebt es für den Zug auf (K11.2, K11.4) | Dächer sind nur Anzeige und öffnen sich für die aktive Figur (D56); Sicht durch Wände, Türen, Fenster wie am Boden | Grundsatz | M |
+| R38 | **Feuer und Blob blockieren die Sicht** | Gelände-Flags `$38`–`$49` tragen die Sichtblockade (K11.4) | Flächen blockieren die Sicht nicht | Grundsatz | S |
+| R39 | **Schusslinie für Wurf, Bogen, Feuer** | Boden–Boden wie die Sichtlinie; ist Luft beteiligt, stoppt nur überdachter Boden (Gelände-Bit „kein Abheben“), in Szenario 2 zusätzlich Wände (K11.6) | `sight_has_los` für Bogen und Wurf (6 Felder) | Grundsatz | S–M (an R26, 0e gekoppelt) |
+| R8 | **„Angebunden“ genau** (Ergänzung zu §6.4) | Gesetzt bei der Sichtberechnung, wenn ein sichtbarer Gegner auf derselben Höhe mit `D < 4` steht; neu bewertet nur nach eigener Bewegung oder eigenem Angriff, oder wenn schon angebunden; gelöst zu Beginn des eigenen Zugs; Unsichtbare werden nicht angebunden; sperrt Ziehen, Abheben, Landen, nicht den Angriff (K11.7) | Kontaktbindung beider Seiten bis zum Ende der eigenen Phase (D26) | Grundsatz | in 0c |
+| R18 | **Teleport-Bedingung** (Korrektur) | Teleport in die Luft nur unter einem Flying-Trank, am Boden ohne Bedingung; „angebunden“ spielt keine Rolle (K5.3, korrigiert) | keine Bedingung | Grundsatz | S, in 0d |
+
+Zum Algorithmus: Das Original rechnet **eine Linie je Ziel** (K11.3: ohne Start und Ziel, Fehlerterm ab `major/2`, Umbruch). Wir bleiben bei **Shadowcasting** (D39). Es liefert für die Hidden Map das ganze Sichtfeld auf einmal und war auf der Hardware 25-mal schneller (298 ms gegen 12 ms). Die Ergebnisse unterscheiden sich nur in Randfällen (Ecken, Diagonalen); das ist keine Spectrum-Grenze, sondern ein Unterschied im Bedarf, denn das Original kennt keine Hidden Map.
 
 ---
 
