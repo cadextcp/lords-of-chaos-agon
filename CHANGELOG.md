@@ -5,7 +5,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ## [Unreleased] – Level 1: Nachtkarte, Entwurf (D54) (2026-10-06)
 
 ### Geändert
-- GDD D54: Kartengröße 36×36 bleibt, alle Szenarien nachts, Fenster (zwei Felder Einblick), Brücken, Zaun und Tor, Biome mit natürlichen Grenzen. Noch kein Code.
+- GDD D54: Kartengröße 36×36 bleibt, alle Szenarien nachts, Fenster (zwei Felder Einblick), Brücken, Zaun und Tor, Biome mit natürlichen Grenzen. 
+### Neu
+- **Nacht-Kacheln (erster Wurf):** `tools/art/night.py` färbt Außenkacheln beim Bauen um (schwarzer Grund mit grünen Tupfen wie im Amiga-Original, graue Wege, dunkler Sumpf, dunklere Bäume); die PNGs bleiben die Tag-Quelle. `map_preview.py` läuft auch ohne WSL.
 
 ## [Unreleased] – Gelände-Politur 3: Kreaturen-Idle (D53) (2026-10-06)
 
