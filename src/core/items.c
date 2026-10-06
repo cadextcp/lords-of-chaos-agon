@@ -85,7 +85,7 @@ bool items_pick_up_object(World *w, uint8_t unit, uint8_t obj)
     if (kind == OBJ_CAULDRON_FULL)
         return false;                    /* it would spill (GDD 7.2) */
     if ((uint16_t)items_weight(w, unit) + OBJECTS[kind].weight >
-        CREATURES[u->kind].carry)
+        CREATURES[ride_actor_kind(u)].carry)
         return false;                    /* too heavy (GDD 8) */
     if (u->ap < ACTIONS[ACT_PICK_UP].ap)
         return false;
@@ -485,7 +485,7 @@ bool items_open_chest(World *w, Rng *rng, uint8_t unit, int16_t x, int16_t y)
                              : (uint8_t)(ACTIONS[ACT_OPEN_CHEST].ap * 3);
     if (u->ap < ap)
         return false;
-    if (!(CREATURES[u->kind].flags & CF_USE))
+    if (!(CREATURES[ride_actor_kind(u)].flags & CF_USE))
         return false;                    /* hands needed */
     world_spend(w, unit, ap);
     if (kind != NO_ITEM) {               /* keys vanish after use (GDD 8) */

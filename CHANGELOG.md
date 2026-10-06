@@ -2,6 +2,19 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Handeln vom Reittier aus (D60) (2026-10-06)
+
+### Neu
+- **Reiter handeln aus dem Sattel:** Der Zauberer zaubert vom Reittier aus, Reiter öffnen Türen und Truhen und heben auf. Es zählt die Art des Reiters, nicht die des Reittiers.
+
+### Behoben
+- **Aufsitzen kostete das Mana des Reiters, Absteigen heilte ihn voll** und gab nur den ersten Gegenstand zurück. Leben, Ausdauer, Werte, Mana und das ganze Gepäck bleiben jetzt erhalten.
+- **Stirbt das Reittier, wird der Reiter abgeworfen** statt mit ihm zu sterben.
+- Ein berittener Zauberer zählt als anwesend (Rundenablauf, Endabrechnung, Portal, Panel „Stufe“).
+
+### Intern
+- `Unit` trägt die Werte des Reiters (7 Byte), Spielstand v6 (alte Stände werden abgelehnt). Checks `d60`.
+
 ## [Unreleased] – Friedliche Tiere, Fangen, RAM-Arena (D59) (2026-10-06)
 
 ### Geändert

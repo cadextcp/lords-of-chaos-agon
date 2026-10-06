@@ -52,6 +52,8 @@ static void init_unit(Unit *u, uint8_t x, uint8_t y, uint8_t kind, uint8_t owner
     u->item_count = 0;
     u->in_use = NO_ITEM;
     u->rider_kind = 0xFF;
+    u->rider_con = u->rider_con_max = u->rider_sta = u->rider_sta_max = 0;
+    u->rider_com = u->rider_def = u->rider_mr = 0;
     u->post_x = u->post_y = 0xFF;
     u->grudge = 0;
     u->herd_dir = 0;
@@ -403,7 +405,7 @@ void world_remove_unit(World *w, uint8_t unit)
 
 /* The dead drop everything they carried on their field (D21) - flyers
  * onto the ground below. A full object list swallows the rest. */
-static void drop_carried(World *w, const Unit *u)
+void world_drop_carried(World *w, const Unit *u)
 {
     uint8_t i;
     for (i = 0; i < u->item_count && w->object_count < MAX_OBJECTS; i++) {
@@ -419,9 +421,12 @@ void world_kill_unit(World *w, uint8_t victim, uint8_t killer_kind,
 {
     if (victim >= w->unit_count)
         return;
+    Unit mount;
     events_push(EV_DEATH, w->units[victim].x, w->units[victim].y,
                 w->units[victim].kind, w->units[victim].owner, 0, 0);
-    drop_carried(w, &w->units[victim]);
+    mount = w->units[victim];
+    if (!(mount.flags & UF_RIDDEN))
+        world_drop_carried(w, &w->units[victim]);   /* a rider keeps his pack */
     if (killer_owner < OWN_NEUTRAL && w->kill_count < MAX_KILLS) {
         Kill *k = &w->kills[w->kill_count++];
         k->victim_kind = w->units[victim].kind;
@@ -431,6 +436,8 @@ void world_kill_unit(World *w, uint8_t victim, uint8_t killer_kind,
         k->melee = melee;
     }
     world_remove_unit(w, victim);
+    if (mount.flags & UF_RIDDEN)
+        ride_throw_off(w, &mount);       /* the rider survives the fall (D60) */
 }
 
 bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
@@ -562,10 +569,16 @@ void world_new_turn(World *w)
     }
     for (i = w->unit_count; i-- > 0;)      /* bleeders that died */
         if (w->units[i].con == 0) {
+            Unit mount = w->units[i];
             events_push(EV_DEATH, w->units[i].x, w->units[i].y,
                         w->units[i].kind, w->units[i].owner, 1, 0);
-            drop_carried(w, &w->units[i]);
-            world_remove_unit(w, i);
+            if (mount.flags & UF_RIDDEN) {
+                world_remove_unit(w, i);
+                ride_throw_off(w, &mount);   /* D60 */
+            } else {
+                world_drop_carried(w, &w->units[i]);
+                world_remove_unit(w, i);
+            }
         }
 }
 
@@ -678,7 +691,7 @@ bool world_open_door(World *w, uint8_t unit, int16_t x, int16_t y)
     u = &w->units[unit];
     if (!world_wrap(w, &x, &y) || w->feature[y][x] != FE_DOOR_CLOSED)
         return false;
-    if (!(CREATURES[u->kind].flags & CF_USE))
+    if (!(CREATURES[ride_actor_kind(u)].flags & CF_USE))
         return false;                    /* creature without hands */
     if (u->ap < ACTIONS[ACT_OPEN_DOOR].ap)
         return false;
@@ -710,7 +723,7 @@ static bool door_change(World *w, uint8_t unit, int16_t x, int16_t y,
         return false;
     if (!world_wrap(w, &x, &y) || w->feature[y][x] != from)
         return false;
-    if (!(CREATURES[w->units[unit].kind].flags & CF_USE))
+    if (!(CREATURES[ride_actor_kind(&w->units[unit])].flags & CF_USE))
         return false;
     if (w->units[unit].ap < ACTIONS[action].ap)
         return false;

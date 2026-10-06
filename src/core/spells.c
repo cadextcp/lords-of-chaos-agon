@@ -6,6 +6,7 @@
 #include "effect.h"
 #include "events.h"
 #include "items.h"
+#include "ride.h"
 #include "sight.h"
 
 #include <string.h>
@@ -84,7 +85,7 @@ bool spell_can_cast(const World *w, const Spellbook *b, uint8_t wiz, uint8_t spe
     if (wiz >= w->unit_count || spell >= SPELL_COUNT)
         return false;
     u = &w->units[wiz];
-    return u->kind == CR_WIZARD && !(u->flags & UF_FLYING) &&
+    return ride_actor_kind(u) == CR_WIZARD && !(u->flags & UF_FLYING) &&
            b->level[spell] > 0 &&
            u->mana >= spell_cast_mana(spell, b->level[spell]) &&
            u->ap >= ACTIONS[ACT_CAST].ap;

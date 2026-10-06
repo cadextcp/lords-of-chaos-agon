@@ -77,6 +77,10 @@ typedef struct {
     uint8_t in_use;           /* index into items, 0xFF = bare hands */
     uint8_t id;               /* stable while the unit lives (indices shift) */
     uint8_t rider_kind;       /* kind carried on this mount, 0xFF = none */
+    /* the rider's own values while mounted (D60); his mana sits in
+     * mana/mana_max, his items in items[] */
+    uint8_t rider_con, rider_con_max, rider_sta, rider_sta_max;
+    uint8_t rider_com, rider_def, rider_mr;
     uint8_t post_x, post_y;   /* guard post (M4h) / territory, 0xFF = none */
     uint8_t grudge;           /* wild animals (D35): owners that attacked it */
     uint8_t herd_dir;         /* crossing herd: direction 1..8, 0 = none */
@@ -203,10 +207,13 @@ void world_provoke(World *w, uint8_t unit, uint8_t attacker_owner);
 /* Note an aggressive act at (x, y) by owner (D37); a full list keeps the
  * first ones. */
 void world_disturb(World *w, int16_t x, int16_t y, uint8_t owner);
+/* The dead drop everything they carried on their field (D21). */
+void world_drop_carried(World *w, const Unit *u);
 /* A unit dies by someone's hand: its carried objects drop onto its
  * field (D21), the kill is logged for the VP account (game_credit_kills)
  * unless the killer is independent, then the unit is removed. Killer kind and owner are passed by value - the killer itself
- * may already be gone (lightning splash). */
+ * may already be gone (lightning splash). A ridden mount throws its
+ * rider off instead, who keeps his pack (D60). */
 void world_kill_unit(World *w, uint8_t victim, uint8_t killer_kind,
                      uint8_t killer_owner, bool melee);
 /* Add a freshly initialised unit (summons) with a fresh id; returns its

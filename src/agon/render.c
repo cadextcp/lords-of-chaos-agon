@@ -541,7 +541,7 @@ void render_panel(const World *w, uint8_t unit)
             draw_tile(mount_tile, PANEL_X + 6, 6);
         }
     }
-    text_at(32, 1, C_GREY, u->kind == CR_WIZARD ? "Stufe 1" : "       ");
+    text_at(32, 1, C_GREY, ride_actor_kind(u) == CR_WIZARD ? "Stufe 1" : "       ");
     for (i = 0; i < 5; i++) {
         int x = 256 + i * 9;
         black(x, 16, x + 7, 23);

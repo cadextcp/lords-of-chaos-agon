@@ -419,7 +419,7 @@ static void update_sight(void)
         uint8_t i;
         for (i = 0; i < world.unit_count; i++) {
             const Unit *u = &world.units[i];
-            if (u->kind != CR_WIZARD || u->owner == OWN_P1 ||
+            if (ride_actor_kind(u) != CR_WIZARD || u->owner == OWN_P1 ||
                 (u->flags & UF_INVISIBLE))
                 continue;
             if (sight_visible(&p1_sight, &world, u->x, u->y)) {
@@ -494,7 +494,8 @@ static void on_phase(Turns *t, World *w, uint8_t owner, void *ctx)
     for (o = OWN_P1; o < OWN_NEUTRAL; o++) {
         bool present = o == OWN_P1;
         for (i = 0; i < w->unit_count && !present; i++)
-            present = w->units[i].owner == o && w->units[i].kind == CR_WIZARD;
+            present = w->units[i].owner == o &&
+                      ride_actor_kind(&w->units[i]) == CR_WIZARD;
         if (!present && game.vp[o] == 0)
             continue;
         names[n] = o == OWN_P1 ? wizard_slots[0].name : name_owner(o);
@@ -843,7 +844,7 @@ bump:
                 sound_play(SND_DOOR);
                 render_message(1, C_BRIGHT_GREEN, "Tuer geoeffnet.");
                 update_sight();        /* the open door changes lines of sight */
-            } else if (!(CREATURES[world.units[active()].kind].flags & CF_USE)) {
+            } else if (!(CREATURES[ride_actor_kind(&world.units[active()])].flags & CF_USE)) {
                 render_message(1, C_BRIGHT_RED, "Keine Haende fuer die Tuer.");
             } else {
                 render_message(1, C_BRIGHT_RED, "Zu wenig AP fuer die Tuer.");
@@ -1238,7 +1239,7 @@ static bool action_possible(char key)
     case 'E':
         return true;
     case 'c':
-        return u->kind == CR_WIZARD && !(u->flags & UF_FLYING) &&
+        return ride_actor_kind(u) == CR_WIZARD && !(u->flags & UF_FLYING) &&
                u->ap >= ACTIONS[ACT_CAST].ap;
     case 'f':
         return weapon != WEAPON_NONE && WEAPONS[weapon].ranged != 0 &&
@@ -2375,7 +2376,7 @@ dispatch:
                     }
                     if (i < SPELL_COUNT) {
                         uint8_t wiz = active();
-                        if (world.units[wiz].kind != CR_WIZARD) {
+                        if (ride_actor_kind(&world.units[wiz]) != CR_WIZARD) {
                             render_message(1, C_BRIGHT_RED, "Nur Zauberer zaubern.");
                         } else if (SPELLS[i].category == SPC_POTION) {
                             if (brew_cast(&world, &books[OWN_P1], wiz, (uint8_t)i)) {
@@ -2512,7 +2513,7 @@ dispatch:
                 }
             } else if (e.ascii == 'c') {         /* cast menu (GDD 5.1, M5) */
                 confirm_end = false;
-                if (world.units[active()].kind == CR_WIZARD) {
+                if (ride_actor_kind(&world.units[active()]) == CR_WIZARD) {
                     uint16_t k;
                     uint8_t have_spells = 0, have_summons = 0, n_spells = 0,
                             n_summons = 0;

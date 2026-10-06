@@ -5,7 +5,9 @@
  * rider flag), moves and fights with its own AP, and the Tab order
  * lists the pair once. `b` mounts a friendly mount standing next to the
  * unit; dismounting needs a free field. Riders may attack from a
- * friendly field (D21 exception).
+ * friendly field (D21 exception). The rider acts from the saddle (D60):
+ * spells, doors, chests and picking up go by his kind (ride_actor_kind),
+ * his values wait in the mount until he gets off.
  */
 #ifndef LOC_RIDE_H
 #define LOC_RIDE_H
@@ -27,6 +29,9 @@ bool ride_mount_adjacent(World *w, uint8_t rider);
 /* Dismount: the rider reappears on a free field next to the mount
  * (ACT_DISMOUNT). */
 bool ride_dismount(World *w, uint8_t mounted);
+/* The mount `mount` (a copy - it is already gone) died: its rider lands
+ * on the field, or next to it, with his own values and pack (D60). */
+void ride_throw_off(World *w, const Unit *mount);
 /* May this unit attack from a field where a friend stands? Riders
  * (UF_RIDDEN) can (D21: "except for riders"). */
 bool ride_may_attack_from(const World *w, uint8_t attacker);
