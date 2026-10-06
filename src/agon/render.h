@@ -24,6 +24,9 @@ uint8_t render_fields(void);
 /* Info panel for one unit: portrait, name, 6 bars, ground info. */
 void render_panel(const World *w, uint8_t unit);
 /* Look mode: the examined field (unit panel when one is visible). */
+/* The keys that act for the active unit right now, one row under the
+ * bar labels (D63); "" clears the row. */
+void render_panel_keys(const char *keys);
 void render_panel_at(const World *w, const Sight *s, int16_t x, int16_t y);
 /* Cursor frame as a VDP sprite (GDD 11.2): drawn over the map, so moving
  * or blinking it redraws no fields. Colours follow the Amiga code. */
