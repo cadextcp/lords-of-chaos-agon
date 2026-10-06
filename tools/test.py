@@ -7,7 +7,7 @@
 Run all automated tests.
 
   1. host:     build the core for the PC and run `loc_host --selftest`
-  2. emulator: build loc.bin, stage it and run `loc --selftest` headless in
+  2. emulator: build loctest.bin, stage it and run `loctest` headless in
                the CLI emulator (real eZ80 code, no VDP). The program exits
                the emulator through I/O port 0 with the failure count.
 
@@ -34,7 +34,7 @@ import build  # noqa: E402
 PASS = "=== TEST PASS ==="
 # The CLI emulator (1.2.5) runs autoexec.txt at boot, so the selftest is
 # started from there; it ends the emulator itself via I/O port 0.
-AUTOEXEC = f"cd /{env.GAME_DIR}\nloc --selftest\n"
+AUTOEXEC = f"cd /{env.GAME_DIR}\nloctest\n"
 
 
 def log(msg: str) -> None:

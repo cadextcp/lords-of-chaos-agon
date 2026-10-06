@@ -40,11 +40,6 @@ static selftest_log_fn out;
 static uint16_t fails;
 static World world;
 
-World *selftest_scratch_world(void)
-{
-    return &world;
-}
-
 static void load_house(void)
 {
     world_load_bin(&world, MAPBIN_WIZARD_HOUSE, MAPBIN_WIZARD_HOUSE_LEN);

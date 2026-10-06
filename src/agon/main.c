@@ -3,7 +3,6 @@
  *
  *   loc              play: move the active unit, Tab/Space unit choice,
  *                    Shift+E ends the turn (with confirmation), ESC quits
- *   loc --selftest   core self-test without VDP, exits the emulator (CI)
  *   loc --dump       additionally write map + view hash to loc.log per frame
  *   loc --bench      measure full and partial redraw times -> loc.log
  *   loc --keytest    keyboard spike: show/log every key event (issue #3)
@@ -39,7 +38,6 @@ static void log_push(const char *line);   /* message ring (M4j) */
 #include "../core/items.h"
 #include "../core/lexicon.h"
 #include "../core/names.h"
-#include "../core/selftest.h"
 #include "../core/sight.h"
 #include "../core/turn.h"
 #include "../core/tutorial.h"
@@ -47,7 +45,6 @@ static void log_push(const char *line);   /* message ring (M4j) */
 #include "screens.h"
 #include "../core/view.h"
 #include "../core/world.h"
-#include "emu.h"
 #include "fx.h"
 #include "input.h"
 #include "keytest.h"
@@ -148,25 +145,6 @@ static void place_cursor(void)
         render_cursor((int16_t)(u->x - view_origin_x()), (int16_t)(u->y - view_origin_y()),
                       (u->flags & UF_FLYING) ? CURSOR_BLUE : CURSOR_GREEN, cursor_on);
     }
-}
-
-static void print_line(const char *line)
-{
-    printf("%s\r\n", line);
-}
-
-static int selftest(void)
-{
-    uint16_t fails;
-    selftest_set_verbose(false);         /* emulator console loses long tails */
-    fails = core_selftest(print_line);
-    printf(fails ? "=== TEST FAIL ===\r\n" : "=== TEST PASS ===\r\n");
-    /* The fake VDP drops the first console bytes after the boot banner
-     * (packet desync); a sacrificial line keeps the verdict readable. */
-    printf("\r\n.");
-    fflush(stdout);                      /* reach the UART before the exit */
-    emu_exit(fails ? 1 : 0);
-    return fails ? 1 : 0;
 }
 
 /* The step as a gliding sprite (ADR 0012): the map is drawn without the
@@ -1233,7 +1211,8 @@ static void draw_help(void);
  * do (items on the field, free hands, AP, free landing field, ...). */
 static bool action_possible(char key)
 {
-    World *trial = selftest_scratch_world();   /* no World of our own (S6) */
+    static World scratch;                      /* the probe's own copy */
+    World *trial = &scratch;
     uint8_t a = active();
     const Unit *u = &world.units[a];
     bool in_hand = u->in_use != NO_ITEM && u->in_use < u->item_count;
@@ -2015,8 +1994,6 @@ int main(int argc, char **argv)
     uint16_t now;
     Chord chord;
 
-    if (argc > 1 && strcmp(argv[1], "--selftest") == 0)
-        return selftest();
     if (argc > 1 && (strcmp(argv[1], "--endscreen") == 0 ||
                      strcmp(argv[1], "--endscreen-lose") == 0)) {
         EndInfo demo;                    /* dev: look at the end screen */

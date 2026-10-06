@@ -14,7 +14,7 @@
 #include <string.h>
 
 #include "../src/core/gen/maps.h"
-#include "../src/core/selftest.h"
+#include "../tests/selftest.h"
 #include "../src/core/view.h"
 #include "../src/core/world.h"
 

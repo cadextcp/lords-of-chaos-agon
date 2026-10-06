@@ -1,8 +1,10 @@
 /*
- * Core self-test. Compiled into BOTH builds: the host test runner and the
- * Agon binary (`loc --selftest`, run headless in the CLI emulator). Running
- * the same assertions on the eZ80 catches 24-bit-int and codegen issues
- * that host tests alone would miss.
+ * Core self-test. Compiled into BOTH test builds: the host test runner
+ * (`loc_host --selftest`) and its own Agon program `loctest.bin` (run
+ * headless in the CLI emulator, or `loctest` on the hardware). Running the
+ * same assertions on the eZ80 catches 24-bit-int and codegen issues that
+ * host tests alone would miss. It is no longer part of loc.bin: 137 KB of
+ * code and data the game needs for itself (QUIRK S6).
  */
 #ifndef LOC_SELFTEST_H
 #define LOC_SELFTEST_H
@@ -19,8 +21,5 @@ uint16_t core_selftest(selftest_log_fn log);
 /* Print passing checks too? Default true (host). The Agon build sets
  * false: the emulator console loses the tail of long outputs. */
 void selftest_set_verbose(bool verbose);
-/* The selftest's World, idle while the game runs: the game borrows it as
- * a scratch copy instead of a second World of its own (eZ80 RAM, S6). */
-World *selftest_scratch_world(void);
 
 #endif

@@ -36,6 +36,8 @@ FIRMWARE = "console8"
 AGON_BIN = ROOT / "bin" / "loc.bin"
 SPIKE_DIR = ROOT / "spikes" / "vdptest"          # VDP feature spike (ADR 0012)
 SPIKE_BIN = SPIKE_DIR / "bin" / "vdptest.bin"
+LOCTEST_DIR = ROOT / "build" / "loctest"              # core self-test program (S6)
+LOCTEST_BIN = LOCTEST_DIR / "bin" / "loctest.bin"
 
 
 def exe(name: str) -> Path:
@@ -84,6 +86,8 @@ def stage_game() -> Path:
     shutil.copy2(AGON_BIN, dest / AGON_BIN.name)
     if SPIKE_BIN.exists():
         shutil.copy2(SPIKE_BIN, dest / SPIKE_BIN.name)
+    if LOCTEST_BIN.exists():
+        shutil.copy2(LOCTEST_BIN, dest / LOCTEST_BIN.name)
     tiles = BUILD / "tiles.bin"
     if tiles.exists():
         shutil.copy2(tiles, dest / tiles.name)
