@@ -1,7 +1,7 @@
 # Plan: Level 1 auf 46×46, geräumigere Häuser
 
 > Stand 2026-10-06 · Wunsch des Nutzers: „Map 10 Felder größer, die Häuser auch, damit mehr Luft im Haus ist.“
-> Entscheidung D64 (nach Abstimmung). Ersetzt die Größengrenze aus D54 („bleibt 36×36“).
+> Entscheidung D64 (abgestimmt 2026-10-06). Ersetzt die Größengrenze aus D54 („bleibt 36×36“).
 
 ## Warum es jetzt geht
 
@@ -65,8 +65,8 @@ W..C...D...hT.#
 - Selftests mit Level-1-Koordinaten anpassen (`d61`, `d62`, Szenario-Start, Portal).
 - SD: 16 Varianten zu je ~11 KB statt ~5 KB.
 
-## Fragen an den Nutzer
+## Entscheidungen (Nutzer 2026-10-06)
 
-1. **Größe:** genau 46×46 (Empfehlung, wie gewünscht) oder 44×44 (mehr RAM-Reserve, Gesamtkarte bleibt bei 5 px)?
-2. **Häuser:** wie in der Skizze 4 große Räume (Empfehlung) oder zusätzlich ein fünfter Raum (z. B. Vorratskammer mit Truhe)?
-3. **Wildtiere:** gleich viele wie heute (Empfehlung, Einheitenlimit) oder `MAX_UNITS` auf 40 anheben (≈ +2,5 KB RAM, mehr KI-Zeit pro Runde)?
+1. **46×46.**
+2. **Vier große Räume** wie in der Skizze.
+3. **Wildtiere wie heute**, `MAX_UNITS` bleibt 32.
