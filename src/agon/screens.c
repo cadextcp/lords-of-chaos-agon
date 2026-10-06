@@ -594,8 +594,7 @@ void spell_panel(uint8_t spell, uint8_t top)
                  C_BRIGHT_BLUE);
     snprintf(buf, sizeof buf, "%.20s (%s)", s->name, CAT[s->category]);
     render_menu_text(1, top, C_BRIGHT_YELLOW, buf);
-    snprintf(buf, sizeof buf, "Mana L1:%u  +%u/Stufe", s->mana_base,
-             s->mana_step);
+    snprintf(buf, sizeof buf, "Mana L1:%u  x(Stufe+1)", s->mana);
     render_menu_text(1, (uint8_t)(top + 1), C_BRIGHT_WHITE, buf);
     if (spell == SP_MAGIC_BOLT)
         snprintf(buf, sizeof buf, "Schaden (3+St)w6");

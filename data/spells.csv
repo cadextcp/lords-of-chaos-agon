@@ -1,52 +1,52 @@
-# Mana cost per spell: cost(level) = mana_base + level * mana_step (level 0..8).
+# mana: mana base per spell, cost(L) = mana * (L + 1) (K5.2, original).
+# xp_base/xp_step: designer XP price table (level 0 price, increment).
 # design_cost: XP price of the FIRST level when learning the spell
-# (summons: user anchor 2026-10-04; other spells: placeholder = mana
-# at level 1, awaiting the original's price table). Each further
-# level +50% of it, level cap 8.
-id,name,category,mana_base,mana_step,amiga,dice_n,die,splash_n,splash_die,design_cost
-giant_bat,Giant Bat,summon,5,2,yes,0,0,0,0,4
-harpy,Harpy,summon,11,5,yes,0,0,0,0,12
-giant_spider,Giant Spider,summon,22,11,yes,0,0,0,0,28
-zombie,Zombie,summon,16,8,yes,0,0,0,0,14
-ghost,Ghost,summon,14,7,yes,0,0,0,0,22
-vampire,Vampire,summon,29,15,yes,0,0,0,0,50
-spectre,Spectre,summon,29,14,yes,0,0,0,0,44
-demon,Demon,summon,40,21,yes,0,0,0,0,58
-strength_potion,Strength Potion,potion,8,4,yes,0,0,0,0,12
-protection_potion,Protection Potion,potion,6,4,yes,0,0,0,0,10
-invisibility_potion,Invisibility Potion,potion,16,7,yes,0,0,0,0,23
-speed_potion,Speed Potion,potion,8,4,yes,0,0,0,0,12
-flying_potion,Flying Potion,potion,5,3,yes,0,0,0,0,8
-super_potion,Super Potion,potion,16,8,no,0,0,0,0,24
-healing_potion,Healing Potion,potion,5,3,yes,0,0,0,0,8
-magic_fire,Magic Fire,area,15,5,yes,0,0,0,0,20
-gooey_blob,Gooey Blob,area,12,5,yes,0,0,0,0,17
-tangle_vine,Tangle Vine,area,10,4,yes,0,0,0,0,14
-flood,Flood,area,10,4,yes,0,0,0,0,14
-enchant,Enchant,other,10,5,yes,0,0,0,0,15
-subversion,Subversion,other,10,4,yes,0,0,0,0,14
-curse,Curse,other,8,3,yes,0,0,0,0,11
-magic_attack,Magic Attack,other,10,6,yes,0,0,0,0,16
-magic_bolt,Magic Bolt,other,6,3,yes,3,6,0,0,9
-magic_lightning,Magic Lightning,other,12,5,yes,5,6,2,6,17
-teleport,Teleport,other,16,2,yes,0,0,0,0,18
-magic_eye,Magic Eye,other,8,1,yes,0,0,0,0,9
-magic_shield,Magic Shield,other,6,3,yes,0,0,0,0,9
-gold_dragon,Gold Dragon,summon,47,23,yes,0,0,0,0,62
-green_dragon,Green Dragon,summon,39,19,yes,0,0,0,0,50
-red_dragon,Red Dragon,summon,31,15,yes,0,0,0,0,38
-pixie,Pixie,summon,7,4,yes,0,0,0,0,8
-dwarf,Dwarf,summon,5,2,yes,0,0,0,0,4
-goblin,Goblin,summon,7,3,yes,0,0,0,0,8
-troll,Troll,summon,13,6,yes,0,0,0,0,14
-giant,Giant,summon,17,9,yes,0,0,0,0,20
-centaur,Centaur,summon,10,6,yes,0,0,0,0,12
-unicorn,Unicorn,summon,10,5,yes,0,0,0,0,10
-pegasus,Pegasus,summon,12,7,yes,0,0,0,0,12
-gryphon,Gryphon,summon,19,10,yes,0,0,0,0,22
-elephant,Elephant,summon,17,8,yes,0,0,0,0,20
-gorilla,Gorilla,summon,8,4,yes,0,0,0,0,10
-lion,Lion,summon,10,5,yes,0,0,0,0,10
-bear,Bear,summon,12,6,yes,0,0,0,0,12
-crocodile,Crocodile,summon,11,5,yes,0,0,0,0,10
-bomb_potion,Bomb Potion,potion,,,yes,0,0,0,0,12
+# (summons: user anchor 2026-10-04; other spells: placeholder).
+# Each further level +50% of it, level cap 8.
+id,name,category,mana,xp_base,xp_step,amiga,dice_n,die,splash_n,splash_die,design_cost
+giant_bat,Giant Bat,summon,2,5,2,yes,0,0,0,0,4
+harpy,Harpy,summon,5,11,5,yes,0,0,0,0,12
+giant_spider,Giant Spider,summon,11,22,11,yes,0,0,0,0,28
+zombie,Zombie,summon,5,16,8,yes,0,0,0,0,14
+ghost,Ghost,summon,8,14,7,yes,0,0,0,0,22
+vampire,Vampire,summon,14,29,15,yes,0,0,0,0,50
+spectre,Spectre,summon,14,29,14,yes,0,0,0,0,44
+demon,Demon,summon,19,40,21,yes,0,0,0,0,58
+strength_potion,Strength Potion,potion,1,8,4,yes,0,0,0,0,12
+protection_potion,Protection Potion,potion,1,6,4,yes,0,0,0,0,10
+invisibility_potion,Invisibility Potion,potion,2,16,7,yes,0,0,0,0,23
+speed_potion,Speed Potion,potion,1,8,4,yes,0,0,0,0,12
+flying_potion,Flying Potion,potion,1,5,3,yes,0,0,0,0,8
+super_potion,Super Potion,potion,3,16,8,no,0,0,0,0,24
+healing_potion,Healing Potion,potion,1,5,3,yes,0,0,0,0,8
+magic_fire,Magic Fire,area,3,15,5,yes,0,0,0,0,20
+gooey_blob,Gooey Blob,area,2,12,5,yes,0,0,0,0,17
+tangle_vine,Tangle Vine,area,3,10,4,yes,0,0,0,0,14
+flood,Flood,area,3,10,4,yes,0,0,0,0,14
+enchant,Enchant,other,3,10,5,yes,0,0,0,0,15
+subversion,Subversion,other,3,10,4,yes,0,0,0,0,14
+curse,Curse,other,2,8,3,yes,0,0,0,0,11
+magic_attack,Magic Attack,other,3,10,6,yes,0,0,0,0,16
+magic_bolt,Magic Bolt,other,1,6,3,yes,3,6,0,0,9
+magic_lightning,Magic Lightning,other,2,12,5,yes,5,6,2,6,17
+teleport,Teleport,other,3,16,2,yes,0,0,0,0,18
+magic_eye,Magic Eye,other,1,8,1,yes,0,0,0,0,9
+magic_shield,Magic Shield,other,2,6,3,yes,0,0,0,0,9
+gold_dragon,Gold Dragon,summon,23,47,23,yes,0,0,0,0,62
+green_dragon,Green Dragon,summon,19,39,19,yes,0,0,0,0,50
+red_dragon,Red Dragon,summon,15,31,15,yes,0,0,0,0,38
+pixie,Pixie,summon,3,7,4,yes,0,0,0,0,8
+dwarf,Dwarf,summon,2,5,2,yes,0,0,0,0,4
+goblin,Goblin,summon,3,7,3,yes,0,0,0,0,8
+troll,Troll,summon,6,13,6,yes,0,0,0,0,14
+giant,Giant,summon,8,17,9,yes,0,0,0,0,20
+centaur,Centaur,summon,5,10,6,yes,0,0,0,0,12
+unicorn,Unicorn,summon,4,10,5,yes,0,0,0,0,10
+pegasus,Pegasus,summon,5,12,7,yes,0,0,0,0,12
+gryphon,Gryphon,summon,9,19,10,yes,0,0,0,0,22
+elephant,Elephant,summon,8,17,8,yes,0,0,0,0,20
+gorilla,Gorilla,summon,4,8,4,yes,0,0,0,0,10
+lion,Lion,summon,5,10,5,yes,0,0,0,0,10
+bear,Bear,summon,6,12,6,yes,0,0,0,0,12
+crocodile,Crocodile,summon,5,11,5,yes,0,0,0,0,10
+bomb_potion,Bomb Potion,potion,,,,yes,0,0,0,0,12
