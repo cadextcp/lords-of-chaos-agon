@@ -24,7 +24,7 @@
 | #146, #148 | **D64:** Karten bis 46×46; Level 1 neu mit zwei Vier-Raum-Häusern (15×11), 16 Varianten auf 46×46, Truhen/Funde mit der Fläche |
 | D65 | **D65:** Das Blatt offener Türen in waagerechten Wänden sitzt im Rahmen am Pfosten (vier Rahmenkacheln), das Blattfeld blockiert nur noch. Senkrechte Wände unverändert. Im Emulator angespielt (Zauberer-Haus), auf der Hardware nicht |
 | D66 | **D66:** Abgleich mit dem Spectrum-Original. Kleine Werte angeglichen (AP-Kosten, Gewichte, 5 Kreaturenwerte, Essen, Trankflug), große Unterschiede stehen als Vorschläge R1–R39 in `docs/REGELVERGLEICH-SPECTRUM.md`. **Zuerst klären:** Mana-Tabelle (R1, O4 in WinUAE) und das Kampfmodell (R5, Weg A/B/C) |
-| D67 | **D67:** Entscheidung (2026-10-06/07): **alles wie im Original** (Kampfmodell, Mana, Rückschlag, Beschwören, Designer, Zauberer-KI mit Routen). Plan für Regeln (Phase 0, 8 PRs) und schlauere KI (Phasen 1–5): `docs/PLAN-KI.md`. Offene Fragen an den Spectrum-Quellcode in §9 des Plans |
+| D67 | **D67:** Entscheidung (2026-10-06/07): **alles wie im Original** (Kampfmodell, Mana, Rückschlag, Beschwören, Designer, Zauberer-KI mit Routen). Plan für Regeln (Phase 0, 8 PRs) und schlauere KI (Phasen 1–5): `docs/PLAN-KI.md`. Alle Fragen an den Spectrum-Quellcode beantwortet; zwei eigene Entscheidungen offen (§9 des Plans: MAX_UNITS, Startplätze von Level 1) |
 
 Die Rückmeldungen des Playtests stehen mit Befund und Entscheidung in `docs/PLAYTEST-2026-10-06.md`.
 

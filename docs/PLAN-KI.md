@@ -1,8 +1,8 @@
 # Plan: Regeln des Originals und schlauere KI
 
 > Stand 2026-10-07 · Wunsch des Nutzers: „Mach einen Plan für die schlauere KI.“ Entscheidung am 2026-10-07: **„Alles wie im Original.“**
-> Grundlage: `docs/REGELVERGLEICH-SPECTRUM.md` (Vorschläge R1–R39) und `lords-of-chaos-zx-agon/docs/REGELN.md` einschließlich K10 (KI) und K11 (Sicht, Schusslinie, „angebunden“), Stand `24b8c03`.
-> Zweite Fassung vom 2026-10-07 nach den Nachträgen: Abheben und Landen (K8.1, K8.4, K10.3), Sicht und Schusslinie (K11), „angebunden“ (K11.7), Teleport-Bedingung (K5.3).
+> Grundlage: `docs/REGELVERGLEICH-SPECTRUM.md` (Vorschläge R1–R39) und `lords-of-chaos-zx-agon/docs/REGELN.md` einschließlich K10 (KI) und K11 (Sicht, Schusslinie, „angebunden“), Stand `06890b5`.
+> Dritte Fassung vom 2026-10-07: Beschwörungsgrenzen, Mana-Schwelle und Startplätze (K10.2, K10.5) sind beantwortet, es bleibt keine offene Frage an den Quellcode. Zweite Fassung nach den Nachträgen: Abheben und Landen (K8.1, K8.4, K10.3), Sicht und Schusslinie (K11), „angebunden“ (K11.7), Teleport-Bedingung (K5.3).
 > Dieses Dokument ist ein **Plan**, es ändert noch keinen Code. Die Entscheidung steht im GDD als D67.
 
 ---
@@ -37,7 +37,7 @@ Dazu kommt eine Anpassung, die „wie im Original“ nicht wörtlich geht: Die *
 | Kreatur im Kampf | nächstes sichtbares Ziel, drei Aktionen | Stärkefilter `2·C ≥ 1,5·Def`, Flucht, bis 50 Schleifendurchgänge |
 | Fernwaffen | keine | Bogen, magischer Bogen, Drachenfeuer |
 | Gegenstände | Waffe/Schild aufnehmen, Schätze sammeln | Wunschtabelle, Essen, Tränke, Waffenwechsel, Beute zum Zauberer werfen |
-| Zauberer | Bolt, bis 5 Kreaturen, Haus plündern, Portal; bleibt im Haus (D62) | Prioritätstabelle, Schild, Tränke, Drachen, Flächenzauber; **läuft Routen**, flieht, geht zum Portal |
+| Zauberer | Bolt, bis 5 Kreaturen (D62), Haus plündern, Portal; bleibt im Haus (D62) | Prioritätstabelle, Schild, Tränke, Drachen, Flächenzauber; **läuft Routen**, flieht, geht zum Portal |
 | Zauberer-Werte | Zeile `wizard` (Con 30, Mana 80) | Torquemada Con 63 / Mana 120, Elbo Smogg 63 / 140, Ragaril 50 / 200 |
 | Bewegung | Jagd, Wachposten, Wildtiere, Breitensuche | Routen, Schlaf, Auslöser (bei Geländeänderung), Leibwache, Portal-Sammeln |
 | Messung | `host/arena.c` (alle gegen alle) | – |
@@ -94,9 +94,9 @@ Nichts davon ändert das Verhalten sichtbar.
 | PR | Inhalt | R | Aufwand |
 |---|---|---|---|
 | 3a | **Werte und Bücher aus der Szenariodatei:** Format `LOCS` v2 mit Name, Mana, AP, Ausdauer, Constitution, Combat, Defence, MR, Tragkraft, Siegpunkten und je Zauber Stufe und Priorität (K10.2). Gegner: Torquemada (Szenario 1), Elbo Smogg (2), Ragaril (3). **Sofortiger Effekt auf den Schwierigkeitsgrad** | R33 | S–M |
-| 3b | **Zauberwahl** (K10.5): Prioritätsliste, Halbieren nach dem Wurf **dauerhaft** (200 → 100 → 50 → … → 0, keine Rückstellung bis zum Neuladen), dazu die Eigenheit, dass ein Durchgang ohne Wurf alle ungeraden Prioritäten um 1 abrundet; Bedingungen je Zauber (Bolt/Lightning mit Stärkefilter und Eigenschutz, Flächenzauber im Radius `2L+6`, Shield nur ohne aktives, Beschwören mit Mana ≥ 40 danach und freien Nachbarfeldern); „ohne sichtbare Gegner nur bei halben AP“ | R32 | L |
+| 3b | **Zauberwahl** (K10.5): Prioritätsliste, Halbieren nach dem Wurf **dauerhaft** (200 → 100 → 50 → … → 0, keine Rückstellung bis zum Neuladen), dazu die Eigenheit, dass ein Durchgang ohne Wurf alle ungeraden Prioritäten um 1 abrundet; Bedingungen je Zauber (Bolt/Lightning mit Stärkefilter und Eigenschutz, Flächenzauber im Radius `2L+6`, Shield nur ohne aktives, Beschwören: Mana nach dem Wurf **≥ 40** (in allen Szenarien), außer Gegner sind sichtbar, und mindestens `L` freie Nachbarfelder); „ohne sichtbare Gegner nur bei halben AP“. **Keine feste Obergrenze für Beschwörungen** (unsere 5 aus D62 fallen): Es begrenzen das Zauberlevel (ein Zauber mit Startlevel `n` liefert höchstens `n·(n+1)/2` Kreaturen, Szenario 1 höchstens 18, Szenario 2 höchstens 21, Szenario 3 praktisch 23), das Mana mit der Reserve von 40 und 4 % Regeneration, die freien Nachbarfelder und die **35 Pläne** (34 gleichzeitig lebende Kreaturen neben dem Zauberer; ist die Tabelle voll, entsteht die Kreatur ohne Plan und gilt als aggressiv) | R32 | L |
 | 3c | **Tränke und Drachen:** leerer Kessel und Zutat, vorher ablegen, brauen, aus dem Kessel trinken, Phiole füllen (`brew.c` wird vom KI-Code genutzt) | R32 | M |
-| 3d | **Der Zauberer läuft Routen** (ersetzt D62): Er wird wie jede KI-Kreatur behandelt, hat einen Plan mit Route (Flag Bit 6 „nur für Wizards“), ist nie aggressiv, flieht vor Gegnern und geht nach der Portalrunde zum Portal. Die D62-Teile „plündert sein Haus“ und „wirkt Beschwörungen zuerst“ bleiben als Sofortaktionen erhalten, soweit das Original sie kennt (Aufheben, Zaubern) | K10.1 | M |
+| 3d | **Startplätze und Routen des Zauberers** (ersetzt D62): Die Szenariodatei nennt die Startplätze (Szenario 1 und 2: vier, Szenario 3: zwei, fest); Spieler 1 und danach der Gegner-Zauberer bekommen je einen zufälligen, noch freien Platz (`RND(n)`, schon vergebene werden neu gewürfelt), bei festem Modus Spieler 1 den ersten und der Gegner den zweiten (Ragaril steht immer in der Mitte, auf dem Ring seiner Route 0). **Unsere Level-1-Karte hat zwei Häuser**, also zwei feste Plätze wie Szenario 3; die Zufallswahl aus vier Plätzen setzt vier Häuser voraus (Kartenentscheidung, §9). Der Zauberer läuft Routen: Er wird wie jede KI-Kreatur behandelt, hat einen Plan mit Route (Flag Bit 6 „nur für Wizards“), ist nie aggressiv, flieht vor Gegnern und geht nach der Portalrunde zum Portal. Die D62-Teile „plündert sein Haus“ und „wirkt Beschwörungen zuerst“ bleiben als Sofortaktionen erhalten, soweit das Original sie kennt (Aufheben, Zaubern) | K10.1 | M |
 
 ### Phase 4 – Bewegung und Szenario (2 PRs)
 
@@ -120,7 +120,7 @@ Das Entwerfen der Routen für **unsere** Karten ist Kartenarbeit: Level 1 (46×4
 | Thema | Plan |
 |---|---|
 | **Laufzeit** | Bench vor Phase 1 und nach jeder Phase (`loc --bench` auf der Hardware). Ziel: KI-Phase mit 8 Kreaturen unter 300 ms. Sichtliste je Besitzer, nicht je Feld; keine Divisionen in Schleifen (QUIRK T3); die Breitensuche (1,3 KB Stack) bleibt |
-| **RAM** | Neue Bits in `Unit` prüfen (`MAX_UNITS` 32); `build.py` meldet die Reserve (heute 97 KB, Grenze 16 KB) |
+| **RAM und Einheitenzahl** | Neue Bits in `Unit` prüfen; `build.py` meldet die Reserve (heute 97 KB, Grenze 16 KB). Das Original lässt bis zu 34 gleichzeitige KI-Kreaturen zu (86 Stat-Blöcke und 141 Positionssätze für alle zusammen). Unser `MAX_UNITS` ist 32 für **alle** Einheiten, Wildtiere und Herden eingerechnet; mit 18 bis 23 Beschwörungen plus Spieler und Tieren wird das eng. Vor 3b messen, was `MAX_UNITS` 48 kostet (`World` liegt dreimal im RAM) |
 | **Spielstand** | v9 gemeinsam für Wunden (0b) und Plan (Phase 1); alte Stände werden abgelehnt |
 | **Szenariodatei und Kartenformat** | `LOCS` v2 (3a) und Kartenformat v5 (4b) sind nicht abwärtslesbar; die SD-Karte muss nach dem Bauen neu bespielt werden |
 | **Schwierigkeit** | Mit Original-Kampf und -Werten (Con 63, Mana 120, Prioritäten, Spinne schlägt im Schnitt 30 statt 10) wird der Gegner deutlich härter. Die Arena eicht, bevor der Nutzer spielt. Es gibt **nur den Original-Schwierigkeitsgrad**, keine Stufen im Setup |
@@ -175,12 +175,11 @@ Am 2026-10-07 alle sieben Fragen der ersten Fassung mit **„wie im Original“*
 
 ---
 
-## 9. Noch offene Fragen an den Spectrum-Quellcode
+## 9. Fragen an den Spectrum-Quellcode
 
-Beantwortet seit der ersten Fassung (K10.5, K10.7, K10.8, K11): Routentabellen, Auslöser, Nachbarwahl, Priorität (dauerhaft halbiert), Bit 7 (Beute zum Zauberer), Bewegung des Gegner-Zauberers, **Abheben und Landen der KI**, **Sichtliste, Schusslinie und Zähler `$5B40`/`$5B41`**.
+**Alle beantwortet** (K10.2, K10.5, K10.7, K10.8, K11): Routentabellen, Auslöser, Nachbarwahl, Priorität (dauerhaft halbiert), Bit 7 (Beute zum Zauberer), Bewegung des Gegner-Zauberers, Abheben und Landen der KI, Sichtliste, Schusslinie, Zähler `$5B40`/`$5B41`, Mana-Schwelle (40 in allen Szenarien), Beschwörungsgrenzen (§4, 3b) und Startplätze (§4, 3d). Der Nutzer hat sie nur im Code gelesen, nicht im Spiel geprüft; wo ein Verhalten im Playtest anders wirkt als beschrieben, wird der Plan nachgezogen.
 
-Offen:
+Noch offen und **bei uns zu entscheiden**, nicht im Original zu finden:
 
-1. **Mana-Schwelle `$D046` (40)** für Beschwörungen: je Szenario gleich? (3b)
-2. **Obergrenze der Beschwörungen:** Wie viele Kreaturen kann der KI-Zauberer höchstens haben (Positionssätze)? Der Plan nimmt bisher unsere 5 (D62) an. (3b)
-3. **Startpositionen des Gegner-Zauberers** (`$D043`): Wie wird aus der Anzahl gewählt, und wo steht der Gegner relativ zu seinem Haus? (3d)
+1. **Einheitenzahl:** `MAX_UNITS` von 32 auf 48 anheben oder die KI-Beschwörungen darunter deckeln? (vor 3b, §5)
+2. **Startplätze von Level 1:** zwei feste (wie Szenario 3, das Haus des Spielers und das des Gegners) oder vier Häuser mit Zufallswahl wie in Szenario 1 und 2? (3d, Kartenarbeit)
