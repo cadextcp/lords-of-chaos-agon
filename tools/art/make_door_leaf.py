@@ -4,25 +4,31 @@
 # dependencies = ["pillow"]
 # ///
 """
-Door leaves (D61): an open door swings into the room and stands on the
-field beside the doorway. This writes the four leaf tiles and redraws the
-two open door frames (the frame stays, the leaf stubs go, a shadow under
-the lintel marks the opening).
+Door leaves (D61, D65): an open door swings into the room.
+
+Door in an east-west wall (the wall seen from the front, door_h_*): the leaf
+stands IN the open frame, hinged at one jamb, so it is attached to the wall
+by construction. Four frame tiles, named after the hinge side and the swing:
+  door_h_open_e / door_h_open_w - leaf swung towards the viewer (room south
+                                  of the wall), hinge east / west
+  door_h_far_e / door_h_far_w   - leaf swung away (room north of the wall):
+                                  seen through the opening, smaller, higher
+The field beside the doorway only reserves the room the leaf needs (D61);
+nothing is drawn there.
+
+Door in a north-south wall (door_v_*): the leaf runs east-west and cannot
+fit into the narrow frame, so it stays on the diagonal field:
+  door_leaf_{n,s}{w,e}       - its face turned to the viewer,
+                               hinged at the wall on the west/east side
 
     uv run tools/art/make_door_leaf.py
 
-Leaf tiles, named after the field edge the leaf stands on:
-  door_leaf_e / door_leaf_w  - door in an east-west wall: the leaf runs
-                               north-south, seen at a slant from the front
-  door_leaf_{n,s}{w,e}       - door in a north-south wall: the leaf runs
-                               east-west, its face turned to the viewer,
-                               hinged at the wall on the west/east side
 Colours are the ones of door_h_closed (agon64 palette).
 """
 
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 TILES = Path(__file__).resolve().parents[2] / "assets" / "tiles"
 
@@ -45,32 +51,32 @@ def rect(im, x0, y0, x1, y1, c):
             im.putpixel((x, y), c)
 
 
-def slant_leaf(mirror: bool) -> Image.Image:
-    """Leaf standing on the east edge (mirror: west edge), turned away
-    from the doorway, seen at a slant: a narrow panel whose top edge
-    climbs towards the hinge, with a floor shadow beside it."""
+def frame_leaf(away: bool, hinge_east: bool) -> Image.Image:
+    """The leaf alone, on a clear tile, to lie over door_h_open. East hinge
+    first, mirrored for the west one: only the leaf is mirrored, the brick
+    pattern of the wall stays."""
     im = blank()
-    x0, x1 = 15, 22                       # panel columns
-    for x in range(x0, x1 + 1):
-        top = 1 + (x1 - x) // 2           # slant: higher at the hinge side
-        bottom = 22 - (x1 - x) // 3
-        for y in range(top, bottom + 1):
-            edge = x in (x0, x1) or y in (top, bottom)
-            if edge:
-                c = FRAME
-            elif x == x0 + 1:
-                c = LIGHT
-            elif (y - top) % 6 == 5:
-                c = PLANK
-            else:
-                c = WOOD
-            im.putpixel((x, y), c)
-    im.putpixel((x0 + 2, 13), KNOB)
-    for y in range(18, 23):               # shadow on the floor, room side
-        im.putpixel((x0 - 1, y), K)
-    im.putpixel((x1 + 1, 2), FRAME)       # hinge against the wall
-    im.putpixel((x1 + 1, 20), FRAME)
-    return im.transpose(Image.FLIP_LEFT_RIGHT) if mirror else im
+    d = ImageDraw.Draw(im)
+    if away:
+        # seen through the opening: free edge farther away = smaller, higher
+        poly = [(17, 9), (11, 10), (11, 17), (17, 19)]
+    else:
+        # swung out of the frame: free edge nearer = taller, lower
+        for x in range(10, 17):                 # its shadow on the floor
+            d.point((x, 23), K)
+        poly = [(17, 8), (9, 10), (9, 22), (17, 20)]
+    top, bottom = poly[0][1], poly[3][1]
+    d.polygon(poly, fill=WOOD)
+    d.line(poly + [poly[0]], fill=FRAME)
+    d.line([(16, top + 1), (16, bottom - 1)], fill=LIGHT)     # lit hinge edge
+    fx = poly[1][0]
+    d.line([(fx + 1, poly[1][1] + 1), (fx + 1, poly[2][1] - 1)], fill=LIGHT)
+    d.line([(fx + 4, poly[1][1] + 1), (fx + 4, poly[2][1] - 1)], fill=PLANK)
+    im.putpixel((fx + 2, (poly[1][1] + poly[2][1]) // 2 + 1), KNOB)
+    for y in (top + 2, bottom - 2):             # iron straps over the jamb
+        d.line([(15, y), (18, y)], fill=K)
+        im.putpixel((19, y), KNOB)
+    return im if hinge_east else im.transpose(Image.FLIP_LEFT_RIGHT)
 
 
 def face_leaf(top: int, wall_east: bool) -> Image.Image:
@@ -117,12 +123,16 @@ def open_frames() -> None:
 
 
 def main() -> None:
-    slant_leaf(False).save(TILES / "door_leaf_e.png")
-    slant_leaf(True).save(TILES / "door_leaf_w.png")
     for edge, top in (("s", 7), ("n", 1)):
         face_leaf(top, False).save(TILES / f"door_leaf_{edge}w.png")
         face_leaf(top, True).save(TILES / f"door_leaf_{edge}e.png")
     open_frames()
+    base = Image.open(TILES / "door_h_open.png").convert("RGBA")
+    for stem, away in (("door_h_open", False), ("door_h_far", True)):
+        for side, east in (("e", True), ("w", False)):
+            t = base.copy()
+            t.alpha_composite(frame_leaf(away, east))
+            t.save(TILES / f"{stem}_{side}.png")
 
 
 if __name__ == "__main__":

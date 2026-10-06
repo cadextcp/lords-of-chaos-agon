@@ -34,7 +34,7 @@
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
  * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures;
  * M5c added the seven fx tiles after "floor_*" (IDs shifted again). */
-#define HOUSE_VIEW_HASH 0x080AA4F8UL
+#define HOUSE_VIEW_HASH 0x7CC28CF5UL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -3270,6 +3270,40 @@ static void test_m4e(void)
         }
         check(jammed == 0, "d61: no door on any map starts jammed");
         check(open_bare == 0, "d61: doors that start open have their leaf");
+
+        /* D65: the leaf of a door in an east-west wall is drawn in the frame;
+         * hinge side and swing follow the leaf field */
+        {
+            uint16_t n_h = 0, wrong = 0;
+            for (m = 0; m < 6; m++) {
+                world_load_bin(&world, MAPS[m], LENS[m]);
+                for (y = 0; y < world.h; y++)
+                    for (x = 0; x < world.w; x++) {
+                        FieldLayers df;
+                        uint16_t want;
+                        if (world.feature[y][x] != FE_DOOR_CLOSED ||
+                            world_is_gate(&world, x, y) ||
+                            world_is_wall_line(&world, x, (int16_t)(y - 1)) ||
+                            world_is_wall_line(&world, x, (int16_t)(y + 1)) ||
+                            !world_leaf_spot(&world, x, y, -1, -1, &lx, &ly, &leaf))
+                            continue;
+                        world.feature[y][x] = FE_DOOR_OPEN;
+                        world.feature[ly][lx] = leaf;
+                        n_h++;
+                        if (leaf == FE_LEAF_W)       /* field east of the door: hinge east */
+                            want = ly > y ? T_DOOR_H_OPEN_E : T_DOOR_H_FAR_E;
+                        else
+                            want = ly > y ? T_DOOR_H_OPEN_W : T_DOOR_H_FAR_W;
+                        view_compose(&world, x, y, &df);
+                        if (!has_layer(&df, want) || has_layer(&df, T_DOOR_H_OPEN))
+                            wrong++;
+                        world.feature[y][x] = FE_DOOR_CLOSED;
+                        world.feature[ly][lx] = FE_NONE;
+                    }
+            }
+            check(n_h > 0, "d65: the maps have doors in east-west walls");
+            check(wrong == 0, "d65: the leaf is drawn in the frame, on the hinge side");
+        }
 
         /* testland: candles stand inside on both sides of the east door,
          * so the leaf swings out; opened from outside it stands NE/SE */

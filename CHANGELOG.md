@@ -2,6 +2,17 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Türblatt am Rahmen (D65) (2026-10-06)
+
+### Geändert
+- **Offene Türen in waagerechten Wänden zeigen ihr Blatt im Rahmen,** am Pfosten angeschlagen, statt als freies Brett auf dem Nachbarfeld. Vier neue Rahmenkacheln (`door_h_open_e/_w`, `door_h_far_e/_w`: Blatt zum Betrachter bzw. weggeschwenkt, Scharnier links bzw. rechts). Die Kacheln `door_leaf_e/_w` entfallen.
+- Das Blattfeld (D61) blockiert und klemmt wie bisher, wird aber nicht mehr gezeichnet. Türen in senkrechten Wänden bleiben unverändert.
+- Bild: `docs/design/mockups/door-leaf-d65.png`.
+
+### Intern
+- `tools/art/make_door_leaf.py` erzeugt die Rahmenkacheln (das Blatt wird gespiegelt, das Mauerwerk nicht). `view.c`: `door_h_open_tile`.
+- Selftest d65 (alle Karten): Scharnierseite und Schwung folgen dem Blattfeld. `HOUSE_VIEW_HASH` neu, weil sich die Kachel-IDs verschoben haben.
+
 ## [Unreleased] – Level 1 auf 46×46 mit geräumigen Häusern (D64, Teil 2) (2026-10-06)
 
 ### Geändert
