@@ -1,6 +1,6 @@
 # Regelabgleich mit dem Spectrum-Original
 
-Stand 2026-10-06. Quelle der Originalwerte: `lords-of-chaos-zx-agon/docs/REGELN.md` (aus dem Z80-Code gelesen, Szenario 1 geladen, Kapitelnummern „K“ unten beziehen sich darauf). Als Gegenprobe dienten das Amiga-Handbuch (`reference/`) und unser Code (`src/core`, `data/*.csv`). Gerechnete Vergleiche stehen in §5.
+Stand 2026-10-06. Quelle der Originalwerte: `lords-of-chaos-zx-agon/docs/REGELN.md` (aus dem Z80-Code gelesen, Szenario 1 geladen, Kapitelnummern „K“ unten beziehen sich darauf). Als Gegenprobe dienten das Amiga-Handbuch (`reference/`) und unser Code (`src/core`, `data/*.csv`). Gerechnete Vergleiche stehen in §5, der Vergleich der KI (K10, nachgereicht) in §6.5.
 
 Kennzeichen in den Tabellen: ✅ gleich · 🔧 in diesem PR angeglichen · 📋 Vorschlag (R-Nummer, §6) · ⛔ bewusste eigene Entscheidung (D-Nummer im GDD).
 
@@ -38,9 +38,14 @@ Nur Werte und Mini-Regeln, die in jedem Kampfmodell gleich gelten und nicht gege
 | Abfliegen: AP | 4 | 6 | 6 |
 | Landen: AP | 4 | 0 | 0 |
 | Gewichte: Schwert 4→10, Messer 1→3, Schild 4→8, Bogen 3→4, Keule 5→9, Axt 6→7, Wurfstern 1→4, Slayer/Magie-Slayer 6→9, leerer Kessel 8→15, leere Phiole 1→2, volle Phiole 1→4, Drachenkraut 1→2 | siehe links | Waffentabelle K6/K7 | angeglichen |
+| Zauberer-Designer: Start-Constitution | 25 | 34 (K3.2) | 34 |
+| Zauberer-Designer: Start-Mana | 90 | 80 | 80 |
+| Designer-Preis je Punkt: Constitution / Mana | 2 / 9 | `⌊Startwert/Divisor⌋` = 3 / 8 (K3.3) | 3 / 8 |
 | Apfel: Constitution | +4 | +10, dazu +40 Ausdauer (K7) | +10 |
 | Essen gibt Ausdauer: 4 × Constitution-Gewinn | nein | ja (K7) | ja |
 | Fliegen per Trank (Kreatur ohne Flügel): AP je Runde | 1 × Boden-AP | 2 × Boden-AP (K8.2) | 2 × |
+
+Die Designer-Werte (Con 34, Mana 80) hat der Nutzer am 2026-10-06 ausdrücklich dem Spectrum zugesprochen (vorher Anker F6). Die Standardvorlage `wizard_apply_standard_set` kostet dadurch 531 statt 522 XP.
 
 Folgen: Der Zauberer mit 40 AP schafft jetzt 5 Zauber pro Runde (mit den 34 AP des Designers wie im Original 4). Der Anker „etwa 4 Zauber pro Runde“ (PM 7) gilt damit für die Designer-Werte. Mit den schwereren Waffen (Schwert 10, Schild 8, Bogen 4) füllt sich die Tragkraft 36 deutlich schneller.
 
@@ -159,7 +164,7 @@ Aufwand: S ≤ 1 Tag, M einige Tage, L eine Woche und mehr. Ursache: „Grundsat
 | R1 | **Mana-Kosten** | `Basis × (L+1)`, Basis z. B. Bat 2, Harpy 5, Bolt 1, Shield 2 (K5.1, K5.2) | `base + L·step` mit den Zahlen der XP-Tabelle | **Daten** (45/45 Zeilen identisch mit `$DC84`) | S (Formel + neue Spalte) | **Erst O4 in WinUAE:** Giant Bat Stufe 1 kostet 4 Mana (Original) oder 7 (unsere Tabelle)? Dann übernehmen; KI-Wahl „günstigster Zauber“ und alle Mana-Tests ziehen mit |
 | R2 | **Designer-Preise für Zauber** | Stufe L→L+1 kostet `Basis + Inkrement·L` XP, bis Stufe 8, alle 45 Zauber (K3.3, K5.2) | nur Beschwörungen kaufbar, erste Stufe `design_cost`, jede weitere 50 % davon | Grundsatz (F6, Nutzer-Anker) | S | Unsere heutigen `mana_base`/`mana_step` sind genau diese XP-Zahlen und können nach R1 in die XP-Spalten wandern. Die Nutzer-Anker der Beschwörungen (Bat 4, Harpy 12, Spider 28, Ghost 22, Vampire 50, Spectre 44, Demon 58) weichen von den Spectrum-Basiswerten ab (5, 11, 22, 14, 29, 29, 40); Entscheidung nötig |
 | R3 | **Attributpreise steigen mit dem Wert** | Preis je Punkt `⌊Wert/Divisor⌋` (Mana 10, AP 4, Stamina 8, Con 10, Combat 2, Defence 2, MR 16); Maxima Mana 200, AP 40, Stamina 90, Con 90, Combat 30, Defence 30, MR 100 (K3.3) | feste Preise (2/2/4/2/4, Mana 9, AP 8); Maxima Mana 250, AP 120, Stamina 100, Con 60 | Grundsatz | S | Unsere festen Preise sind die Original-Preise beim Startwert, steigen aber nicht. Maxima so hoch machen Fernkämpfer-Zauberer möglich, die es im Original nicht gibt |
-| R4 | **Startwerte des Zauberers** | Con 34, Mana 80; Zufallszauberer Combat/Defence 6, MR 90 (K3.2) | Con 25, Mana 90 | Grundsatz (F6, Nutzer-Anker) | S | Nur der Nutzer kann entscheiden, ob F6 weiter gilt |
+| R4 | **Startwerte des Zauberers** | Con 34, Mana 80 | – | – | – | **Erledigt** (§2). Offen bleibt der Zufallszauberer des Originals (Combat/Defence 6, MR 90, Zauberlevel `RND(3)`) |
 
 ### 6.3 Ein Block: das Kampfmodell (Entscheidung nötig, Aufwand L)
 
@@ -188,7 +193,44 @@ Einordnung der drei Wege:
 | R14 | **Beschwören** | `L` Kreaturen je Wurf, Stufe wird verbraucht, Mana `Basis·(L+1)` (K5.3) | eine Kreatur, Stufe = Kreaturstärke, unbegrenzt wirkbar (D34) | Nutzerregel; nicht von Spectrum-Grenzen verursacht |
 | R20 | **AP beim Ebenenwechsel** | AP werden anteilig umgerechnet (K2) | zwei Budgets je Ebene (D15) | Eigene, einfachere Lösung |
 
-### 6.5 Offen und noch nicht bewertet
+### 6.5 KI der Computer-Zauberer und Kreaturen (K10)
+
+Das Original hat zwei KI-Teile: Kreaturen (NPCs und Beschwörte) und einen einzigen Gegner-Zauberer als Spieler 2. Unsere KI (`ai.c`, D20, D35, D37, D62) ist anders gebaut: Jäger mit Sichtlinie, Wildtiere, ein defensiver Zauberer, der sein Haus plündert, Wegsuche per Breitensuche.
+
+**Gegner-Zauberer** (K10.2) und unser KI-Zauberer. Bei uns bekommt der KI-Zauberer die Zahlen der Zeile `wizard` in `creatures.csv` (AP 40, Ausdauer 60, Constitution 30, Combat 10, Defence 12, MR 80, Mana 80) und ein kleines Buch aus `data/scenarios/*.txt`.
+
+| | Torquemada (Sz. 1) | Elbo Smogg (Sz. 2) | Ragaril (Sz. 3) | wir |
+|---|---|---|---|---|
+| Mana | 120 | 140 | 200 | 80 |
+| AP / Ausdauer | 34 / 68 | 34 / 68 | 34 / 78 | 40 / 60 |
+| Constitution | 63 | 63 | 50 | 30 |
+| Combat / Defence | 9 / 10 | 9 / 10 | 13 / 18 | 10 / 12 |
+| MR / Tragkraft | 90 / 48 | 90 / 48 | 90 / 48 | 80 / 36 |
+| Buch | 24 Zauber mit Stufe (K10.2) | Beschwörungen, Tränke, Blob, Vine, Bolt, Lightning, Shield | Beschwörungen, Tränke, Bolt, Lightning, Shield | Sz. 1 `goblin 2, magic_bolt 1`; Sz. 2 `zombie 3, ghost 2, magic_bolt 2`; Sz. 3 `vampire 3, spectre 2, demon 1, magic_bolt 3, curse 1` |
+
+Die Gegner des Originals haben also **doppelt so viel Constitution und 1,5- bis 2,5-mal so viel Mana** wie unser KI-Zauberer. Ihre Bücher sind groß: Beschwörungen (Sz. 1: Goblin, Troll, Centaur, Elephant, Bear, Crocodile, Bat, Harpy, Vampire, Spectre), alle sieben Tränke auf Stufe 2 (Sz. 1), Fire 5, Blob 3, Vine 5, Flood 3, Bolt 3, Lightning 2, Shield 3.
+
+| # | Regel | Original (K10) | Wir | Ursache | Aufwand |
+|---|---|---|---|---|---|
+| R28 | **Kampfeinschätzung der Kreaturen** | Ziel nur, wenn `2·C_eff(eigen) ≥ 1,5·Def_eff(Ziel)`, nächstes Ziel gewinnt. **Flucht**, wenn `2·Def_eff(eigen) < 1,5·C_eff(Gegner)`, auf das Feld mit der größten Summe der Abstände zu allen Bedrohungen; Flieger ignorieren Bodengegner; **aggressive Kreaturen fliehen nie** (K10.3, K10.4) | greifen immer das nächste sichtbare Ziel an, fliehen nie (außer erschreckte Wildtiere, D37) | Grundsatz (nicht Spectrum-bedingt) | M (an R5 gekoppelt, weil die Schwellen Original-Werte rechnen) |
+| R29 | **Fernangriff der KI** | Kreaturen mit Bogen und Drachen feuern, wenn `2·A ≥ 1,5·Def_eff`, Entfernung unter der Reichweite und 8 AP da sind; Untote nur mit magischem Bogen (K10.4) | die KI benutzt keinen Bogen (`items_fire` kommt in `ai.c` nicht vor) | Grundsatz | M |
+| R30 | **Gegenstände der Kreaturen** | Wunschtabelle je Kachel (Schätze 100–127, magische Waffen 70–105, Tränke 90–127); Aufheben nach `⌊Wert/(D+1)⌋`; Essen bei `1,5·Con < ConMax` oder Ausdauer ≤ Max/4; Heiltrank bei `1,5·Con < ConMax`; Waffenwechsel nach Wert; bis 10 Gegenstände (K10.6) | nur Waffe/Schild aufnehmen, Schätze sammeln (D62); kein Essen, kein Trank, kein Wechsel | Grundsatz | M |
+| R31 | **Werfen auf den Zauberer von Spieler 1** | Nicht-Wizards werfen Wurfgegenstände (Bit 7) auf den Wizard von Spieler 1, wenn in Wurfweite (K10.6) | nein | Grundsatz; im Original auch **allwissend** (Spieler 1 ist bekannt) | S, geringer Wert |
+| R32 | **Zauberwahl des KI-Zauberers** | Prioritätstabelle je Szenario und Zauber, halbiert nach jedem Wurf; Bedingungen: Bolt/Lightning nur wenn `2·(4L+25) ≥ 1,5·Def_eff`, Lightning nicht bei eigenen Kreaturen unter 4; Fire/Blob im Radius `2L+6`; Vine/Flood nicht bei eigenen Kreaturen unter `2L+1`; Shield nur ohne aktives Shield; Tränke und Drachen mit Kessel und Zutat; Beschwören nur mit Mana ≥ 40 danach (außer Gegner sichtbar) und ≥ L freien Nachbarfeldern; ohne sichtbare Gegner nur bei ≥ halben AP (K10.5) | Bolt auf den nächsten Gegner, Beschwören bis 5 Kreaturen (teuerste zuerst, ein Viertel Mana Reserve), sonst nichts: **kein Schild, keine Tränke, keine Flächenzauber, keine Drachen** | Grundsatz | L |
+| R33 | **Eigene Werte und Bücher der Gegner-Zauberer** | siehe Tabelle oben (K10.2) | Standardwerte der Zauberer-Zeile, Mini-Bücher | Grundsatz (Datenlücke) | S–M: Format der Szenariodatei um Werte erweitern, `gen_scenarios.py` und `mapfile.c` ändern. **Empfohlen**, wirkt sofort auf den Schwierigkeitsgrad |
+| R34 | **Schlaf, Auslöser und Routen** | Kreaturen der Szenariotabelle schlafen, bis sie einen Gegner sehen oder ein Wesen ein Auslöserfeld betritt; nicht aggressive laufen Wegpunkt-Routen (11/7/6 Routen je Szenario) (K10.7) | Wachposten (`post`) und Wildtiere; keine Routen | Grundsatz | M–L (Kartenformat: Wegpunkte und Auslöser) |
+| R35 | **Aggressivität und Portal** | `RND(100) < Aggressivität`: die Kreatur läuft zum Zauberer von Spieler 1 und bleibt unter Entfernung 5 stehen, sie flieht nie; **ab der Portalrunde laufen alle KI-Kreaturen zum Portal** (K10.7) | siehe R21: Monster jagen sichtbare Ziele; bei offenem Portal geht nur der Zauberer dorthin | Grundsatz; das „Läuft zum Spieler 1“ ist allwissend und passt nicht zu unserem „kein Schummeln“ (D20) | S–M |
+
+Nicht übernehmen, obwohl es dort steht (**Spectrum-Grenzen**):
+
+- Die Zauber-KI ist **fest auf Spieler 2 verdrahtet** (Mana von Spieler 2 liegt an einer festen Adresse, K10.1), und es gibt nur im Ein-Spieler-Modus einen KI-Zauberer. Unser KI-Zauberer läuft für jeden Besitzer.
+- Enchant, Subversion, Curse, Magic Attack, Teleport und Magic Eye wirkt die KI des Originals **nie** (ihr Handler ist ein leeres `ret`, `$A45F`). Das ist ein Loch in der Umsetzung, kein Spielentwurf. Unsere KI wirkt diese Zauber auch nicht, hier sind beide gleich.
+- Eine Kreatur bricht ihre Entscheidungsschleife nach 50 Durchgängen ab; die Schrittwahl sortiert die 8 Nachbarfelder nur nach Entfernung zum Ziel. Unsere Breitensuche (D62) kommt um Mauern herum und bleibt.
+- Die Sicht der KI ist im Original an die Sichtliste gebunden, die aggressive Kreaturen aber umgeht. Wir bleiben beim Verzicht auf Schummeln.
+
+Was bei uns **besser** gelöst ist und bleibt: Wegsuche um Hindernisse, Türen und Truhen öffnen, Plündern des eigenen Hauses (D62), Herden und Revierverhalten der Wildtiere (D35, D37).
+
+### 6.6 Offen und noch nicht bewertet
 
 | # | Regel | Original (K) | Wir | Anmerkung |
 |---|---|---|---|---|
@@ -209,5 +251,6 @@ Nicht verglichen: die KI der Computergegner und Torquemadas (im Original nicht g
 1. **O4 in WinUAE** (Giant Bat und Magic Bolt Mana auf Stufe 1 ablesen). Das entscheidet R1/R2 und kostet eine Viertelstunde.
 2. **Eine Entscheidung zum Kampfmodell** (A, B oder C, §6.3). Sie bestimmt, ob R5, R6, R15, R16, R17 überhaupt anfallen.
 3. **Die kleinen Regeln R9, R10 (AP-Teil), R12, R13, R19, R23, R24** in einem oder zwei PRs; sie sind unabhängig voneinander und vom Kampfmodell.
-4. **R3, R4** mit dem Nutzer klären (Anker F6).
-5. R11, R18, R21, R22, R25–R27 danach einzeln.
+4. **R33 (Werte und Bücher der Gegner-Zauberer)**: Datenänderung, die den Schwierigkeitsgrad sofort anhebt; unabhängig vom Kampfmodell.
+5. **R3** (steigende Attributpreise) mit dem Nutzer klären; R4 ist erledigt.
+6. R11, R18, R21, R22, R25–R27 danach einzeln; die KI-Regeln R28–R32, R34, R35 nach der Entscheidung zum Kampfmodell (R28, R29, R32 rechnen mit Original-Werten).

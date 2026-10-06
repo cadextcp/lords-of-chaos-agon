@@ -7,20 +7,21 @@
 
 Wizard wizard_slots[WIZARD_SLOTS];
 
-/* F6 (user anchor, 2026-10-04): a fresh wizard starts at the minimum
- * distribution below and distributes 600 XP over attributes, mana, AP
- * and summon spells. Point costs: combat 2, defence 2, magic
- * resistance 4, constitution 2, stamina 4, mana 9, AP 8. */
+/* F6 (user anchor, 2026-10-04; Spectrum values since D66): a fresh wizard
+ * starts at the minimum distribution below and distributes 600 XP over
+ * attributes, mana, AP and summon spells. Point costs (the original's
+ * start value / divisor): combat 2, defence 2, magic resistance 4,
+ * constitution 3, stamina 4, mana 8, AP 8. */
 #define START_COM 5
 #define START_DEF 5
 #define START_MR 70
-#define START_CON 25
+#define START_CON 34
 #define START_STA 34
-#define START_MANA 90
+#define START_MANA 80
 #define START_AP 34
 #define START_XP 600
-static const uint8_t ATTR_COST[WA_COUNT] = {2, 2, 4, 2, 4};
-#define MANA_COST 9
+static const uint8_t ATTR_COST[WA_COUNT] = {2, 2, 4, 3, 4};
+#define MANA_COST 8
 #define MANA_MAX 250
 #define AP_COST 8
 #define AP_MAX 120
@@ -264,8 +265,8 @@ void wizard_apply_standard_set(Wizard *w)
     w->book.level[SP_ZOMBIE] = 1;
     w->book.level[SP_GORILLA] = 1;
     w->book.level[SP_GRYPHON] = 1;
-    /* balanced attributes: 5 -> 20 com/def/con, 34 -> 49 sta,
-     * 70 -> 80 MR, mana 90 -> 96, AP 34 -> 39 */
+    /* balanced attributes: 5 -> 20 com/def, 34 -> 49 con/sta,
+     * 70 -> 80 MR, mana 80 -> 86, AP 34 -> 39 */
     {
         uint8_t i;
         for (i = 0; i < 15; i++) {
@@ -281,7 +282,7 @@ void wizard_apply_standard_set(Wizard *w)
         for (i = 0; i < 5; i++)
             wizard_ap_raise(w);
     }
-    w->xp = 78;            /* what the template leaves from the 600 */
+    w->xp = 69;            /* what the template leaves from the 600 */
 }
 
 void wizard_slot_random(uint8_t slot, uint8_t strength, Rng *rng)

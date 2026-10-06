@@ -3614,7 +3614,7 @@ static void test_m4f(void)
     {   /* stock wizard: minimums, 600 XP, EMPTY books (user rule) */
         uint16_t s, sum = 0;
         check(w->level == 1 && w->xp == 600 && w->com == 5 && w->sta == 34 &&
-              w->mana_max == 90 && w->ap == 34,
+              w->mana_max == 80 && w->ap == 34,
               "m4f: stock wizard: minimums and 600 XP (F6)");
         for (s = 0; s < SPELL_COUNT; s++)
             sum += w->book.level[s];
@@ -3625,9 +3625,9 @@ static void test_m4f(void)
               w->book.level[SP_HEALING_POTION] == 4 &&
               w->book.level[SP_GIANT_BAT] == 2 && w->book.level[SP_GRYPHON] == 1,
               "m4f: the standard template fills spells + 8 creatures");
-        check(w->com == 20 && w->def == 20 && w->mr == 80 && w->con == 40 &&
-              w->sta == 49 && w->mana_max == 96 && w->ap == 39 && w->xp == 78,
-              "m4f: the template costs 522 of the 600 XP (no cheating)");
+        check(w->com == 20 && w->def == 20 && w->mr == 80 && w->con == 49 &&
+              w->sta == 49 && w->mana_max == 86 && w->ap == 39 && w->xp == 69,
+              "m4f: the template costs 531 of the 600 XP (no cheating)");
         wizard_apply_standard_set(w);   /* idempotent: bolt already there */
         check(w->book.level[SP_MAGIC_BOLT] == 4,
               "m4f: the standard set never overwrites designed books");
@@ -3636,9 +3636,9 @@ static void test_m4f(void)
     check(wizard_attr_cost(WA_COMBAT, 5) == 2 &&
           wizard_attr_cost(WA_DEFENCE, 5) == 2 &&
           wizard_attr_cost(WA_MAGIC_RES, 70) == 4 &&
-          wizard_attr_cost(WA_CONSTITUTION, 25) == 2 &&
+          wizard_attr_cost(WA_CONSTITUTION, 34) == 3 &&
           wizard_attr_cost(WA_STAMINA, 34) == 4 &&
-          wizard_mana_cost() == 9 && wizard_ap_cost() == 8,
+          wizard_mana_cost() == 8 && wizard_ap_cost() == 8,
           "m4f: anchor point costs 2/2/4/2/4, mana 9, AP 8 (F6)");
 
     w->xp = 50;
@@ -3655,16 +3655,16 @@ static void test_m4f(void)
         wizard_slot_reset(3);
         b = wizard_slots[3];            /* minimums + 600 XP */
         check(b.xp == 600 && b.com == 5 && b.def == 5 && b.mr == 70 &&
-              b.con == 25 && b.sta == 34 && b.mana_max == 90 && b.ap == 34,
+              b.con == 34 && b.sta == 34 && b.mana_max == 80 && b.ap == 34,
               "m4f: fresh wizard = minimums + 600 XP");
         /* buy combat to the cap 30: 25 points x 2 XP = 50 spent */
         while (wizard_raise(&b, WA_COMBAT))
             raise_count++;
         check(raise_count == 25 && b.com == 30 && b.xp == 550,
               "m4f: combat caps at 30 after 25 points (50 XP)");
-        /* mana at 9 and AP at 8 still work from 550 */
-        check(wizard_mana_raise(&b) && b.mana_max == 91 && b.xp == 541 &&
-              wizard_mana_lower(&b) && b.mana_max == 90 && b.xp == 550,
+        /* mana at 8 and AP at 8 still work from 550 */
+        check(wizard_mana_raise(&b) && b.mana_max == 81 && b.xp == 542 &&
+              wizard_mana_lower(&b) && b.mana_max == 80 && b.xp == 550,
               "m4f: mana raises/refunds alongside");
         /* lower it back: every lowering refunds the full price */
         {
@@ -3684,7 +3684,7 @@ static void test_m4f(void)
             wizard_raise(&b, WA_CONSTITUTION);
         for (rows = 0; rows < 66; rows++)
             wizard_raise(&b, WA_STAMINA);
-        check(b.xp == 600 - 50 - 70 - 264 && b.def == 30 && b.con == 60 &&
+        check(b.xp == 600 - 50 - 78 - 264 && b.def == 30 && b.con == 60 &&
               b.sta == 100,
               "m4f: 600 XP drain exactly over the three rows");
         /* and the whole thing stays a valid wizard */
@@ -4855,14 +4855,14 @@ static void test_m5e_balance(void)
               "m5f: lowering refunds base/half exactly");
         check(!wizard_spell_lower(&t, SP_TELEPORT),
               "m5f: nothing bought - lowering is refused");
-        check(wizard_mana_cost() == 9 && t.mana_max == 90 && t.ap == 34,
-              "m5f: mana starts at 90, AP at 34 (F6)");
-        t.xp = 9;
-        check(wizard_mana_raise(&t) && t.mana_max == 91 && t.xp == 0 &&
-              wizard_mana_lower(&t) && t.mana_max == 90 && t.xp == 9,
-              "m5f: mana raises and refunds with 9 XP");
+        check(wizard_mana_cost() == 8 && t.mana_max == 80 && t.ap == 34,
+              "m5f: mana starts at 80, AP at 34 (F6)");
         t.xp = 8;
-        check(!wizard_mana_raise(&t), "m5f: one mana point costs exactly 9");
+        check(wizard_mana_raise(&t) && t.mana_max == 81 && t.xp == 0 &&
+              wizard_mana_lower(&t) && t.mana_max == 80 && t.xp == 8,
+              "m5f: mana raises and refunds with 8 XP");
+        t.xp = 7;
+        check(!wizard_mana_raise(&t), "m5f: one mana point costs exactly 8");
         t.xp = 7;
         check(!wizard_ap_raise(&t), "m5f: no AP without 8 XP");
         t.xp = 8;

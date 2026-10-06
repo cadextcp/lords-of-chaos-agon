@@ -23,7 +23,7 @@
 | #147 | **Fix:** Der eZ80-Selftest war seit #142 blind (Emulator endete bei EOF mit 0). Jetzt zählt nur „shutdown triggered by writing 0x0“ |
 | #146, #148 | **D64:** Karten bis 46×46; Level 1 neu mit zwei Vier-Raum-Häusern (15×11), 16 Varianten auf 46×46, Truhen/Funde mit der Fläche |
 | D65 | **D65:** Das Blatt offener Türen in waagerechten Wänden sitzt im Rahmen am Pfosten (vier Rahmenkacheln), das Blattfeld blockiert nur noch. Senkrechte Wände unverändert. Im Emulator angespielt (Zauberer-Haus), auf der Hardware nicht |
-| D66 | **D66:** Abgleich mit dem Spectrum-Original. Kleine Werte angeglichen (AP-Kosten, Gewichte, 5 Kreaturenwerte, Essen, Trankflug), große Unterschiede stehen als Vorschläge R1–R27 in `docs/REGELVERGLEICH-SPECTRUM.md`. **Zuerst klären:** Mana-Tabelle (R1, O4 in WinUAE) und das Kampfmodell (R5, Weg A/B/C) |
+| D66 | **D66:** Abgleich mit dem Spectrum-Original. Kleine Werte angeglichen (AP-Kosten, Gewichte, 5 Kreaturenwerte, Essen, Trankflug), große Unterschiede stehen als Vorschläge R1–R35 in `docs/REGELVERGLEICH-SPECTRUM.md`. **Zuerst klären:** Mana-Tabelle (R1, O4 in WinUAE) und das Kampfmodell (R5, Weg A/B/C) |
 
 Die Rückmeldungen des Playtests stehen mit Befund und Entscheidung in `docs/PLAYTEST-2026-10-06.md`.
 
