@@ -179,6 +179,25 @@ bool combat_free_swing(World *w, Rng *rng, uint8_t att, uint8_t def,
     return true;
 }
 
+bool combat_hostile_to(const World *w, const Unit *e, uint8_t owner,
+                       int16_t x, int16_t y)
+{
+    uint8_t wild;
+    if (e->owner == owner)
+        return false;
+    if (e->owner != OWN_NEUTRAL)
+        return true;
+    wild = CREATURES[e->kind].wild;
+    if (wild == WILD_NONE && !e->herd_dir)
+        return true;                       /* monsters hunt everyone */
+    if (owner < 8 && (e->grudge & (uint8_t)(1u << owner)))
+        return true;                       /* it was attacked by them */
+    if (e->alarm && e->alarm_charge && e->alarm_owner == owner)
+        return true;                       /* charging the disturber (D37) */
+    return wild == WILD_TERRITORIAL && e->post_x != 0xFF &&
+           world_distance(w, x, y, e->post_x, e->post_y) <= TERRITORY;
+}
+
 uint8_t combat_disengage_swings(World *w, Rng *rng, uint8_t unit,
                                 const Sight *seen, CombatResult *out)
 {
@@ -195,6 +214,9 @@ uint8_t combat_disengage_swings(World *w, Rng *rng, uint8_t unit,
             continue;                  /* unseen: no swing out of nowhere */
         if (!adjacent(w, e, &w->units[unit]))
             continue;
+        if (!combat_hostile_to(w, e, w->units[unit].owner,
+                               w->units[unit].x, w->units[unit].y))
+            continue;                  /* grazing animals let you pass (D59) */
         if (!combat_free_swing(w, rng, i, unit, out))
             continue;
         return 1;

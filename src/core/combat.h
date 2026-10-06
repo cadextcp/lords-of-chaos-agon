@@ -62,6 +62,14 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
  * the swing a defender gets when its enemy moves out of contact.
  * False when the swing is not possible (not adjacent, same owner,
  * grounded attacker against a flyer, undead immunity). */
+/* A territorial animal defends this far around its home field (D35). */
+#define TERRITORY 3
+/* Does unit `e` take a swing at `owner`'s figures that pass by (D59)?
+ * Wizards' creatures and neutral monsters always; a wild animal only
+ * when it bears a grudge against that owner, is charging at him (D37)
+ * or - territorial - the figure at (x, y) stands in its territory. */
+bool combat_hostile_to(const World *w, const Unit *e, uint8_t owner,
+                       int16_t x, int16_t y);
 bool combat_free_swing(World *w, Rng *rng, uint8_t att, uint8_t def,
                        CombatResult *out);
 /* After `unit` moved out of melee contact (an enemy was adjacent

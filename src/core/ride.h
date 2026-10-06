@@ -30,6 +30,9 @@ bool ride_dismount(World *w, uint8_t mounted);
 /* May this unit attack from a field where a friend stands? Riders
  * (UF_RIDDEN) can (D21: "except for riders"). */
 bool ride_may_attack_from(const World *w, uint8_t attacker);
+/* The creature that acts for this unit: the rider on a ridden mount
+ * (it has the hands and the spells, D60), else the unit itself. */
+uint8_t ride_actor_kind(const Unit *u);
 /* Mount of the rider kind carried by this unit (CreatureKind), 0xFF
  * when it carries nobody. */
 uint8_t ride_rider_kind(const Unit *mounted);

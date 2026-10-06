@@ -34,6 +34,9 @@ bool items_cycle(World *w, uint8_t unit);
 /* Throw the object in use along a direction: it flies up to 6 fields,
  * stops at terrain or a unit (thrown damage, GDD 6.1) and lands on the
  * last free field. ACT_THROW. */
+/* D59: a friend hit by a thrown object catches it into his pack - when
+ * there is room and he can carry the weight. False: it falls down. */
+bool items_catch(World *w, uint8_t unit, uint8_t kind);
 bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy);
 /* Fire the bow in use at a field (ACT_FIRE): range 6, line of sight,
  * ground and air targets, Defence counts. */

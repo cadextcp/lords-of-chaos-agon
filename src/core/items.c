@@ -6,6 +6,7 @@
 #include "effect.h"
 #include "events.h"
 #include "gen/data.h"
+#include "ride.h"
 #include "sight.h"
 
 /* Weapon of the object in use, WEAPON_NONE without one. */
@@ -181,6 +182,20 @@ uint8_t items_attack_damage(const World *w, uint8_t unit, Rng *rng, bool crit)
                          (u->flags & UF_MAGIC_WEAPON) != 0);
 }
 
+bool items_catch(World *w, uint8_t unit, uint8_t kind)
+{
+    Unit *c;
+    if (unit >= w->unit_count)
+        return false;
+    c = &w->units[unit];
+    if (c->item_count >= UNIT_ITEMS ||
+        (uint16_t)items_weight(w, unit) + OBJECTS[kind].weight >
+            CREATURES[ride_actor_kind(c)].carry)
+        return false;
+    c->items[c->item_count++] = kind;
+    return true;
+}
+
 bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
 {
     Unit *u;
@@ -222,7 +237,11 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
         }
         events_push(EV_PROJECTILE, u->x, u->y, PJ_THROWN, u->owner,
                     (uint8_t)(int8_t)(dx * steps), (uint8_t)(int8_t)(dy * steps));
-        if (target != NO_UNIT) {        /* thrown weapons hit flyers too */
+        if (target != NO_UNIT && w->units[target].owner == u->owner) {
+            if (items_catch(w, target, kind))
+                return true;
+            /* no room: it drops at the friend's feet, unhurt */
+        } else if (target != NO_UNIT) { /* thrown weapons hit flyers too */
             if (items_can_harm_undead(w, unit, target)) {
                 uint16_t roll = rng_range(rng, 100);
                 if (roll < combat_hit_chance(items_combat(w, unit),

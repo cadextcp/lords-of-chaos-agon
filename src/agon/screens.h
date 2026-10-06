@@ -10,6 +10,7 @@
 
 #include "../core/game.h"
 #include "../core/lexicon.h"
+#include "../core/save.h"
 
 typedef struct {
     const char *name;        /* the player's wizard */
@@ -68,5 +69,10 @@ bool screen_title(void);
  * victory points; the map stays hidden, the frontend only plays sounds. */
 void screen_phase(const char *who, uint8_t round, uint8_t n,
                   const char *const *names, const uint16_t *vp);
+
+/* Borrow the shared buffer arena for a save or load (QUIRK S6): the
+ * SaveGame image and SAVE_BUF_SIZE bytes in *buf. Drops the cached spell
+ * and lexicon texts. */
+SaveGame *screens_borrow_save(uint8_t **buf);
 
 #endif

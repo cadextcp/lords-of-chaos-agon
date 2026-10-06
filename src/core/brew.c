@@ -367,6 +367,14 @@ bool brew_throw_vial(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
                     PJ_THROWN, thrower_owner, (uint8_t)(int8_t)fx,
                     (uint8_t)(int8_t)fy);
     }
+    {   /* D59: a friend catches the vial whole, bombs included */
+        uint8_t c = world_unit_at(w, x, y, UL_GROUND);
+        if (c == NO_UNIT)
+            c = world_unit_at(w, x, y, UL_AIR);
+        if (c != NO_UNIT && w->units[c].owner == thrower_owner &&
+            items_catch(w, c, kind))
+            return true;
+    }
     if (kind != OBJ_VIAL_BOMB)
         return true;                     /* shatters harmlessly */
     {   /* bomb: everyone around the impact takes a hit (Amiga, D21) */
