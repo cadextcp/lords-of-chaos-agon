@@ -45,6 +45,12 @@ bool sight_visible(const Sight *s, const World *w, int16_t x, int16_t y);
 bool sight_unit_visible(const Sight *s, const World *w, const Unit *u);
 /* Is an object on (x, y) seen (never one under a canopy for a flyer)? */
 bool sight_object_visible(const Sight *s, const World *w, int16_t x, int16_t y);
+/* Does ONE observer (a creature, ground or air) see a target at (tx, ty), K11.1
+ * and K11.2: the octagon, then the rules per height pair. `target_air` is the
+ * target's height, `is_object` marks things on the ground (an object, never
+ * seen under a canopy by a flier). Invisibility is not checked here. */
+bool sight_sees(const World *w, const Unit *observer, int16_t tx, int16_t ty,
+                bool target_air, bool is_object);
 /* The octagon test of K11.1 for an offset (dx, dy) and a limit R. */
 bool sight_in_reach(int16_t dx, int16_t dy, uint8_t r);
 /* Can a shot or throw from (x0, y0) at height `fly0` (true: in the air) reach

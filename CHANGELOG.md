@@ -95,6 +95,23 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ### Intern
 - `sight_in_reach`, `sight_object_visible`, `sight_shot_clear`; `sight_add_eye` bekommt die Reichweite. Test `test_0h`, der Sichtfeld-Test zählt jetzt das Achteck.
 
+## [Unreleased] – Schlauere KI, Schritt 1: Kreaturen nach K10 (D67) (2026-10-07)
+
+### Geändert
+- **`ai.c` aufgeteilt:** `ai.c` (Wildtiere, Verteilung), `ai_creature.c` (Entscheidungsschleife), `ai_items.c` (Gegenstände), `ai_nav.c` (Schritte, Wegsuche, Türen), `ai_wizard.c` (KI-Zauberer), gemeinsame Typen in `ai_priv.h`.
+- **Entscheidungsschleife je Kreatur (K10.3):** höchstens 50 Durchgänge. Reihenfolge: Schlaf, Sofortaktionen (Kessel trinken, aufheben, Phiole, Essen, Beute dem Zauberer zuwerfen, Waffe wechseln, Abheben), Fernangriff, Flucht, Nahkampfziel, Gegenstandsziel, Portal, Leibwache, Posten, Umherstreifen.
+- **Sichtliste je Kreatur (K11.5):** bis 20 sichtbare Gegner (mit `C_eff`, `Def_eff`, Entfernung) und 24 Gegenstände (plus Truhen für Kreaturen, die sie öffnen können), nach Entfernung. Neu: `sight_sees` für einen einzelnen Beobachter nach K11.
+- **Ziel und Flucht (K10.4):** Nahkampfziel nur bei `2·C ≥ 1,5·Def` des Gegners (und Untoten-Regel); Bedrohung bei `2·Def < 1,5·C`; Flieger ignorieren Bedrohungen am Boden, Untote fürchten nur Untote und Magie, **Aggressive und Gebundene fliehen nie**. Fluchtfeld: erstes Nachbarfeld ohne Schusslinie eines Gegners, sonst das mit der größten Abstandssumme; danach endet der Zug.
+- **Fernangriff:** Bogen und Drachenfeuer gegen Ziele mit `2·A ≥ 1,5·Def`, in Reichweite und Schusslinie.
+- **Gegenstände (K10.6):** Wunschwerte in `data/ai_items.csv`; aufgehoben wird, was `⌊Wert/(D+1)⌋` am höchsten hat (Tragkraft, Waffenhände, Schlüssel nur mit „Use“); die beste Waffe wird geführt, bei `1,5·Con < ConMax` oder Ausdauer ≤ ¼ gegessen, Phiolen getrunken. **Beute (Schätze, Zutaten, Nahrung) wirft die Kreatur ihrem Zauberer zu** (landet auf seinem Feld) und läuft zu ihm.
+- **Schritt:** Wegsuche (Breitensuche) zuerst, sonst die Nachbarn nach Entfernung zum Ziel sortiert, ohne die **letzten 8 besuchten Felder**; Türen öffnen („Use“), Wände nur bei `1,5·C ≥ Zähigkeit`.
+- **Abheben und Landen:** Wer Flug-AP hat, hebt sofort ab; zum Kämpfen und Aufheben landet er neben dem Ziel und handelt im selben Zug.
+- **Leibwache:** Kreaturen ohne Plan (Plan-Route 255) gelten als aggressiv und bleiben unter Entfernung 5 beim eigenen Zauberer; ab der Portalrunde ziehen alle KI-Kreaturen zum Portal. Neutrale Monster ohne Posten streifen weiter umher.
+- **Kreaturentabelle** bekommt `aggr` (K2). Einheiten tragen Plan (`plan_route`, `plan_step`, `plan_flags`) und den Ring der besuchten Felder. **Spielstand v10.**
+
+### Intern
+- Tests `test_ki1`; der Wächter-Test nimmt einen Spectre (ein Zombie greift einen Zauberer nach K10.4 nicht an).
+
 ## [Unreleased] – Regeln wie im Original, Schritt 0a: Mana (D67) (2026-10-07)
 
 ### Geändert

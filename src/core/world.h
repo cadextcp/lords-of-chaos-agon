@@ -96,6 +96,13 @@ typedef struct {
     uint8_t alarm_charge;     /* 1 = attack the disturber, 0 = flee */
     uint8_t alarm_x, alarm_y; /* where the trouble was */
     uint8_t alarm_owner;      /* who caused it */
+    /* AI plan (K10.7): route, step, flags (bit 7 aggressive = bodyguard,
+     * bit 6 asleep, low 6 bits trigger id); route 0xFF = no plan, which counts
+     * as aggressive. `visited` is the ring of the last 8 fields it stood on,
+     * packed x + y * w (0xFFFF = empty), against walking back and forth. */
+    uint8_t plan_route, plan_step, plan_flags;
+    uint8_t visit_head;
+    uint16_t visited[8];
     bool done;                /* finished for this phase (space, turn.h) */
     Effect effects[UNIT_EFFECTS];   /* timed, tick at the round end (M4b) */
 } Unit;

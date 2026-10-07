@@ -1,0 +1,45 @@
+# Wish values of the AI for objects on the ground (K10.6, mapped to our objects).
+# value: 0 = ignore, otherwise the weight in the pick-up rule floor(value / (D + 1)).
+# loot: 1 = creatures throw it to their wizard (original bit 7: treasures,
+#       ingredients, food, the empty cauldron).
+object,value,loot
+scroll,60,1
+sword,75,0
+knife,50,0
+spear,65,0
+club,45,0
+axe,55,0
+ninja_star,45,0
+slayer,125,0
+magic_slayer,125,0
+bow,90,0
+shield,75,0
+gold,127,1
+emerald,110,1
+rune_stone,100,1
+wand,105,1
+ruby,115,1
+diamond,120,1
+apple,80,1
+mushroom,80,0
+magic_apple,90,1
+magic_mushroom,60,1
+door_key,80,0
+chest_key,70,0
+cauldron_empty,20,1
+cauldron_full,110,0
+vial_empty,10,0
+vial_strength,124,0
+vial_protection,106,0
+vial_invisibility,127,0
+vial_speed,102,0
+vial_flying,90,0
+vial_healing,125,0
+vial_bomb,90,0
+mistletoe,50,1
+clover,50,1
+crystal,50,1
+sulph,50,1
+fairywing,50,1
+nitro,50,1
+dragon_herb,100,1
