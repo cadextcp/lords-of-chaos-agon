@@ -258,11 +258,11 @@ static void test_stats_and_names(void)
     check(world.units[0].sta == 57, "stats: step costs half the AP as stamina");
     world_new_turn(&world);
     check(world.units[0].sta == 60, "stats: new turn recovers stamina (capped)");
-    world.units[0].sta = 10;
+    world.units[0].sta = 9;
     world_new_turn(&world);
-    check(world.units[0].sta == 25, "stats: recovery is 25 % of max");
+    check(world.units[0].sta == 19, "stats: recovery is a sixth of max (K4)");
     check(world.units[0].ap == 20, "stats: exhausted creatures get half AP (PM 12)");
-    world_new_turn(&world);                        /* 25 of 60: cured */
+    world_new_turn(&world);                        /* 19 of 60: cured */
     check(world.units[0].ap == 40, "stats: one quiet round cures exhaustion");
     world.units[0].mana = 0;
     world_new_turn(&world);
@@ -289,7 +289,7 @@ static void test_data(void)
     check(SPELLS[SP_SUPER_POTION].amiga == 0 && SPELLS[SP_BOMB_POTION].known == 0,
           "data: super potion not on Amiga, bomb potion cost unknown");
     check(FLOOR_AP[FL_PATH] == 3 && FLOOR_AP[FL_STONE] == 4, "data: floor costs from costs.csv");
-    check(ACTIONS[ACT_CAST].ap == 8 && ACTIONS[ACT_MELEE].stamina == 4,
+    check(ACTIONS[ACT_CAST].ap == 8 && ACTIONS[ACT_MELEE].stamina == 8,
           "data: action costs from actions.csv");
 }
 
@@ -891,6 +891,76 @@ static void test_sight(void)
     }
 }
 
+/* D67 0b: wounds, constitution factor, stamina, hovering, take-off/landing. */
+static void test_0b(void)
+{
+    Unit *u;
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    u = &world.units[0];
+
+    /* constitution factor: AP divided by floor(ConMax/Con) (R10) */
+    u->con_max = 60;
+    u->con = 40;                         /* 60/40 = 1: no malus */
+    check(world_con_factor(u) == 1, "0b: above 50 % no constitution factor");
+    u->con = 30;
+    check(world_con_factor(u) == 2, "0b: at 50 % the factor is 2");
+    u->con = 20;
+    check(world_con_factor(u) == 3, "0b: at 33 % the factor is 3");
+    u->sta = u->sta_max;
+    world_new_turn(&world);
+    check(u->ap == u->ap_max / 3, "0b: AP refill is divided by the factor");
+    u->con = u->con_max;
+
+    /* wounds are a counter, curse sets 7 (R9) */
+    world_set_wounds(u, 9);
+    check(u->wounds == 7 && (u->flags & UF_WOUNDED), "0b: wounds cap at 7");
+    world_set_wounds(u, 0);
+    check(u->wounds == 0 && !(u->flags & UF_WOUNDED), "0b: no wounds, no flag");
+
+    /* exhaustion at a sixth of the maximum, recovery a sixth (R11) */
+    u->sta_max = 60;
+    u->sta = 10;
+    world_new_turn(&world);
+    check(u->ap == u->ap_max && u->sta == 20, "0b: stamina 10 of 60 is not exhausted");
+    u->sta = 9;
+    world_new_turn(&world);
+    check(u->ap == u->ap_max / 2, "0b: stamina below a sixth halves the AP");
+
+    /* melee needs 8 stamina, not only AP (K6.2); spells cost none */
+    u->sta = 7;
+    u->ap = 40;
+    check(!world_can_pay(&world, 0, ACT_MELEE) && world_can_pay(&world, 0, ACT_CAST),
+          "0b: melee wants 8 stamina, casting none");
+    world_pay(&world, 0, ACT_CAST);
+    check(u->sta == 7 && u->ap == 32, "0b: casting costs AP only");
+
+    /* a flyer pays half its unspent AP as stamina each round (R12) */
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    u = &world.units[11];
+    check(world_take_off(&world, 11), "0b: bat takes off");
+    u->sta = 50;
+    u->ap = 40;
+    world_new_turn(&world);
+    check(u->sta == 50 - 20 + 12, "0b: hovering costs half the AP left (+ a sixth back)");
+
+    /* take-off needs a free field: a second being blocks it */
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    u = &world.units[11];
+    world.units[1].x = u->x;
+    world.units[1].y = u->y;
+    check(!world_take_off(&world, 11), "0b: no take-off with another being on the field");
+    world.units[1].x = 30;
+    world.units[1].y = 30;
+    u->ap = 5;
+    check(!world_take_off(&world, 11), "0b: take-off needs 6 AP");
+    u->ap = 24;
+    check(world_take_off(&world, 11), "0b: take-off with 6 AP and a free field");
+    /* landing: another being on the field blocks it too */
+    world.units[1].x = u->x;
+    world.units[1].y = u->y;
+    check(!world_land(&world, 11), "0b: no landing on an occupied field");
+}
+
 static void test_flight(void)
 {
     FieldLayers f;
@@ -905,8 +975,8 @@ static void test_flight(void)
           world_unit_at(&world, 14, 2, UL_AIR) == NO_UNIT,
           "fly: bat starts on the ground layer");
     check(!world_take_off(&world, 0), "fly: wizard cannot take off");
-    check(world_take_off(&world, 11) && world.units[11].ap == 18,
-          "fly: take-off costs 6 AP");
+    check(world_take_off(&world, 11) && world.units[11].ap == 46,
+          "fly: take-off costs 6 AP, 18 of 24 become 46 of 62 (K2)");
     check((world.units[11].flags & UF_FLYING) != 0 &&
           world_unit_at(&world, 14, 2, UL_AIR) == 11 &&
           world_unit_at(&world, 14, 2, UL_GROUND) == NO_UNIT,
@@ -917,12 +987,12 @@ static void test_flight(void)
               "fly: straight over anything");
     }
     check(world.units[11].x == 16 && world.units[11].y == 2 &&
-          world.units[11].ap == 10 && world_floor(&world, 16, 2) == FL_WATER,
+          world.units[11].ap == 38 && world_floor(&world, 16, 2) == FL_WATER,
           "fly: 2 air steps onto the river cost 8 AP");
     check(!world_land(&world, 11), "fly: no landing on water");
     check(world_move_unit(&world, 11, 1, 0) && world_land(&world, 11) &&
-          world.units[11].ap == 6,
-          "fly: landing on grass is free");
+          world.units[11].ap == 13,
+          "fly: landing is free, 34 of 62 become 13 of 24");
     check(world_unit_at(&world, 17, 2, UL_GROUND) == 11 &&
           !(world.units[11].flags & UF_FLYING),
           "fly: back on the ground layer");
@@ -1076,7 +1146,7 @@ static void test_combat(void)
         world.units[1].ap = 30;
         world.units[1].sta = 45;
         world.units[1].con = 32;
-        world.units[1].flags &= (uint8_t)~UF_WOUNDED;
+        world_set_wounds(&world.units[1], 0);
         if (combat_melee(&world, &rng, 0, 1, &r) && r.hit)
             seed_hits++;
     }
@@ -1151,9 +1221,13 @@ static void test_combat(void)
         world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
         world.unit_count = 1;
         world.units[0].con = world.units[0].con_max = 30;
-        world.units[0].flags |= UF_WOUNDED;
+        world_set_wounds(&world.units[0], 1);
         world_new_turn(&world);
-        check(world.units[0].con == 29, "combat: wounds bleed each round");
+        check(world.units[0].con == 28, "combat: a wound bleeds 2 con a round (R9)");
+        world_set_wounds(&world.units[0], 3);
+        world_new_turn(&world);
+        check(world.units[0].con == 22, "combat: three wounds bleed 6");
+        world_set_wounds(&world.units[0], 1);
         world.units[0].con = 1;
         world_new_turn(&world);
         check(world.unit_count == 0, "combat: bleeding to death removes the unit");
@@ -2211,7 +2285,7 @@ static void test_review_fixes(void)
         world.units[v].items[0] = OBJ_GOLD;
         world.units[v].item_count = 1;
         world.units[v].con = 1;
-        world.units[v].flags |= UF_WOUNDED;
+        world_set_wounds(&world.units[v], 1);
         v = world.units[v].id;
         world_new_turn(&world);
         check(world_find_unit(&world, v) == NO_UNIT && world.object_count == objs + 3,
@@ -2378,6 +2452,7 @@ static void test_m4a(void)
             uint8_t k, hit = 0;
             for (k = 0; k < 30; k++) {
                 world.units[0].ap = 40;
+                world.units[0].sta = 60;
                 world.units[0].con = 30;
                 world.units[1].con = 40;
                 rng_seed(&rng, 300 + k);
@@ -2413,7 +2488,7 @@ static void test_m4a(void)
         world.units[0].in_use = 0;
         world.units[0].sta = 5;
         check(items_eat(&world, 0) && world.units[0].con == 20 &&
-              world.units[0].sta == 43 &&   /* 5 - 2 for the AP + 40 */
+              world.units[0].sta == 45 &&   /* 5 + 40, eating costs no stamina */
               world.units[0].item_count == 0 && world.units[0].ap == 36,
               "m4a: eating an apple heals 10 Con and gives 40 stamina");
         world.units[0].items[0] = OBJ_MAGIC_MUSHROOM;
@@ -2532,7 +2607,7 @@ static void test_m4b(void)
                 world.units[0].ap = 40;
                 world.units[0].mana = 80;
                 book.level[SP_CURSE] = 4;
-                world.units[1].flags &= (uint8_t)~UF_WOUNDED;
+                world_set_wounds(&world.units[1], 0);
                 rng_seed(&rng, 400 + k);
                 cr = spell_apply(&world, &book, 0, SP_CURSE, 9, 5, &rng, &shot);
                 if (cr == CAST_OK && (world.units[1].flags & UF_WOUNDED))
@@ -2625,7 +2700,7 @@ static void test_m4b(void)
         u->sta = 15;                     /* not exhausted, recovery visible */
         world_new_turn(&world);
         check(u->ap == 80, "m4b: speed doubles AP");
-        check(u->sta == 60, "m4b: triple stamina recovery (15+45 capped)");
+        check(u->sta == 45, "m4b: speed recovers half the maximum (15+30)");
     }
 }
 
@@ -2668,7 +2743,7 @@ static void test_m4c(void)
         Unit *u = &world.units[0];
         u->con = 10;
         u->sta = 0;
-        u->flags |= UF_WOUNDED;
+        world_set_wounds(u, 1);
         u->ap = 40;
         check(brew_drink(&world, 0) && u->con == 30 && u->sta == 60 &&
               !(u->flags & UF_WOUNDED),
@@ -4061,7 +4136,7 @@ static void test_m4i(void)
         memcpy(buf, "XXXX", 4);
         check(!save_deserialize(&b, buf, len), "m4i: wrong magic refused");
         len = save_serialize(&a, buf, sizeof buf);
-        buf[5] = 9;
+        buf[5] = 10;
         check(!save_deserialize(&b, buf, len), "m4i: wrong version refused");
         check(!save_deserialize(&b, buf, (uint16_t)(len - 1)),
               "m4i: wrong length refused");
@@ -4429,7 +4504,7 @@ static void test_m5c_events(void)
     /* bleeding out reports a death with the bleed flag */
     events_reset();
     load_house();
-    world.units[0].flags |= UF_WOUNDED;
+    world_set_wounds(&world.units[0], 1);
     world.units[0].con = 1;
     world_new_turn(&world);
     n = events_drain(ev, EVENT_RING);
@@ -4511,6 +4586,7 @@ static void test_c1_c2(void)
         uint8_t n;
         for (n = 0; n < 12 && world.feature[5][6] == FE_DOOR_LOCKED; n++) {
             world.units[0].ap = 62;
+            world.units[0].sta = 100;
             combat_terrain(&world, &rng, 0, 6, 5, &destroyed);
         }
     }
@@ -4934,6 +5010,7 @@ static void test_m5e_balance(void)
             rng_seed(&rng, 5000 + k);
             world.units[0].ap = 40;
             world.units[0].con = 30;
+            world.units[0].sta = 100;
             world.units[1].con = 250;      /* a punching bag that survives */
             world.units[1].con_max = 250;
             world.units[1].reacted = true;   /* its counter stays off */
@@ -4975,6 +5052,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_turn();
     test_sight();
     test_flight();
+    test_0b();
     test_bump_and_look();
     test_combat();
     test_spells();

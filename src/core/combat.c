@@ -39,14 +39,14 @@ bool combat_damage(World *w, uint8_t target, uint8_t damage, uint8_t killer_kind
                    uint8_t killer_owner, bool melee, bool *wound, bool crit)
 {
     Unit *u = &w->units[target];
-    bool wounded = damage > u->con_max / 4;   /* fatal wound (PM 17) */
+    bool wounded = damage > u->con_max / 4 && u->wounds < 7;   /* K6.3 */
     world_provoke(w, target, killer_owner);
     world_disturb(w, u->x, u->y, killer_owner);    /* D37 */
     if (wound)
         *wound = wounded;
     events_push(EV_HIT, u->x, u->y, u->kind, u->owner, damage, crit ? 1 : 0);
     if (wounded) {
-        u->flags |= UF_WOUNDED;
+        world_set_wounds(u, (uint8_t)(u->wounds + 1));
         events_push(EV_WOUND, u->x, u->y, u->kind, u->owner, 0, 0);
     }
     if (damage >= u->con) {
@@ -83,10 +83,10 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
         return false;
     if ((d->flags & UF_FLYING) && !(a->flags & UF_FLYING))
         return false;                      /* no melee against flyers from the ground */
-    if (a->ap < ACTIONS[ACT_MELEE].ap)
-        return false;
+    if (!world_can_pay(w, att, ACT_MELEE))
+        return false;                      /* 8 AP and 8 stamina (K6.2) */
 
-    world_spend(w, att, ACTIONS[ACT_MELEE].ap);
+    world_pay(w, att, ACT_MELEE);
     world_provoke(w, def, a->owner);       /* even a miss angers an animal */
     world_disturb(w, d->x, d->y, a->owner);
     world_engage(w, att);                  /* melee contact binds both (GDD 6) */
@@ -238,9 +238,9 @@ uint8_t combat_terrain(World *w, Rng *rng, uint8_t att, int16_t x, int16_t y,
     fe = w->feature[y][x];
     if (!world_blocks(w, x, y) || FEATURE_TOUGH[fe] == 0)
         return 0;                          /* nothing destructible to hit */
-    if (u->ap < ACTIONS[ACT_MELEE].ap)
+    if (!world_can_pay(w, att, ACT_MELEE))
         return 0;
-    world_spend(w, att, ACTIONS[ACT_MELEE].ap);
+    world_pay(w, att, ACT_MELEE);
     events_push(EV_SWING, x, y, u->kind, u->owner, 0, 1);
     dmg = roll_damage(w, u, rng, false);   /* no crits against furniture */
     if ((uint16_t)(dmg + rng_range(rng, 4)) > FEATURE_TOUGH[fe]) {

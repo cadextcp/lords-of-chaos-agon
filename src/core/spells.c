@@ -127,7 +127,7 @@ uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
         dragon_herb_spend = false;       /* failed: the herb survives */
     else if (dragon_herb_spend)
         brew_dragon_spend(w, wiz);
-    world_spend(w, wiz, ACTIONS[ACT_CAST].ap);
+    world_pay(w, wiz, ACT_CAST);
     w->units[wiz].mana = (uint8_t)(u->mana - mana);
     if (want)                             /* summons spend no level (D34) */
         events_push(EV_SPELL, u->x, u->y, spell, u->owner, 0, 0);
@@ -196,7 +196,7 @@ static bool pay_for_spell(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
         return false;
     level = b->level[spell];
     mana = spell_mana(spell, level);
-    world_spend(w, wiz, ACTIONS[ACT_CAST].ap);
+    world_pay(w, wiz, ACT_CAST);
     w->units[wiz].mana = (uint8_t)(w->units[wiz].mana - mana);
     b->level[spell] = (uint8_t)(level - 1);
     events_push(EV_SPELL, x, y, spell, w->units[wiz].owner, 0, 0);
@@ -397,7 +397,7 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
         }
         out->allowed = true;
         out->hit = true;
-        w->units[target].flags |= UF_WOUNDED;
+        world_set_wounds(&w->units[target], 7);   /* curse: 7 wounds (K5.3) */
         return CAST_OK;
     }
 

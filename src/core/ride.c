@@ -39,7 +39,7 @@ bool ride_mount(World *w, uint8_t rider, int16_t x, int16_t y)
     /* the mount absorbs the rider: it keeps its own AP/stamina, the
      * rider rides along with his pack (PM 10), his mana and his own
      * values (D60) - nothing is lost or healed by mounting */
-    world_spend(w, rider, ACTIONS[ACT_RIDE].ap);
+    world_pay(w, rider, ACT_RIDE);
     m->flags |= UF_RIDDEN;
     m->rider_kind = r->kind;
     m->rider_con = r->con;
@@ -122,7 +122,7 @@ bool ride_dismount(World *w, uint8_t mounted)
         if (put_rider(w, m, nx, ny) == NO_UNIT)
             return false;
         m = &w->units[mounted];          /* spawning appends: index holds */
-        world_spend(w, mounted, ACTIONS[ACT_DISMOUNT].ap);
+        world_pay(w, mounted, ACT_DISMOUNT);
         m->item_count = 0;
         m->in_use = NO_ITEM;
         m->mana = m->mana_max = 0;

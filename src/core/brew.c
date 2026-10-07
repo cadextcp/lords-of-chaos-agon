@@ -190,7 +190,7 @@ static bool apply_potion(World *w, uint8_t unit, uint8_t potion, uint8_t level)
     case SP_HEALING_POTION:
         u->con = u->con_max;             /* heals wounds too (GDD 7.2) */
         u->sta = u->sta_max;
-        u->flags &= (uint8_t)~UF_WOUNDED;
+        world_set_wounds(u, 0);
         return true;
     default:
         return false;                    /* bombs are not for drinking */
@@ -219,7 +219,7 @@ bool brew_cast(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
     if (!need_found)
         return false;                    /* ingredient missing (GDD 7.2) */
     level = b->level[spell];
-    world_spend(w, wiz, ACTIONS[ACT_CAST].ap);
+    world_pay(w, wiz, ACT_CAST);
     u->mana = (uint8_t)(u->mana - spell_mana(spell, level));
     b->level[spell] = (uint8_t)(level - 1);
     events_push(EV_SPELL, u->x, u->y, spell, u->owner, 0, 0);
@@ -265,7 +265,7 @@ bool brew_drink(World *w, uint8_t unit)
         return false;
     if (u->ap < ACTIONS[ACT_DRINK].ap)
         return false;
-    world_spend(w, unit, ACTIONS[ACT_DRINK].ap);
+    world_pay(w, unit, ACT_DRINK);
     if (!apply_potion(w, unit, c->potion, c->level ? c->level : 1))
         return false;
     if (--c->doses == 0)                 /* drunk empty */
@@ -289,7 +289,7 @@ bool brew_fill(World *w, uint8_t unit)
         return false;
     if (u->ap < ACTIONS[ACT_FILL].ap)
         return false;
-    world_spend(w, unit, ACTIONS[ACT_FILL].ap);
+    world_pay(w, unit, ACT_FILL);
     kind = c->potion == SP_BOMB_POTION ? OBJ_VIAL_BOMB : 0xFF;
     for (i = 0; i < sizeof VIALS / sizeof VIALS[0]; i++)
         if (VIALS[i].potion == c->potion)
@@ -316,7 +316,7 @@ bool brew_drink_vial(World *w, uint8_t unit)
         return false;
     if (u->ap < ACTIONS[ACT_DRINK].ap)
         return false;
-    world_spend(w, unit, ACTIONS[ACT_DRINK].ap);
+    world_pay(w, unit, ACT_DRINK);
     if (!apply_potion(w, unit, potion, 2))
         return false;
     u->items[u->in_use] = u->items[u->item_count - 1];
@@ -341,7 +341,7 @@ bool brew_throw_vial(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
         return false;
     if (u->ap < ACTIONS[ACT_THROW].ap)
         return false;
-    world_spend(w, unit, ACTIONS[ACT_THROW].ap);
+    world_pay(w, unit, ACT_THROW);
     u->items[u->in_use] = u->items[u->item_count - 1];
     u->item_count--;
     u->in_use = NO_ITEM;

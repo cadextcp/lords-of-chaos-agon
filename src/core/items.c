@@ -89,7 +89,7 @@ bool items_pick_up_object(World *w, uint8_t unit, uint8_t obj)
         return false;                    /* too heavy (GDD 8) */
     if (u->ap < ACTIONS[ACT_PICK_UP].ap)
         return false;
-    world_spend(w, unit, ACTIONS[ACT_PICK_UP].ap);
+    world_pay(w, unit, ACT_PICK_UP);
     u->items[u->item_count++] = kind;
     remove_ground_object(w, obj);
     return true;
@@ -107,7 +107,7 @@ bool items_drop(World *w, uint8_t unit)
         return false;
     if (u->ap < ACTIONS[ACT_DROP].ap)
         return false;
-    world_spend(w, unit, ACTIONS[ACT_DROP].ap);
+    world_pay(w, unit, ACT_DROP);
     kind = u->items[u->in_use];
     u->items[u->in_use] = u->items[u->item_count - 1];
     u->item_count--;
@@ -145,7 +145,7 @@ bool items_cycle(World *w, uint8_t unit)
         return false;                    /* nothing else to wield */
     if (u->ap < ACTIONS[ACT_CHANGE].ap)
         return false;
-    world_spend(w, unit, ACTIONS[ACT_CHANGE].ap);
+    world_pay(w, unit, ACT_CHANGE);
     u->in_use = pos == n ? NO_ITEM : pos;
     return true;
 }
@@ -211,7 +211,7 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
         return false;
     kind = u->items[u->in_use];
     weapon = OBJECTS[kind].weapon;
-    world_spend(w, unit, ACTIONS[ACT_THROW].ap);
+    world_pay(w, unit, ACT_THROW);
     u->items[u->in_use] = u->items[u->item_count - 1];
     u->item_count--;
     u->in_use = NO_ITEM;
@@ -300,7 +300,7 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
         target = world_unit_at(w, tx, ty, UL_AIR);
     if (target == NO_UNIT)
         return false;
-    world_spend(w, unit, ACTIONS[ACT_FIRE].ap);
+    world_pay(w, unit, ACT_FIRE);
     events_push(EV_PROJECTILE, u->x, u->y, PJ_ARROW, u->owner,
                 (uint8_t)(int8_t)dx, (uint8_t)(int8_t)dy);
     if (items_can_harm_undead(w, unit, target)) {
@@ -416,7 +416,7 @@ bool items_eat(World *w, uint8_t unit)
         return false;
     if (u->ap < ACTIONS[ACT_EAT].ap)
         return false;
-    world_spend(w, unit, ACTIONS[ACT_EAT].ap);
+    world_pay(w, unit, ACT_EAT);
     {
         uint8_t heal = OBJECTS[kind].eat_con;
         uint8_t mana = OBJECTS[kind].eat_mana;
@@ -451,7 +451,7 @@ const char *items_read(World *w, uint8_t unit)
         return NULL;
     if (u->ap < ACTIONS[ACT_READ].ap)
         return NULL;
-    world_spend(w, unit, ACTIONS[ACT_READ].ap);
+    world_pay(w, unit, ACT_READ);
     u->items[u->in_use] = u->items[u->item_count - 1];   /* read away */
     u->item_count--;
     u->in_use = NO_ITEM;
@@ -491,7 +491,7 @@ bool items_open_chest(World *w, Rng *rng, uint8_t unit, int16_t x, int16_t y)
         return false;
     if (!(CREATURES[ride_actor_kind(u)].flags & CF_USE))
         return false;                    /* hands needed */
-    world_spend(w, unit, ap);
+    world_spend_ap(w, unit, ap);
     if (kind != NO_ITEM) {               /* keys vanish after use (GDD 8) */
         u->items[kind] = u->items[u->item_count - 1];
         u->item_count--;
