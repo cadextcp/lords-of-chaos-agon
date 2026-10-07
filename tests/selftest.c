@@ -281,9 +281,11 @@ static void test_stats_and_names(void)
 
 static void test_data(void)
 {
-    check(spell_mana(SP_GIANT_BAT, 0) == 5 && spell_mana(SP_GIANT_BAT, 3) == 11,
-          "data: giant bat mana 5 + 2/level");
-    check(spell_mana(SP_GOLD_DRAGON, 8) == 231, "data: gold dragon level 8 = 231");
+    check(spell_mana(SP_GIANT_BAT, 1) == 4 && spell_mana(SP_GIANT_BAT, 3) == 8,
+          "data: giant bat mana 2 * (L+1)");
+    check(spell_mana(SP_GOLD_DRAGON, 8) == 207, "data: gold dragon level 8 = 207");
+    check(spell_mana(SP_MAGIC_BOLT, 0) == 1 && spell_mana(SP_MAGIC_SHIELD, 2) == 6,
+          "data: bolt and shield mana from K5.2");
     check(SPELLS[SP_SUPER_POTION].amiga == 0 && SPELLS[SP_BOMB_POTION].known == 0,
           "data: super potion not on Amiga, bomb potion cost unknown");
     check(FLOOR_AP[FL_PATH] == 3 && FLOOR_AP[FL_STONE] == 4, "data: floor costs from costs.csv");
@@ -1406,14 +1408,14 @@ static void test_spells(void)
               world.units[1].con_max == (uint8_t)(bat->con * 115 / 100) &&
               world.units[1].con == world.units[1].con_max,
               "d34: level 2 = +15 % combat, defence, constitution");
-        check(world.units[0].ap == 32 && world.units[0].mana == 73 &&
+        check(world.units[0].ap == 32 && world.units[0].mana == 76 &&
               book.level[SP_GIANT_BAT] == 2,
-              "d34: 8 AP, the level-1 mana (7), the level stays");
+              "d34: 8 AP, the level-1 mana (4), the level stays");
         check(spell_summon(&world, &book, 0, SP_GIANT_BAT) == 1 &&
-              world.units[0].mana == 66 && book.level[SP_GIANT_BAT] == 2,
+              world.units[0].mana == 72 && book.level[SP_GIANT_BAT] == 2,
               "d34: summons can be cast again (no charges)");
         world_remove_unit(&world, 2);
-        world.units[0].mana = 73;
+        world.units[0].mana = 72;
     }
 
     {   /* no room: mana lost, nothing appears (GDD 7.2) */
@@ -1428,7 +1430,7 @@ static void test_spells(void)
         }
         world.units[0].ap = 40;
         check(spell_summon(&world, &book, 0, SP_GIANT_BAT) == 0 &&
-              world.units[0].mana == 73 - 7 && book.level[SP_GIANT_BAT] == 2,
+              world.units[0].mana == 72 - 4 && book.level[SP_GIANT_BAT] == 2,
               "spells: without room the mana is lost");
     }
 }
@@ -2658,7 +2660,7 @@ static void test_m4c(void)
               (c = brew_cauldron_at(&world, 6, 6)) != NULL &&
               c->doses == 5 && c->potion == SP_HEALING_POTION &&
               book.level[SP_HEALING_POTION] == 1 &&
-              world.units[0].mana == 80 - (5 + 2 * 3),
+              world.units[0].mana == 80 - 3,
               "m4c: brewing fills level+3 doses and burns one level");
     }
 

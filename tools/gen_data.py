@@ -57,9 +57,10 @@ def main() -> int:
     creatures = rows("creatures.csv")
     actions = rows("actions.csv")
     for r in spells:   # unknown values (e.g. Amiga bomb potion) -> 0, flagged
-        r["known"] = "1" if r["mana_base"] else "0"
-        r["mana_base"] = r["mana_base"] or "0"
-        r["mana_step"] = r["mana_step"] or "0"
+        r["known"] = "1" if r["mana"] else "0"
+        r["mana"] = r["mana"] or "0"
+        r["xp_base"] = r["xp_base"] or "0"
+        r["xp_step"] = r["xp_step"] or "0"
         r.setdefault("design_cost", "0")   # designer XP price, 0 = none
     for r in spells + weapons:  # damage dice columns (D28), optional
         for col in ("dice_n", "die", "splash_n", "splash_die"):
@@ -90,7 +91,8 @@ def main() -> int:
     h += ["typedef struct {",
           "    const char *name;",
           "    uint8_t category;   /* SpellCategory */",
-          "    uint8_t mana_base, mana_step;   /* mana(level) = base + level * step */",
+          "    uint8_t mana;                  /* mana(L) = mana * (L + 1), K5.2 */",
+          "    uint8_t xp_base, xp_step;      /* designer XP price table */",
           "    uint8_t design_cost;           /* designer XP price of level 1 (F6) */",
           "    uint8_t dice_n, die;            /* direct damage dice (D28) */",
           "    uint8_t splash_n, splash_die;   /* per-neighbour splash dice */",
@@ -166,7 +168,7 @@ def main() -> int:
           for i, f in enumerate(feat_ids)]
     c += ["};", "", "const SpellDef SPELLS[SPELL_COUNT] = {"]
     c += [f"    [SP_{r['id'].upper()}] = {{{cstr(r['name'])}, {CATEGORIES[r['category']]}, "
-          f"{int(r['mana_base'])}, {int(r['mana_step'])}, "
+          f"{int(r['mana'])}, {int(r['xp_base'])}, {int(r['xp_step'])}, "
           f"{int(r['design_cost'])}, "
           f"{int(r['dice_n'])}, {int(r['die'])}, {int(r['splash_n'])}, {int(r['splash_die'])}, "
           f"{1 if r['amiga'] == 'yes' else 0}, "

@@ -661,7 +661,7 @@ static uint16_t summon_cost(uint8_t kind)
     uint16_t s;
     for (s = 0; s < SPELL_COUNT; s++)
         if (SUMMON_KIND[s] == kind)
-            return (uint16_t)(SPELLS[s].mana_base + SPELLS[s].mana_step);
+            return (uint16_t)(SPELLS[s].mana * 2);
     return 0;
 }
 

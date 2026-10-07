@@ -2,6 +2,15 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Regeln wie im Original, Schritt 0a: Mana (D67) (2026-10-07)
+
+### Geändert
+- **Mana-Kosten `Basis × (L+1)`** nach der Tabelle K5.2 des Originals (Giant Bat Stufe 1 = 4, Magic Bolt Stufe 0 = 1). Die bisherigen Werte in `data/spells.csv` hießen `mana_base`/`mana_step`, waren aber die Designer-XP-Preise; sie heißen jetzt `xp_base`/`xp_step`, die neue Spalte `mana` trägt die Basis.
+- Zauberer-Info im Designer zeigt `Mana L1:<Basis> x(Stufe+1)`.
+
+### Intern
+- Selftests (d34, Brauen, Beschwören ohne Platz) auf die neuen Kosten umgestellt.
+
 ## [Unreleased] – Abgleich mit dem Spectrum-Original (D66) (2026-10-06)
 
 ### Geändert
