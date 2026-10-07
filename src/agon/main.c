@@ -1515,16 +1515,16 @@ static void designer_attrs(Wizard *w)
             snprintf(buf, sizeof buf, "%c %-14.14s %3u  %u XP",
                      i == cursor ? '>' : ' ', ATTRS[i],
                      wizard_attr(w, (WizardAttr)i),
-                     wizard_attr_cost((WizardAttr)i, 0));
+                     wizard_attr_cost((WizardAttr)i, wizard_attr(w, (WizardAttr)i)));
             render_menu_line(3, (uint8_t)(4 + i), C_BRIGHT_WHITE, buf);
         }
         snprintf(buf, sizeof buf, "%c %-14.14s %3u  %u XP",
                  cursor == WA_COUNT ? '>' : ' ', "Mana", w->mana_max,
-                 wizard_mana_cost());
+                 wizard_mana_cost(w));
         render_menu_line(3, (uint8_t)(4 + WA_COUNT), C_BRIGHT_WHITE, buf);
         snprintf(buf, sizeof buf, "%c %-14.14s %3u  %u XP",
                  cursor == WA_COUNT + 1 ? '>' : ' ', "Aktionspunkte", w->ap,
-                 wizard_ap_cost());
+                 wizard_ap_cost(w));
         render_menu_line(3, (uint8_t)(5 + WA_COUNT), C_BRIGHT_WHITE, buf);
         render_menu_line(1, 14, C_GREY, "Links/Rechts: -/+   Esc: zurueck");
         while (!input_poll(&e))
@@ -1597,7 +1597,7 @@ static void designer_shop(Wizard *w, uint8_t page)
                  w->xp);
         render_menu_line(1, 2, C_BRIGHT_WHITE, buf);
         snprintf(buf, sizeof buf, "  %-20.20s %s Preis", "Name",
-                 page == PG_CREATURES ? "Stf" : "Anz");   /* D34 */
+                 "Anz");   /* the level is the number of creatures per cast (K5.3) */
         render_menu_line(2, 3, C_BRIGHT_YELLOW, buf);
         for (row = 0; row < SHOP_ROWS; row++) {
             uint8_t s;
@@ -2425,7 +2425,7 @@ dispatch:
                                 render_message(1, C_BRIGHT_RED,
                                                "Brauen braucht Kessel und Zutat.");
                         } else if (SPELLS[i].category == SPC_SUMMON) {
-                            uint8_t got = spell_summon(&world, &books[OWN_P1], wiz, (uint8_t)i);
+                            uint8_t got = spell_summon(&world, &books[OWN_P1], wiz, (uint8_t)i, &turns.rng);
                             if (got) {
                                 if (tutorial_on)
                                     tutorial_notify(&tut, TUT_SPELL);

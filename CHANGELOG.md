@@ -58,6 +58,18 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ### Intern
 - `area.c` neu geschrieben (`area_set`, `area_cast` mit Zufall, `area_level`, `area_toughness`, `area_remove_field`); `items_can_fire`, `items_fire_range`, `items_throw_range`; `test_m4d` und `test_0e`.
 
+## [Unreleased] – Regeln wie im Original, Schritt 0f: Beschwören und Designer (D67) (2026-10-07)
+
+### Geändert
+- **Beschwören (K5.3), ersetzt D34:** Ein Zauber auf Stufe `L` ruft **L Kreaturen** (je bis zu 40 Versuche für ein zufälliges freies Nachbarfeld), kostet `Mana × (L+1)` und **verbraucht eine Stufe**. Gibt es kein freies Feld, sind Mana und Stufe weg. Beschworene haben die Tabellenwerte (kein +15 % je Stufe mehr). `spell_summon` bekommt den Zufallsgenerator.
+- **Designer-Preise (K3.3):** Ein Attributpunkt kostet `⌊Wert/Teiler⌋` XP (Combat/Defence 2, MR 16, Constitution 10, Ausdauer 8, Mana 10, AP 4). Höchstwerte: Combat/Defence 30, MR 100, Constitution/Ausdauer 90, Mana 200, AP 40. Ein Zauberlevel von `L` auf `L+1` kostet `xp_base + xp_step × L` (Tabelle K5.2, alle Zauber, bis Stufe 8; die Bombe ist nicht käuflich). Die Spalte `design_cost` entfällt.
+- **Standardvorlage** kauft die Grundzauber und acht Kreaturen und gibt den Rest reihum in die Attribute, immer innerhalb der 600 XP.
+- **Zufallszauberer (K3.2):** Combat 6, Defence 6, MR 90, jeder Zauber `RND(3)` (0–2), keine XP; die Stärke aus dem Setup wirkt nicht mehr.
+- Beschwörungsliste im Designer: Spalte „Anz“.
+
+### Intern
+- Die KI beschwört weiter bis zu 5 Kreaturen (D62), zählt aber jetzt die tatsächlich erschienenen.
+
 ## [Unreleased] – Regeln wie im Original, Schritt 0a: Mana (D67) (2026-10-07)
 
 ### Geändert
