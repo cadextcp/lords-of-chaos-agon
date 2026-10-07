@@ -1,11 +1,20 @@
 # Übergabe: Stand und nächste Schritte
 
-> Stand: 2026-10-06 abends · **M0–M5 vollständig**, Polish-Runde, Playtest-Runden A–C, **Level 1 als Nachtkarte (D54–D58)**, **Playtest 2026-10-06 (D59–D63)** und **Level 1 auf 46×46 (D64)** · bis #148 · CI grün · `loc.bin` ~250 KB, RAM-Reserve 97 KB
+> Stand: 2026-10-07 · **D67 umgesetzt (Regeln und KI wie im Original, ungemergt, gestapelte PRs #153–#163)** · davor 2026-10-06 abends · **M0–M5 vollständig**, Polish-Runde, Playtest-Runden A–C, **Level 1 als Nachtkarte (D54–D58)**, **Playtest 2026-10-06 (D59–D63)** und **Level 1 auf 46×46 (D64)** · bis #148 · CI grün · `loc.bin` ~250 KB, RAM-Reserve 97 KB
 > Für die nächste Person bzw. den nächsten Agenten. Zuerst `CLAUDE.md` lesen (Regeln, Befehle), dann dieses Dokument.
 
 ---
 
-## 0. Stand 2026-10-06 abends
+## 0. Stand 2026-10-07: Regeln und KI wie im Original (D67)
+
+Nutzerauftrag: „alles wie im Original“, autonom abarbeiten, Fragen notieren statt abbrechen. **Alles ist gebaut, Host- und eZ80-Selftest grün, aber nichts ist angespielt, nichts gemergt.** Die PRs sind gestapelt (jeder hat den vorigen als Basis): #153 (0a Mana) → #154 (0b Zustände) → #155 (0c Nahkampf) → #156 (0d Zauber) → #157 (0e Flächen/Fernwaffen) → #158 (0f Beschwören/Designer) → #159 (0g Wertung, Kartenformat v5) → #160 (0h Sicht) → #161 (KI 1 Kreaturen) → #162 (KI 2 Zauberer, Szenario v2) → #163 (KI 3 Duell). **Mergen nur der Reihe nach mit Merge-Commits** (Fallstrick 21), Basis-Branches erst am Ende löschen.
+
+- **Offene Annahmen und Fragen an den Nutzer:** `docs/FRAGEN.md` (F1–F30). Wichtigste: Zähigkeiten der Möbel (F5), Flieger-Nahkampf (F6/F23), Routen auf eigenen Karten neu entworfen (F27), keine schlafenden Wächter gesetzt (F28).
+- **Zuerst tun:** (1) Im Emulator und auf der Hardware anspielen: Kampf (Gebunden, Rückschlag 4/4), Zauber mit neuer Reichweite (2L+7), Feuer/Blob/Flut, Sicht (Achteck, Flieger über Dächern), KI-Zauberer (Torquemada), Reiter mit eigenen AP. (2) **KI-Laufzeit auf der Hardware messen** (`loc --bench`): die Entscheidungsschleife baut je Durchgang eine Sichtliste und ruft bei Hindernissen die Breitensuche; der Bench aus Fallstrick-Liste misst es noch nicht. (3) Schwierigkeit: `build/host/duel` (Aufruf im Kopf von `host/duel.c`) zeigt, dass der Gegner mit Originalwerten den Standardzauberer meist schlägt.
+- **Neu im Code:** `ai_creature.c`/`ai_items.c`/`ai_nav.c`/`ai_wizard.c`/`ai_priv.h` (K10), `sight_sees`/Achteck/`vis_*` in `sight.c` (K11), `area.c` neu (K5.3), Spielstand **v10**, Kartenformat **v5**, Szenariodatei **v2** (`data/scenarios`: `wizard`, `book … prio`, `route`, `plan`, `trigger`), `data/ai_items.csv`, `data/terrain_effects.csv`, `data/weapons.csv` mit Originalwerten. SD-Karte neu bespielen (Karten, Szenarien).
+- **Fallstrick 22 (neu): Der eZ80-Selftest hat nur ~20 KB für Heap und Stack.** Große Strukturen (`SaveGame`, `World`) in Tests nie als lokale Variable; ein Absturz zeigt sich als endloser MOS-Neustart („Agon Console8 MOS Version“ wiederholt) und Timeout. `PYTHONIOENCODING=utf-8` setzen, wenn `test.py -v` bei Timeout druckt.
+
+## 0a. Stand 2026-10-06 abends
 
 ### Was heute dazukam
 
@@ -315,6 +324,7 @@ Danach: M6/Chaos laut `docs/ROADMAP.md` (GDD §12), oder Politur aus §8.
 
 | Thema | Datei |
 |---|---|
+| Offene Annahmen der Umsetzung von D67 | `docs/FRAGEN.md` |
 | Spieldesign, Entscheidungen D1–D67, M4-Plan | `docs/design/GDD.md` (§14, §16) |
 | **Originalregeln (Spectrum)**, Quelle der Wahrheit für D66/D67 | `docs/REGELN-ORIGINAL-SPECTRUM.md` (Kopie aus `lords-of-chaos-zx-agon`) |
 | Vergleich unserer Regeln mit dem Original, Vorschläge R1–R39 | `docs/REGELVERGLEICH-SPECTRUM.md` |
