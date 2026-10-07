@@ -92,6 +92,7 @@ static TargetKind target_kind;
 static uint8_t target_spell;
 static int16_t target_x, target_y;
 static Spellbook books[OWN_NEUTRAL];   /* starting books until M3g */
+static AiProfile ai_profiles[OWN_NEUTRAL];   /* the AI wizard of the scenario (K10.2) */
 static Lexicon lex;                    /* discoveries, kept in lexicon.dat */
 static Tutorial tut;                   /* guided tutorial engine (M5) */
 static bool tutorial_on;               /* the tutorial scenario is running */
@@ -2151,6 +2152,7 @@ int main(int argc, char **argv)
         static AiCtx ai_ctx;              /* books + game for the wizard AI */
         ai_ctx.books = books;
         ai_ctx.game = &game;
+        ai_ctx.profiles = ai_profiles;
         turns.ai = ai_wizard_phase;
         turns.ai_ctx = &ai_ctx;
         turns.on_round = on_round;
@@ -2163,6 +2165,8 @@ int main(int argc, char **argv)
               world.portal_rmax, &turns.rng);   /* portal from the map (v5) */
     game_set_portal_span(&game, world.portal_span);
     game_set_wizard_level(&game, OWN_P1, wizard_slots[0].level);
+    if (scnfile_ai(&world, ai_profiles))
+        ai_profile_apply(ai_profiles, &world, &game, OWN_P2);
     game_new_round(&game, turns.round);
     view_set_portal(game.portal_open ? game.portal_x : -1, game.portal_y);
     if (free_round1)
@@ -2226,6 +2230,8 @@ menu_start:
                       world.portal_rmax, &turns.rng);
             game_set_portal_span(&game, world.portal_span);
             game_set_wizard_level(&game, OWN_P1, wizard_slots[0].level);
+            if (scnfile_ai(&world, ai_profiles))
+                ai_profile_apply(ai_profiles, &world, &game, OWN_P2);
             game_new_round(&game, turns.round);
             view_set_portal(game.portal_open ? game.portal_x : -1, game.portal_y);
             if (free_round1)
@@ -2234,6 +2240,7 @@ menu_start:
                 static AiCtx ai_ctx2;
                 ai_ctx2.books = books;
                 ai_ctx2.game = &game;
+                ai_ctx2.profiles = ai_profiles;
                 turns.ai = ai_wizard_phase;
                 turns.ai_ctx = &ai_ctx2;
                 turns.on_round = on_round;

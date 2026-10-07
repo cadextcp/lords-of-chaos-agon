@@ -4,6 +4,7 @@
 
 #include <stdbool.h>
 
+#include "../core/ai.h"
 #include "../core/lexicon.h"
 #include "../core/spells.h"
 #include "../core/world.h"
@@ -19,6 +20,9 @@ bool mapfile_exists(const char *path);
 /* Load a compiled scenario (.scn, M4a) with the spellbooks of all
  * wizards. False when missing or invalid. */
 bool scnfile_load(Spellbook *books, const char *path);
+/* The AI part of the scenario file loaded last (wizard values, priorities,
+ * routes, plans, triggers); load the map first. */
+bool scnfile_ai(World *w, AiProfile *profiles);
 /* Wizard slots: all 4 in one file "/wizards.dat" (M4f). load returns
  * false when the file is missing, has another layout or holds invalid
  * values (the caller then falls back to the stock wizards). */

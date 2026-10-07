@@ -3,7 +3,7 @@
 > Stand 2026-10-07 · Wunsch des Nutzers: „Mach einen Plan für die schlauere KI.“ Entscheidung am 2026-10-07: **„Alles wie im Original.“**
 > Grundlage: `docs/REGELVERGLEICH-SPECTRUM.md` (Vorschläge R1–R39) und `docs/REGELN-ORIGINAL-SPECTRUM.md` (Kopie aus `lords-of-chaos-zx-agon`) einschließlich K10 (KI) und K11 (Sicht, Schusslinie, „angebunden“), Stand `06890b5`.
 > Dritte Fassung vom 2026-10-07: Beschwörungsgrenzen, Mana-Schwelle und Startplätze (K10.2, K10.5) sind beantwortet, es bleibt keine offene Frage an den Quellcode. Zweite Fassung nach den Nachträgen: Abheben und Landen (K8.1, K8.4, K10.3), Sicht und Schusslinie (K11), „angebunden“ (K11.7), Teleport-Bedingung (K5.3).
-> Dieses Dokument ist ein **Plan**, es ändert noch keinen Code. Die Entscheidung steht im GDD als D67.
+> Dieses Dokument war ein **Plan**; **umgesetzt am 2026-10-07** (PRs 0a–0h, KI 1–3, siehe CHANGELOG). Abweichungen und Annahmen stehen in `docs/FRAGEN.md`. Die Entscheidung steht im GDD als D67.
 
 ---
 

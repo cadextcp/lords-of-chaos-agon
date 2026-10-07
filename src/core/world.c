@@ -158,6 +158,8 @@ bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
             w->units[i].post_y = w->units[i].y;
     w->portal_x = w->portal_y = -1;      /* v2 maps carry no portal */
     w->portal_rmin = w->portal_rmax = w->portal_span = 0;
+    w->route_n = w->route_summon_n = w->trig_n = 0;
+    memset(w->trig_fired, 0, sizeof w->trig_fired);
     if (b[4] >= 5 && pos + 5 <= len) {   /* v5: portal x y rmin rmax span */
         if (b[pos] != 0xFF) {            /* 0xFF = no portal (filler) */
             w->portal_x = b[pos];
@@ -196,6 +198,14 @@ bool world_has_roof(const World *w, int16_t x, int16_t y)
         return false;
     cell = (uint16_t)(y * w->w + x);
     return (w->roof[cell >> 3] & (uint8_t)(0x80u >> (cell & 7))) != 0;
+}
+
+void world_poke(World *w, int16_t x, int16_t y)
+{
+    uint8_t i;
+    for (i = 0; i < w->trig_n; i++)
+        if (w->trig_x[i] == x && w->trig_y[i] == y && w->trig_id[i] < 64)
+            w->trig_fired[w->trig_id[i] >> 3] |= (uint8_t)(1u << (w->trig_id[i] & 7));
 }
 
 void world_map_changed(World *w)
@@ -974,6 +984,7 @@ bool world_open_door(World *w, uint8_t unit, int16_t x, int16_t y)
     if (leaf != FE_NONE)
         w->feature[ly][lx] = leaf;
     world_map_changed(w);                /* static view layers change */
+    world_poke(w, x, y);
     return true;
 }
 
@@ -1006,6 +1017,7 @@ static bool door_change(World *w, uint8_t unit, int16_t x, int16_t y,
     world_pay(w, unit, action);
     w->feature[y][x] = to;
     world_map_changed(w);
+    world_poke(w, x, y);
     return true;
 }
 

@@ -16,6 +16,7 @@
 
 static uint8_t buf[MAPFILE_MAX];
 static uint8_t scnbuf[SCNFILE_MAX];
+static uint16_t scn_len;      /* what scnbuf holds right now */
 
 bool mapfile_load(World *w, const char *path)
 {
@@ -49,7 +50,13 @@ bool scnfile_load(Spellbook *books, const char *path)
     mos_fclose(fh);
     if (len == 0 || len >= sizeof scnbuf)
         return false;
+    scn_len = (uint16_t)len;
     return spellbook_load(books, scnbuf, (uint16_t)len);
+}
+
+bool scnfile_ai(World *w, AiProfile *profiles)
+{
+    return scn_len != 0 && ai_scenario_load(w, profiles, scnbuf, scn_len);
 }
 
 /* File layout: "LOCW", version, sizeof(Wizard) (u16 LE), then the slots.

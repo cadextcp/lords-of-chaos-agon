@@ -1,5 +1,6 @@
 #include "spells.h"
 
+#include "ai.h"
 #include "area.h"
 #include "brew.h"
 #include "combat.h"
@@ -26,7 +27,7 @@ bool spellbook_load(Spellbook *books, const uint8_t *data, uint16_t len)
 {
     uint8_t books_n, i, pos;
     memset(books, 0, sizeof(Spellbook) * OWN_NEUTRAL);
-    if (len < 6 || memcmp(data, "LOCS", 4) != 0 || data[4] != 1)
+    if (len < 6 || memcmp(data, "LOCS", 4) != 0 || (data[4] != 1 && data[4] != 2))
         return false;
     books_n = data[5];
     pos = 6;
@@ -115,9 +116,12 @@ uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell, Rng *rn
             int16_t y = (int16_t)(w->units[wiz].y + DY[d]);
             if (world_wrap(w, &x, &y) && !world_blocks(w, x, y) &&
                 world_unit_at(w, x, y, UL_GROUND) == NO_UNIT) {
-                if (world_spawn_unit(w, w->units[wiz].owner, kind, (uint8_t)x,
-                                     (uint8_t)y) != NO_UNIT)
+                uint8_t slot = world_spawn_unit(w, w->units[wiz].owner, kind, (uint8_t)x,
+                                                (uint8_t)y);
+                if (slot != NO_UNIT) {
+                    ai_plan_new(w, rng, slot);
                     placed++;
+                }
                 break;
             }
         }
@@ -236,6 +240,7 @@ static bool lightning_smash(World *w, Rng *rng, int16_t x, int16_t y, uint8_t at
     events_push(EV_SMASH, x, y, fe, 0, 0, 0);
     w->feature[y][x] = FE_NONE;
     world_map_changed(w);
+    world_poke(w, x, y);
     return true;
 }
 

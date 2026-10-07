@@ -17,7 +17,7 @@
 static const int8_t ND[8][2] = {{-1, 0}, {-1, 1}, {0, 1}, {1, 1},
                                 {1, 0}, {1, -1}, {0, -1}, {-1, -1}};
 
-typedef enum { GT_NONE, GT_MELEE, GT_ITEM, GT_PORTAL, GT_FOLLOW, GT_POST } GoalKind;
+typedef enum { GT_NONE, GT_MELEE, GT_ITEM, GT_PORTAL, GT_FOLLOW, GT_ROUTE, GT_POST } GoalKind;
 
 static uint8_t clamp8(uint16_t v)
 {
@@ -309,10 +309,8 @@ static AiAct try_field(World *w, Rng *rng, uint8_t id, int8_t dx, int8_t dy, boo
     if (!world_wrap(w, &nx, &ny))
         return A_NONE;
     other = world_unit_at(w, nx, ny, (u->flags & UF_FLYING) ? UL_AIR : UL_GROUND);
-    if (other != NO_UNIT && other != ui) {
+    if (other != NO_UNIT && other != ui && ai_is_foe(w, u, &w->units[other])) {
         CombatResult r;
-        if (!ai_is_foe(w, u, &w->units[other]))
-            return A_NONE;
         if (!items_can_harm_undead(w, ui, other))
             return A_NONE;
         if (!combat_melee(w, rng, ui, other, &r))
@@ -343,7 +341,9 @@ static AiAct try_field(World *w, Rng *rng, uint8_t id, int8_t dx, int8_t dy, boo
     return A_DONE;
 }
 
-/* Move towards (gx, gy): a path first, the sorted neighbours as the fallback. */
+/* Move towards (gx, gy): the neighbours sorted by distance to the goal first
+ * (the original's rule, cheap), a breadth-first path only when those are all
+ * blocked - around a wall, out of a house. */
 static AiAct step_toward(World *w, Rng *rng, uint8_t id, int16_t gx, int16_t gy)
 {
     uint8_t ui, d, order[8], i, j;
@@ -352,14 +352,6 @@ static AiAct step_toward(World *w, Rng *rng, uint8_t id, int16_t gx, int16_t gy)
     int8_t sdx, sdy;
     if (!u)
         return A_END;
-    if (ai_path_step(w, ui, gx, gy, &sdx, &sdy)) {
-        AiAct r = try_field(w, rng, id, sdx, sdy, false);
-        if (r != A_NONE)
-            return r;
-        u = by_id(w, id, &ui);
-        if (!u)
-            return A_END;
-    }
     for (d = 0; d < 8; d++) {
         int16_t nx = (int16_t)(u->x + ND[d][0]), ny = (int16_t)(u->y + ND[d][1]);
         order[d] = d;
@@ -372,7 +364,16 @@ static AiAct step_toward(World *w, Rng *rng, uint8_t id, int16_t gx, int16_t gy)
         order[j] = o;
     }
     for (i = 0; i < 8; i++) {
-        AiAct r = try_field(w, rng, id, ND[order[i]][0], ND[order[i]][1], true);
+        AiAct r;
+        if (dist[order[i]] >= world_range(w, u->x, u->y, gx, gy) + 3 && i > 2)
+            break;                       /* never wander far from the straight way */
+        r = try_field(w, rng, id, ND[order[i]][0], ND[order[i]][1], true);
+        if (r != A_NONE)
+            return r;
+    }
+    u = by_id(w, id, &ui);
+    if (u && ai_path_step(w, ui, gx, gy, &sdx, &sdy)) {
+        AiAct r = try_field(w, rng, id, sdx, sdy, false);
         if (r != A_NONE)
             return r;
     }
@@ -395,8 +396,10 @@ void ai_creature_turn(World *w, Rng *rng, const AiEnv *env, uint8_t id)
         if (!u || u->ap < 3)
             return;
         ai_build_view(w, ui, &v);
-        if (u->plan_flags & 0x40) {          /* asleep: wakes when it sees a foe */
-            if (v.en_n == 0)
+        if (u->plan_flags & 0x40) {          /* asleep: a foe in sight or a trigger wakes it */
+            uint8_t tid = (uint8_t)(u->plan_flags & 0x3F);
+            bool fired = tid && (w->trig_fired[tid >> 3] & (1u << (tid & 7)));
+            if (v.en_n == 0 && !fired)
                 return;
             u->plan_flags = (uint8_t)(u->plan_flags & ~0x40);
         }
@@ -406,6 +409,11 @@ void ai_creature_turn(World *w, Rng *rng, const AiEnv *env, uint8_t id)
                 continue;
             if (act == A_END)
                 return;
+            if (is_wizard(u) && env) {
+                act = ai_wizard_cast(w, rng, env, id, &v);
+                if (act == A_DONE)
+                    continue;
+            }
             act = ai_toss_loot(w, id);
             if (act == A_DONE)
                 continue;
@@ -458,8 +466,11 @@ void ai_creature_turn(World *w, Rng *rng, const AiEnv *env, uint8_t id)
             gk = GT_PORTAL;                  /* from the portal round on, all go there */
             gx = env->game->portal_x;
             gy = env->game->portal_y;
-            if (u->x == gx && u->y == gy)
+            if (u->x == gx && u->y == gy) {
+                if (is_wizard(u))
+                    game_try_enter_portal(env->game, w, ui);   /* out with the treasure */
                 return;
+            }
         } else if (aggressive(u) && ai_wizard_of(w, u->owner) != NO_UNIT) {
             uint8_t wi = ai_wizard_of(w, u->owner);
             if (wi != ui) {
@@ -475,6 +486,17 @@ void ai_creature_turn(World *w, Rng *rng, const AiEnv *env, uint8_t id)
             gk = GT_FOLLOW;
             gx = w->units[wi].x;
             gy = w->units[wi].y;
+        } else if (u->plan_route != 0xFF && u->plan_route < w->route_n && !aggressive(u) &&
+                   w->routes[u->plan_route].n) {
+            const Route *r = &w->routes[u->plan_route];
+            uint8_t s = (uint8_t)(u->plan_step % r->n);
+            if (world_range(w, u->x, u->y, r->x[s], r->y[s]) < 4) {   /* reached: on to the next */
+                u->plan_step = (uint8_t)((s + 1) % r->n);
+                s = u->plan_step;
+            }
+            gk = GT_ROUTE;
+            gx = r->x[s];
+            gy = r->y[s];
         } else if (u->post_x != 0xFF && (u->x != u->post_x || u->y != u->post_y)) {
             gk = GT_POST;
             gx = u->post_x;
@@ -516,4 +538,46 @@ void ai_guard(World *w, Rng *rng, uint8_t unit, uint8_t home_range)
     (void)home_range;                    /* the post itself is the anchor */
     if (unit < w->unit_count)
         ai_creature_turn(w, rng, NULL, w->units[unit].id);
+}
+
+/* A new creature's plan (K10.7). */
+void ai_plan_new(World *w, Rng *rng, uint8_t unit)
+{
+    Unit *u = &w->units[unit];
+    uint8_t kind = ride_actor_kind(u), tries, pool;
+    bool wizard = kind == CR_WIZARD;
+    u->plan_route = 0xFF;
+    u->plan_step = 0;
+    u->plan_flags = 0;
+    if (!wizard && rng_range(rng, 100) < CREATURES[kind].aggr) {
+        u->plan_flags = 0x80;            /* a bodyguard */
+        return;
+    }
+    pool = wizard ? w->route_n : w->route_summon_n;
+    if (!pool)
+        return;                          /* no routes: no plan, counts as aggressive */
+    for (tries = 0; tries < 40; tries++) {
+        uint8_t r = (uint8_t)rng_range(rng, pool), f = w->routes[r].flags;
+        const CreatureDef *c = &CREATURES[kind];
+        bool fits = true;
+        if (wizard && !(f & 0x40))
+            fits = false;
+        if ((f & 0x01) && !c->ap_fly)
+            fits = false;
+        if ((f & 0x02) && !(c->flags & CF_USE))
+            fits = false;
+        if ((f & 0x04) && !c->carry)
+            fits = false;
+        if ((f & 0x08) && !(c->native & NATIVE_WOOD))
+            fits = false;
+        if ((f & 0x10) && !(c->native & NATIVE_WATER))
+            fits = false;
+        if ((f & 0x20) && !(c->native & NATIVE_ROCK))
+            fits = false;
+        if (fits && w->routes[r].n) {
+            u->plan_route = r;
+            u->plan_step = (uint8_t)rng_range(rng, w->routes[r].n);
+            return;
+        }
+    }
 }

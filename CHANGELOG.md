@@ -112,6 +112,29 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ### Intern
 - Tests `test_ki1`; der Wächter-Test nimmt einen Spectre (ein Zombie greift einen Zauberer nach K10.4 nicht an).
 
+## [Unreleased] – Schlauere KI, Schritt 2: Zauberer, Routen, Schlaf (D67) (2026-10-07)
+
+### Geändert
+- **Szenariodatei v2 (`LOCS`):** trägt jetzt die KI-Daten: Werte und Name des Gegner-Zauberers, Zauberlevel **und Prioritäten**, Routen mit Wegpunkten, Pläne der Karteneinheiten und Auslöser. Die Texte `data/scenarios/*.txt` bekommen die Zeilen `wizard`, `book … spell level prio`, `route`, `summon_routes`, `plan`, `trigger`. Die drei Szenarien haben die Tabellen des Originals (K10.2): **Torquemada** (Mana 120, Con 63, Combat 9, Defence 10), **Elbo Smogg** (140) und **Ragaril** (Mana 200, Stamina 78, Con 50, Combat 13, Defence 18) mit ihren Büchern und Prioritäten.
+- **Zauberwahl (K10.5):** Der KI-Zauberer wirkt nach Priorität; nach jedem Wurf wird die Priorität **dauerhaft halbiert**, ungerade Prioritäten bleiben zurück, bis ein Durchgang ohne Wurf sie abrundet. Bedingungen: Beschwören behält 40 Mana Reserve (außer Gegner sind sichtbar) und braucht `L` freie Nachbarfelder; Bolt und Lightning nur gegen Ziele mit `2·A ≥ 1,5·Def` im Abstand `D ≤ 2L+6` (Lightning nicht neben eigenen Kreaturen); Feuer, Blob, Vine, Flood gegen Gegner auf empfänglichem Gelände (Vine und Flood nicht nahe der eigenen Truppe); Shield nur ohne aktives; Tränke im leeren Kessel mit Zutat (legt sie vorher ab); Drachen mit Kessel und Drachenkraut. Enchant, Subversion, Curse, Magic Attack, Teleport und Magic Eye wirkt er nie.
+- **Der Zauberer läuft Routen** wie jede KI-Kreatur, ist nie aggressiv, flieht vor Stärkeren, sammelt Schätze und Schlüssel im Blick (ersetzt „bleibt im Haus“, D62), öffnet Truhen mit Schlüssel und geht ab der Portalrunde zum Portal und hinaus. Die Obergrenze von 5 Beschwörungen entfällt: Mana, Reserve und freie Nachbarfelder begrenzen.
+- **Pläne (K10.7):** Beschworene würfeln beim Erscheinen: mit `aggr` Prozent Leibwache (bleibt unter Entfernung 5 beim Zauberer), sonst eine zufällige der ersten `summon_routes` Routen, die zur Kreatur passt (Flieger, „Use“, Tragkraft, Wood/Water/Rock). Zauberer nehmen nur Routen mit Wizard-Flag. Acht Routen je Karte (Struktur des Originals, Wegpunkte auf erreichbaren Feldern der eigenen Karten).
+- **Schlaf und Auslöser:** Schlafende Kreaturen (Plan-Bit 6) tun nichts, bis sie einen Gegner sehen oder ein Auslöser feuert: Türen öffnen, Truhen öffnen, Wände brechen, Blitz auf Gelände, Flächenzauber ändern das Feld (`world_poke`). Die Szenarien haben noch keine schlafenden Wächter.
+- **Schritt:** zuerst die Nachbarn nach Entfernung zum Ziel (die Regel des Originals), die Breitensuche nur wenn alle blockiert sind; befreundete Wesen auf dem Zielfeld sind kein Hindernis.
+- Ohne Szenariotabelle (Tests, Karten ohne KI-Daten) bekommt der Zauberer eine Standard-Priorität aus seinem Buch.
+
+### Intern
+- `ai_scenario_load`, `ai_profile_apply`, `ai_plan_new`, `ai_wizard_cast`; die Frontend-Dateien laden das Profil (`scnfile_ai`). Spielstand-Daten: Plan und Besuchsring der Einheiten (v10). Neue Tests `test_ki2`; alte D62-Tests entfallen.
+
+## [Unreleased] – Schlauere KI, Schritt 3: Duell-Programm (D67, Phase 5) (2026-10-07)
+
+### Neu
+- **`host/duel.c`:** Zwei KI-Zauberer auf einer Szenariokarte, beide durch die echte KI (Entscheidungsschleife, Zauberwahl, Routen) und die echten Kernregeln. Spieler 2 ist der Zauberer des Szenarios (Werte und Prioritäten nach K10.2), Spieler 1 der Standardzauberer des Designers. Ausgabe: Siege, Runden, Kills, Einheiten am Ende und die gewirkten Zauber des Gegners. Bauen und Aufruf stehen im Kopf der Datei.
+- **Läufe (10 Partien, Seed 3, höchstens 60 Runden):** Many Coloured Land: Torquemada 9 Siege, 1 unentschieden, 19 Runden im Mittel; Slayer's Dungeon: Elbo Smogg 10 von 10, 10 Runden; Ragaril's Domain: Ragaril 9 von 10, 19 Runden. Der Gegner beschwört bis zu 12–18 Kreaturen, wirkt Shield, Bolt, Blob/Feuer und viele Beschwörungen. **Mit den Originalwerten ist der Gegner deutlich härter als der Standardzauberer** (Con 63 gegen 34, Mana 120 gegen 80), wie im Plan erwartet; ein menschlicher Spieler mit voll ausgebautem Zauberer muss sich also Mühe geben.
+
+### Intern
+- Der eZ80-Selftest hat nur rund 20 KB für Heap und Stack (`loctest.bin` wuchs mit der KI um 40 KB): die beiden großen Spielstände der Tests liegen jetzt als eine statische Instanz vor, sonst stürzte das Testprogramm im Emulator ab (MOS startete es endlos neu). Neue Tests, die große Strukturen brauchen, dürfen sie nicht auf den Stack legen.
+
 ## [Unreleased] – Regeln wie im Original, Schritt 0a: Mana (D67) (2026-10-07)
 
 ### Geändert

@@ -4,4 +4,15 @@
 map ragarils_domain
 
 book p1 giant_bat 4, magic_bolt 3, dwarf 2, magic_shield 3, magic_fire 2, healing_potion 3
-book p2 vampire 3, spectre 2, demon 1, magic_bolt 3, curse 1
+wizard p2 RAGARIL mana 200 ap 34 sta 78 con 50 com 13 def 18 mr 90 carry 48 vp 24
+book p2 pixie 2 140, dwarf 2 0, goblin 2 180, troll 2 170, giant 2 160, centaur 2 1, gryphon 2 160, zombie 2 120, vampire 1 150, spectre 2 160, demon 1 140, strength_potion 3 200, protection_potion 3 130, invisibility_potion 3 210, speed_potion 2 100, flying_potion 3 70, super_potion 3 210, healing_potion 2 70, magic_attack 0 180, magic_bolt 3 180, magic_lightning 3 0, magic_shield 4 240
+
+route 0 flags 0x42 : 9,9 26,9 26,26 9,26
+route 1 flags 0x42 : 6,6 28,28 6,28 28,6
+route 2 flags 0x40 : 5,6 17,17 29,22 17,17
+route 3 flags 0x40 : 7,4 28,4 28,10 7,10
+route 4 flags 0x00 : 7,25 28,25 28,30 7,30
+route 5 flags 0x01 : 2,2 31,31 2,31 31,2
+route 6 flags 0x00 : 4,9 4,26 12,26 12,9
+route 7 flags 0x00 : 30,9 30,26 22,26 22,9
+summon_routes 8
