@@ -30,6 +30,7 @@ typedef struct {
     uint8_t wizard_vp[OWN_NEUTRAL];   /* value of each wizard as a victim: 4 Level + 15 */
     int16_t eye_x, eye_y;         /* Magic Eye: sight from here (M4b) */
     uint8_t eye_rounds;           /* ticks down each round */
+    uint8_t eye_range;            /* how far the eye sees (D units) */
     uint8_t kills[OWN_NEUTRAL];   /* credited kills (end screen, M5a) */
     uint16_t loot_vp[OWN_NEUTRAL];/* treasure VP carried through the portal */
     /* wizard AI (D62): where each wizard started (0xFF = not yet seen),

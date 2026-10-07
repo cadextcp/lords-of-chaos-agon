@@ -329,6 +329,7 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
         pay_for_spell(w, b, wiz, spell, x, y);
         out->allowed = true;
         out->damage = 0;
+        out->eye_range = spell_range(SP_MAGIC_EYE, level);
         return CAST_OK;                /* the caller reveals the area */
 
     case SP_TELEPORT: {                /* inaccurate jump, 0 AP after (K5.3) */

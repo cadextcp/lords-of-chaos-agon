@@ -82,6 +82,19 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ### Intern
 - `world_pool_ap`, `world_spend_ap_for`, `world_has_ap`; `game_set_portal_span`, `game_set_wizard_level`; Tests `test_0g` und neue Wertungstests.
 
+## [Unreleased] – Regeln wie im Original, Schritt 0h: Sicht (D67) (2026-10-07)
+
+### Geändert
+- **Reichweite als Achteck (K11.1):** `2·dx < R`, `2·dy < R`, `D < R` mit `R` = 19 am Boden (9 Felder gerade, 6 diagonal) und 23 in der Luft (11 und 7). Die Eckfelder des alten Quadrats entfallen. Der Algorithmus bleibt Shadowcasting (D39).
+- **Nachbarn immer sichtbar:** Die acht Nachbarfelder sieht jeder Beobachter, auch hinter einer Wandecke.
+- **Höhen (K11.2):** Flieger sieht man am Boden immer (über Wände), außer der Beobachter steht unter einem Dach. Flieger sehen Bodenziele nicht unter Dach und nicht unter Blätterdach (Wald, hohes Gras, Bäume), außer im Abstand `D < 4`; Gegenstände unter Dach/Blätterdach nie. Neue Bitmaps `vis_ground`, `vis_air`, `vis_obj` in `Sight`; `sight_unit_visible` ersetzt die Feldabfrage bei Einheiten (Anzeige, Namen, Lexikon, KI-Zauberer).
+- **Magic Eye** sieht `D ≤ 3L+10` Einheiten weit, durch Wände und Deckung, und zeigt Unsichtbare.
+- **Feuer und Blob blockieren die Sicht** (K11.4); die Sichtkarte folgt den Flammen (Kartenänderung bei jeder Flächenänderung).
+- **Schusslinie (K11.6):** `sight_shot_clear`: Boden-Boden braucht eine freie Linie; ist die Luft beteiligt, stoppt nur ein Dach (Schütze unter Dach nach oben, Ziel unter Dach von oben). Der Bogen nutzt das.
+
+### Intern
+- `sight_in_reach`, `sight_object_visible`, `sight_shot_clear`; `sight_add_eye` bekommt die Reichweite. Test `test_0h`, der Sichtfeld-Test zählt jetzt das Achteck.
+
 ## [Unreleased] – Regeln wie im Original, Schritt 0a: Mana (D67) (2026-10-07)
 
 ### Geändert

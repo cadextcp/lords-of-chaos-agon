@@ -54,6 +54,7 @@ typedef struct {
     bool died;          /* the target died and is removed */
     uint8_t splash_hits;/* lightning: neighbours hit */
     bool terrain_smashed;   /* lightning at the target field */
+    uint8_t eye_range;      /* Magic Eye: how far it sees, 3L + 10 units */
 } SpellShot;
 
 /* Magic Bolt (GDD 7.2): physical damage with line of sight and range,

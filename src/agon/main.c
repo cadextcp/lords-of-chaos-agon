@@ -220,7 +220,7 @@ static void pick_gather(void)
             if ((pass == 0) != here)
                 continue;
             if (world_distance(&world, u->x, u->y, o->x, o->y) > 1 ||
-                !sight_visible(&p1_sight, &world, o->x, o->y) ||
+                !sight_object_visible(&p1_sight, &world, o->x, o->y) ||
                 items_kind_of_tile(o->tile) == NO_ITEM)
                 continue;
             picks[pick_n].x = o->x;
@@ -407,7 +407,7 @@ static void update_sight(void)
 {
     sight_compute(&world, &p1_sight);
     if (game.eye_rounds > 0)
-        sight_add_eye(&p1_sight, &world, game.eye_x, game.eye_y);
+        sight_add_eye(&p1_sight, &world, game.eye_x, game.eye_y, game.eye_range);
     lexicon_watch(&lex, &world, &p1_sight);   /* discoveries (M5) */
     {
         uint8_t i;
@@ -416,7 +416,7 @@ static void update_sight(void)
             if (ride_actor_kind(u) != CR_WIZARD || u->owner == OWN_P1 ||
                 (u->flags & UF_INVISIBLE))
                 continue;
-            if (sight_visible(&p1_sight, &world, u->x, u->y)) {
+            if (sight_unit_visible(&p1_sight, &world, u)) {
                 foe_wiz_x = u->x;
                 foe_wiz_y = u->y;
                 foe_wiz_round = turns.round;
@@ -461,7 +461,7 @@ static bool owner_in_view(const World *w, uint8_t owner)
     uint8_t i;
     for (i = 0; i < w->unit_count; i++)
         if (w->units[i].owner == owner && !(w->units[i].flags & UF_INVISIBLE) &&
-            sight_visible(&p1_sight, w, w->units[i].x, w->units[i].y))
+            sight_unit_visible(&p1_sight, w, &w->units[i]))
             return true;
     return false;
 }
@@ -637,6 +637,7 @@ static void cast_targeted(bool dump)
             game.eye_x = target_x;      /* reveal from there (GDD 7.2) */
             game.eye_y = target_y;
             game.eye_rounds = 1;
+            game.eye_range = shot.eye_range;
             render_message(1, C_BRIGHT_CYAN, "Auge eroeffnet.");
             settle();
             update_sight();

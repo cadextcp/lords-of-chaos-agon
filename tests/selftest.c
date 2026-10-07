@@ -841,14 +841,29 @@ static void test_sight(void)
         world.units[0].flags = (uint8_t)(world.units[0].flags & ~UF_FLYING);
         sight_init(&s, OWN_P1);
         sight_compute(&world, &s);
-        check(count_visible(&s, &world) ==
-                  (2u * SIGHT_GROUND + 1u) * (2u * SIGHT_GROUND + 1u),
-              "sight: clear ground gives the whole Chebyshev square");
-        check(sight_visible(&s, &world, 9, 9) &&
-              sight_visible(&s, &world, 27, 27) &&
-              sight_visible(&s, &world, 9, 27) &&
-              sight_visible(&s, &world, 27, 9),
-              "sight: every diagonal corner of the square is reached");
+        {   /* K11.1: the octagon, counted by its own definition */
+            int16_t ox, oy;
+            uint16_t octagon = 0;
+            for (oy = -9; oy <= 9; oy++)
+                for (ox = -9; ox <= 9; ox++)
+                    if (2 * (ox < 0 ? -ox : ox) < 19 && 2 * (oy < 0 ? -oy : oy) < 19 &&
+                        2 * ((ox < 0 ? -ox : ox) > (oy < 0 ? -oy : oy) ? (ox < 0 ? -ox : ox)
+                                                                          : (oy < 0 ? -oy : oy)) +
+                        ((ox < 0 ? -ox : ox) > (oy < 0 ? -oy : oy) ? (oy < 0 ? -oy : oy)
+                                                                  : (ox < 0 ? -ox : ox)) < 19)
+                        octagon++;
+            check(octagon > 81 && octagon < 361,
+                  "sight: the octagon is bigger than the 9x9 square, smaller than 19x19");
+            check(count_visible(&s, &world) == octagon,
+                  "sight: clear ground gives exactly the octagon (D < 19)");
+        }
+        check(sight_visible(&s, &world, 18 + 9, 18) && !sight_visible(&s, &world, 18 + 10, 18) &&
+              sight_visible(&s, &world, 18 + 6, 18 + 6) && !sight_visible(&s, &world, 18 + 7, 18 + 7) &&
+              !sight_visible(&s, &world, 18 + 9, 18 + 9),
+              "sight: 9 fields straight, 6 diagonal; the square corners are out");
+        check(sight_visible(&s, &world, 18 + 6, 18 + 6) && sight_visible(&s, &world, 18 - 6, 18 + 6) &&
+              sight_visible(&s, &world, 18 + 6, 18 - 6) && sight_visible(&s, &world, 18 - 6, 18 - 6),
+              "sight: every diagonal tip of the octagon is reached");
 
         for (y = 17; y <= 19; y++)       /* walled in: own field plus the ring */
             for (x = 17; x <= 19; x++)
@@ -1256,6 +1271,170 @@ static void test_0g(void)
     world_new_turn(&world);
     check((world.units[wizard].flags & UF_INVISIBLE) != 0,
           "0g: and stays so when no potion runs");
+}
+
+/* D67 0h: sight by K11 - heights, covers, shot lines, fire. */
+static void test_0h(void)
+{
+    Sight s;
+    uint8_t x, y, a;
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    for (y = 0; y < world.h; y++)
+        for (x = 0; x < world.w; x++) {
+            world.floor[y][x] = FL_GRASS;
+            world.feature[y][x] = FE_NONE;
+        }
+    memset(world.roof, 0, sizeof world.roof);
+    area_reset();
+    world_map_changed(&world);
+    world.unit_count = 0;
+
+    check(sight_in_reach(9, 0, 19) && !sight_in_reach(10, 0, 19) &&
+          sight_in_reach(6, 6, 19) && !sight_in_reach(7, 7, 19) &&
+          sight_in_reach(11, 0, 23) && sight_in_reach(7, 7, 23) &&
+          !sight_in_reach(8, 8, 23),
+          "0h: reach octagon: 9/6 on the ground, 11/7 in the air");
+
+    /* a ground observer sees a flier behind a wall, but not a ground target */
+    world_spawn_unit(&world, OWN_P1, CR_WIZARD, 10, 10);
+    world.feature[10][12] = FE_WALL;
+    world_map_changed(&world);
+    a = world_spawn_unit(&world, OWN_P2, CR_GIANT_BAT, 14, 10);
+    world.units[a].flags |= UF_FLYING;
+    {
+        uint8_t b = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 14, 10);
+        sight_init(&s, OWN_P1);
+        sight_compute(&world, &s);
+        check(sight_unit_visible(&s, &world, &world.units[a]),
+              "0h: a flier behind a wall is seen from the ground");
+        check(!sight_unit_visible(&s, &world, &world.units[b]),
+              "0h: the goblin behind it on the ground is not");
+        world.units[b].x = 11;                       /* next to the wall, 1 field away */
+        check(sight_unit_visible(&s, &world, &world.units[a]), "0h: still the flier");
+        world_remove_unit(&world, b);
+    }
+
+    /* the eight neighbours are always seen, even diagonally behind a corner */
+    world.unit_count = 1;
+    world.feature[9][10] = FE_WALL;
+    world.feature[10][9] = FE_WALL;
+    world_map_changed(&world);
+    sight_init(&s, OWN_P1);
+    sight_compute(&world, &s);
+    check(sight_visible(&s, &world, 9, 9), "0h: a neighbour behind a corner is seen (D < 4)");
+    world.feature[9][10] = world.feature[10][9] = FE_NONE;
+    world.feature[10][12] = FE_NONE;
+    world_map_changed(&world);
+
+    /* under a roof the other height is not seen at all */
+    {
+        uint16_t cell = (uint16_t)(10 * world.w + 10);
+        world.roof[cell >> 3] |= (uint8_t)(0x80u >> (cell & 7));
+        a = world_spawn_unit(&world, OWN_P2, CR_GIANT_BAT, 13, 10);
+        world.units[a].flags |= UF_FLYING;
+        sight_init(&s, OWN_P1);
+        sight_compute(&world, &s);
+        check(!sight_unit_visible(&s, &world, &world.units[a]),
+              "0h: a ground observer under a roof does not see fliers");
+        memset(world.roof, 0, sizeof world.roof);
+        world_remove_unit(&world, a);
+    }
+
+    /* a flier sees the ground target in the open but not under a canopy or roof */
+    {
+        uint8_t f = world_spawn_unit(&world, OWN_P1, CR_GIANT_BAT, 10, 10);
+        uint8_t v1, v2, v3;
+        world.units[f].flags |= UF_FLYING;
+        world.unit_count = 0;
+        f = world_spawn_unit(&world, OWN_P1, CR_GIANT_BAT, 10, 10);
+        world.units[f].flags |= UF_FLYING;
+        v1 = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 16, 10);   /* open grass */
+        v2 = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 10, 17);
+        v3 = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 15, 5);
+        world.floor[17][10] = FL_FOREST;                           /* canopy */
+        {
+            uint16_t cell = (uint16_t)(5 * world.w + 15);
+            world.roof[cell >> 3] |= (uint8_t)(0x80u >> (cell & 7));  /* roofed */
+        }
+        world_map_changed(&world);
+        sight_init(&s, OWN_P1);
+        sight_compute(&world, &s);
+        check(sight_unit_visible(&s, &world, &world.units[v1]),
+              "0h: the flier sees a goblin in the open");
+        check(!sight_unit_visible(&s, &world, &world.units[v2]),
+              "0h: but not one under the forest canopy");
+        check(!sight_unit_visible(&s, &world, &world.units[v3]),
+              "0h: nor one under a roof");
+        check(sight_visible(&s, &world, 10, 17) && sight_visible(&s, &world, 15, 5),
+              "0h: the terrain itself is still in view");
+        world.units[v2].x = 10;
+        world.units[v2].y = 11;                                    /* canopy next to it */
+        world.floor[11][10] = FL_FOREST;
+        world_map_changed(&world);
+        sight_compute(&world, &s);
+        check(sight_unit_visible(&s, &world, &world.units[v2]),
+              "0h: next to the flier the canopy hides nobody (D < 4)");
+        memset(world.roof, 0, sizeof world.roof);
+        world.floor[17][10] = world.floor[11][10] = FL_GRASS;
+    }
+
+    /* the Magic Eye: D <= 3L + 10 around the point, walls ignored, shows the hidden */
+    world.unit_count = 1;
+    world.units[0].x = 3;
+    world.units[0].y = 3;
+    world.feature[20][20] = FE_WALL;
+    world_map_changed(&world);
+    {
+        uint8_t h = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 22, 20);
+        world.units[h].flags |= UF_INVISIBLE;
+        sight_init(&s, OWN_P1);
+        sight_compute(&world, &s);
+        sight_add_eye(&s, &world, 20, 20, 13);                      /* level 1: 13 units */
+        check(sight_visible(&s, &world, 26, 20) && !sight_visible(&s, &world, 27, 20),
+              "0h: the eye sees 13 units straight (6 fields)");
+        check(sight_unit_visible(&s, &world, &world.units[h]),
+              "0h: the eye shows ground targets even behind cover");
+        world_remove_unit(&world, h);
+    }
+    world.feature[20][20] = FE_NONE;
+
+    /* fire and blob block the sight (K11.4) */
+    world.unit_count = 0;
+    world_spawn_unit(&world, OWN_P1, CR_WIZARD, 10, 10);
+    world_map_changed(&world);
+    sight_init(&s, OWN_P1);
+    sight_compute(&world, &s);
+    check(sight_visible(&s, &world, 16, 10), "0h: open grass: the field is seen");
+    area_set(&world, AREA_FIRE, 3, OWN_P2, 13, 10);
+    sight_init(&s, OWN_P1);
+    sight_compute(&world, &s);
+    check(!sight_visible(&s, &world, 16, 10) && sight_visible(&s, &world, 13, 10),
+          "0h: a burning field blocks what lies behind it");
+    area_reset();
+    world_map_changed(&world);
+
+    /* shot lines by heights (K11.6) */
+    {
+        uint16_t cell = (uint16_t)(10 * world.w + 10);
+        check(sight_shot_clear(&world, 10, 10, false, 16, 10, false),
+              "0h: ground to ground over open grass is clear");
+        world.feature[10][13] = FE_WALL;
+        world_map_changed(&world);
+        check(!sight_shot_clear(&world, 10, 10, false, 16, 10, false) &&
+              sight_shot_clear(&world, 10, 10, false, 16, 10, true) &&
+              sight_shot_clear(&world, 10, 10, true, 16, 10, false) &&
+              sight_shot_clear(&world, 10, 10, true, 16, 10, true),
+              "0h: a wall stops ground fire only, never a shot with the air in it");
+        world.roof[cell >> 3] |= (uint8_t)(0x80u >> (cell & 7));
+        check(!sight_shot_clear(&world, 10, 10, false, 16, 10, true),
+              "0h: a ground shooter under a roof cannot shoot up");
+        check(!sight_shot_clear(&world, 16, 10, true, 10, 10, false),
+              "0h: nor can a flier hit a roofed ground target");
+        memset(world.roof, 0, sizeof world.roof);
+        world.feature[10][13] = FE_NONE;
+        world_map_changed(&world);
+    }
 }
 
 static void test_flight(void)
@@ -3052,7 +3231,7 @@ static void test_m4b(void)
         sight_init(&s, OWN_P1);
         sight_compute(&world, &s);
         check(!sight_visible(&s, &world, 6, 1), "m4b: wall blocks the view");
-        sight_add_eye(&s, &world, 6, 2);
+        sight_add_eye(&s, &world, 6, 2, 13);
         check(sight_visible(&s, &world, 6, 1) && sight_visible(&s, &world, 6, 6),
               "m4b: the eye sees through walls");
     }
@@ -5411,6 +5590,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_0d();
     test_0e();
     test_0g();
+    test_0h();
     test_bump_and_look();
     test_combat();
     test_spells();

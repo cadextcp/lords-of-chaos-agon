@@ -565,7 +565,7 @@ static void push_unit(const World *w, const Unit *un, FieldLayers *out, bool air
     if (hidden_unit_id != NO_UNIT && un->id == hidden_unit_id)
         return;
     if (sight_map && un->owner != sight_map->owner &&
-        (!sight_visible(sight_map, w, un->x, un->y) || (un->flags & UF_INVISIBLE)))
+        (!sight_unit_visible(sight_map, w, un) || (un->flags & UF_INVISIBLE)))
         return;
     {   /* a rider sits behind its mount, lifted by the renderer (M4k): the
          * mount's body hides the rider's legs, no extra artwork needed */

@@ -163,6 +163,7 @@ level_up:
     same->strength = level;
     for (f = 0; f < same->count; f++)
         same->power[f] = level;
+    world_map_changed(w);               /* fire and blob block the sight (K11.4) */
     return true;
 }
 
@@ -352,6 +353,7 @@ uint8_t area_round_end(World *w, Rng *rng)
 
     /* 3. forget dead areas */
     area_prune();
+    world_map_changed(w);               /* the sight map follows the flames */
     return area_count;
 }
 
@@ -404,4 +406,5 @@ void area_remove_field(World *w, int16_t x, int16_t y)
         return;
     drop_from(a, (uint16_t)(y * w->w + x));
     area_prune();
+    world_map_changed(w);
 }
