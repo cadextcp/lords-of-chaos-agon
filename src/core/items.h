@@ -15,6 +15,8 @@
 
 #define UNIT_ITEMS 6
 #define NO_ITEM 0xFF
+/* Attack value of a bow shot (K6.4); an enchanted bow doubles it. */
+#define BOW_ATTACK 15
 
 /* Total weight carried (against the creature's carry limit). */
 uint8_t items_weight(const World *w, uint8_t unit);
@@ -42,10 +44,10 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy);
  * ground and air targets, Defence counts. */
 bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
                 uint8_t *damage);
-/* Effective values with weapon bonuses (D16/D18/D21): in-use weapon
- * Combat; Defence plus one carried shield (in use or not, never more
- * than one). Every attack - melee, throw, bow, bolt - uses these.
- * Below 50 % Constitution both suffer -2 (GDD 4.1). */
+/* Effective values (K6.1): Combat plus the weapon in use, Defence plus the
+ * best defence of any carried object (not added up), both divided by the
+ * constitution factor, at least 1. Creatures that cannot use weapons get no
+ * item bonus. */
 uint8_t items_combat(const World *w, uint8_t unit);
 uint8_t items_defence(const World *w, uint8_t unit);
 /* Defence WITHOUT the carried shield: what spell attacks roll against
@@ -55,10 +57,6 @@ uint8_t items_defence(const World *w, uint8_t unit);
 uint8_t items_magic_res(const World *w, uint8_t unit);
 /* Weapon of the object in use, WEAPON_NONE without one. */
 uint8_t items_in_use_weapon(const Unit *u);
-/* One damage roll of the unit: weapon dice plus com/5, bare hands 1d4
- * (D28); a critical hit doubles the dice (D30). Consumes RNG draws -
- * call only when the blow connects. */
-uint8_t items_attack_damage(const World *w, uint8_t unit, Rng *rng, bool crit);
 /* Can the attacker wound the (possibly undead) defender (GDD 4.2)?
  * Undead attackers, the Magic Slayer and enchanted weapons do; spells
  * bypass the check entirely. */

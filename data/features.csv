@@ -1,26 +1,26 @@
-# Feature toughness for terrain attacks (GDD 3.3, own values, D7): a melee
-# hit destroys the feature when damage + roll(0..3) > toughness.
-# 0 = indestructible (walls) or not attackable (walkable furniture).
+# Feature toughness for terrain attacks (K6.4, original scale 40..200): the
+# attacker needs 1.5 x Combat_eff >= toughness to try and RND(2 x Combat_eff)
+# >= toughness to succeed. 0 = indestructible (walls) or not attackable (walkable furniture).
 # Feature ids follow the Feature enum in src/core/world.h.
 id,toughness
 none,0
 wall,0
-door_closed,4
+door_closed,60
 door_open,0
-bed,5
-bookshelf,6
+bed,60
+bookshelf,65
 candle,0
-cauldron,6
-table,6
+cauldron,60
+table,60
 chair,0
-drawers,6
-chest,6
-tree,8
-rock,12
-door_locked,8
-chest_free,6
+drawers,60
+chest,65
+tree,80
+rock,200
+door_locked,80
+chest_free,60
 window,0
-fence,3
+fence,40
 leaf_n,0
 leaf_e,0
 leaf_s,0

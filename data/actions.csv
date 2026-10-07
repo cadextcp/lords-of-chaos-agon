@@ -22,3 +22,4 @@ ride,10,0,mount; dismount = 4
 dismount,4,0,
 take_off,6,0,start flying
 land,0,0,
+attack_terrain,6,6,smash an obstacle (K6.4)

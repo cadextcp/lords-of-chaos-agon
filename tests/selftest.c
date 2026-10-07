@@ -1111,8 +1111,25 @@ static void test_combat(void)
     CombatResult r;
     uint8_t seed_hits = 0, k;
 
-    check(combat_hit_chance(10, 10) == 50 && combat_hit_chance(20, 10) == 90 &&
-          combat_hit_chance(10, 20) == 10, "combat: chance 50+5/diff, clamped");
+    /* damage = RND(min(255, 2 (A+1))) - Def: chance (n-1-Def)/n (K6.2) */
+    check(combat_hit_chance(10, 10) == 50 && combat_hit_chance(20, 10) == 73 &&
+          combat_hit_chance(10, 30) == 0 && combat_hit_chance(200, 20) == 91,
+          "combat: hit chance of the original roll");
+    {
+        uint16_t sum = 0;
+        uint8_t zero = 0;
+        for (k = 0; k < 200; k++) {
+            uint8_t d;
+            rng_seed(&rng, 5 + k);
+            d = combat_roll(&rng, 10, 10);
+            sum = (uint16_t)(sum + d);
+            if (d == 0)
+                zero++;
+            check(d <= 11, "combat: the roll never exceeds 2 (A+1) - 1 - Def");
+        }
+        check(zero > 70 && zero < 130, "combat: about half the rolls miss at A = Def");
+        check(sum > 200 && sum < 700, "combat: the roll averages about 3 over defence");
+    }
 
     world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
     world.unit_count = 2;
@@ -1136,8 +1153,7 @@ static void test_combat(void)
     check(!combat_melee(&world, &rng, 0, 1, &r), "combat: no melee against flyers");
     world.units[1].flags &= (uint8_t)~UF_FLYING;
 
-    /* many seeded exchanges: statistics instead of pinned rolls (both
-     * units reset - return blows wear the wizard down too) */
+    /* many seeded exchanges: statistics instead of pinned rolls */
     for (k = 0; k < 200; k++) {
         rng_seed(&rng, 1000 + k);
         world.units[0].ap = 40;
@@ -1146,60 +1162,78 @@ static void test_combat(void)
         world.units[1].ap = 30;
         world.units[1].sta = 45;
         world.units[1].con = 32;
+        world_set_wounds(&world.units[0], 0);
         world_set_wounds(&world.units[1], 0);
+        world.units[0].flags &= (uint8_t)~UF_ENGAGED;
         if (combat_melee(&world, &rng, 0, 1, &r) && r.hit)
             seed_hits++;
     }
-    check(seed_hits > 60 && seed_hits < 140, "combat: ~50 % hits over 200 seeds");
+    /* wizard Combat 10 against Defence 9: 12/22 */
+    check(seed_hits > 80 && seed_hits < 140, "combat: ~55 % hits over 200 seeds");
     check(world.units[1].x == 7, "combat: survivor is still in place");
 
-    rng_seed(&rng, 7);                          /* determinism */
-    world.units[0].ap = 40;
-    world.units[1].ap = 0;                      /* exhausted ... */
-    world.units[0].con = 30;
-    world.units[1].con = 32;
-    {
+    {   /* costs and the return blow (K6.2) */
         CombatResult a, b;
-        world.units[1].reacted = false;   /* fresh round (D29) */
-        combat_melee(&world, &rng, 0, 1, &a);
         world.units[0].ap = 40;
+        world.units[0].sta = 60;
         world.units[0].con = 30;
-        world.units[1].ap = 0;
+        world.units[1].ap = 30;
+        world.units[1].sta = 45;
         world.units[1].con = 32;
-        world.units[1].reacted = false;   /* fresh round (D29) */
+        rng_seed(&rng, 7);
+        combat_melee(&world, &rng, 0, 1, &a);
+        check(world.units[0].ap == 32 && world.units[0].sta == 52,
+              "combat: melee costs 8 AP and 8 stamina");
+        check(a.returned || a.died, "combat: the defender answers");
+        if (a.returned)
+            check(world.units[1].ap == 26 && world.units[1].sta == 41,
+                  "combat: the return blow costs 4 AP and 4 stamina");
+        world.units[0].ap = 40;
+        world.units[0].sta = 60;
+        world.units[0].con = 30;
+        world.units[1].ap = 30;
+        world.units[1].sta = 45;
+        world.units[1].con = 32;
         rng_seed(&rng, 7);
         combat_melee(&world, &rng, 0, 1, &b);
         check(a.hit == b.hit && a.damage == b.damage && a.returned == b.returned,
               "combat: same seed, same outcome");
-        check(a.returned, "combat: free counter even without AP (D27)");
-        check(world.units[0].ap == 32, "combat: melee costs 8 AP");
-        if (a.returned && !a.attacker_died)
-            check(world.units[1].ap == 0, "combat: the counter costs no AP (D27)");
-    }
 
-    world.units[1].ap = 30;                     /* fresh defender */
-    world.units[1].sta = 45;
-    world.units[1].con = 32;
-    world.units[1].reacted = false;
-    rng_seed(&rng, 21);
-    combat_melee(&world, &rng, 0, 1, &r);
-    check(r.returned, "combat: defenders strike back");
-    check(world.units[1].ap == 30 || !r.returned,
-          "combat: return blow leaves the defender's AP alone (D27)");
-    {   /* D29: one reaction per round - the second attack lands unanswered */
-        world.units[0].ap = 40;
-        world.units[0].con = 30;
+        world.units[1].ap = 3;                  /* too tired to answer */
         world.units[1].con = 32;
-        rng_seed(&rng, 22);
-        combat_melee(&world, &rng, 0, 1, &r);
-        check(!r.returned, "combat: no second counter in the same round (D29)");
-        world_new_turn(&world);                 /* new round: reaction back */
         world.units[0].ap = 40;
-        world.units[0].con = 30;
+        world.units[0].sta = 60;
+        combat_melee(&world, &rng, 0, 1, &b);
+        check(!b.returned, "combat: no return blow below 4 AP");
+        world.units[1].ap = 30;
+        world.units[1].sta = 3;
         world.units[1].con = 32;
-        rng_seed(&rng, 23);
-        combat_melee(&world, &rng, 0, 1, &r);
-        check(r.returned, "combat: the reaction returns next round (D29)");
+        world.units[0].ap = 40;
+        world.units[0].sta = 60;
+        combat_melee(&world, &rng, 0, 1, &b);
+        check(!b.returned, "combat: no return blow below 4 stamina");
+        world.units[0].ap = 40;
+        world.units[0].sta = 7;
+        check(!combat_melee(&world, &rng, 0, 1, &b),
+              "combat: an attack needs 8 stamina");
+        /* every attack is answered, not only the first one of the round */
+        world.units[1].con = 200;
+        world.units[1].con_max = 200;
+        {
+            uint8_t answered = 0;
+            for (k = 0; k < 3; k++) {
+                world.units[0].con = 30;
+                world.units[0].ap = 40;
+                world.units[0].sta = 60;
+                world.units[1].ap = 30;
+                world.units[1].sta = 45;
+                rng_seed(&rng, 31 + k);
+                combat_melee(&world, &rng, 0, 1, &b);
+                answered = (uint8_t)(answered + (b.returned ? 1 : 0));
+            }
+            check(answered == 3, "combat: every blow of a round is answered (R7)");
+        }
+        world.units[1].con = world.units[1].con_max = 32;
     }
 
     world.units[1].con = 1;                     /* mortal blow */
@@ -1210,6 +1244,7 @@ static void test_combat(void)
             tries++;
             rng_seed(&rng, 90 + tries);
             world.units[0].ap = 40;
+            world.units[0].sta = 60;
             world.units[1].ap = 0;
             world.units[1].con = 1;
         } while (!combat_melee(&world, &rng, 0, 1, &r) || !r.hit);
@@ -1217,7 +1252,7 @@ static void test_combat(void)
               "combat: the dead leave the world");
     }
 
-    {   /* fatal wound bleeds one point per round (PM 17) */
+    {   /* wounds bleed 2 con each per round (R9) */
         world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
         world.unit_count = 1;
         world.units[0].con = world.units[0].con_max = 30;
@@ -1233,163 +1268,65 @@ static void test_combat(void)
         check(world.unit_count == 0, "combat: bleeding to death removes the unit");
     }
 
-    {   /* engagement: fleeing is allowed, the enemy gets a free swing (D26) */
-        Rng frng;
-        CombatResult r;
+    {   /* a hit above a quarter of ConMax opens a wound (K6.3) */
         world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
-        world.unit_count = 2;
-        world.units[1].x = 7;
-        world.units[1].y = 6;
-        world.units[1].kind = CR_GOBLIN;
-        world_engage(&world, 0);                  /* melee contact */
-        check(world_enemy_adjacent(&world, 0),
-              "combat: contact puts an enemy next to the unit");
-        check(world_move_unit(&world, 0, 0, -1),
-              "combat: fleeing out of contact is allowed");
-        check(world_enemy_adjacent(&world, 0),
-              "combat: the goblin is still adjacent after the step");
-        rng_seed(&frng, 21);
-        check(combat_disengage_swings(&world, &frng, 0, NULL, &r) == 1,
-              "combat: the disengage swing happens");
-        world_remove_unit(&world, 1);
-        check(!world_enemy_adjacent(&world, 0) && world_move_unit(&world, 0, 0, -1),
-              "combat: free again after the enemy dies");
+        world.unit_count = 1;
+        world.units[0].con = world.units[0].con_max = 40;
+        combat_damage(&world, 0, 10, CR_GOBLIN, OWN_NEUTRAL, true, NULL, false);
+        check(world.units[0].wounds == 0 && world.units[0].con == 30,
+              "combat: 10 of 40 is exactly a quarter, no wound");
+        combat_damage(&world, 0, 11, CR_GOBLIN, OWN_NEUTRAL, true, NULL, false);
+        check(world.units[0].wounds == 1, "combat: more than a quarter opens a wound");
+        combat_damage(&world, 0, 5, CR_GOBLIN, OWN_NEUTRAL, true, NULL, false);
+        check(world.units[0].wounds == 1, "combat: a small hit opens no further wound");
     }
 
-    {   /* An enemy the moving side cannot see gets no swing out of nowhere
-         * (playtest 2026-10-05). The same position with an all-seeing map
-         * must still swing, otherwise the check proves nothing. */
-        Rng frng;
-        CombatResult r;
-        Sight blind, open;
-        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
-        world.unit_count = 2;
-        world.units[0].ap = 40;
-        world.units[1].x = (uint8_t)(world.units[0].x + 1);
-        world.units[1].y = world.units[0].y;
-        world.units[1].owner = OWN_P2;
-        world.units[1].kind = CR_GOBLIN;
-        world_engage(&world, 0);
-        check(world_move_unit(&world, 0, 0, -1) &&
-              world_enemy_adjacent(&world, 0),
-              "combat: still in contact after the step (sight case)");
-        sight_init(&blind, OWN_P1);                  /* sees nothing at all */
-        rng_seed(&frng, 21);
-        check(combat_disengage_swings(&world, &frng, 0, &blind, &r) == 0,
-              "combat: an unseen enemy gets no free swing");
-        sight_init(&open, OWN_P1);
-        memset(open.visible, 0xFF, sizeof open.visible);
-        rng_seed(&frng, 21);
-        check(combat_disengage_swings(&world, &frng, 0, &open, &r) == 1,
-              "combat: the same enemy in plain sight does swing");
-    }
-
-    {   /* D59: a grazing wild animal lets a passer-by go; only a grudge,
-         * a charge at the disturber or its territory make it swing */
-        Rng frng;
-        CombatResult r;
-        uint8_t n;
-        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
-        world.unit_count = 2;
-        world.units[0].ap = 40;
-        world.units[1].x = (uint8_t)(world.units[0].x + 1);
-        world.units[1].y = world.units[0].y;
-        world.units[1].owner = OWN_NEUTRAL;
-        world.units[1].kind = CR_GORILLA;              /* peaceful */
-        world.units[1].grudge = 0;
-        world.units[1].alarm = 0;
-        world.units[1].post_x = 0xFF;
-        world.units[1].herd_dir = 0;
-        world.units[1].reacted = false;
-        check(world_move_unit(&world, 0, 0, -1) &&
-              world_enemy_adjacent(&world, 0),
-              "combat: walking past the gorilla keeps contact");
-        rng_seed(&frng, 21);
-        check(combat_disengage_swings(&world, &frng, 0, NULL, &r) == 0,
-              "combat: a peaceful animal does not swing at a passer-by (D59)");
-        world.units[1].grudge = (uint8_t)(1u << OWN_P1);
-        rng_seed(&frng, 21);
-        n = combat_disengage_swings(&world, &frng, 0, NULL, &r);
-        check(n == 1, "combat: an animal with a grudge does swing (D59)");
-        world.units[1].grudge = 0;
-        world.units[1].reacted = false;
-        world.units[1].kind = CR_BEAR;                 /* territorial */
-        world.units[1].post_x = 0;
-        world.units[1].post_y = 0;
-        check(!combat_hostile_to(&world, &world.units[1], OWN_P1,
-                                 world.units[0].x, world.units[0].y),
-              "combat: outside its territory the bear lets you pass (D59)");
-        world.units[1].post_x = world.units[1].x;
-        world.units[1].post_y = world.units[1].y;
-        check(combat_hostile_to(&world, &world.units[1], OWN_P1,
-                                world.units[0].x, world.units[0].y),
-              "combat: inside its territory the bear swings (D59)");
-        world.units[1].kind = CR_GOBLIN;
-        world.units[1].post_x = 0xFF;
-        check(combat_hostile_to(&world, &world.units[1], OWN_P1, 0, 0),
-              "combat: a neutral monster is always hostile (D59)");
-    }
-
-    {   /* diagonal slip: leaving all enemies behind avoids the swing (D26) */
-        Rng frng;
-        CombatResult r;
-        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
-        world.unit_count = 2;
-        world.units[1].x = 7;
-        world.units[1].y = 6;
-        world.units[1].kind = CR_GOBLIN;
-        world_engage(&world, 0);
-        world.units[0].ap = 40;
-        check(world_move_unit(&world, 0, -1, -1) &&
-              !world_enemy_adjacent(&world, 0),
-              "combat: the diagonal slip leaves the enemy behind");
-        check(combat_disengage_swings(&world, &frng, 0, NULL, &r) == 0,
-              "combat: nobody is adjacent, no free swing");
-    }
-
-    {   /* free swing: no AP cost for the swinger, undead immunity holds */
-        Rng frng;
-        CombatResult r;
-        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
-        world.unit_count = 2;
-        world.units[1].kind = CR_ZOMBIE;
-        world.units[1].flags |= UF_UNDEAD;
-        world.units[1].x = 7;
-        world.units[1].y = 6;
-        check(!combat_free_swing(&world, &frng, 0, 1, &r),
-              "combat: normal weapons cannot free-swing undead");
-    }
-
-    {   /* the binding lasts one phase only (GDD 6: next turn free again) */
-        uint8_t owner;
+    {   /* bound units do not move, the arrival binds only the mover (K11.7) */
         world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
         world.unit_count = 2;
         world.units[0].ap = 40;
         world.units[1].x = 8;
         world.units[1].y = 6;
         world.units[1].kind = CR_GOBLIN;
-        owner = world.units[0].owner;
-        check(world_move_unit(&world, 0, 1, 0) &&
-              world.units[0].x == 7,            /* now next to the enemy */
-              "combat: stepping up to an enemy is allowed");
+        world.units[1].owner = OWN_P2;
+        check(world_move_unit(&world, 0, 1, 0) && world.units[0].x == 7,
+              "bound: stepping up to an enemy is allowed");
+        check(world_engaged(&world, 0) && !world_engaged(&world, 1),
+              "bound: only the mover is bound, not the one he walked up to");
+        check(world_bump_kind(&world, 0, -1, 0) == BUMP_BOUND &&
+              !world_move_unit(&world, 0, -1, 0) && world.units[0].x == 7,
+              "bound: the bound unit cannot step back");
+        world_release(&world, world.units[0].owner);   /* his phase ends */
+        check(!world_engaged(&world, 0) && world_move_unit(&world, 0, -1, 0),
+              "bound: free to leave in the next phase");
+        world.units[0].ap = 40;
+        world_engage(&world, 0);                         /* no enemy next to him */
+        check(!world_engaged(&world, 0), "bound: nobody next to him, no binding");
+        world.units[0].x = 7;
+        world_engage(&world, 0);
+        check(world_engaged(&world, 0), "bound: next to an enemy again");
+        world.units[1].x = 20;                           /* enemy gone */
+        check(!world_engaged(&world, 0), "bound: the binding loosens when the enemy is gone");
+    }
+
+    {   /* attacking binds the attacker, the answer binds the defender */
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 2;
+        world.units[0].ap = 40;
+        world.units[0].sta = 60;
+        world.units[1].x = 7;
+        world.units[1].y = 6;
+        world.units[1].kind = CR_GOBLIN;
+        world.units[1].owner = OWN_P2;
+        world.units[1].con = world.units[1].con_max = 200;
+        world.units[1].ap = 30;
+        world.units[1].sta = 45;
+        rng_seed(&rng, 3);
+        combat_melee(&world, &rng, 0, 1, &r);
         check(world_engaged(&world, 0) && world_engaged(&world, 1),
-              "combat: arriving next to an enemy binds both");
-        {   /* D26: leaving is allowed, the adjacent goblin swings */
-            Rng frng;
-            CombatResult r;
-            bool swing = world_enemy_adjacent(&world, 0) &&
-                         combat_disengage_swings(&world, &frng, 0, NULL, &r) == 1;
-            check(world_move_unit(&world, 0, -1, 0) || world.units[0].x != 7,
-                  "combat: leaving the contact is allowed");
-            check(swing || world.unit_count == 1,
-                  "combat: the goblin got its free swing");
-        }
-        world_release(&world, owner);          /* his phase is over */
-        check(!world_engaged(&world, 0) &&
-              (world.units[1].flags & UF_ENGAGED) != 0,
-              "combat: only the finished side is released");
-        check(world_move_unit(&world, 0, -1, 0),
-              "combat: free to leave in the next phase");
+              "bound: attacker and answering defender are bound");
+        world.units[1].flags |= UF_INVISIBLE;
+        check(!world_engaged(&world, 0), "bound: an invisible enemy does not bind");
     }
 
     {   /* through the turn flow: bound in contact, free one phase later */
@@ -1404,17 +1341,87 @@ static void test_combat(void)
         tt.round1_lock = false;
         check(world_move_unit(&world, 0, 1, 0), "combat: step up to the enemy");
         turn_end_phase(&tt, &world);           /* P1 done, P2 passes, round 2 */
-        check(tt.round == 2 && !world_engaged(&world, 0) &&
-              !world_engaged(&world, 1),
-              "combat: both sides are free again in the next round");
+        check(tt.round == 2 && !world_engaged(&world, 0),
+              "combat: free again in the next round");
     }
 
-    {   /* terrain attacks (features.csv) */
+    {   /* D59: a grazing wild animal lets a passer-by go; only a grudge,
+         * a charge at the disturber or its territory make it hostile */
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 2;
+        world.units[1].x = (uint8_t)(world.units[0].x + 1);
+        world.units[1].y = world.units[0].y;
+        world.units[1].owner = OWN_NEUTRAL;
+        world.units[1].kind = CR_GORILLA;              /* peaceful */
+        world.units[1].grudge = 0;
+        world.units[1].alarm = 0;
+        world.units[1].post_x = 0xFF;
+        world.units[1].herd_dir = 0;
+        check(!combat_hostile_to(&world, &world.units[1], OWN_P1,
+                                 world.units[0].x, world.units[0].y),
+              "combat: a peaceful animal is not hostile to a passer-by (D59)");
+        world.units[1].grudge = (uint8_t)(1u << OWN_P1);
+        check(combat_hostile_to(&world, &world.units[1], OWN_P1,
+                                world.units[0].x, world.units[0].y),
+              "combat: an animal with a grudge is hostile (D59)");
+        world.units[1].grudge = 0;
+        world.units[1].kind = CR_BEAR;                 /* territorial */
+        world.units[1].post_x = 0;
+        world.units[1].post_y = 0;
+        check(!combat_hostile_to(&world, &world.units[1], OWN_P1,
+                                 world.units[0].x, world.units[0].y),
+              "combat: outside its territory the bear lets you pass (D59)");
+        world.units[1].post_x = world.units[1].x;
+        world.units[1].post_y = world.units[1].y;
+        check(combat_hostile_to(&world, &world.units[1], OWN_P1,
+                                world.units[0].x, world.units[0].y),
+              "combat: inside its territory the bear is hostile (D59)");
+        world.units[1].kind = CR_GOBLIN;
+        world.units[1].post_x = 0xFF;
+        check(combat_hostile_to(&world, &world.units[1], OWN_P1, 0, 0),
+              "combat: a neutral monster is always hostile (D59)");
+    }
+
+    {   /* weapons and defence items (K6.1): the weapon in use adds Combat, the
+         * best defence of any carried item adds to Defence - not summed */
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 1;
+        world.units[0].com = 10;
+        world.units[0].def = 12;
+        world.units[0].con = world.units[0].con_max = 30;
+        world.units[0].item_count = 0;
+        world.units[0].in_use = NO_ITEM;
+        check(items_combat(&world, 0) == 10 && items_defence(&world, 0) == 12,
+              "items: bare values");
+        world.units[0].items[0] = OBJ_SWORD;
+        world.units[0].items[1] = OBJ_SHIELD;
+        world.units[0].item_count = 2;
+        check(items_defence(&world, 0) == 12 + 13,
+              "items: the best carried defence counts (shield 13, sword 4 not added)");
+        check(items_combat(&world, 0) == 10, "items: a sword in the pack adds no Combat");
+        world.units[0].in_use = 0;
+        check(items_combat(&world, 0) == 20, "items: the sword in use adds 10 Combat");
+        world.units[0].flags |= UF_MAGIC_WEAPON;
+        check(items_combat(&world, 0) == 30 && items_defence(&world, 0) == 12 + 26,
+              "items: enchanted values count double");
+        world.units[0].flags &= (uint8_t)~UF_MAGIC_WEAPON;
+        world.units[0].con = 14;                       /* 30/14 = 2 */
+        check(items_combat(&world, 0) == 10 && items_defence(&world, 0) == 12,
+              "items: the constitution factor halves Combat and Defence");
+        world.units[0].con = 1;
+        check(items_combat(&world, 0) >= 1, "items: effective values stay at least 1");
+        world.units[0].con = 30;
+        world.units[0].kind = CR_GOLD_DRAGON;          /* no weapon use */
+        check(items_combat(&world, 0) == 10, "items: creatures without weapon use get no bonus");
+    }
+
+    {   /* terrain attacks (K6.4): 1.5 C >= toughness to try, RND(2 C) >= to smash */
         world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
         world.unit_count = 1;
         world.units[0].x = 7;                   /* beside the house door */
         world.units[0].y = 6;
         world.units[0].ap = 40;
+        world.units[0].sta = 60;
         world.feature[5][8] = FE_DOOR_CLOSED;    /* closed for the attack */
         world_map_changed(&world);
         {
@@ -1423,18 +1430,25 @@ static void test_combat(void)
                   "combat: walls are indestructible");
             check(combat_terrain(&world, &rng, 0, 9, 5, &destroyed) == 0,
                   "combat: open ground has nothing to hit");
+            check(combat_terrain(&world, &rng, 0, 8, 5, &destroyed) == 0 &&
+                  world.units[0].ap == 40,
+                  "combat: a weak fighter (Combat 10) does not even try a door");
+            world.units[0].com = 50;
             {
                 uint8_t hits = 0;
                 uint8_t gen = world.generation;
                 while (!destroyed && hits < 100) {
                     world.units[0].ap = 40;
+                    world.units[0].sta = 60;
                     rng_seed(&rng, 500 + hits);
                     combat_terrain(&world, &rng, 0, 8, 5, &destroyed);
                     hits++;
                 }
                 check(destroyed && world.feature[5][8] == FE_NONE &&
                       world.generation != gen,
-                      "combat: enough hits smash the door");
+                      "combat: a strong fighter smashes the door");
+                check(world.units[0].ap == 34 && world.units[0].sta == 54,
+                      "combat: a blow at terrain costs 6 AP and 6 stamina");
             }
         }
     }
@@ -1965,8 +1979,8 @@ static void test_items(void)
           OBJECTS[OBJ_GOLD].vp == 40 && OBJECTS[OBJ_SCROLL].category == OC_SCROLL,
           "items: table values from objects.csv");
     check(WEAPONS[WEAPON_SWORD].combat == 10 && WEAPONS[WEAPON_SHIELD].defence == 13 &&
-          WEAPONS[WEAPON_BOW].ranged == 1 && WEAPONS[WEAPON_SWORD].dice_n == 2 &&
-          WEAPONS[WEAPON_SWORD].die == 8 && WEAPONS[WEAPON_MAGIC_SLAYER].dice_n == 3,
+          WEAPONS[WEAPON_BOW].ranged == 1 && WEAPONS[WEAPON_SWORD].defence == 4 &&
+          WEAPONS[WEAPON_SWORD].thrown == 16 && WEAPONS[WEAPON_MAGIC_SLAYER].combat == 30,
           "items: weapon values");
 
     world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
@@ -1979,13 +1993,13 @@ static void test_items(void)
           world.units[0].items[0] == OBJ_SWORD && world.units[0].ap == 32,
           "items: picking up costs 8 AP");
     check(items_kind_at(&world, 6, 8) == NO_ITEM, "items: gone from the ground");
-    check(items_combat(&world, 0) == 10 && items_defence(&world, 0) == 12,
-          "items: bare-handed values");      /* not wielded yet */
+    check(items_combat(&world, 0) == 10 && items_defence(&world, 0) == 16,
+          "items: not wielded yet; the carried sword adds its 4 defence");
 
     check(items_cycle(&world, 0) && world.units[0].in_use == 0 &&
           world.units[0].ap == 28, "items: wielding costs 4 AP");
-    check(items_combat(&world, 0) == 10,
-          "d42: a wielded sword leaves the hit value alone");
+    check(items_combat(&world, 0) == 20,
+          "k7: a wielded sword adds its 10 Combat");
 
     {   /* shield carried: defence always (GDD 6.1) */
         world.units[0].items[1] = OBJ_SHIELD;
@@ -2303,15 +2317,16 @@ static void test_review_fixes(void)
         world.units[s].items[0] = OBJ_BOW;
         world.units[s].item_count = 1;
         world.units[s].in_use = 0;
-        world.units[tg].def = 200;               /* old formula: never */
+        world.units[tg].def = 10;                /* A 15: 21 of 32 rolls hurt */
         world.units[tg].con = world.units[tg].con_max = 255;
         for (n = 0; n < 100; n++) {
             uint8_t dmg = 0;
             world.units[s].ap = 40;
+            world.units[tg].con = 255;
             if (items_fire(&world, &rng, s, 5, 1, &dmg) && dmg)
                 hits++;
         }
-        check(hits > 0 && hits < 30, "fix: bow hits at least 10 % (D16 clamp)");
+        check(hits > 45 && hits < 85, "fix: the bow rolls 15 against Defence (K6.4)");
     }
 
     /* more than 24 units: the eZ80 int is 24 bit (no bit masks) */
@@ -2417,11 +2432,11 @@ static void test_m4a(void)
         world.units[1].flags |= UF_UNDEAD;
         world.units[1].x = 7;
         world.units[1].y = 6;
-        world.units[1].con = world.units[1].con_max = 40;
+        world.units[1].con = world.units[1].con_max = 250;
         world.units[1].ap = 0;              /* no return blows in this test */
         rng_seed(&rng, 1);
         combat_melee(&world, &rng, 0, 1, &r);
-        check(!r.hit && world.units[1].con == 40 && world.units[0].ap == 32,
+        check(!r.hit && world.units[1].con == 250 && world.units[0].ap == 32,
               "m4a: bare hands clank off the zombie");
         world.units[0].ap = 40;
         world.units[0].items[0] = OBJ_SWORD;
@@ -2429,7 +2444,7 @@ static void test_m4a(void)
         world.units[0].in_use = 0;
         rng_seed(&rng, 1);
         combat_melee(&world, &rng, 0, 1, &r);
-        check(!r.hit && world.units[1].con == 40,
+        check(!r.hit && world.units[1].con == 250,
               "m4a: normal weapons cannot wound undead");
         world.units[0].items[0] = OBJ_MAGIC_SLAYER;
         world.units[0].item_count = 1;
@@ -2438,8 +2453,9 @@ static void test_m4a(void)
             uint8_t k, hit = 0;
             for (k = 0; k < 30; k++) {
                 world.units[0].ap = 40;
+                world.units[0].sta = 60;
                 world.units[0].con = 30;   /* free counters wear him down */
-                world.units[1].con = 40;
+                world.units[1].con = 250;
                 rng_seed(&rng, 200 + k);
                 combat_melee(&world, &rng, 0, 1, &r);
                 hit = hit || r.hit;
@@ -2454,7 +2470,7 @@ static void test_m4a(void)
                 world.units[0].ap = 40;
                 world.units[0].sta = 60;
                 world.units[0].con = 30;
-                world.units[1].con = 40;
+                world.units[1].con = 250;
                 rng_seed(&rng, 300 + k);
                 combat_melee(&world, &rng, 0, 1, &r);
                 hit = hit || r.hit;
@@ -2470,8 +2486,8 @@ static void test_m4a(void)
         check(items_combat(&world, 0) == 10 && items_defence(&world, 0) == 12,
               "m4a: full strength values");
         world.units[0].con = 14;              /* under 50 % */
-        check(items_combat(&world, 0) == 8 && items_defence(&world, 0) == 10,
-              "m4a: below half Constitution -2/-2");
+        check(items_combat(&world, 0) == 5 && items_defence(&world, 0) == 6,
+              "m4a: below half Constitution both halve (K6.1)");
         world.units[0].sta = 60;
         world_new_turn(&world);
         check(world.units[0].ap == 20,
@@ -2924,23 +2940,11 @@ static void test_m4_review(void)
     u->item_count = 1;
     u->in_use = 0;
     u->con = u->con_max;
-    {   /* D42: the enchantment moved from the hit value to the dice */
+    {   /* K7: an enchanted weapon counts double */
         uint8_t plain = items_combat(&world, 0);
-        uint16_t k, sum_plain = 0, sum_magic = 0;
-        Rng drng;
-        rng_seed(&drng, 77);
-        for (k = 0; k < 100; k++)
-            sum_plain = (uint16_t)(sum_plain +
-                                   items_attack_damage(&world, 0, &drng, false));
         effect_grant(u, EFF_MAGIC_WEAPON, 1, 2);
-        check(items_combat(&world, 0) == plain,
-              "d42: an enchanted sword leaves the hit value alone");
-        rng_seed(&drng, 77);
-        for (k = 0; k < 100; k++)
-            sum_magic = (uint16_t)(sum_magic +
-                                   items_attack_damage(&world, 0, &drng, false));
-        check(sum_magic > sum_plain,
-              "d42: the enchantment doubles the weapon's dice instead");
+        check(items_combat(&world, 0) == (uint8_t)(plain + WEAPONS[WEAPON_SWORD].combat),
+              "k7: an enchanted sword adds its Combat twice");
     }
 }
 
@@ -3228,9 +3232,9 @@ static void test_m4e(void)
     world.unit_count = 0;
     area_reset();
 
-    check(WEAPONS[WEAPON_KNIFE].thrown == 1 && WEAPONS[WEAPON_SPEAR].ranged == 0 &&
-          WEAPONS[WEAPON_CLUB].combat == 7 && WEAPONS[WEAPON_MAGIC_SLAYER].combat == 16 &&
-          WEAPONS[WEAPON_AXE].dice_n == 2 && WEAPONS[WEAPON_AXE].die == 10,
+    check(WEAPONS[WEAPON_KNIFE].thrown == 20 && WEAPONS[WEAPON_SPEAR].ranged == 0 &&
+          WEAPONS[WEAPON_CLUB].combat == 5 && WEAPONS[WEAPON_MAGIC_SLAYER].combat == 30 &&
+          WEAPONS[WEAPON_AXE].thrown == 28,
           "m4e: weapon values from weapons.csv");
     check(OBJECTS[OBJ_SPEAR].weapon == WEAPON_SPEAR &&
           OBJECTS[OBJ_SLAYER].weight == 9,
@@ -3617,14 +3621,14 @@ static void test_m4e(void)
         world.units[a].items[0] = OBJ_AXE;
         world.units[a].item_count = 1;
         world.units[a].in_use = 0;
-        check(items_combat(&world, a) == 10,
-              "d42: the axe does not raise the hit value");
+        check(items_combat(&world, a) == 19,
+              "k7: the axe adds its 9 Combat");
         rng_seed(&rng, 5);
         /* wizard 10 against goblin defence 9: 55 %. Under D31 the axe's
          * +9 pushed this to the 90 % ceiling. */
         check(combat_hit_chance(items_combat(&world, a),
-                                items_defence(&world, b)) == 55,
-              "d42: axe vs goblin hits 55 % - the blade only adds damage");
+                                items_defence(&world, b)) == 75,
+              "k7: axe vs goblin: 30 of 40 rolls hurt");
     }
 
     {   /* enemy in the walled house is hidden from outside rays */
@@ -4459,6 +4463,7 @@ static void test_m5c_events(void)
     events_reset();
     load_house();
     rng_seed(&rng, 9);
+    world.units[0].com = 60;
     {
         bool destroyed = false;
         (void)combat_terrain(&world, &rng, 0, 1, 6, &destroyed);  /* table */
@@ -4581,6 +4586,7 @@ static void test_c1_c2(void)
     world_map_changed(&world);
     world.units[0].item_count = 0;
     world.units[0].ap = 62;
+    world.units[0].com = 70;
     rng_seed(&rng, 5);
     {
         uint8_t n;
@@ -4775,39 +4781,12 @@ static void test_m5e_balance(void)
         world.units[0].con = 30;
         world.units[1].con = 32;
         rng_seed(&rng, 5);
-        check(combat_melee(&world, &rng, 0, 1, &r) && r.returned,
-              "m5e: exhausted defenders still counter (D27)");
+        world.units[0].ap = 40;
+        world.units[0].sta = 60;
+        check(combat_melee(&world, &rng, 0, 1, &r) && !r.returned,
+              "m5e: exhausted defenders cannot answer (K6.2)");
         check(world.units[1].ap == 0 && world.units[1].sta == 0,
-              "m5e: the counter costs no AP and no stamina");
-    }
-
-    {   /* D28: weapon dice beat bare hands over many rolls */
-        uint16_t k;
-        uint32_t bare = 0, sword = 0, axe = 0;
-        load_house();
-        world.units[0].kind = CR_DWARF;      /* com 6 */
-        world.units[0].com = CREATURES[CR_DWARF].combat;
-        for (k = 0; k < 400; k++) {
-            rng_seed(&rng, 7000 + k);
-            bare += items_attack_damage(&world, 0, &rng, false);
-            world.units[0].items[0] = OBJ_SWORD;
-            world.units[0].item_count = 1;
-            world.units[0].in_use = 0;
-            rng_seed(&rng, 7000 + k);
-            sword += items_attack_damage(&world, 0, &rng, false);
-            world.units[0].items[0] = OBJ_AXE;
-            rng_seed(&rng, 7000 + k);
-            axe += items_attack_damage(&world, 0, &rng, false);
-            world.units[0].item_count = 0;
-            world.units[0].in_use = NO_ITEM;
-        }
-        bare /= 400;
-        sword /= 400;
-        axe /= 400;
-        check(bare >= 2 && bare <= 5, "m5e: bare hands average 1d4+1");
-        check(sword >= 8 && sword <= 12, "m5e: sword averages 2d8+1");
-        check(axe > sword, "m5e: the axe outdamages the sword");
-        check(sword > bare * 2, "m5e: weapons clearly beat bare hands (D28)");
+              "m5e: and pay nothing");
     }
 
     {   /* D28: the shield never takes the hand */
@@ -4881,28 +4860,6 @@ static void test_m5e_balance(void)
         }
         check(hits8 >= 35 && kills8 * 10 > hits8 * 7,
               "m5e: a level-8 bolt kills the goblin on most hits");
-    }
-
-    {   /* D29: the free swing on disengage spends the same reaction */
-        CombatResult fs;
-        load_house();
-        world.units[1].owner = OWN_P2;
-        world.units[1].x = 4;
-        world.units[1].y = 4;
-        world.units[0].con = 30;
-        world.units[1].con = 32;
-        world.units[1].ap = 30;
-        world.units[1].sta = 45;
-        rng_seed(&rng, 31);
-        combat_melee(&world, &rng, 0, 1, &r);      /* goblin counters ... */
-        check(r.returned, "m5e: the goblin counters the first attack");
-        rng_seed(&rng, 32);
-        check(combat_disengage_swings(&world, &rng, 0, NULL, &fs) == 0,
-              "m5e: no free swing left in the same round (D29)");
-        world.units[1].reacted = false;   /* new round */
-        rng_seed(&rng, 33);
-        check(combat_disengage_swings(&world, &rng, 0, NULL, &fs) == 1,
-              "m5e: the free swing works again next round");
     }
 
     {   /* F6: spell shop and mana with XP (anchor 2026-10-04) */
@@ -4995,43 +4952,32 @@ static void test_m5e_balance(void)
         }
     }
 
-    {   /* D30: critical hits - rare, dice doubled (bonus not) */
-        uint16_t k, crits = 0, hits = 0;
-        uint32_t normal = 0, critical = 0;
+    {   /* K6.2: the sword in hand adds 10 Combat: a goblin takes more, more often */
+        uint16_t k, bare = 0, armed = 0;
         CombatResult cr;
-        load_house();
-        world.units[0].items[0] = OBJ_SWORD;
-        world.units[0].item_count = 1;
-        world.units[0].in_use = 0;
-        world.units[1].owner = OWN_P2;
-        world.units[1].x = 4;
-        world.units[1].y = 4;
-        for (k = 0; k < 400; k++) {
-            rng_seed(&rng, 5000 + k);
-            world.units[0].ap = 40;
-            world.units[0].con = 30;
-            world.units[0].sta = 100;
-            world.units[1].con = 250;      /* a punching bag that survives */
-            world.units[1].con_max = 250;
-            world.units[1].reacted = true;   /* its counter stays off */
-            if (combat_melee(&world, &rng, 0, 1, &cr) && cr.hit) {
-                hits++;
-                if (cr.crit) {
-                    crits++;
-                    critical += cr.damage;
-                } else
-                    normal += cr.damage;
+        for (k = 0; k < 300; k++) {
+            uint8_t pass;
+            for (pass = 0; pass < 2; pass++) {
+                load_house();
+                world.units[0].items[0] = OBJ_SWORD;
+                world.units[0].item_count = 1;
+                world.units[0].in_use = pass ? 0 : NO_ITEM;
+                world.units[1].owner = OWN_P2;
+                world.units[1].x = 4;
+                world.units[1].y = 4;
+                world.units[1].con = world.units[1].con_max = 250;
+                world.units[0].ap = 40;
+                world.units[0].sta = 100;
+                rng_seed(&rng, 5000 + k);
+                if (combat_melee(&world, &rng, 0, 1, &cr) && cr.hit) {
+                    if (pass)
+                        armed = (uint16_t)(armed + cr.damage);
+                    else
+                        bare = (uint16_t)(bare + cr.damage);
+                }
             }
         }
-        check(crits >= 8 && crits <= 45,
-              "m5e: about one in twenty hits is critical (D30)");
-        {   /* crit = 4d8+1 vs normal 2d8+1: the crit adds one dice roll */
-            uint16_t avg_n = (uint16_t)(normal / (hits - crits ? hits - crits : 1));
-            uint16_t avg_c = (uint16_t)(critical / (crits ? crits : 1));
-            check(avg_c > avg_n, "m5e: criticals outdamage normal hits");
-            check(avg_c > avg_n + 6 && avg_c < avg_n + 12,
-                  "m5e: the crit adds about one extra sword roll");
-        }
+        check(armed > bare * 2, "m5e: a sword more than doubles the damage dealt");
     }
 }
 

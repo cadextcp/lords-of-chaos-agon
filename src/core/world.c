@@ -519,11 +519,12 @@ bool world_move_unit(World *w, uint8_t unit, int8_t dx, int8_t dy)
     }
     if (u->ap < cost)
         return false;
+    if (world_engaged(w, unit))
+        return false;                      /* bound units do not move (K11.7) */
     world_spend(w, unit, cost);
     u->x = (uint8_t)nx;
     u->y = (uint8_t)ny;
-    if (!(u->flags & UF_FLYING))
-        world_engage(w, unit);             /* arriving next to an enemy binds both */
+    world_engage(w, unit);                 /* arriving next to an enemy binds the mover */
     return true;
 }
 
@@ -670,66 +671,49 @@ void world_new_turn(World *w)
         }
 }
 
-bool world_engaged(const World *w, uint8_t unit)
+/* A visible enemy on the same height within the 8 neighbour fields (K11.7). */
+static bool enemy_at_sleeve(const World *w, uint8_t unit)
 {
-    const Unit *u;
+    const Unit *u = &w->units[unit];
+    UnitLayer layer = (u->flags & UF_FLYING) ? UL_AIR : UL_GROUND;
     int8_t dx, dy;
-    if (ride_may_attack_from(w, unit))
-        return false;                    /* riders attack from anywhere (D21) */
-    if (unit >= w->unit_count)
-        return false;
-    u = &w->units[unit];
-    if (u->flags & UF_FLYING)
-        return false;                      /* flyers are never bound */
-    if (!(u->flags & UF_ENGAGED))
-        return false;                      /* free again since its last phase */
+    if (u->flags & UF_INVISIBLE)
+        return false;                      /* the unseen are never bound */
     for (dx = -1; dx <= 1; dx++)
         for (dy = -1; dy <= 1; dy++) {
-            uint8_t o = world_unit_at(w, (int16_t)(u->x + dx),
-                                      (int16_t)(u->y + dy), UL_GROUND);
-            if (o != NO_UNIT && w->units[o].owner != u->owner)
-                return true;               /* enemy at the sleeve (GDD 6) */
-        }
-    return false;
-}
-
-bool world_enemy_adjacent(const World *w, uint8_t unit)
-{
-    const Unit *u;
-    int8_t dx, dy;
-    if (unit >= w->unit_count)
-        return false;
-    u = &w->units[unit];
-    if (u->flags & UF_FLYING)
-        return false;
-    for (dx = -1; dx <= 1; dx++)
-        for (dy = -1; dy <= 1; dy++) {
-            uint8_t o = world_unit_at(w, (int16_t)(u->x + dx),
-                                      (int16_t)(u->y + dy), UL_GROUND);
-            if (o != NO_UNIT && w->units[o].owner != u->owner)
+            uint8_t o;
+            if (dx == 0 && dy == 0)
+                continue;
+            o = world_unit_at(w, (int16_t)(u->x + dx), (int16_t)(u->y + dy), layer);
+            if (o != NO_UNIT && w->units[o].owner != u->owner &&
+                !(w->units[o].flags & UF_INVISIBLE))
                 return true;
         }
     return false;
 }
 
+bool world_engaged(const World *w, uint8_t unit)
+{
+    if (unit >= w->unit_count)
+        return false;
+    if (ride_may_attack_from(w, unit))
+        return false;                    /* riders attack from anywhere (D21) */
+    if (!(w->units[unit].flags & UF_ENGAGED))
+        return false;                      /* free again since its last phase */
+    return enemy_at_sleeve(w, unit);       /* gone enemy: it loosens (K11.7) */
+}
+
+bool world_enemy_adjacent(const World *w, uint8_t unit)
+{
+    return unit < w->unit_count && enemy_at_sleeve(w, unit);
+}
+
 void world_engage(World *w, uint8_t unit)
 {
-    Unit *u;
-    int8_t dx, dy;
     if (unit >= w->unit_count)
         return;
-    u = &w->units[unit];
-    if (u->flags & UF_FLYING)
-        return;
-    for (dx = -1; dx <= 1; dx++)
-        for (dy = -1; dy <= 1; dy++) {
-            uint8_t o = world_unit_at(w, (int16_t)(u->x + dx),
-                                      (int16_t)(u->y + dy), UL_GROUND);
-            if (o != NO_UNIT && w->units[o].owner != u->owner) {
-                u->flags |= UF_ENGAGED;
-                w->units[o].flags |= UF_ENGAGED;
-            }
-        }
+    if (enemy_at_sleeve(w, unit))
+        w->units[unit].flags |= UF_ENGAGED;   /* only the mover or striker (K11.7) */
 }
 
 void world_release(World *w, uint8_t owner)
@@ -768,7 +752,9 @@ BumpKind world_bump_kind(const World *w, uint8_t unit, int8_t dx, int8_t dy)
             return BUMP_HELD;
         cost = world_unit_step_cost(w, unit, nx, ny, dx != 0 && dy != 0);
     }
-    return u->ap >= cost ? BUMP_OK : BUMP_NO_AP;
+    if (u->ap < cost)
+        return BUMP_NO_AP;
+    return world_engaged(w, unit) ? BUMP_BOUND : BUMP_OK;
 }
 
 static bool is_door_feature(uint8_t fe)
