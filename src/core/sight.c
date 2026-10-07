@@ -347,6 +347,33 @@ void sight_compute(const World *w, Sight *s)
     }
 }
 
+bool sight_sees(const World *w, const Unit *obs, int16_t tx, int16_t ty,
+                bool target_air, bool is_object)
+{
+    int16_t dx, dy;
+    bool air = (obs->flags & UF_FLYING) != 0;
+    (void)is_object;
+    if (!world_wrap(w, &tx, &ty))
+        return false;
+    world_delta(w, obs->x, obs->y, tx, ty, &dx, &dy);
+    if (!sight_in_reach(dx, dy, air ? SIGHT_R_AIR : SIGHT_R_GROUND))
+        return false;
+    if (air) {
+        if (target_air)
+            return true;                     /* fliers always see fliers */
+        if (world_has_roof(w, tx, ty))
+            return false;                    /* nobody looks into a house from above */
+        if (sight_in_reach(dx, dy, 4))
+            return true;
+        return !canopy(w, tx, ty);          /* objects and units alike */
+    }
+    if (target_air)
+        return !world_has_roof(w, obs->x, obs->y);   /* under a roof the other height is gone */
+    if (sight_in_reach(dx, dy, 4))
+        return true;                         /* the neighbours are always seen */
+    return sight_has_los(w, obs->x, obs->y, tx, ty);
+}
+
 bool sight_unit_visible(const Sight *s, const World *w, const Unit *u)
 {
     if (u->owner == s->owner)

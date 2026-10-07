@@ -65,6 +65,9 @@ static void init_unit(Unit *u, uint8_t x, uint8_t y, uint8_t kind, uint8_t owner
     u->travel = 0;
     u->group = 0;
     u->reacted = false;
+    u->plan_route = 0xFF;
+    u->plan_step = u->plan_flags = u->visit_head = 0;
+    memset(u->visited, 0xFF, sizeof u->visited);
     u->alarm = 0;
     u->alarm_charge = 0;
     u->alarm_x = u->alarm_y = 0;

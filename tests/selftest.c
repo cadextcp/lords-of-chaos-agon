@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "ai.h"
+#include "ai_priv.h"
 #include "area.h"
 #include "brew.h"
 #include "ride.h"
@@ -1435,6 +1436,161 @@ static void test_0h(void)
         world.feature[10][13] = FE_NONE;
         world_map_changed(&world);
     }
+}
+
+/* D67 KI 1: the creature loop of K10.3 on an open field. */
+static void open_field(void)
+{
+    uint8_t x, y;
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    for (y = 0; y < world.h; y++)
+        for (x = 0; x < world.w; x++) {
+            world.floor[y][x] = FL_GRASS;
+            world.feature[y][x] = FE_NONE;
+        }
+    memset(world.roof, 0, sizeof world.roof);
+    world.object_count = 0;
+    world.unit_count = 0;
+    area_reset();
+    world_map_changed(&world);
+}
+
+static void test_ki1(void)
+{
+    Rng rng;
+    AiView v;
+    uint8_t a, b, c;
+    uint8_t k;
+
+    rng_seed(&rng, 21);
+
+    /* the view: nearest first, own side and the invisible left out */
+    open_field();
+    a = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 10, 10);
+    b = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 14, 10);
+    c = world_spawn_unit(&world, OWN_P1, CR_DWARF, 12, 10);
+    world_spawn_unit(&world, OWN_P2, CR_TROLL, 11, 10);
+    k = world_spawn_unit(&world, OWN_P1, CR_PIXIE, 11, 11);   /* always invisible */
+    ai_build_view(&world, a, &v);
+    check(v.en_n == 2 && v.en[0].id == world.units[c].id && v.en[1].id == world.units[b].id &&
+          v.en[0].dist == 4 && v.en[1].dist == 8,
+          "ki1: the view lists the visible foes nearest first, not the pixie or friends");
+    (void)k;
+    world.units[b].x = 30;                     /* beyond 9 fields */
+    ai_build_view(&world, a, &v);
+    check(v.en_n == 1, "ki1: what lies beyond the octagon is not seen");
+
+    /* a strong creature attacks a weak one next to it, a weak one runs */
+    open_field();
+    a = world_spawn_unit(&world, OWN_NEUTRAL, CR_BEAR, 10, 10);
+    b = world_spawn_unit(&world, OWN_P1, CR_PIXIE, 11, 10);
+    world.units[b].flags &= (uint8_t)~UF_INVISIBLE;
+    world.units[b].con = world.units[b].con_max = 200;
+    ai_creature_turn(&world, &rng, NULL, world.units[a].id);
+    check(world.units[b].con < 200 || world.units[a].ap < world.units[a].ap_max,
+          "ki1: the bear attacks what it can hurt");
+
+    open_field();
+    a = world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, 10, 10);
+    b = world_spawn_unit(&world, OWN_P1, CR_GIANT, 13, 10);   /* Combat 21 against Defence 9 */
+    world.units[b].flags |= 0;
+    ai_creature_turn(&world, &rng, NULL, world.units[a].id);
+    check(world.units[a].x < 10 || world.units[a].x != 10,
+          "ki1: a goblin flees from a giant");
+    check(world_range(&world, world.units[a].x, world.units[a].y, 13, 10) > 6,
+          "ki1: it ends farther from the giant");
+
+    /* bound: no flight, a bodyguard never runs */
+    open_field();
+    a = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 10, 10);
+    b = world_spawn_unit(&world, OWN_P1, CR_GIANT, 11, 10);
+    world_engage(&world, a);
+    check(world_engaged(&world, a), "ki1: next to the giant the goblin is bound");
+    {
+        uint8_t ox = world.units[a].x;
+        ai_creature_turn(&world, &rng, NULL, world.units[a].id);
+        check(world.units[a].x == ox, "ki1: a bound creature does not run");
+    }
+    (void)b;
+
+    /* sleepers do nothing until they see a foe */
+    open_field();
+    a = world_spawn_unit(&world, OWN_P2, CR_BEAR, 10, 10);
+    world.units[a].plan_flags = 0x40;
+    ai_creature_turn(&world, &rng, NULL, world.units[a].id);
+    check((world.units[a].plan_flags & 0x40) != 0 && world.units[a].ap == world.units[a].ap_max,
+          "ki1: a sleeper without a foe in sight stays asleep");
+    world_spawn_unit(&world, OWN_P1, CR_DWARF, 14, 10);
+    ai_creature_turn(&world, &rng, NULL, world.units[a].id);
+    check((world.units[a].plan_flags & 0x40) == 0, "ki1: it wakes at the sight of a foe");
+
+    /* objects: it walks to a sword, picks it up and wields it */
+    open_field();
+    a = world_spawn_unit(&world, OWN_P2, CR_DWARF, 10, 10);
+    world.objects[0].x = 13;
+    world.objects[0].y = 10;
+    world.objects[0].tile = OBJECTS[OBJ_SWORD].tile;
+    world.object_count = 1;
+    for (k = 0; k < 4 && world.units[a].item_count == 0; k++) {
+        world.units[a].ap = world.units[a].ap_max;
+        ai_creature_turn(&world, &rng, NULL, world.units[a].id);
+    }
+    check(world.units[a].item_count == 1 && world.units[a].items[0] == OBJ_SWORD,
+          "ki1: it fetches the sword");
+    world.units[a].ap = world.units[a].ap_max;
+    world.units[a].in_use = NO_ITEM;
+    ai_creature_turn(&world, &rng, NULL, world.units[a].id);
+    check(world.units[a].in_use == 0, "ki1: and takes it in hand");
+
+    /* loot goes to the wizard: thrown when in range, carried before */
+    open_field();
+    a = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 10, 10);
+    b = world_spawn_unit(&world, OWN_P2, CR_WIZARD, 14, 10);
+    world.units[a].items[0] = OBJ_GOLD;
+    world.units[a].item_count = 1;
+    ai_creature_turn(&world, &rng, NULL, world.units[a].id);
+    check(world.units[a].item_count == 0 && items_kind_at(&world, 14, 10) == OBJ_GOLD,
+          "ki1: the goblin throws its loot to the wizard (it lands on his field)");
+
+    /* an archer fires at a target it can hurt, ignores one it cannot */
+    open_field();
+    a = world_spawn_unit(&world, OWN_P2, CR_DWARF, 10, 10);
+    world.units[a].items[0] = OBJ_BOW;
+    world.units[a].item_count = 1;
+    world.units[a].in_use = 0;
+    b = world_spawn_unit(&world, OWN_P1, CR_GOBLIN, 16, 10);
+    world.units[b].con = world.units[b].con_max = 250;
+    ai_creature_turn(&world, &rng, NULL, world.units[a].id);
+    check(world.units[a].ap < world.units[a].ap_max,
+          "ki1: the bowman shoots (or walks) at the goblin within 16 units");
+
+    /* a flier takes off at once and lands to fight a ground foe */
+    open_field();
+    a = world_spawn_unit(&world, OWN_P2, CR_GIANT_BAT, 10, 10);
+    b = world_spawn_unit(&world, OWN_P1, CR_DWARF, 12, 10);
+    world.units[b].con = world.units[b].con_max = 250;
+    ai_creature_turn(&world, &rng, NULL, world.units[a].id);
+    check(world.units[b].con < 250 || (world.units[a].flags & UF_FLYING),
+          "ki1: the bat takes off or lands and bites");
+
+    /* nothing in view: a bodyguard follows its wizard and stands within 5 units */
+    open_field();
+    a = world_spawn_unit(&world, OWN_P2, CR_GOBLIN, 10, 10);
+    b = world_spawn_unit(&world, OWN_P2, CR_WIZARD, 16, 10);
+    for (k = 0; k < 4; k++) {
+        world.units[a].ap = world.units[a].ap_max;
+        ai_creature_turn(&world, &rng, NULL, world.units[a].id);
+    }
+    check(world_range(&world, world.units[a].x, world.units[a].y, 16, 10) < 5,
+          "ki1: creatures without a plan guard their wizard within 5 units");
+    {
+        uint8_t ox = world.units[a].x, oy = world.units[a].y;
+        world.units[a].ap = world.units[a].ap_max;
+        ai_creature_turn(&world, &rng, NULL, world.units[a].id);
+        check(world.units[a].x == ox && world.units[a].y == oy,
+              "ki1: and then stay put");
+    }
+    (void)c;
 }
 
 static void test_flight(void)
@@ -4732,7 +4888,7 @@ static void test_m4i(void)
         memcpy(buf, "XXXX", 4);
         check(!save_deserialize(&b, buf, len), "m4i: wrong magic refused");
         len = save_serialize(&a, buf, sizeof buf);
-        buf[5] = 10;
+        buf[5] = 11;
         check(!save_deserialize(&b, buf, len), "m4i: wrong version refused");
         check(!save_deserialize(&b, buf, (uint16_t)(len - 1)),
               "m4i: wrong length refused");
@@ -4750,7 +4906,7 @@ static void test_m4k_ai(void)
 
     {   /* a guard opens his crypt door to reach an intruder */
         uint8_t w1;
-        guard = world_spawn_unit(&world, OWN_NEUTRAL, CR_ZOMBIE, 6, 4);
+        guard = world_spawn_unit(&world, OWN_NEUTRAL, CR_SPECTRE, 6, 4);   /* strong enough to engage (K10.4) */
         world.units[guard].flags |= UF_UNDEAD;
         world.feature[3][7] = FE_DOOR_CLOSED;   /* door east of the guard */
         world_map_changed(&world);
@@ -5591,6 +5747,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_0e();
     test_0g();
     test_0h();
+    test_ki1();
     test_bump_and_look();
     test_combat();
     test_spells();
