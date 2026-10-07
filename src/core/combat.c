@@ -8,16 +8,6 @@
 #include "gen/data.h"
 #include "items.h"
 
-uint8_t combat_spell_hit_chance(uint8_t magic_res)
-{
-    int16_t p = (int16_t)(100 - (int16_t)magic_res);
-    if (p < COMBAT_CRIT_PERCENT)
-        return COMBAT_CRIT_PERCENT;
-    if (p > 100 - COMBAT_CRIT_PERCENT)
-        return 100 - COMBAT_CRIT_PERCENT;
-    return (uint8_t)p;
-}
-
 uint8_t combat_roll(Rng *rng, uint8_t attack, uint8_t defence)
 {
     uint16_t n = (uint16_t)(2 * ((uint16_t)attack + 1));

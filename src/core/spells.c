@@ -145,44 +145,45 @@ uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell)
     return placed;
 }
 
-/* One bolt-like shot at whatever stands on (x, y) (any layer). The
- * caster comes by value: a lightning splash may kill the caster himself
- * (or reorder the unit list) before the remaining fields are rolled. */
+uint8_t spell_attack_value(uint8_t spell, uint8_t level)
+{
+    return (uint8_t)(4 * level + (spell == SP_MAGIC_LIGHTNING ? 30 : 25));
+}
+
+uint8_t spell_range(uint8_t spell, uint8_t level)
+{
+    if (spell == SP_MAGIC_EYE)
+        return (uint8_t)(3 * level + 10);
+    if (spell == SP_TELEPORT)
+        return (uint8_t)(2 * level + 30);
+    return (uint8_t)(2 * level + 7);
+}
+
+bool spell_in_range(const World *w, const Unit *u, uint8_t spell, uint8_t level,
+                    int16_t x, int16_t y)
+{
+    return world_range(w, u->x, u->y, x, y) <= spell_range(spell, level);
+}
+
+/* One bolt-like shot at whatever stands on (x, y) (any layer): damage =
+ * RND(min(255, 2 (A+1))) - Defence_eff, undead included (K5.3). The caster
+ * comes by value: a lightning splash may kill the caster himself (or
+ * reorder the unit list) before the remaining fields are rolled. */
 static bool shoot_field(World *w, Rng *rng, const Unit *caster, int16_t x,
-                        int16_t y, uint8_t dice_n, uint8_t die,
-                        uint8_t *damage, bool *crit)
+                        int16_t y, uint8_t attack, uint8_t *damage)
 {
     uint8_t target = world_unit_at(w, x, y, UL_GROUND);
-    uint8_t i;
-    uint16_t d = 0;
-    uint16_t roll;
     *damage = 0;
-    if (crit)
-        *crit = false;
     if (target == NO_UNIT)
         target = world_unit_at(w, x, y, UL_AIR);
     if (target == NO_UNIT)
         return false;
-    roll = rng_range(rng, 100);
-    if (roll >= combat_spell_hit_chance(items_magic_res(w, target))) {
+    *damage = combat_roll(rng, attack, items_defence(w, target));
+    if (*damage == 0) {
         events_push(EV_MISS, x, y, caster->kind, caster->owner, 0, 0);
         return false;
     }
-    {
-        bool is_crit = roll < COMBAT_CRIT_PERCENT;
-        if (is_crit)                       /* critical: dice twice (D30) */
-            dice_n = (uint8_t)(dice_n * 2);
-        if (crit)
-            *crit = is_crit;
-        /* the spell's damage dice (D28): magic outdamages a weapon swing */
-        for (i = 0; i < dice_n; i++)
-            d = (uint16_t)(d + rng_range(rng, die) + 1);
-        if (d == 0)
-            d = 1;
-        *damage = (uint8_t)d;
-        combat_damage(w, target, *damage, caster->kind, caster->owner, false,
-                      NULL, is_crit);
-    }
+    combat_damage(w, target, *damage, caster->kind, caster->owner, false, NULL, false);
     return true;
 }
 
@@ -204,24 +205,11 @@ static bool pay_for_spell(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
     return true;
 }
 
-static bool in_range(const World *w, const Unit *u, int16_t x, int16_t y)
-{
-    int16_t dx = (int16_t)(x - u->x), dy = (int16_t)(y - u->y);
-    if (w->wrap) {
-        if (dx > w->w / 2) dx = (int16_t)(dx - w->w);
-        if (dx < -w->w / 2) dx = (int16_t)(dx + w->w);
-        if (dy > w->h / 2) dy = (int16_t)(dy - w->h);
-        if (dy < -w->h / 2) dy = (int16_t)(dy + w->h);
-    }
-    return dx >= -SPELL_RANGE && dx <= SPELL_RANGE &&
-           dy >= -SPELL_RANGE && dy <= SPELL_RANGE;
-}
-
 bool spell_bolt(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
                 int16_t x, int16_t y, Rng *rng, SpellShot *out)
 {
     const Unit *u;
-    out->allowed = out->hit = out->died = false;
+    out->allowed = out->hit = out->died = out->crit = false;
     out->damage = 0;
     out->splash_hits = 0;
     out->terrain_smashed = false;
@@ -230,7 +218,8 @@ bool spell_bolt(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
     if (wiz >= w->unit_count || !world_wrap(w, &x, &y))
         return false;
     u = &w->units[wiz];
-    if (!in_range(w, u, x, y) || !sight_has_spell_los(w, u->x, u->y, x, y))
+    if (!spell_in_range(w, u, spell, b->level[spell], x, y) ||
+        !sight_has_spell_los(w, u->x, u->y, x, y))
         return false;
     {
         uint8_t before = w->unit_count;
@@ -247,13 +236,26 @@ bool spell_bolt(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
                         spell == SP_MAGIC_LIGHTNING ? PJ_LIGHTNING : PJ_BOLT,
                         caster.owner, (uint8_t)(int8_t)dx, (uint8_t)(int8_t)dy);
         }
-        /* D&D-style upcast (D29): the dice grow with the book level the
-         * spell is cast at - the first charge of a full book hits hardest */
         out->hit = shoot_field(w, rng, &caster, x, y,
-                               (uint8_t)(SPELLS[spell].dice_n + level),
-                               SPELLS[spell].die, &out->damage, &out->crit);
+                               spell_attack_value(spell, level), &out->damage);
         out->died = w->unit_count < before;
     }
+    return true;
+}
+
+/* A destructible feature on (x, y) breaks when RND(2A) >= toughness (K5.3). */
+static bool lightning_smash(World *w, Rng *rng, int16_t x, int16_t y, uint8_t attack)
+{
+    uint8_t fe;
+    if (!world_blocks(w, x, y))
+        return false;
+    fe = world_feature(w, x, y);
+    if (FEATURE_TOUGH[fe] == 0 ||
+        rng_range(rng, (uint16_t)(2 * (uint16_t)attack)) < FEATURE_TOUGH[fe])
+        return false;
+    events_push(EV_SMASH, x, y, fe, 0, 0, 0);
+    w->feature[y][x] = FE_NONE;
+    world_map_changed(w);
     return true;
 }
 
@@ -262,7 +264,7 @@ bool spell_lightning(World *w, Spellbook *b, uint8_t wiz,
 {
     static const int8_t DX[8] = {0, 1, 1, 1, 0, -1, -1, -1};
     static const int8_t DY[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
-    uint8_t i;
+    uint8_t i, attack;
     Unit caster;
     /* massive target fields are rejected (GDD 7.2) */
     if (world_wrap(w, &x, &y) && world_blocks(w, x, y) &&
@@ -271,50 +273,45 @@ bool spell_lightning(World *w, Spellbook *b, uint8_t wiz,
     if (wiz >= w->unit_count)
         return false;
     caster = w->units[wiz];              /* before the bolt reorders units */
+    attack = spell_attack_value(SP_MAGIC_LIGHTNING, b->level[SP_MAGIC_LIGHTNING]);
     if (!spell_bolt(w, b, wiz, SP_MAGIC_LIGHTNING, x, y, rng, out))
         return false;
-    /* smash destructible terrain at the target */
-    if (world_blocks(w, x, y) && FEATURE_TOUGH[world_feature(w, x, y)] > 0) {
-        events_push(EV_SMASH, x, y, world_feature(w, x, y), 0, 0, 0);
-        w->feature[y][x] = FE_NONE;
-        world_map_changed(w);
+    /* the target field and its eight neighbours: creatures take a bolt
+     * each, destructible terrain breaks (K5.3) */
+    if (lightning_smash(w, rng, x, y, attack))
         out->terrain_smashed = true;
-    }
     for (i = 0; i < 8; i++) {
         uint8_t dmg;
         int16_t nx = (int16_t)(x + DX[i]), ny = (int16_t)(y + DY[i]);
         uint8_t before = w->unit_count;
         if (!world_wrap(w, &nx, &ny))
             continue;
-        if (shoot_field(w, rng, &caster, nx, ny, SPELLS[SP_MAGIC_LIGHTNING].splash_n,
-                        SPELLS[SP_MAGIC_LIGHTNING].splash_die, &dmg, NULL))
+        if (shoot_field(w, rng, &caster, nx, ny, attack, &dmg))
             out->splash_hits++;
+        lightning_smash(w, rng, nx, ny, attack);
         if (w->unit_count < before)
             out->died = true;
     }
     return true;
 }
 
-/* F2: resistance chances, D16 style. */
-static bool resist_roll(Rng *rng, uint8_t level, uint8_t mr, int8_t bonus)
+/* Resistance roll of Curse, Subversion and Magic Attack (K5.3):
+ * RND(8L + 55) + bonus >= MR. */
+static bool resist_roll(Rng *rng, uint8_t level, uint8_t mr, uint8_t bonus)
 {
-    int16_t p = (int16_t)(50 + 5 * ((int16_t)(4 * level) - mr / 4) + bonus);
-    if (p < 10)
-        p = 10;
-    if (p > 90)
-        p = 90;
-    return rng_range(rng, 100) < (uint16_t)p;
+    uint16_t n = (uint16_t)(8u * level + 55u);
+    return rng_range(rng, n) + bonus >= mr;
 }
 
-/* Targeted spells need the field within SPELL_RANGE and in sight (D17);
- * only Magic Fire will do without (GDD 7.2). */
-static bool reachable(const World *w, const Unit *u, int16_t *x, int16_t *y)
+/* Targeted spells need the field within reach and in sight (D17). */
+static bool reachable(const World *w, const Unit *u, uint8_t spell,
+                      uint8_t level, int16_t *x, int16_t *y)
 {
-    return world_wrap(w, x, y) && in_range(w, u, *x, *y) &&
+    return world_wrap(w, x, y) && spell_in_range(w, u, spell, level, *x, *y) &&
            sight_has_spell_los(w, u->x, u->y, *x, *y);
 }
 
-/* Find a free, non-massive landing field near (x, y) for Teleport. */
+/* A free, walkable ground field. */
 static bool free_field(const World *w, int16_t x, int16_t y)
 {
     return world_wrap(w, &x, &y) && !world_blocks(w, x, y) &&
@@ -332,89 +329,87 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
     u = &w->units[wiz];
     if (!spell_can_cast(w, b, wiz, spell))
         return CAST_REJECTED;
+    level = b->level[spell];
 
     switch (spell) {
-    case SP_MAGIC_SHIELD:              /* self: +2*level def for 2*level rounds */
+    case SP_MAGIC_SHIELD: {            /* self: Defence + 4 (L+1) + 12 for L+1 rounds */
+        uint16_t bonus = (uint16_t)(4 * (level + 1) + 12);
         if (!world_wrap(w, &x, &y) || x != u->x || y != u->y)
             return CAST_REJECTED;      /* targets the caster only */
-        level = b->level[spell];
         pay_for_spell(w, b, wiz, spell, x, y);
-        if (!effect_grant(u, EFF_SHIELD, (uint8_t)(2 * level),
-                          (uint8_t)(2 * level)))
+        if (!effect_grant(u, EFF_SHIELD, bonus > 255 ? 255 : (uint8_t)bonus,
+                          (uint8_t)(level + 1)))
             return CAST_REJECTED;      /* no effect slot free */
         return CAST_OK;
+    }
 
     case SP_MAGIC_EYE:                 /* sight from a point, one round */
-        if (!world_wrap(w, &x, &y) || !in_range(w, u, x, y) ||
-            !sight_has_spell_los(w, u->x, u->y, x, y))
+        if (!reachable(w, u, spell, level, &x, &y))
             return CAST_REJECTED;
         pay_for_spell(w, b, wiz, spell, x, y);
         out->allowed = true;
         out->damage = 0;
         return CAST_OK;                /* the caller reveals the area */
 
-    case SP_TELEPORT: {                /* inaccurate jump, 0 AP after */
-        int16_t dist;
+    case SP_TELEPORT: {                /* inaccurate jump, 0 AP after (K5.3) */
+        int16_t dist, tx, ty;
+        uint16_t over;
         if (!world_wrap(w, &x, &y))
             return CAST_REJECTED;
-        dist = world_distance(w, u->x, u->y, x, y);   /* Chebyshev (D17) */
-        if (dist > SPELL_RANGE)
+        dist = (int16_t)world_range(w, u->x, u->y, x, y);
+        if (dist > spell_range(spell, level))
             return CAST_REJECTED;
         pay_for_spell(w, b, wiz, spell, x, y);
-        {   /* F3: scatter up to dist/4 fields, onto a free field */
-            uint8_t tries = 0;
-            int16_t tx = x, ty = y;
-            do {
-                if (tries) {            /* -s..+s, s = dist/4 but at least 1 */
-                    int16_t s = (int16_t)(dist / 4 > 0 ? dist / 4 : 1);
-                    tx = (int16_t)(x + (int16_t)rng_range(rng, (uint16_t)(2 * s + 1)) - s);
-                    ty = (int16_t)(y + (int16_t)rng_range(rng, (uint16_t)(2 * s + 1)) - s);
-                }
-                tries++;
-            } while (!free_field(w, tx, ty) && tries < 12);
-            if (!free_field(w, tx, ty))
-                return CAST_REJECTED;  /* massive or busy: fails (GDD 7.2) */
-            u->x = (uint8_t)tx;
-            u->y = (uint8_t)ty;
+        tx = x;
+        ty = y;
+        over = dist >= 2 * level ? (uint16_t)((dist - 2 * level) / 2 + 1) : 0;
+        if (over > 1) {                /* each axis slips by RND(n) - n/2 */
+            tx = (int16_t)(tx + (int16_t)rng_range(rng, over) - (int16_t)(over / 2));
+            ty = (int16_t)(ty + (int16_t)rng_range(rng, over) - (int16_t)(over / 2));
         }
-        u->ap = 0;                     /* exhausted after the jump */
         out->allowed = true;
+        if (!free_field(w, tx, ty) || !world_wrap(w, &tx, &ty))
+            return CAST_REJECTED;      /* the field is taken or solid: it fails */
+        u->x = (uint8_t)tx;
+        u->y = (uint8_t)ty;
+        u->ap = 0;                     /* exhausted after the jump */
         return CAST_OK;
     }
 
-    case SP_CURSE: {                   /* deadly wound (GDD 7.2) */
+    case SP_CURSE: {                   /* seven wounds (K5.3) */
         uint8_t target;
-        if (!reachable(w, u, &x, &y))
+        if (!reachable(w, u, spell, level, &x, &y))
             return CAST_REJECTED;
         target = world_unit_at(w, x, y, UL_GROUND);
         if (target == NO_UNIT)
             return CAST_REJECTED;
-        level = b->level[spell];
         pay_for_spell(w, b, wiz, spell, x, y);
-        if (!resist_roll(rng, level, w->units[target].mr, 20)) {
+        if (!resist_roll(rng, level, w->units[target].mr, 10)) {
             out->allowed = true;
             return CAST_NO_RES;
         }
         out->allowed = true;
         out->hit = true;
-        world_set_wounds(&w->units[target], 7);   /* curse: 7 wounds (K5.3) */
+        world_set_wounds(&w->units[target], 7);
         return CAST_OK;
     }
 
-    case SP_SUBVERSION: {              /* creature changes sides */
-        uint8_t target;
+    case SP_SUBVERSION: {              /* creature changes sides (K5.3) */
+        uint8_t target, mr;
         Unit *t;
-        if (!reachable(w, u, &x, &y))
+        if (!reachable(w, u, spell, level, &x, &y))
             return CAST_REJECTED;
         target = world_unit_at(w, x, y, UL_GROUND);
         if (target == NO_UNIT)
             return CAST_REJECTED;
         t = &w->units[target];
-        if (t->kind == CR_WIZARD || (t->flags & UF_MOUNT))
-            return CAST_REJECTED;      /* not on wizards or mounts (GDD 7.2) */
-        level = b->level[spell];
+        if (t->kind == CR_WIZARD || t->rider_kind == CR_WIZARD)
+            return CAST_REJECTED;      /* wizards are immune, mounted ones too */
+        mr = t->mr;
+        if (t->rider_kind != 0xFF && t->rider_mr > mr)
+            mr = t->rider_mr;          /* the higher of mount and rider counts */
         pay_for_spell(w, b, wiz, spell, x, y);
-        if (!resist_roll(rng, level, t->mr, 0)) {
+        if (!resist_roll(rng, level, mr, 0)) {
             out->allowed = true;
             return CAST_NO_RES;
         }
@@ -424,25 +419,25 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
         return CAST_OK;
     }
 
-    case SP_MAGIC_ATTACK: {            /* whole kind in the area, own too */
-        uint8_t i, radius = 2;
+    case SP_MAGIC_ATTACK: {            /* every creature of the kind around the target, own too */
+        uint8_t i;
         uint8_t kind, center, caster_kind, caster_owner;
-        if (!reachable(w, u, &x, &y))
+        uint16_t radius = (uint16_t)(2 * level + 1);
+        if (!reachable(w, u, spell, level, &x, &y))
             return CAST_REJECTED;
         center = world_unit_at(w, x, y, UL_GROUND);
         if (center == NO_UNIT)
             return CAST_REJECTED;
         kind = w->units[center].kind;
-        level = b->level[spell];
         pay_for_spell(w, b, wiz, spell, x, y);
         caster_kind = u->kind;          /* the caster may die in the blast */
         caster_owner = u->owner;
         out->allowed = true;
         for (i = w->unit_count; i-- > 0;) {   /* removal swaps in done units */
             Unit *t = &w->units[i];
-            if (t->kind != kind || world_distance(w, x, y, t->x, t->y) > radius)
+            if (t->kind != kind || world_range(w, x, y, t->x, t->y) >= radius)
                 continue;
-            if (resist_roll(rng, level, t->mr, -10)) {
+            if (resist_roll(rng, level, t->mr, 0)) {
                 out->splash_hits++;
                 combat_damage(w, i, t->con, caster_kind, caster_owner, false, NULL, false);
             }
@@ -450,17 +445,16 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
         return CAST_OK;
     }
 
-    case SP_ENCHANT: {                 /* weapons on the field become magic */
+    case SP_ENCHANT: {                 /* weapons on the field become magic, L+3 rounds */
         uint8_t i;
-        if (!reachable(w, u, &x, &y))
+        if (!reachable(w, u, spell, level, &x, &y))
             return CAST_REJECTED;
-        level = b->level[spell];
         pay_for_spell(w, b, wiz, spell, x, y);
         for (i = 0; i < w->unit_count; i++) {
             Unit *t = &w->units[i];
             if (t->x != x || t->y != y)
                 continue;
-            effect_grant(t, EFF_MAGIC_WEAPON, level, (uint8_t)(2 * level));
+            effect_grant(t, EFF_MAGIC_WEAPON, level, (uint8_t)(level + 3));
         }
         out->allowed = true;
         return CAST_OK;
@@ -473,9 +467,8 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
         AreaKind kind = spell == SP_MAGIC_FIRE ? AREA_FIRE
                       : spell == SP_GOOEY_BLOB ? AREA_BLOB
                       : spell == SP_TANGLE_VINE ? AREA_VINE : AREA_FLOOD;
-        if (!reachable(w, u, &x, &y))
+        if (!reachable(w, u, spell, level, &x, &y))
             return CAST_REJECTED;
-        level = b->level[spell];
         if (!area_cast(w, kind, level, u->owner, x, y))
             return CAST_BAD_TERRAIN;     /* field refuses: nothing paid */
         pay_for_spell(w, b, wiz, spell, x, y);
