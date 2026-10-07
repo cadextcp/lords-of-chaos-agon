@@ -46,6 +46,8 @@ bool ride_mount(World *w, uint8_t rider, int16_t x, int16_t y)
     m->rider_con_max = r->con_max;
     m->rider_sta = r->sta;
     m->rider_sta_max = r->sta_max;
+    m->rider_ap = r->ap;                 /* he keeps what he has left (K6.6) */
+    m->rider_ap_max = r->ap_max;
     m->rider_com = r->com;
     m->rider_def = r->def;
     m->rider_mr = r->mr;
@@ -85,6 +87,8 @@ static uint8_t put_rider(World *w, const Unit *m, int16_t x, int16_t y)
     r->con_max = m->rider_con_max;
     r->sta = m->rider_sta;
     r->sta_max = m->rider_sta_max;
+    r->ap = m->rider_ap;
+    r->ap_max = m->rider_ap_max;
     r->com = m->rider_com;
     r->def = m->rider_def;
     r->mr = m->rider_mr;

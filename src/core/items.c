@@ -88,7 +88,7 @@ bool items_pick_up_object(World *w, uint8_t unit, uint8_t obj)
     if ((uint16_t)items_weight(w, unit) + OBJECTS[kind].weight >
         CREATURES[ride_actor_kind(u)].carry)
         return false;                    /* too heavy (GDD 8) */
-    if (u->ap < ACTIONS[ACT_PICK_UP].ap)
+    if (!world_can_pay(w, unit, ACT_PICK_UP))
         return false;
     world_pay(w, unit, ACT_PICK_UP);
     u->items[u->item_count++] = kind;
@@ -106,7 +106,7 @@ bool items_drop(World *w, uint8_t unit)
     if (u->in_use == NO_ITEM || u->in_use >= u->item_count ||
         w->object_count >= MAX_OBJECTS)
         return false;
-    if (u->ap < ACTIONS[ACT_DROP].ap)
+    if (!world_can_pay(w, unit, ACT_DROP))
         return false;
     world_pay(w, unit, ACT_DROP);
     kind = u->items[u->in_use];
@@ -144,7 +144,7 @@ bool items_cycle(World *w, uint8_t unit)
     }
     if (pos == start)
         return false;                    /* nothing else to wield */
-    if (u->ap < ACTIONS[ACT_CHANGE].ap)
+    if (!world_can_pay(w, unit, ACT_CHANGE))
         return false;
     world_pay(w, unit, ACT_CHANGE);
     u->in_use = pos == n ? NO_ITEM : pos;
@@ -194,7 +194,7 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
     u = &w->units[unit];
     if (u->in_use == NO_ITEM || u->in_use >= u->item_count)
         return false;
-    if (u->ap < ACTIONS[ACT_THROW].ap)
+    if (!world_can_pay(w, unit, ACT_THROW))
         return false;
     kind = u->items[u->in_use];
     weapon = OBJECTS[kind].weapon;
@@ -238,7 +238,7 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
                 dmg = combat_roll(rng, throw_value(u, weapon),
                                   items_defence(w, target));
             if (dmg)
-                combat_damage(w, target, dmg, u->kind, u->owner, false, NULL, false);
+                combat_damage(w, target, dmg, ride_actor_kind(u), u->owner, false, NULL, false);
             else
                 events_push(EV_MISS, u->x, u->y, u->kind, u->owner, 0, 0);
             /* it lands in front of the target: x/y stopped there */
@@ -323,7 +323,7 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
         if (dmg) {
             if (damage)
                 *damage = dmg;
-            combat_damage(w, target, dmg, u->kind, u->owner, false, NULL, false);
+            combat_damage(w, target, dmg, ride_actor_kind(u), u->owner, false, NULL, false);
         } else
             events_push(EV_MISS, tx, ty, u->kind, u->owner, 0, 0);
     }
@@ -423,7 +423,7 @@ bool items_eat(World *w, uint8_t unit)
     kind = u->items[u->in_use];
     if (OBJECTS[kind].category != OC_FOOD)
         return false;
-    if (u->ap < ACTIONS[ACT_EAT].ap)
+    if (!world_can_pay(w, unit, ACT_EAT))
         return false;
     world_pay(w, unit, ACT_EAT);
     {
@@ -458,7 +458,7 @@ const char *items_read(World *w, uint8_t unit)
     kind = u->items[u->in_use];
     if (OBJECTS[kind].category != OC_SCROLL)
         return NULL;
-    if (u->ap < ACTIONS[ACT_READ].ap)
+    if (!world_can_pay(w, unit, ACT_READ))
         return NULL;
     world_pay(w, unit, ACT_READ);
     u->items[u->in_use] = u->items[u->item_count - 1];   /* read away */
@@ -496,11 +496,11 @@ bool items_open_chest(World *w, Rng *rng, uint8_t unit, int16_t x, int16_t y)
     else
         ap = kind != NO_ITEM ? ACTIONS[ACT_UNLOCK].ap
                              : (uint8_t)(ACTIONS[ACT_OPEN_CHEST].ap * 3);
-    if (u->ap < ap)
+    if (world_pool_ap(w, unit, ACT_OPEN_CHEST) < ap)
         return false;
     if (!(CREATURES[ride_actor_kind(u)].flags & CF_USE))
         return false;                    /* hands needed */
-    world_spend_ap(w, unit, ap);
+    world_spend_ap_for(w, unit, ACT_OPEN_CHEST, ap);
     if (kind != NO_ITEM) {               /* keys vanish after use (GDD 8) */
         u->items[kind] = u->items[u->item_count - 1];
         u->item_count--;

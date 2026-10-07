@@ -66,7 +66,7 @@ bool spell_can_cast(const World *w, const Spellbook *b, uint8_t wiz, uint8_t spe
     return ride_actor_kind(u) == CR_WIZARD && !(u->flags & UF_FLYING) &&
            b->level[spell] > 0 &&
            u->mana >= spell_cast_mana(spell, b->level[spell]) &&
-           u->ap >= ACTIONS[ACT_CAST].ap;
+           world_can_pay(w, wiz, ACT_CAST);
 }
 
 uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell, Rng *rng)
@@ -163,7 +163,7 @@ static bool shoot_field(World *w, Rng *rng, const Unit *caster, int16_t x,
         events_push(EV_MISS, x, y, caster->kind, caster->owner, 0, 0);
         return false;
     }
-    combat_damage(w, target, *damage, caster->kind, caster->owner, false, NULL, false);
+    combat_damage(w, target, *damage, ride_actor_kind(caster), caster->owner, false, NULL, false);
     return true;
 }
 
@@ -410,7 +410,7 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
             return CAST_REJECTED;
         kind = w->units[center].kind;
         pay_for_spell(w, b, wiz, spell, x, y);
-        caster_kind = u->kind;          /* the caster may die in the blast */
+        caster_kind = ride_actor_kind(u);   /* the caster may die in the blast */
         caster_owner = u->owner;
         out->allowed = true;
         for (i = w->unit_count; i-- > 0;) {   /* removal swaps in done units */

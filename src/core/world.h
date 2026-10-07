@@ -85,6 +85,7 @@ typedef struct {
      * mana/mana_max, his items in items[] */
     uint8_t rider_con, rider_con_max, rider_sta, rider_sta_max;
     uint8_t rider_com, rider_def, rider_mr;
+    uint8_t rider_ap, rider_ap_max;   /* the rider acts with his own AP (K6.6) */
     uint8_t post_x, post_y;   /* guard post (M4h) / territory, 0xFF = none */
     uint8_t grudge;           /* wild animals (D35): owners that attacked it */
     uint8_t herd_dir;         /* crossing herd: direction 1..8, 0 = none */
@@ -127,6 +128,7 @@ typedef struct {
     uint8_t object_count;
     int16_t portal_x, portal_y;   /* v3 maps: -1 = none */
     uint8_t portal_rmin, portal_rmax;
+    uint8_t portal_span;          /* rounds it stays open, 0 = for good (v5) */
     uint8_t next_id;              /* unit ids, see world_spawn_unit */
     Kill kills[MAX_KILLS];        /* deaths not yet credited */
     uint8_t kill_count;
@@ -207,8 +209,16 @@ void world_spend(World *w, uint8_t unit, uint8_t ap);
 void world_spend_ap(World *w, uint8_t unit, uint8_t ap);
 /* Pay the AP and stamina of an action (data/actions.csv, K8.1). */
 void world_pay(World *w, uint8_t unit, uint8_t action);
-/* Can the unit afford the action? */
+/* Can the unit afford the action? A rider in the saddle pays what he does
+ * himself (spells, throws, objects, doors) from his own AP and stamina; moving,
+ * fighting, taking off and landing cost the mount (K6.6). */
 bool world_can_pay(const World *w, uint8_t unit, uint8_t action);
+/* The AP the action would draw on (the rider's or the mount's). */
+uint8_t world_pool_ap(const World *w, uint8_t unit, uint8_t action);
+/* Spend `ap` (no stamina) from the pool of that action. */
+void world_spend_ap_for(World *w, uint8_t unit, uint8_t action, uint8_t ap);
+/* Is the unit able to act at all this phase: its own AP or the rider's? */
+bool world_has_ap(const World *w, uint8_t unit);
 /* Wounds (R9): set the counter (capped at 7) and keep UF_WOUNDED in step. */
 void world_set_wounds(Unit *u, uint8_t n);
 /* Constitution factor floor(ConMax / ConAct), at least 1 (K4, K6.1). */

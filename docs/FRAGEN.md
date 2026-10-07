@@ -27,3 +27,6 @@
 | F14 | 0e | Flieger über Feuer bleiben unverletzt (nicht im Original gelesen, aber „Feuer am Boden“). | Eigene Zusatzregel. |
 | F15 | 0f | Der Setup-Bildschirm kennt eine „Zufallsstärke“ für Zufallszauberer; im Original gibt es nur einen. | Der Wert bleibt in der Oberfläche, wirkt aber nicht mehr. Soll er verschwinden, ist das eine kleine UI-Änderung. |
 | F16 | 0f | Alte Wizard-Dateien auf der SD-Karte mit Ausdauer/Constitution über 90 oder AP über 40 werden als ungültig abgelehnt (neue Höchstwerte). | Slot wird zurückgesetzt; kein Migrationspfad. |
+| F17 | 0g | Schatzwerte: Unsere Objekte (Gold 40, Rubin 20 …) weichen von den Originalwerten ab (16/12/8). „Schätze roh“ habe ich so verstanden, dass die Tabellenwerte ungeändert zählen; unsere Tabelle bleibt. | Unsere Werte bleiben. Soll die Schatztabelle auf 16/12/8 schrumpfen, ist das eine Datenänderung in `objects.csv`. |
+| F18 | 0g | Die Anzeige zeigt für Reiter nur die AP des Reittiers; die Reiter-AP sind im Spiel nicht sichtbar. | Panel-Anzeige (zweite AP-Zeile für den Reiter) kommt mit dem Playtest, wenn gewünscht. |
+| F19 | 0g | Der Wizard-Level für `4·Level+15` kommt für Spieler 1 aus dem Slot, für KI-Zauberer gilt Level 1 (19). Das Original setzt das Byte je Zauberer im Szenario. | Mit der Szenariodatei v2 (3a) pro Zauberer festlegen. |

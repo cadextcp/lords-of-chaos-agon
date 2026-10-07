@@ -39,7 +39,7 @@ static uint8_t next_owner(const World *w, uint8_t after)
 /* Own unit usable as the active one: has AP and is not finished. */
 static bool unit_usable(const Turns *t, const World *w, uint8_t i)
 {
-    return w->units[i].owner == t->phase && w->units[i].ap > 0 &&
+    return w->units[i].owner == t->phase && world_has_ap(w, i) &&
            !w->units[i].done;
 }
 

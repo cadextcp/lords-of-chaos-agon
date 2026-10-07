@@ -42,6 +42,8 @@ static void init_unit(Unit *u, uint8_t x, uint8_t y, uint8_t kind, uint8_t owner
     u->flags = (uint8_t)(((k->flags & CF_UNDEAD) ? UF_UNDEAD : 0) |
                          ((k->flags & CF_MOUNT) ? UF_MOUNT : 0));
     u->native = k->native;
+    if (kind == CR_PIXIE)
+        u->flags |= UF_INVISIBLE;       /* pixies are always unseen (K2) */
     u->ap = u->ap_max = k->ap;
     u->ap_fly = k->ap_fly;
     u->sta = u->sta_max = k->stamina;
@@ -56,6 +58,7 @@ static void init_unit(Unit *u, uint8_t x, uint8_t y, uint8_t kind, uint8_t owner
     u->rider_kind = 0xFF;
     u->rider_con = u->rider_con_max = u->rider_sta = u->rider_sta_max = 0;
     u->rider_com = u->rider_def = u->rider_mr = 0;
+    u->rider_ap = u->rider_ap_max = 0;
     u->post_x = u->post_y = 0xFF;
     u->grudge = 0;
     u->herd_dir = 0;
@@ -151,18 +154,19 @@ bool world_load_bin(World *w, const uint8_t *b, uint16_t len)
             w->units[i].post_x = w->units[i].x,
             w->units[i].post_y = w->units[i].y;
     w->portal_x = w->portal_y = -1;      /* v2 maps carry no portal */
-    w->portal_rmin = w->portal_rmax = 0;
-    if (b[4] >= 3 && pos + 4 <= len) {   /* v3: portal x y rmin rmax */
-        if (b[pos] != 0xFF) {            /* 0xFF = no portal (v4 filler) */
+    w->portal_rmin = w->portal_rmax = w->portal_span = 0;
+    if (b[4] >= 5 && pos + 5 <= len) {   /* v5: portal x y rmin rmax span */
+        if (b[pos] != 0xFF) {            /* 0xFF = no portal (filler) */
             w->portal_x = b[pos];
             w->portal_y = b[pos + 1];
             w->portal_rmin = b[pos + 2];
             w->portal_rmax = b[pos + 3];
+            w->portal_span = b[pos + 4];
         }
-        pos += 4;
+        pos += 5;
     }
     memset(w->roof, 0, sizeof w->roof);
-    if (b[4] >= 4) {                     /* v4: one roof bit per field */
+    if (b[4] >= 5) {                     /* one roof byte per field */
         uint16_t k2;
         if (len < pos + cells)
             return false;
@@ -351,15 +355,57 @@ void world_spend_ap(World *w, uint8_t unit, uint8_t ap)
     w->units[unit].ap = (uint8_t)(w->units[unit].ap - ap);
 }
 
+/* Actions a rider performs himself from the saddle (K6.6). */
+static bool rider_action(uint8_t act)
+{
+    static const bool R[ACT_COUNT] = {
+        [ACT_CAST] = true, [ACT_FIRE] = true, [ACT_THROW] = true,
+        [ACT_PICK_UP] = true, [ACT_DROP] = true, [ACT_CHANGE] = true,
+        [ACT_EAT] = true, [ACT_DRINK] = true, [ACT_FILL] = true,
+        [ACT_READ] = true, [ACT_OPEN_DOOR] = true, [ACT_UNLOCK] = true,
+        [ACT_OPEN_CHEST] = true,
+    };
+    return R[act];
+}
+
 bool world_can_pay(const World *w, uint8_t unit, uint8_t action)
 {
     const Unit *u = &w->units[unit];
+    if ((u->flags & UF_RIDDEN) && rider_action(action))
+        return u->rider_ap >= ACTIONS[action].ap && u->rider_sta >= ACTIONS[action].stamina;
     return u->ap >= ACTIONS[action].ap && u->sta >= ACTIONS[action].stamina;
+}
+
+uint8_t world_pool_ap(const World *w, uint8_t unit, uint8_t action)
+{
+    const Unit *u = &w->units[unit];
+    return ((u->flags & UF_RIDDEN) && rider_action(action)) ? u->rider_ap : u->ap;
+}
+
+void world_spend_ap_for(World *w, uint8_t unit, uint8_t action, uint8_t ap)
+{
+    Unit *u = &w->units[unit];
+    if ((u->flags & UF_RIDDEN) && rider_action(action))
+        u->rider_ap = (uint8_t)(u->rider_ap - ap);
+    else
+        u->ap = (uint8_t)(u->ap - ap);
+}
+
+bool world_has_ap(const World *w, uint8_t unit)
+{
+    const Unit *u = &w->units[unit];
+    return u->ap > 0 || ((u->flags & UF_RIDDEN) && u->rider_ap > 0);
 }
 
 void world_pay(World *w, uint8_t unit, uint8_t action)
 {
     Unit *u = &w->units[unit];
+    if ((u->flags & UF_RIDDEN) && rider_action(action)) {
+        u->rider_ap = (uint8_t)(u->rider_ap - ACTIONS[action].ap);
+        u->rider_sta = u->rider_sta > ACTIONS[action].stamina
+                           ? (uint8_t)(u->rider_sta - ACTIONS[action].stamina) : 0;
+        return;
+    }
     u->ap = (uint8_t)(u->ap - ACTIONS[action].ap);
     u->sta = u->sta > ACTIONS[action].stamina
                  ? (uint8_t)(u->sta - ACTIONS[action].stamina) : 0;
@@ -663,6 +709,18 @@ void world_new_turn(World *w)
             if (u->sta == 0)               /* spent: drowning, like bleeding */
                 u->con = u->con > hurt ? (uint8_t)(u->con - hurt) : 0;
         }
+        if (u->flags & UF_RIDDEN) {         /* the rider's own refill (K6.6) */
+            uint16_t ra = u->rider_ap_max;
+            uint8_t f = (u->rider_con && u->rider_con < u->rider_con_max)
+                            ? (uint8_t)(u->rider_con_max / u->rider_con) : 1;
+            if (u->rider_sta < u->rider_sta_max / 6)
+                ra = (uint16_t)(ra / 2);
+            u->rider_ap = (uint8_t)(ra / (f ? f : 1));
+            {
+                uint16_t rs = (uint16_t)(u->rider_sta + u->rider_sta_max / 6);
+                u->rider_sta = (uint8_t)(rs > u->rider_sta_max ? u->rider_sta_max : rs);
+            }
+        }
         effect_tick(u);                   /* durations run down (GDD 2.1) */
         if ((u->flags & UF_FLYING) && u->ap_fly == 0 &&
             !effect_active(u, EFF_FLYING)) {  /* the potion wore off */
@@ -903,7 +961,7 @@ bool world_open_door(World *w, uint8_t unit, int16_t x, int16_t y)
         return false;
     if (!(CREATURES[ride_actor_kind(u)].flags & CF_USE))
         return false;                    /* creature without hands */
-    if (u->ap < ACTIONS[ACT_OPEN_DOOR].ap)
+    if (!world_can_pay(w, unit, ACT_OPEN_DOOR))
         return false;
     if (!world_is_gate(w, x, y) &&       /* gates fold flat (D61) */
         !world_leaf_spot(w, x, y, u->x, u->y, &lx, &ly, &leaf))
@@ -940,7 +998,7 @@ static bool door_change(World *w, uint8_t unit, int16_t x, int16_t y,
         return false;
     if (!(CREATURES[ride_actor_kind(&w->units[unit])].flags & CF_USE))
         return false;
-    if (w->units[unit].ap < ACTIONS[action].ap)
+    if (!world_can_pay(w, unit, action))
         return false;
     world_pay(w, unit, action);
     w->feature[y][x] = to;

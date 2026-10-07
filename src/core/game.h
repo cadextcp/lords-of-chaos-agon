@@ -1,9 +1,12 @@
 /*
- * Portal and victory points (GDD 9, PM 29): the portal opens within the
- * scenario's round span; wizards escape through it with their carried
- * treasures. Kills score - double when a wizard strikes in melee (not
- * with ranged weapons). The game ends when every wizard has escaped or
- * died; whoever does not make it scores nothing.
+ * Portal and victory points (K4, K6.5, D67): the portal opens within the
+ * scenario's round span and closes again `portal_span` rounds later, which
+ * ends the game; wizards escape through it with their carried treasures.
+ * A kill by a wizard scores twice the victim's table value (the original's
+ * byte), a kill by a summoned creature the table value itself; a dead wizard
+ * scores 4 Level + 15 (half for a creature). The game ends when every
+ * wizard has escaped or died or the portal closes; whoever does not make it
+ * scores nothing.
  */
 #ifndef LOC_GAME_H
 #define LOC_GAME_H
@@ -19,9 +22,12 @@
 typedef struct {
     int16_t portal_x, portal_y;   /* -1 = no portal on this map */
     uint8_t portal_round;         /* the round it opens */
+    uint8_t portal_span;          /* rounds it stays open, 0 = for good */
     bool portal_open;
+    bool portal_closed;           /* the span ran out: the game is over */
     uint8_t escaped;              /* owner bitmask of wizards through */
     uint16_t vp[OWN_NEUTRAL];
+    uint8_t wizard_vp[OWN_NEUTRAL];   /* value of each wizard as a victim: 4 Level + 15 */
     int16_t eye_x, eye_y;         /* Magic Eye: sight from here (M4b) */
     uint8_t eye_rounds;           /* ticks down each round */
     uint8_t kills[OWN_NEUTRAL];   /* credited kills (end screen, M5a) */
@@ -44,9 +50,14 @@ void game_new_round(Game *g, uint8_t round);
  * treasures (VP_ESCAPE plus every carried OC_TREASURE), creatures
  * cannot pass. The escaped wizard is removed from the world. */
 bool game_try_enter_portal(Game *g, World *w, uint8_t unit);
-/* VP for one kill: the victim's value from the creature table, doubled
- * when the killer is a wizard striking in melee (no ranged weapon,
- * AMI 4). Own units score nothing, independents never score. */
+/* How long the portal stays open (map v5); call after game_init. */
+void game_set_portal_span(Game *g, uint8_t span);
+/* A wizard's worth as a victim from his designer level: 4 Level + 15. */
+void game_set_wizard_level(Game *g, uint8_t owner, uint8_t level);
+/* VP for one kill (K6.5): the victim's byte (2 x table value, a wizard
+ * 4 Level + 15) for a wizard as killer, half of it for a summoned
+ * creature. Own units score nothing, independents never score. The total
+ * stops at 255. */
 void game_kill_credit(Game *g, const Kill *k);
 /* Credit every logged kill (world_kill_unit) and clear the log. Call
  * after every action that may kill. */

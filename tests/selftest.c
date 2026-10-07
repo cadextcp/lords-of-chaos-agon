@@ -1189,6 +1189,75 @@ static void test_0e(void)
     area_reset();
 }
 
+/* D67 0g: the rider's own AP (K6.6), pixies, kill credit of riders. */
+static void test_0g(void)
+{
+    uint8_t wizard, mount;
+    Spellbook book;
+    Rng rng;
+    SpellShot shot;
+
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 0;
+    area_reset();
+    rng_seed(&rng, 5);
+    wizard = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 6, 7);
+    mount = world_spawn_unit(&world, OWN_P1, CR_UNICORN, 6, 6);
+    world.units[wizard].ap = 40;
+    world.units[wizard].ap_max = 40;
+    check(ride_mount(&world, wizard, 6, 6), "0g: the wizard mounts");
+    mount = 0;
+    {
+        Unit *m = &world.units[mount];
+        check(m->rider_ap == 30 && m->rider_ap_max == 40,
+              "0g: the rider keeps the AP he had left (40 - 10 for mounting)");
+        m->ap = 56;
+        memset(&book, 0, sizeof book);
+        book.level[SP_MAGIC_SHIELD] = 2;
+        m->mana = 80;
+        check(spell_apply(&world, &book, mount, SP_MAGIC_SHIELD, m->x, m->y, &rng,
+                          &shot) == CAST_OK,
+              "0g: the rider casts from the saddle");
+        check(m->rider_ap == 22 && m->ap == 56,
+              "0g: the spell cost the rider 8 AP, the mount none");
+        check(world_move_unit(&world, mount, 0, -1) && m->rider_ap == 22 && m->ap < 56,
+              "0g: riding on costs the mount AP, not the rider");
+        m->rider_ap = 0;
+        check(!world_can_pay(&world, mount, ACT_CAST) && world_has_ap(&world, mount),
+              "0g: a rider without AP cannot cast, the mount can still move");
+        m->ap = 0;
+        check(!world_has_ap(&world, mount), "0g: both spent: the unit is done");
+        m->rider_con = 5;
+        m->rider_con_max = 30;                       /* factor 6 */
+        world_new_turn(&world);
+        check(m->ap == m->ap_max && m->rider_ap == 40 / 6,
+              "0g: the round refill gives the rider his own AP, divided by his own con");
+    }
+
+    /* a creature riding a mount that gets killed lands with its AP */
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 0;
+    wizard = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 6, 7);
+    mount = world_spawn_unit(&world, OWN_P1, CR_UNICORN, 6, 6);
+    world.units[wizard].ap = 40;
+    world.units[wizard].ap_max = 40;
+    ride_mount(&world, wizard, 6, 6);
+    world.units[0].ap = 40;
+    check(ride_dismount(&world, 0) && world.unit_count == 2 &&
+          world.units[1].ap == 30 && world.units[1].ap_max == 40,
+          "0g: dismounting returns the rider with his own AP");
+
+    /* pixies are always invisible (K2) */
+    world.unit_count = 0;
+    wizard = world_spawn_unit(&world, OWN_P1, CR_PIXIE, 6, 6);
+    check((world.units[wizard].flags & UF_INVISIBLE) != 0,
+          "0g: a pixie is invisible from the start");
+    world_new_turn(&world);
+    world_new_turn(&world);
+    check((world.units[wizard].flags & UF_INVISIBLE) != 0,
+          "0g: and stays so when no potion runs");
+}
+
 static void test_flight(void)
 {
     FieldLayers f;
@@ -2376,28 +2445,55 @@ static void test_game(void)
         view_set_sight(NULL);
     }
 
-    {   /* kill credit: the victim's value, wizard melee doubled (AMI 4) */
+    {   /* kill credit (K6.5): a wizard gets twice the table value, a summoned
+         * creature the value itself; a dead wizard is worth 4 Level + 15 */
         Kill k = {CR_GOBLIN, OWN_NEUTRAL, CR_WIZARD, OWN_P1, true};
-        uint16_t gob = CREATURES[CR_GOBLIN].vp;
         game_init(&g, -1, -1, 1, 1, &rng);
-        game_kill_credit(&g, &k);                  /* wizard melee: x2 */
+        game_kill_credit(&g, &k);                  /* wizard melee: 2 */
         k.melee = false;
-        game_kill_credit(&g, &k);                  /* wizard ranged: x1 */
+        game_kill_credit(&g, &k);                  /* wizard ranged: 2 as well */
         k.killer_kind = CR_GIANT_BAT;
         k.killer_owner = OWN_P2;
         k.melee = true;
-        game_kill_credit(&g, &k);                  /* creature melee: x1 */
-        check(g.vp[OWN_P1] == 3 * gob && g.vp[OWN_P2] == gob,
-              "game: kills score the victim's value");
+        game_kill_credit(&g, &k);                  /* summoned creature: 1 */
+        check(g.vp[OWN_P1] == 4 && g.vp[OWN_P2] == 1,
+              "game: kills score 2 x table value for wizards, the value for creatures");
         k.victim_kind = CR_WIZARD;
         k.victim_owner = OWN_P1;
-        game_kill_credit(&g, &k);
-        check(g.vp[OWN_P2] == gob + CREATURES[CR_WIZARD].vp,
-              "game: a wizard kill scores the wizard's value");
+        game_kill_credit(&g, &k);                  /* a creature kills a wizard: 19 / 2 */
+        check(g.vp[OWN_P2] == 1 + 9,
+              "game: a creature killing a wizard gets half of 4 Level + 15");
+        k.killer_kind = CR_WIZARD;
+        game_set_wizard_level(&g, OWN_P1, 3);
+        game_kill_credit(&g, &k);                  /* a wizard kills a level-3 wizard */
+        check(g.vp[OWN_P2] == 10 + 27,
+              "game: a wizard killing a level-3 wizard gets 4 x 3 + 15");
         k.victim_owner = OWN_P2;
         game_kill_credit(&g, &k);
-        check(g.vp[OWN_P2] == gob + CREATURES[CR_WIZARD].vp,
+        check(g.vp[OWN_P2] == 10 + 27,
               "game: friendly fire scores nothing");
+        g.vp[OWN_P2] = 250;
+        k.victim_owner = OWN_P1;
+        game_kill_credit(&g, &k);
+        check(g.vp[OWN_P2] == 255, "game: the score stops at 255");
+    }
+
+    {   /* the portal closes after its span and that ends the game (K4) */
+        Game c;
+        game_init(&c, 26, 3, 5, 5, &rng);
+        game_set_portal_span(&c, 3);
+        game_new_round(&c, 5);
+        check(c.portal_open && !c.portal_closed, "game: open in its round");
+        game_new_round(&c, 7);
+        check(!c.portal_closed, "game: still open in the last round");
+        game_new_round(&c, 8);
+        check(c.portal_closed, "game: closed after the span");
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.units[0].x = 26;
+        world.units[0].y = 3;
+        check(!game_try_enter_portal(&c, &world, 0), "game: nobody enters a closed portal");
+        check(game_over(&c, &world) && game_outcome(&c, &world, OWN_P1) == OUT_LOSE,
+              "game: a wizard still on the map loses when it shuts");
     }
 }
 
@@ -3960,13 +4056,13 @@ static void test_m4e(void)
     (void)enemy;
 
     {   /* v4 map with roof but no portal: filler block keeps the layout */
-        uint8_t m[24] = {'L', 'O', 'C', 'M', MAPBIN_VERSION, 0, 0, 2, 1, 0};
+        uint8_t m[25] = {'L', 'O', 'C', 'M', MAPBIN_VERSION, 0, 0, 2, 1, 0};
         m[5] = (uint8_t)(TILE_COUNT & 0xFF);
         m[6] = (uint8_t)(TILE_COUNT >> 8);
         m[16] = 0;                       /* no units */
         m[17] = 0;                       /* no objects */
-        m[18] = 0xFF; m[19] = 0xFF;      /* portal filler */
-        m[23] = 1;                       /* roof on the second field */
+        m[18] = 0xFF; m[19] = 0xFF;      /* portal filler (5 bytes) */
+        m[24] = 1;                       /* roof on the second field */
         check(world_load_bin(&world, m, sizeof m) &&
               world.portal_x == -1 && !world_has_roof(&world, 0, 0) &&
               world_has_roof(&world, 1, 0),
@@ -5314,6 +5410,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_0b();
     test_0d();
     test_0e();
+    test_0g();
     test_bump_and_look();
     test_combat();
     test_spells();

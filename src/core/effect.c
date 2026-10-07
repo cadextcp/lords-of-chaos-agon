@@ -2,6 +2,8 @@
 
 #include <string.h>
 
+#include "gen/data.h"
+
 bool effect_grant(Unit *u, uint8_t kind, uint8_t power, uint8_t rounds)
 {
     uint8_t i;
@@ -60,7 +62,7 @@ bool effect_tick(Unit *u)
         if (u->effects[i].kind == EFF_MAGIC_WEAPON)
             magic = true;
     }
-    if (!invis)
+    if (!invis && u->kind != CR_PIXIE)
         u->flags &= (uint8_t)~UF_INVISIBLE;
     if (!magic)
         u->flags &= (uint8_t)~UF_MAGIC_WEAPON;
