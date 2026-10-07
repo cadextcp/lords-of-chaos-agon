@@ -304,6 +304,12 @@ uint8_t world_blocking_unit_at(const World *w, int16_t x, int16_t y,
     return NO_UNIT;
 }
 
+/* Ground that drowns: water floors and flooded fields (K5.3). */
+static bool drowning_at(const World *w, uint8_t x, uint8_t y)
+{
+    return FLOOR_DROWN[w->floor[y][x]] || area_kind_at(w, x, y) == AREA_FLOOD;
+}
+
 uint8_t world_step_cost(const World *w, int16_t x, int16_t y, bool diagonal)
 {
     uint8_t c = FLOOR_AP[world_floor(w, x, y)];
@@ -314,10 +320,16 @@ uint8_t world_unit_step_cost(const World *w, uint8_t unit, int16_t x, int16_t y,
                              bool diagonal)
 {
     uint8_t c;
+    AreaKind ak = area_kind_at(w, x, y);
     if (unit < w->unit_count && (FLOOR_NATIVE[world_floor(w, x, y)] & w->units[unit].native))
         c = FLOOR_AP[FL_STONE];   /* at home in this terrain: plain floor cost */
     else
         c = FLOOR_AP[world_floor(w, x, y)];
+    if (ak == AREA_FIRE)
+        c = 16;                   /* wading through flames (K8.4) */
+    else if (ak == AREA_FLOOD &&
+             !(unit < w->unit_count && (w->units[unit].native & NATIVE_WATER)))
+        c = 12;                   /* a flooded field is water */
     return diagonal ? (uint8_t)((c * 3 + 1) / 2) : c;
 }
 
@@ -598,7 +610,7 @@ bool world_land(World *w, uint8_t unit)
         return false;                         /* no free ground slot */
     if (world_has_roof(w, u->x, u->y))
         return false;                         /* landing under a roof (GDD 3.2) */
-    if (FLOOR_DROWN[w->floor[u->y][u->x]])
+    if (drowning_at(w, u->x, u->y))
         return false;                         /* drowning floor (own rule) */
     ak = area_kind_at(w, u->x, u->y);
     if (ak == AREA_FIRE || ak == AREA_BLOB)
@@ -642,7 +654,7 @@ void world_new_turn(World *w)
         u->ap = full > 255 ? 255 : (uint8_t)full;
         sta = (uint16_t)(u->sta + (speed ? u->sta_max / 2 : u->sta_max / 6));
         u->sta = (uint8_t)(sta > u->sta_max ? u->sta_max : sta);
-        if (FLOOR_DROWN[w->floor[u->y][u->x]] &&   /* treading water (C5) */
+        if (drowning_at(w, u->x, u->y) &&   /* treading water (C5) */
             !(u->native & NATIVE_WATER) && !(u->flags & UF_FLYING)) {
             /* net -25 % a round on top of the max/6 recovery */
             uint8_t cost = (uint8_t)((uint16_t)u->sta_max * 5 / 12);
@@ -655,7 +667,7 @@ void world_new_turn(World *w)
         if ((u->flags & UF_FLYING) && u->ap_fly == 0 &&
             !effect_active(u, EFF_FLYING)) {  /* the potion wore off */
             if (world_unit_at(w, u->x, u->y, UL_GROUND) == NO_UNIT &&
-                !FLOOR_DROWN[w->floor[u->y][u->x]])
+                !drowning_at(w, u->x, u->y))
                 u->flags &= (uint8_t)~UF_FLYING;  /* sinks to the ground */
             else
                 effect_grant(u, EFF_FLYING, 1, 1);  /* hovers on, no room */

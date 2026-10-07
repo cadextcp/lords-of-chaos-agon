@@ -21,3 +21,7 @@
 | F8 | 0d | Zaubern aus der Luft (CAST-A, Teleport nur unter Flying-Trank) kennt das Original; bei uns kann ein fliegender Zauberer nicht zaubern. | Bleibt gesperrt; die Teleport-Bedingung ist damit gegenstandslos. Soll das Zaubern aus der Luft kommen, ist das eine eigene Aufgabe (Ziele je Höhe). |
 | F9 | 0d | Der Super-Trank (Ambergris) hat keine Zutat und keine Phiole. Wir haben statt dessen die Bombe der Amiga-Fassung (Nitro). | Beides bleibt; Ambergris bräuchte eine neue Objektkachel. |
 | F10 | 0d | Magic Attack trifft im Original auch Reiter einzeln; bei uns steckt der Reiter im Reittier. | Das Reittier stirbt, der Reiter wird abgeworfen (D60). |
+| F11 | 0e | Verbranntes Gelände wird bei uns zu `FL_PATH` (Erde), im Original zu Tile 0 (Boden, nicht brennbar). | Reicht optisch als Brandspur; ein eigenes „verbrannt“-Kachelpaar wäre Kunst. |
+| F12 | 0e | Die Entzündbarkeits- und Empfänglichkeitswerte unserer Geländefamilien (`terrain_effects.csv`) sind aus den Kachelfamilien des Originals abgeleitet, nicht 1:1. Möbel und Türen brennen mit 8–12. | Bleibt bis zum Playtest. |
+| F13 | 0e | Blob und Feuer auf stark brennbarem Gelände mit hoher Stufe sterben nie aus (so rechnet das Original auch), begrenzt nur durch 48 Felder je Fläche. | Wie im Original. |
+| F14 | 0e | Flieger über Feuer bleiben unverletzt (nicht im Original gelesen, aber „Feuer am Boden“). | Eigene Zusatzregel. |

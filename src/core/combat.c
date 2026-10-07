@@ -4,6 +4,7 @@
 
 #include <string.h>
 
+#include "area.h"
 #include "events.h"
 #include "gen/data.h"
 #include "items.h"
@@ -149,10 +150,25 @@ uint8_t combat_terrain(World *w, Rng *rng, uint8_t att, int16_t x, int16_t y,
     u = &w->units[att];
     if (!world_wrap(w, &x, &y))
         return 0;
+    c = items_combat(w, att);
+    {   /* blob and vine are terrain too (toughness 50 / 40, K8.4) */
+        uint8_t at = area_toughness(w, x, y);
+        if (at && area_blocks_kind(w, x, y)) {
+            if ((uint16_t)(c + c / 2) < at || !world_can_pay(w, att, ACT_ATTACK_TERRAIN))
+                return 0;
+            world_pay(w, att, ACT_ATTACK_TERRAIN);
+            world_engage(w, att);
+            events_push(EV_SWING, x, y, u->kind, u->owner, 0, 1);
+            if (rng_range(rng, (uint16_t)(2 * (uint16_t)c)) >= at) {
+                area_remove_field(w, x, y);
+                *destroyed = true;
+            }
+            return c;
+        }
+    }
     fe = w->feature[y][x];
     if (!world_blocks(w, x, y) || FEATURE_TOUGH[fe] == 0)
         return 0;                          /* nothing destructible to hit */
-    c = items_combat(w, att);
     if ((uint16_t)(c + c / 2) < FEATURE_TOUGH[fe])
         return 0;                          /* 1.5 C >= toughness to try (K6.4) */
     if (!world_can_pay(w, att, ACT_ATTACK_TERRAIN))

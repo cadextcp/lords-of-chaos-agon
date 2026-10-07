@@ -75,6 +75,10 @@ def main() -> int:
          "extern const uint8_t FLOOR_NATIVE[FL_COUNT];  /* creature type paying floor cost */",
          "extern const uint8_t FLOOR_DROWN[FL_COUNT];   /* drowning check for non-natives */",
          "extern const uint8_t FEATURE_TOUGH[FE_COUNT];  /* melee hits a feature survives (0: no/never) */",
+         "extern const uint8_t FEATURE_FIRE[FE_COUNT];   /* flammability of a feature, 0..15 */",
+         "/* ground susceptibility to the area spells, 0..15 (data/terrain_effects.csv) */",
+         "extern const uint8_t FLOOR_FIRE[FL_COUNT], FLOOR_BLOB[FL_COUNT], FLOOR_VINE[FL_COUNT],",
+         "                     FLOOR_FLOOD[FL_COUNT];",
          "/* Flying movement (costs.csv row air): constant, whatever is below. */",
          f"enum {{ AIR_AP_ORTH = {int(costs['air']['ap_orth'])}, AIR_AP_DIAG = {int(costs['air']['ap_diag'])} }};", "",
          "typedef enum { " + ", ".join(CATEGORIES.values()) + " } SpellCategory;",
@@ -160,6 +164,13 @@ def main() -> int:
     assert set(feat_ids) == set(features), sorted(set(feat_ids) ^ set(features))
     c += [f"    [{i}] = {int(features[f]['toughness'])},   /* {f} */"
           for i, f in enumerate(feat_ids)]
+    c += ["};", "", "const uint8_t FEATURE_FIRE[FE_COUNT] = {"]
+    c += [f"    [{i}] = {int(features[f]['fire'])},   /* {f} */"
+          for i, f in enumerate(feat_ids)]
+    effects = {r["floor"]: r for r in rows("terrain_effects.csv")}
+    for col in ("fire", "blob", "vine", "flood"):
+        c += ["};", "", f"const uint8_t FLOOR_{col.upper()}[FL_COUNT] = {{"]
+        c += [f"    [{fl}] = {int(effects[fl[3:].lower()][col])}," for fl, _ in FLOOR_TERRAIN]
     c += ["};", "", "const SpellDef SPELLS[SPELL_COUNT] = {"]
     c += [f"    [SP_{r['id'].upper()}] = {{{cstr(r['name'])}, {CATEGORIES[r['category']]}, "
           f"{int(r['mana'])}, {int(r['xp_base'])}, {int(r['xp_step'])}, "
