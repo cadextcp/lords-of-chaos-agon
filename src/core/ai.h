@@ -61,6 +61,9 @@ void ai_profile_apply(const AiProfile *profiles, World *w, Game *g, uint8_t owne
  * route flagged for wizards and are never aggressive. */
 void ai_plan_new(World *w, Rng *rng, uint8_t unit);
 
+/* The wizard (or a rider-wizard) of an owner: unit index, NO_UNIT if none. */
+uint8_t ai_wizard_of(const World *w, uint8_t owner);
+
 /* Context the wizard AI needs; keep it in the game state. */
 typedef struct {
     Spellbook *books;   /* [OWN_NEUTRAL] per owner */

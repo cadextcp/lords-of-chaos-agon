@@ -126,6 +126,15 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 ### Intern
 - `ai_scenario_load`, `ai_profile_apply`, `ai_plan_new`, `ai_wizard_cast`; die Frontend-Dateien laden das Profil (`scnfile_ai`). Spielstand-Daten: Plan und Besuchsring der Einheiten (v10). Neue Tests `test_ki2`; alte D62-Tests entfallen.
 
+## [Unreleased] – Schlauere KI, Schritt 3: Duell-Programm (D67, Phase 5) (2026-10-07)
+
+### Neu
+- **`host/duel.c`:** Zwei KI-Zauberer auf einer Szenariokarte, beide durch die echte KI (Entscheidungsschleife, Zauberwahl, Routen) und die echten Kernregeln. Spieler 2 ist der Zauberer des Szenarios (Werte und Prioritäten nach K10.2), Spieler 1 der Standardzauberer des Designers. Ausgabe: Siege, Runden, Kills, Einheiten am Ende und die gewirkten Zauber des Gegners. Bauen und Aufruf stehen im Kopf der Datei.
+- **Läufe (10 Partien, Seed 3, höchstens 60 Runden):** Many Coloured Land: Torquemada 9 Siege, 1 unentschieden, 19 Runden im Mittel; Slayer's Dungeon: Elbo Smogg 10 von 10, 10 Runden; Ragaril's Domain: Ragaril 9 von 10, 19 Runden. Der Gegner beschwört bis zu 12–18 Kreaturen, wirkt Shield, Bolt, Blob/Feuer und viele Beschwörungen. **Mit den Originalwerten ist der Gegner deutlich härter als der Standardzauberer** (Con 63 gegen 34, Mana 120 gegen 80), wie im Plan erwartet; ein menschlicher Spieler mit voll ausgebautem Zauberer muss sich also Mühe geben.
+
+### Intern
+- Der eZ80-Selftest hat nur rund 20 KB für Heap und Stack (`loctest.bin` wuchs mit der KI um 40 KB): die beiden großen Spielstände der Tests liegen jetzt als eine statische Instanz vor, sonst stürzte das Testprogramm im Emulator ab (MOS startete es endlos neu). Neue Tests, die große Strukturen brauchen, dürfen sie nicht auf den Stack legen.
+
 ## [Unreleased] – Regeln wie im Original, Schritt 0a: Mana (D67) (2026-10-07)
 
 ### Geändert

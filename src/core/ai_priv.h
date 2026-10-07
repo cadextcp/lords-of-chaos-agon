@@ -62,8 +62,6 @@ void ai_creature_turn(World *w, Rng *rng, const AiEnv *env, uint8_t id);
 bool ai_is_foe(const World *w, const Unit *me, const Unit *e);
 /* Build the view of one creature. */
 void ai_build_view(const World *w, uint8_t unit, AiView *v);
-/* The AI wizard of an owner (index) or NO_UNIT. */
-uint8_t ai_wizard_of(const World *w, uint8_t owner);
 
 /* ai_items.c */
 typedef enum { A_NONE, A_DONE, A_END } AiAct;
