@@ -63,6 +63,17 @@ typedef struct {
     uint8_t rounds;
 } Effect;
 
+/* A patrol route of the AI (K10.7, K10.8): waypoints and capability flags
+ * (bit 0 flier, 1 use, 2 carry, 3 wood, 4 water, 5 rock, 6 wizards may use). */
+#define ROUTES_MAX 12
+#define ROUTE_WP_MAX 12
+#define TRIGGERS_MAX 12
+typedef struct {
+    uint8_t n;                       /* waypoints */
+    uint8_t flags;
+    uint8_t x[ROUTE_WP_MAX], y[ROUTE_WP_MAX];
+} Route;
+
 typedef struct {
     uint8_t x, y;
     uint8_t kind;   /* CreatureKind */
@@ -143,11 +154,21 @@ typedef struct {
     uint8_t cauldron_count;
     char save_map[32];            /* map of the running scenario (save) */
     uint8_t roof[MAP_MAX_W * MAP_MAX_H / 8 + 1];   /* v4: bit per field */
+    /* AI routes and triggers (scenario file v2, K10.8) */
+    Route routes[ROUTES_MAX];
+    uint8_t route_n;
+    uint8_t route_summon_n;       /* summoned creatures draw among the first n routes */
+    uint8_t trig_n;
+    uint8_t trig_x[TRIGGERS_MAX], trig_y[TRIGGERS_MAX], trig_id[TRIGGERS_MAX];
+    uint8_t trig_fired[8];        /* bit per trigger id 0..63, set when terrain changed there */
 } World;
 
 /* Load a binary map (.map, ADR 0008). Validates everything first; on
  * false the world is left unchanged. */
 bool world_load_bin(World *w, const uint8_t *data, uint16_t len);
+/* Terrain was changed at (x, y) by an action (door, wall, chest, spell): fire the
+ * AI triggers standing there (K10.7). */
+void world_poke(World *w, int16_t x, int16_t y);
 /* Call after changing floor/decor/feature/roof (door opened ...).
  * Mandatory, not cosmetic: view.c caches the static tile layers against
  * `generation`, and sight.c caches the sight-blocking bitmaps against it.

@@ -164,6 +164,7 @@ level_up:
     for (f = 0; f < same->count; f++)
         same->power[f] = level;
     world_map_changed(w);               /* fire and blob block the sight (K11.4) */
+    world_poke(w, x, y);
     return true;
 }
 

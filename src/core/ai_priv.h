@@ -52,6 +52,8 @@ bool ai_visited(const World *w, uint8_t unit, int16_t x, int16_t y);
 typedef struct {
     Game *game;          /* portal state, NULL for creatures without a wizard */
     uint8_t round;       /* the current round */
+    Spellbook *book;     /* the wizard's book, NULL for creatures */
+    AiProfile *profile;  /* his priorities, NULL: he casts nothing */
 } AiEnv;
 /* The decision loop of one creature (K10.3): at most 50 passes. `id` is the
  * unit id; it may die on the way. */
@@ -76,5 +78,7 @@ bool ai_carries_loot(const Unit *u);
 
 /* ai_wizard.c */
 void ai_run_creatures(World *w, Rng *rng, Game *g, uint8_t owner, uint8_t skip_id);
+/* One pass of the spell choice (K10.5): A_DONE when a spell was cast. */
+AiAct ai_wizard_cast(World *w, Rng *rng, const AiEnv *env, uint8_t id, const AiView *v);
 
 #endif

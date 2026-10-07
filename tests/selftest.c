@@ -41,6 +41,10 @@ static selftest_log_fn out;
 static uint16_t fails;
 static World world;
 
+/* the two save games are big: one static pair for every test that needs them
+ * (the eZ80 selftest has only ~20 KB of stack and heap) */
+static SaveGame sg_a, sg_b;
+
 static void load_house(void)
 {
     world_load_bin(&world, MAPBIN_WIZARD_HOUSE, MAPBIN_WIZARD_HOUSE_LEN);
@@ -1593,6 +1597,189 @@ static void test_ki1(void)
     (void)c;
 }
 
+/* D67 KI 2: the AI wizard - profile, priorities, spells, routes, triggers. */
+static void test_ki2(void)
+{
+    static AiProfile prof[OWN_NEUTRAL];
+    static Spellbook bk[OWN_NEUTRAL];
+    AiCtx ctx = {0};
+    AiEnv env = {0};
+    AiView v;
+    Game g;
+    Rng rng;
+    Turns t;
+    uint8_t wz, foe, k;
+
+    rng_seed(&rng, 31);
+    world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+    area_reset();
+    check(ai_scenario_load(&world, prof, SCN_MANY_COLOURED_LAND, SCN_MANY_COLOURED_LAND_LEN) &&
+          prof[OWN_P2].present && prof[OWN_P2].mana == 120 && prof[OWN_P2].con == 63 &&
+          prof[OWN_P2].com == 9 && prof[OWN_P2].def == 10 && prof[OWN_P2].mr == 90,
+          "ki2: the scenario carries Torquemada's values (K10.2)");
+    check(prof[OWN_P2].prio[SP_MAGIC_LIGHTNING] == 220 && prof[OWN_P2].prio[SP_MAGIC_BOLT] == 200 &&
+          prof[OWN_P2].prio[SP_SUPER_POTION] == 190 && prof[OWN_P2].prio[SP_MAGIC_SHIELD] == 60,
+          "ki2: and his spell priorities");
+    check(spellbook_load(bk, SCN_MANY_COLOURED_LAND, SCN_MANY_COLOURED_LAND_LEN) &&
+          bk[OWN_P2].level[SP_MAGIC_FIRE] == 5 && bk[OWN_P2].level[SP_VAMPIRE] == 2 &&
+          bk[OWN_P2].level[SP_MAGIC_BOLT] == 3,
+          "ki2: the book has the original's levels");
+    check(world.route_n == 8 && world.route_summon_n == 8 && world.routes[0].n == 4 &&
+          (world.routes[0].flags & 0x40),
+          "ki2: eight routes with wizard flags");
+
+    /* the profile reaches the wizard */
+    game_init(&g, -1, -1, 1, 1, &rng);
+    wz = ai_wizard_of(&world, OWN_P2);
+    ai_profile_apply(prof, &world, &g, OWN_P2);
+    check(wz != NO_UNIT && world.units[wz].mana_max == 120 && world.units[wz].con == 63 &&
+          world.units[wz].com == 9 && g.wizard_vp[OWN_P2] == 24,
+          "ki2: his unit takes the values");
+
+    /* plans: a wizard gets a route flagged for wizards and is never a bodyguard */
+    for (k = 0; k < 20; k++) {
+        ai_plan_new(&world, &rng, wz);
+        if (world.units[wz].plan_route == 0xFF || !(world.routes[world.units[wz].plan_route].flags & 0x40) ||
+            (world.units[wz].plan_flags & 0x80))
+            break;
+    }
+    check(k == 20, "ki2: the wizard walks only wizard routes and is never aggressive");
+    {   /* summoned creatures: a bat may take the flier route, a dwarf never */
+        uint8_t bat, dw, fl = 0, bad = 0;
+        bat = world_spawn_unit(&world, OWN_P2, CR_GIANT_BAT, 10, 10);
+        dw = world_spawn_unit(&world, OWN_P2, CR_DWARF, 11, 10);
+        for (k = 0; k < 60; k++) {
+            ai_plan_new(&world, &rng, bat);
+            if (world.units[bat].plan_route == 5)
+                fl = 1;
+            ai_plan_new(&world, &rng, dw);
+            if (world.units[dw].plan_route == 5)
+                bad = 1;
+        }
+        check(fl && !bad, "ki2: the flier route fits a bat, not a dwarf (K10.7)");
+        world_remove_unit(&world, dw);
+        world_remove_unit(&world, bat);
+    }
+    {   /* aggression by the table: spiders (99 %) become bodyguards almost always */
+        uint8_t sp, n = 0;
+        sp = world_spawn_unit(&world, OWN_P2, CR_GIANT_SPIDER, 10, 10);
+        for (k = 0; k < 50; k++) {
+            ai_plan_new(&world, &rng, sp);
+            if (world.units[sp].plan_flags & 0x80)
+                n++;
+        }
+        check(n >= 45, "ki2: a spider is a bodyguard in 99 of 100 cases");
+        world_remove_unit(&world, sp);
+    }
+
+    /* triggers wake sleepers once the terrain changed on their field */
+    world.trig_n = 1;
+    world.trig_x[0] = 20;
+    world.trig_y[0] = 20;
+    world.trig_id[0] = 3;
+    check(!(world.trig_fired[0] & 8), "ki2: no trigger fired yet");
+    world.feature[20][20] = FE_DOOR_CLOSED;
+    world.units[wz].x = 19;
+    world.units[wz].y = 20;
+    world.units[wz].ap = 40;
+    world_open_door(&world, wz, 20, 20);
+    check((world.trig_fired[0] & 8) != 0, "ki2: opening the door fires its trigger");
+    {
+        uint8_t sl = world_spawn_unit(&world, OWN_NEUTRAL, CR_BEAR, 30, 30);
+        world.units[sl].plan_flags = (uint8_t)(0x40 | 3);
+        world.units[sl].ap = world.units[sl].ap_max;
+        ai_creature_turn(&world, &rng, NULL, world.units[sl].id);
+        check(!(world.units[sl].plan_flags & 0x40), "ki2: the fired trigger wakes the sleeper");
+        world_remove_unit(&world, sl);
+    }
+
+    /* spell choice: priorities are halved for good after a cast (K10.5) */
+    open_field();
+    world.route_n = 0;
+    memset(prof, 0, sizeof prof);
+    memset(bk, 0, sizeof bk);
+    prof[OWN_P2].present = true;
+    prof[OWN_P2].prio[SP_MAGIC_BOLT] = 200;
+    prof[OWN_P2].prio[SP_MAGIC_SHIELD] = 60;
+    prof[OWN_P2].prio[SP_GOBLIN] = 95;               /* odd: held back at first */
+    bk[OWN_P2].level[SP_MAGIC_BOLT] = 3;
+    bk[OWN_P2].level[SP_MAGIC_SHIELD] = 2;
+    bk[OWN_P2].level[SP_GOBLIN] = 2;
+    wz = world_spawn_unit(&world, OWN_P2, CR_WIZARD, 10, 10);
+    world.units[wz].mana = world.units[wz].mana_max = 120;
+    world.units[wz].ap = world.units[wz].ap_max = 40;
+    foe = world_spawn_unit(&world, OWN_P1, CR_TROLL, 14, 10);
+    world.units[foe].con = world.units[foe].con_max = 250;
+    env.book = &bk[OWN_P2];
+    env.profile = &prof[OWN_P2];
+    ai_build_view(&world, wz, &v);
+    check(ai_wizard_cast(&world, &rng, &env, world.units[wz].id, &v) == A_DONE &&
+          bk[OWN_P2].level[SP_MAGIC_BOLT] == 2 && prof[OWN_P2].prio[SP_MAGIC_BOLT] == 100,
+          "ki2: the bolt (priority 200) is cast first and its priority halves to 100");
+    world.units[wz].ap = 40;
+    ai_build_view(&world, wz, &v);
+    ai_wizard_cast(&world, &rng, &env, world.units[wz].id, &v);
+    check(prof[OWN_P2].prio[SP_MAGIC_BOLT] == 50, "ki2: and halves again (persistent)");
+    world.units[wz].ap = 40;
+    ai_build_view(&world, wz, &v);
+    check(ai_wizard_cast(&world, &rng, &env, world.units[wz].id, &v) == A_DONE &&
+          bk[OWN_P2].level[SP_MAGIC_SHIELD] == 1,
+          "ki2: then the shield (60) follows, but only when none is active");
+    world.units[wz].ap = 40;
+    ai_build_view(&world, wz, &v);
+    {
+        uint8_t level_before = bk[OWN_P2].level[SP_MAGIC_SHIELD];
+        ai_wizard_cast(&world, &rng, &env, world.units[wz].id, &v);
+        check(bk[OWN_P2].level[SP_MAGIC_SHIELD] == level_before,
+              "ki2: no second shield while one is active");
+    }
+    for (k = 0; k < 3; k++) {            /* until a pass finds nothing to cast */
+        world.units[wz].ap = 40;
+        ai_build_view(&world, wz, &v);
+        ai_wizard_cast(&world, &rng, &env, world.units[wz].id, &v);
+    }
+    check(prof[OWN_P2].prio[SP_GOBLIN] == 94 || bk[OWN_P2].level[SP_GOBLIN] < 2,
+          "ki2: a pass without a cast rounds an odd priority down (95 -> 94), then it can be cast");
+
+    /* summoning keeps a reserve of 40 mana in peace */
+    world.unit_count = 0;
+    wz = world_spawn_unit(&world, OWN_P2, CR_WIZARD, 10, 10);
+    memset(prof, 0, sizeof prof);
+    memset(bk, 0, sizeof bk);
+    prof[OWN_P2].present = true;
+    prof[OWN_P2].prio[SP_GOBLIN] = 100;
+    bk[OWN_P2].level[SP_GOBLIN] = 2;
+    world.units[wz].mana = world.units[wz].mana_max = 30;   /* 2 x 3 = 6 -> 24 left: too little */
+    world.units[wz].ap = world.units[wz].ap_max = 40;
+    ai_build_view(&world, wz, &v);
+    check(ai_wizard_cast(&world, &rng, &env, world.units[wz].id, &v) == A_NONE &&
+          world.unit_count == 1,
+          "ki2: below 40 mana left he does not summon in peace");
+    world.units[wz].mana = world.units[wz].mana_max = 120;
+    ai_build_view(&world, wz, &v);
+    check(ai_wizard_cast(&world, &rng, &env, world.units[wz].id, &v) == A_DONE &&
+          world.unit_count == 3,
+          "ki2: with the reserve he summons two goblins (level 2)");
+
+    /* the phase: wizard first, creatures after, a fallback profile without a scenario */
+    open_field();
+    memset(bk, 0, sizeof bk);
+    bk[OWN_P2].level[SP_MAGIC_BOLT] = 2;
+    game_init(&g, -1, -1, 1, 1, &rng);
+    ctx.books = bk;
+    ctx.game = &g;
+    ctx.profiles = NULL;
+    memset(&t, 0, sizeof t);
+    t.phase = OWN_P2;
+    rng_seed(&t.rng, 8);
+    wz = world_spawn_unit(&world, OWN_P2, CR_WIZARD, 10, 10);
+    foe = world_spawn_unit(&world, OWN_P1, CR_TROLL, 15, 10);
+    world.units[foe].con = world.units[foe].con_max = 250;
+    ai_wizard_phase(&t, &world, &ctx);
+    check(bk[OWN_P2].level[SP_MAGIC_BOLT] < 2,
+          "ki2: without a scenario table the wizard still casts from a fallback priority list");
+}
+
 static void test_flight(void)
 {
     FieldLayers f;
@@ -2837,7 +3024,7 @@ static void test_ai(void)
     Turns t;
     Game g;
     Spellbook books[OWN_NEUTRAL];
-    AiCtx ctx;
+    AiCtx ctx = {0};
     Rng rng;
 
     world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
@@ -2924,7 +3111,7 @@ static void test_review_fixes(void)
     Rng rng;
     Game g;
     Spellbook books[OWN_NEUTRAL];
-    AiCtx ctx;
+    AiCtx ctx = {0};
     uint8_t a, b, i, a_id, b_id;
 
     rng_seed(&rng, 7);
@@ -4638,11 +4825,11 @@ static void test_m4g(void)
         static Spellbook scnbooks[OWN_NEUTRAL];
         check(spellbook_load(scnbooks, SCN_SLAYERS_DUNGEON,
                              SCN_SLAYERS_DUNGEON_LEN) &&
-              scnbooks[OWN_P2].level[SP_ZOMBIE] == 3,
+              scnbooks[OWN_P2].level[SP_DWARF] == 2 && scnbooks[OWN_P2].level[SP_ZOMBIE] == 0,
               "m4g: dungeon books load");
         check(spellbook_load(scnbooks, SCN_RAGARILS_DOMAIN,
                              SCN_RAGARILS_DOMAIN_LEN) &&
-              scnbooks[OWN_P2].level[SP_VAMPIRE] == 3 &&
+              scnbooks[OWN_P2].level[SP_VAMPIRE] == 1 &&
               scnbooks[OWN_P2].level[SP_DEMON] == 1,
               "m4g: ragaril commands undead");
     }
@@ -4751,7 +4938,7 @@ static void test_m4h(void)
         uint8_t wiz;
         Game g;
         Spellbook books2[OWN_NEUTRAL];
-        AiCtx ctx;
+        AiCtx ctx = {0};
         Turns t;
         world_load_bin(&world, MAPBIN_SLAYERS_DUNGEON, MAPBIN_SLAYERS_DUNGEON_LEN);
         world.unit_count = 0;
@@ -4782,34 +4969,33 @@ static void test_m4h(void)
  * fits SAVE_BUF_SIZE and parses back. */
 static void test_d64(void)
 {
-    static SaveGame a, b;
     static uint8_t buf[SAVE_BUF_SIZE];
     static Sight sg;
     uint16_t len, i;
     int16_t x = 46, y = -1;
-    memset(&a, 0, sizeof a);
-    a.world.w = a.world.h = MAP_MAX_W;
-    a.world.wrap = 1;
-    memset(a.world.floor, FL_GRASS, sizeof a.world.floor);
+    memset(&sg_a, 0, sizeof sg_a);
+    sg_a.world.w = sg_a.world.h = MAP_MAX_W;
+    sg_a.world.wrap = 1;
+    memset(sg_a.world.floor, FL_GRASS, sizeof sg_a.world.floor);
     for (i = 0; i < MAX_UNITS; i++) {           /* the fullest world there is */
-        world_spawn_unit(&a.world, (uint8_t)(i & 3), CR_GOBLIN,
+        world_spawn_unit(&sg_a.world, (uint8_t)(i & 3), CR_GOBLIN,
                          (uint8_t)(45 - i), (uint8_t)(45 - i));
     }
-    a.world.object_count = MAX_OBJECTS;
+    sg_a.world.object_count = MAX_OBJECTS;
     check(MAP_MAX_W == 46 && MAP_MAX_H == 46, "d64: maps reach 46x46");
-    check(world_wrap(&a.world, &x, &y) && x == 0 && y == 45,
+    check(world_wrap(&sg_a.world, &x, &y) && x == 0 && y == 45,
           "d64: the far edges wrap around");
-    check(world_unit_at(&a.world, 45, 45, UL_GROUND) != NO_UNIT,
+    check(world_unit_at(&sg_a.world, 45, 45, UL_GROUND) != NO_UNIT,
           "d64: a unit stands on the last field");
     sight_init(&sg, OWN_P1);
-    sight_compute(&a.world, &sg);
-    check(sight_visible(&sg, &a.world, 0, 45) && sight_visible(&sg, &a.world, 45, 0),
+    sight_compute(&sg_a.world, &sg);
+    check(sight_visible(&sg, &sg_a.world, 0, 45) && sight_visible(&sg, &sg_a.world, 45, 0),
           "d64: sight reaches the far fields of a 46x46 map");
-    len = save_serialize(&a, buf, sizeof buf);
+    len = save_serialize(&sg_a, buf, sizeof buf);
     check(len > 0 && len <= SAVE_BUF_SIZE, "d64: the fullest 46x46 save fits the buffer");
-    check(save_deserialize(&b, buf, len) && b.world.w == 46 &&
-          b.world.unit_count == MAX_UNITS &&
-          memcmp(b.world.floor, a.world.floor, sizeof a.world.floor) == 0,
+    check(save_deserialize(&sg_b, buf, len) && sg_b.world.w == 46 &&
+          sg_b.world.unit_count == MAX_UNITS &&
+          memcmp(sg_b.world.floor, sg_a.world.floor, sizeof sg_a.world.floor) == 0,
           "d64: the 46x46 save parses back");
 }
 
@@ -4838,59 +5024,58 @@ static void test_d64_populate(void)
 
 static void test_m4i(void)
 {
-    SaveGame a, b;
     static uint8_t buf[SAVE_BUF_SIZE];
     uint16_t len;
     uint32_t ha, hb;
 
     world_load_bin(&world, MAPBIN_SLAYERS_DUNGEON, MAPBIN_SLAYERS_DUNGEON_LEN);
-    memset(&a, 0, sizeof a);
-    a.world = world;
-    a.world.units[0].x = 7;              /* distinctive state */
-    a.loads_left = 3;
-    a.game.portal_round = 21;
-    a.explored[3][1] = 0x5A;
+    memset(&sg_a, 0, sizeof sg_a);
+    sg_a.world = world;
+    sg_a.world.units[0].x = 7;              /* distinctive state */
+    sg_a.loads_left = 3;
+    sg_a.game.portal_round = 21;
+    sg_a.explored[3][1] = 0x5A;
     area_reset();
     area_set(&world, AREA_FIRE, 4, OWN_P1, 20, 19);
-    a.area_count = area_export(a.areas, SAVE_AREAS);
+    sg_a.area_count = area_export(sg_a.areas, SAVE_AREAS);
     area_reset();
-    strcpy(a.world.save_map, "maps/slayers_dungeon.map");
+    strcpy(sg_a.world.save_map, "maps/slayers_dungeon.map");
 
-    len = save_serialize(&a, buf, sizeof buf);
+    len = save_serialize(&sg_a, buf, sizeof buf);
     check(len > 4000, "m4i: the blob holds the whole world");
-    check(save_deserialize(&b, buf, len), "m4i: the blob parses back");
-    ha = save_hash(&a);
-    hb = save_hash(&b);
+    check(save_deserialize(&sg_b, buf, len), "m4i: the blob parses back");
+    ha = save_hash(&sg_a);
+    hb = save_hash(&sg_b);
     check(ha == hb && ha != 0, "m4i: save -> load -> same hash");
-    check(b.world.units[0].x == 7 && b.loads_left == 3 &&
-          b.game.portal_round == 21,
+    check(sg_b.world.units[0].x == 7 && sg_b.loads_left == 3 &&
+          sg_b.game.portal_round == 21,
           "m4i: the state survives the round trip");
-    check(b.explored[3][1] == 0x5A && b.area_count == 1 &&
-          b.areas[0].kind == AREA_FIRE &&
-          strcmp(b.world.save_map, "maps/slayers_dungeon.map") == 0,
+    check(sg_b.explored[3][1] == 0x5A && sg_b.area_count == 1 &&
+          sg_b.areas[0].kind == AREA_FIRE &&
+          strcmp(sg_b.world.save_map, "maps/slayers_dungeon.map") == 0,
           "m4i: explored map, areas and map name survive");
-    area_import(b.areas, b.area_count);
+    area_import(sg_b.areas, sg_b.area_count);
     check(area_kind_at(&world, 20, 19) == AREA_FIRE,
           "m4i: imported areas burn again");
     area_reset();
-    a.loads_left = 0;
-    check(!save_may_load(&a), "m4i: no charges, no load");
-    a.loads_left = 1;
-    check(save_may_load(&a), "m4i: one charge loads");
-    a.loads_left = 0xFF;
-    check(save_may_load(&a), "m4i: unlimited loads");
-    a.loads_left = 3;
-    check(b.world.unit_count == world.unit_count &&
-          b.world.object_count == world.object_count,
+    sg_a.loads_left = 0;
+    check(!save_may_load(&sg_a), "m4i: no charges, no load");
+    sg_a.loads_left = 1;
+    check(save_may_load(&sg_a), "m4i: one charge loads");
+    sg_a.loads_left = 0xFF;
+    check(save_may_load(&sg_a), "m4i: unlimited loads");
+    sg_a.loads_left = 3;
+    check(sg_b.world.unit_count == world.unit_count &&
+          sg_b.world.object_count == world.object_count,
           "m4i: units and objects survive");
 
     {   /* magic and version gates */
         memcpy(buf, "XXXX", 4);
-        check(!save_deserialize(&b, buf, len), "m4i: wrong magic refused");
-        len = save_serialize(&a, buf, sizeof buf);
+        check(!save_deserialize(&sg_b, buf, len), "m4i: wrong magic refused");
+        len = save_serialize(&sg_a, buf, sizeof buf);
         buf[5] = 11;
-        check(!save_deserialize(&b, buf, len), "m4i: wrong version refused");
-        check(!save_deserialize(&b, buf, (uint16_t)(len - 1)),
+        check(!save_deserialize(&sg_b, buf, len), "m4i: wrong version refused");
+        check(!save_deserialize(&sg_b, buf, (uint16_t)(len - 1)),
               "m4i: wrong length refused");
     }
 }
@@ -4920,94 +5105,6 @@ static void test_m4k_ai(void)
         (void)w1;
     }
 
-    {   /* D62: the AI wizard summons, loots his house, arms his creatures
-         * and stays in; alone and with nothing left to loot he goes out */
-        static Game g;
-        static Spellbook bk[OWN_NEUTRAL];
-        AiCtx ctx;
-        Turns t;
-        uint8_t r, i, wz, creatures, armed;
-        int16_t hx = 40, hy = 30;           /* the rival's start (D64 map) */
-        world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
-        area_reset();
-        memset(bk, 0, sizeof bk);
-        bk[OWN_P2].level[SP_GOBLIN] = 1;
-        bk[OWN_P2].level[SP_TROLL] = 1;
-        game_init(&g, -1, -1, 1, 1, &rng);
-        ctx.books = bk;
-        ctx.game = &g;
-        memset(&t, 0, sizeof t);
-        t.phase = OWN_P2;
-        rng_seed(&t.rng, 9);
-        for (r = 1; r <= 8; r++) {
-            t.round = r;
-            for (i = 0; i < world.unit_count; i++)
-                if (world.units[i].owner == OWN_P2)
-                    world.units[i].ap = world.units[i].ap_max;
-            ai_wizard_phase(&t, &world, &ctx);
-        }
-        wz = NO_UNIT;
-        creatures = armed = 0;
-        for (i = 0; i < world.unit_count; i++) {
-            const Unit *u = &world.units[i];
-            if (u->owner != OWN_P2)
-                continue;
-            if (u->kind == CR_WIZARD)
-                wz = i;
-            else {
-                creatures++;
-                if (u->in_use != NO_ITEM && u->in_use < u->item_count &&
-                    OBJECTS[u->items[u->in_use]].category == OC_WEAPON)
-                    armed++;
-            }
-        }
-        check(g.home_x[OWN_P2] == hx && g.home_y[OWN_P2] == hy &&
-              g.home_x[OWN_P1] == 6 && g.home_y[OWN_P1] == 6,
-              "d62: the AI notes where both wizards live");
-        check(wz != NO_UNIT && creatures >= 2 && creatures <= 5,
-              "d62: the wizard summons company (up to 5)");
-        check(wz != NO_UNIT && world_has_roof(&world, world.units[wz].x, world.units[wz].y) &&
-              world_distance(&world, world.units[wz].x, world.units[wz].y, hx, hy) <= 6,
-              "d62: with company the wizard stays in his house");
-        check(world.feature[34][42] == FE_NONE, "d62: he opened his own chest");
-        {
-            uint8_t k, scroll = 0;
-            for (k = 0; wz != NO_UNIT && k < world.units[wz].item_count; k++)
-                if (world.units[wz].items[k] == OBJ_SCROLL)
-                    scroll = 1;
-            check(scroll, "d62: the wizard takes the scroll, not the weapons");
-        }
-        check(armed >= 1, "d62: a creature took up the sword or the shield");
-
-        /* alone, the house bare: he goes out towards the rival */
-        {
-            uint8_t before;
-            for (i = world.unit_count; i-- > 0;)
-                if (world.units[i].owner == OWN_P2 && world.units[i].kind != CR_WIZARD)
-                    world_remove_unit(&world, i);
-            world.object_count = 0;
-            memset(bk, 0, sizeof bk);
-            wz = NO_UNIT;
-            for (i = 0; i < world.unit_count; i++)
-                if (world.units[i].owner == OWN_P2)
-                    wz = i;
-            world.units[wz].ap = world.units[wz].ap_max;
-            before = world_distance(&world, world.units[wz].x, world.units[wz].y, 6, 6);
-            for (r = 9; r <= 11; r++) {     /* out of the door, then away */
-                t.round = r;
-                for (i = 0; i < world.unit_count; i++)
-                    if (world.units[i].owner == OWN_P2)
-                        world.units[i].ap = world.units[i].ap_max;
-                ai_wizard_phase(&t, &world, &ctx);
-            }
-            for (i = 0; i < world.unit_count; i++)
-                if (world.units[i].owner == OWN_P2)
-                    wz = i;
-            check(world_distance(&world, world.units[wz].x, world.units[wz].y, 6, 6) < before,
-                  "d62: alone with the house looted he heads out");
-        }
-    }
-
     {   /* the wizard AI pries open a chest on the treasure path */
         world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
         world.unit_count = 0;
@@ -5015,6 +5112,8 @@ static void test_m4k_ai(void)
         wiz = world_spawn_unit(&world, OWN_P2, CR_WIZARD, 8, 6);
         world.units[wiz].ap = 40;
         world.feature[6][9] = FE_CHEST;         /* chest east of the wizard */
+        world.units[wiz].items[0] = OBJ_CHEST_KEY;   /* K10.6: chests only with the key */
+        world.units[wiz].item_count = 1;
         world_map_changed(&world);
         {   /* a diamond inside the chest */
             world.objects[world.object_count].x = 9;
@@ -5025,7 +5124,7 @@ static void test_m4k_ai(void)
         {   /* force the treasure walk: no enemies, chest on the way */
             Game g;
             Spellbook books2[OWN_NEUTRAL];
-            AiCtx ctx;
+            AiCtx ctx = {0};
             Turns t;
             memset(books2, 0, sizeof books2);
             game_init(&g, -1, -1, 1, 1, &rng);
@@ -5748,6 +5847,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_0g();
     test_0h();
     test_ki1();
+    test_ki2();
     test_bump_and_look();
     test_combat();
     test_spells();

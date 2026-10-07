@@ -69,16 +69,15 @@ bool ai_visited(const World *w, uint8_t unit, int16_t x, int16_t y)
 
 /* ---------- walking with a path (D62) ---------- */
 
-#define PATH_R 10                 /* the search window reaches this far */
+#define PATH_R 7                  /* the search window reaches this far */
 #define PATH_W (2 * PATH_R + 1)
 
 /* Can a walker cross this field? Closed doors count: it opens them. */
 static bool path_open(const World *w, int16_t x, int16_t y, uint8_t owner)
 {
     uint8_t fe = world_feature(w, x, y);
-    if (world_blocks(w, x, y) && fe != FE_DOOR_CLOSED && fe != FE_DOOR_LOCKED)
-        return false;
-    return world_blocking_unit_at(w, x, y, UL_GROUND, owner) == NO_UNIT;
+    (void)owner;                      /* units move: only the terrain counts (and it is cheap) */
+    return !world_blocks(w, x, y) || fe == FE_DOOR_CLOSED || fe == FE_DOOR_LOCKED;
 }
 
 /* First step towards (tx, ty): breadth-first from the unit through the

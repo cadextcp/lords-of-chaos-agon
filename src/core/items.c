@@ -511,6 +511,7 @@ bool items_open_chest(World *w, Rng *rng, uint8_t unit, int16_t x, int16_t y)
     }
     w->feature[y][x] = FE_NONE;          /* empty box stays as rubble-less */
     world_map_changed(w);
+    world_poke(w, x, y);
     if (w->object_count < MAX_OBJECTS) { /* the loot drops */
         uint8_t loot = CHEST_LOOT[rng_range(rng, (uint16_t)(sizeof CHEST_LOOT))];
         w->objects[w->object_count].x = (uint8_t)x;

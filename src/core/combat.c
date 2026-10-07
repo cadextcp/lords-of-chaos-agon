@@ -180,6 +180,7 @@ uint8_t combat_terrain(World *w, Rng *rng, uint8_t att, int16_t x, int16_t y,
     if (rng_range(rng, (uint16_t)(2 * (uint16_t)c)) >= FEATURE_TOUGH[fe]) {
         w->feature[y][x] = FE_NONE;        /* smashed to pieces */
         world_map_changed(w);
+        world_poke(w, x, y);
         *destroyed = true;
         events_push(EV_SMASH, x, y, fe, 0, c, 0);
     }
