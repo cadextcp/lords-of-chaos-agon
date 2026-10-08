@@ -5,7 +5,7 @@
  * they see, pick it up (one item each), wield it when they can use
  * weapons, then fight to the last. Everything runs through the REAL
  * core rules - movement, AP/stamina, engagement, the free reaction
- * (D27/D29), weapon dice and criticals (D28/D30), undead immunity,
+ * (D27/D29), weapon dice (D28), undead immunity,
  * fatal wounds, drops on death.
  *
  * Build (WSL, like build.py does for the host build):
@@ -51,8 +51,7 @@ typedef struct {
     uint16_t top4;
     uint32_t rounds_alive;
     uint16_t items;          /* runs in which it grabbed an object */
-    uint32_t hits;           /* landed blows (crit check base) */
-    uint16_t crits;
+    uint32_t hits;           /* landed blows */
     uint16_t runs;
     uint16_t real_deaths;   /* gone by the end, bleeding included */
 } Stats;
@@ -175,7 +174,7 @@ static bool wizard_casts(uint8_t unit)
         SpellShot shot;
         if (spell_can_cast(&world, &books[b], unit, SP_MAGIC_SHIELD)) {
             spell_apply(&world, &books[b], unit, SP_MAGIC_SHIELD,
-                        u->x, u->y, &rng, &shot);
+                        u->x, u->y, false, &rng, &shot);
             tally_events();
             return true;
         }
@@ -186,6 +185,7 @@ static bool wizard_casts(uint8_t unit)
                                     world.units[best].y)) {
         SpellShot shot;
         int16_t ex = world.units[best].x, ey = world.units[best].y;
+        bool air = (world.units[best].flags & UF_FLYING) != 0;   /* F8 */
         static const uint8_t ATTACKS[] = {
             SP_MAGIC_LIGHTNING, SP_MAGIC_BOLT, SP_MAGIC_ATTACK,
             SP_CURSE, SP_MAGIC_FIRE,
@@ -198,13 +198,13 @@ static bool wizard_casts(uint8_t unit)
                 continue;
             if (s == SP_MAGIC_BOLT || s == SP_MAGIC_LIGHTNING) {
                 if (s == SP_MAGIC_LIGHTNING)
-                    spell_lightning(&world, &books[b], unit, ex, ey, &rng,
+                    spell_lightning(&world, &books[b], unit, ex, ey, air, &rng,
                                     &shot);
                 else
-                    spell_bolt(&world, &books[b], unit, s, ex, ey, &rng,
+                    spell_bolt(&world, &books[b], unit, s, ex, ey, air, &rng,
                                &shot);
             } else {
-                CastResult cr = spell_apply(&world, &books[b], unit, s, ex, ey,
+                CastResult cr = spell_apply(&world, &books[b], unit, s, ex, ey, air,
                                             &rng, &shot);
                 if (cr != CAST_OK)
                     continue;             /* e.g. wrong terrain for fire */
@@ -483,8 +483,6 @@ static uint8_t run_battle(uint32_t seed, uint16_t *rounds_out)
                                 stats[mykind].hits++;
                                 wstats[w].hits++;
                                 wstats[w].dmg += r.damage;
-                                if (r.crit)
-                                    stats[mykind].crits++;
                             }
                             if (r.return_hit) {
                                 uint8_t w2 = items_in_use_weapon(&world.units[best]);
@@ -493,8 +491,6 @@ static uint8_t run_battle(uint32_t seed, uint16_t *rounds_out)
                                 stats[fkind].hits++;
                                 wstats[w2].hits++;
                                 wstats[w2].dmg += r.return_damage;
-                                if (r.return_crit)
-                                    stats[fkind].crits++;
                             }
                             if (wizard_duel) {   /* kills past the log gate */
                                 if (r.died)
@@ -742,29 +738,25 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    printf("\n%-18s %5s %5s %5s %6s %6s %6s %4s %5s\n",
-           "creature", "wins", "top4", "kills", "dead", "crits", "items",
+    printf("\n%-18s %5s %5s %5s %6s %6s %4s %5s\n",
+           "creature", "wins", "top4", "kills", "dead", "items",
            "VP", "cost");
     {
         uint8_t k;
         for (k = 0; k < CR_COUNT; k++)
-            printf("%-18s %5u %5u %5u %6u %6u %6u %4u %5u\n",
+            printf("%-18s %5u %5u %5u %6u %6u %4u %5u\n",
                    CREATURES[k].name, stats[k].wins, stats[k].top4,
-                   stats[k].kills, stats[k].real_deaths, stats[k].crits,
+                   stats[k].kills, stats[k].real_deaths,
                    stats[k].items, CREATURES[k].vp, summon_cost(k));
     }
     printf("\naverage battle length: %.1f rounds, undecided (timeout): %u\n",
            total_rounds / (double)runs, draws);
     {
-        uint32_t hits = 0, crits = 0;
+        uint32_t hits = 0;
         uint8_t k;
-        for (k = 0; k < CR_COUNT; k++) {
+        for (k = 0; k < CR_COUNT; k++)
             hits += stats[k].hits;
-            crits += stats[k].crits;
-        }
-        printf("total melee hits %lu, criticals %lu (%.1f %%)\n",
-               (unsigned long)hits, (unsigned long)crits,
-               hits ? 100.0 * crits / hits : 0.0);
+        printf("total melee hits %lu\n", (unsigned long)hits);
     }
     {   /* plausibility: win share vs the game's own valuations */
         uint16_t vp[CR_COUNT], cost[CR_COUNT], wins[CR_COUNT];

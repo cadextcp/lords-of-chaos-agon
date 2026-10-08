@@ -31,7 +31,7 @@ uint8_t combat_hit_chance(uint8_t attack, uint8_t defence)
 }
 
 bool combat_damage(World *w, uint8_t target, uint8_t damage, uint8_t killer_kind,
-                   uint8_t killer_owner, bool melee, bool *wound, bool crit)
+                   uint8_t killer_owner, bool melee, bool *wound)
 {
     Unit *u = &w->units[target];
     bool wounded = damage > u->con_max / 4 && u->wounds < 7;   /* K6.3 */
@@ -39,7 +39,7 @@ bool combat_damage(World *w, uint8_t target, uint8_t damage, uint8_t killer_kind
     world_disturb(w, u->x, u->y, killer_owner);    /* D37 */
     if (wound)
         *wound = wounded;
-    events_push(EV_HIT, u->x, u->y, u->kind, u->owner, damage, crit ? 1 : 0);
+    events_push(EV_HIT, u->x, u->y, u->kind, u->owner, damage, 0);
     if (wounded) {
         world_set_wounds(u, (uint8_t)(u->wounds + 1));
         events_push(EV_WOUND, u->x, u->y, u->kind, u->owner, 0, 0);
@@ -93,7 +93,7 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
         out->hit = true;
         out->damage = dmg;
         out->died = combat_damage(w, def, dmg, ride_actor_kind(a), a->owner, true,
-                                  &out->wound, false);
+                                  &out->wound);
         if (out->died)
             return true;                   /* the dead do not strike back */
     } else
@@ -114,7 +114,7 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
             out->return_hit = true;
             out->return_damage = rdmg;
             out->attacker_died = combat_damage(w, att, rdmg, ride_actor_kind(d), d->owner,
-                                               true, &out->return_wound, false);
+                                               true, &out->return_wound);
         } else
             events_push(EV_MISS, a->x, a->y, d->kind, d->owner, 0, 0);
     }

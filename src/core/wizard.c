@@ -254,13 +254,11 @@ void wizard_apply_standard_set(Wizard *w)
 }
 
 /* The original random wizard (K3.2): Combat and Defence 6, Magic Resistance
- * 90, every spell level RND(3) (0..2), no XP to spend. `strength` is kept
- * for the setup screen and has no effect any more. */
-void wizard_slot_random(uint8_t slot, uint8_t strength, Rng *rng)
+ * 90, every spell level RND(3) (0..2), no XP to spend. */
+void wizard_slot_random(uint8_t slot, Rng *rng)
 {
     uint8_t spell;
     Wizard *w;
-    (void)strength;
     wizard_slot_reset(slot);
     w = &wizard_slots[slot];
     snprintf(w->name, sizeof w->name, "Zufall-%u", slot + 1);

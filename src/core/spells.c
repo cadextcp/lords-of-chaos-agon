@@ -58,13 +58,21 @@ uint8_t spell_cast_mana(uint8_t spell, uint8_t level)
     return spell_mana(spell, level);
 }
 
+bool spell_needs_ground(uint8_t spell)
+{
+    return spell < SPELL_COUNT && (SPELLS[spell].category == SPC_SUMMON ||
+                                   SPELLS[spell].category == SPC_POTION);
+}
+
 bool spell_can_cast(const World *w, const Spellbook *b, uint8_t wiz, uint8_t spell)
 {
     const Unit *u;
     if (wiz >= w->unit_count || spell >= SPELL_COUNT)
         return false;
     u = &w->units[wiz];
-    return ride_actor_kind(u) == CR_WIZARD && !(u->flags & UF_FLYING) &&
+    if ((u->flags & UF_FLYING) && spell_needs_ground(spell))
+        return false;                    /* not from the air (F8) */
+    return ride_actor_kind(u) == CR_WIZARD &&
            b->level[spell] > 0 &&
            u->mana >= spell_cast_mana(spell, b->level[spell]) &&
            world_can_pay(w, wiz, ACT_CAST);
@@ -149,17 +157,24 @@ bool spell_in_range(const World *w, const Unit *u, uint8_t spell, uint8_t level,
     return world_range(w, u->x, u->y, x, y) <= spell_range(spell, level);
 }
 
-/* One bolt-like shot at whatever stands on (x, y) (any layer): damage =
+bool spell_line_clear(const World *w, const Unit *caster, int16_t x, int16_t y,
+                      bool air)
+{
+    bool fly = (caster->flags & UF_FLYING) != 0;
+    if (!fly && !air)                    /* tall grass does not block (D36) */
+        return sight_has_spell_los(w, caster->x, caster->y, x, y);
+    return sight_shot_clear(w, caster->x, caster->y, fly, x, y, air);
+}
+
+/* One bolt-like shot at the unit on (x, y) at the aimed height: damage =
  * RND(min(255, 2 (A+1))) - Defence_eff, undead included (K5.3). The caster
  * comes by value: a lightning splash may kill the caster himself (or
  * reorder the unit list) before the remaining fields are rolled. */
 static bool shoot_field(World *w, Rng *rng, const Unit *caster, int16_t x,
-                        int16_t y, uint8_t attack, uint8_t *damage)
+                        int16_t y, bool air, uint8_t attack, uint8_t *damage)
 {
-    uint8_t target = world_unit_at(w, x, y, UL_GROUND);
+    uint8_t target = world_unit_at(w, x, y, air ? UL_AIR : UL_GROUND);
     *damage = 0;
-    if (target == NO_UNIT)
-        target = world_unit_at(w, x, y, UL_AIR);
     if (target == NO_UNIT)
         return false;
     *damage = combat_roll(rng, attack, items_defence(w, target));
@@ -167,7 +182,7 @@ static bool shoot_field(World *w, Rng *rng, const Unit *caster, int16_t x,
         events_push(EV_MISS, x, y, caster->kind, caster->owner, 0, 0);
         return false;
     }
-    combat_damage(w, target, *damage, ride_actor_kind(caster), caster->owner, false, NULL, false);
+    combat_damage(w, target, *damage, ride_actor_kind(caster), caster->owner, false, NULL);
     return true;
 }
 
@@ -190,10 +205,10 @@ static bool pay_for_spell(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
 }
 
 bool spell_bolt(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
-                int16_t x, int16_t y, Rng *rng, SpellShot *out)
+                int16_t x, int16_t y, bool air, Rng *rng, SpellShot *out)
 {
     const Unit *u;
-    out->allowed = out->hit = out->died = out->crit = false;
+    out->allowed = out->hit = out->died = false;
     out->damage = 0;
     out->splash_hits = 0;
     out->terrain_smashed = false;
@@ -203,7 +218,7 @@ bool spell_bolt(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
         return false;
     u = &w->units[wiz];
     if (!spell_in_range(w, u, spell, b->level[spell], x, y) ||
-        !sight_has_spell_los(w, u->x, u->y, x, y))
+        !spell_line_clear(w, u, x, y, air))
         return false;
     {
         uint8_t before = w->unit_count;
@@ -220,7 +235,7 @@ bool spell_bolt(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
                         spell == SP_MAGIC_LIGHTNING ? PJ_LIGHTNING : PJ_BOLT,
                         caster.owner, (uint8_t)(int8_t)dx, (uint8_t)(int8_t)dy);
         }
-        out->hit = shoot_field(w, rng, &caster, x, y,
+        out->hit = shoot_field(w, rng, &caster, x, y, air,
                                spell_attack_value(spell, level), &out->damage);
         out->died = w->unit_count < before;
     }
@@ -245,25 +260,25 @@ static bool lightning_smash(World *w, Rng *rng, int16_t x, int16_t y, uint8_t at
 }
 
 bool spell_lightning(World *w, Spellbook *b, uint8_t wiz,
-                     int16_t x, int16_t y, Rng *rng, SpellShot *out)
+                     int16_t x, int16_t y, bool air, Rng *rng, SpellShot *out)
 {
     static const int8_t DX[8] = {0, 1, 1, 1, 0, -1, -1, -1};
     static const int8_t DY[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
     uint8_t i, attack;
     Unit caster;
-    /* massive target fields are rejected (GDD 7.2) */
-    if (world_wrap(w, &x, &y) && world_blocks(w, x, y) &&
+    /* massive target fields are rejected on the ground (GDD 7.2) */
+    if (!air && world_wrap(w, &x, &y) && world_blocks(w, x, y) &&
         FEATURE_TOUGH[world_feature(w, x, y)] == 0)
         return false;
     if (wiz >= w->unit_count)
         return false;
     caster = w->units[wiz];              /* before the bolt reorders units */
     attack = spell_attack_value(SP_MAGIC_LIGHTNING, b->level[SP_MAGIC_LIGHTNING]);
-    if (!spell_bolt(w, b, wiz, SP_MAGIC_LIGHTNING, x, y, rng, out))
+    if (!spell_bolt(w, b, wiz, SP_MAGIC_LIGHTNING, x, y, air, rng, out))
         return false;
-    /* the target field and its eight neighbours: creatures take a bolt
-     * each, destructible terrain breaks (K5.3) */
-    if (lightning_smash(w, rng, x, y, attack))
+    /* the target field and its eight neighbours: creatures at the aimed
+     * height take a bolt each; a ground cast breaks terrain (K5.3) */
+    if (!air && lightning_smash(w, rng, x, y, attack))
         out->terrain_smashed = true;
     for (i = 0; i < 8; i++) {
         uint8_t dmg;
@@ -271,9 +286,10 @@ bool spell_lightning(World *w, Spellbook *b, uint8_t wiz,
         uint8_t before = w->unit_count;
         if (!world_wrap(w, &nx, &ny))
             continue;
-        if (shoot_field(w, rng, &caster, nx, ny, attack, &dmg))
+        if (shoot_field(w, rng, &caster, nx, ny, air, attack, &dmg))
             out->splash_hits++;
-        lightning_smash(w, rng, nx, ny, attack);
+        if (!air)
+            lightning_smash(w, rng, nx, ny, attack);
         if (w->unit_count < before)
             out->died = true;
     }
@@ -290,10 +306,10 @@ static bool resist_roll(Rng *rng, uint8_t level, uint8_t mr, uint8_t bonus)
 
 /* Targeted spells need the field within reach and in sight (D17). */
 static bool reachable(const World *w, const Unit *u, uint8_t spell,
-                      uint8_t level, int16_t *x, int16_t *y)
+                      uint8_t level, int16_t *x, int16_t *y, bool air)
 {
     return world_wrap(w, x, y) && spell_in_range(w, u, spell, level, *x, *y) &&
-           sight_has_spell_los(w, u->x, u->y, *x, *y);
+           spell_line_clear(w, u, *x, *y, air);
 }
 
 /* A free, walkable ground field. */
@@ -303,11 +319,19 @@ static bool free_field(const World *w, int16_t x, int16_t y)
            world_unit_at(w, x, y, UL_GROUND) == NO_UNIT;
 }
 
+/* A free air slot under the open sky (no roof, nobody flying there). */
+static bool free_air(const World *w, int16_t x, int16_t y)
+{
+    return world_wrap(w, &x, &y) && !world_has_roof(w, x, y) &&
+           world_unit_at(w, x, y, UL_AIR) == NO_UNIT;
+}
+
 CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
-                       int16_t x, int16_t y, Rng *rng, SpellShot *out)
+                       int16_t x, int16_t y, bool air, Rng *rng, SpellShot *out)
 {
     uint8_t level;
     Unit *u;
+    UnitLayer layer = air ? UL_AIR : UL_GROUND;
     memset(out, 0, sizeof *out);
     if (wiz >= w->unit_count)
         return CAST_REJECTED;
@@ -329,7 +353,8 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
     }
 
     case SP_MAGIC_EYE:                 /* sight from a point, one round */
-        if (!reachable(w, u, spell, level, &x, &y))
+        /* the eye sees like a flyer from either height (sight_add_eye) */
+        if (!reachable(w, u, spell, level, &x, &y, air))
             return CAST_REJECTED;
         pay_for_spell(w, b, wiz, spell, x, y);
         out->allowed = true;
@@ -342,6 +367,8 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
         uint16_t over;
         if (!world_wrap(w, &x, &y))
             return CAST_REJECTED;
+        if (air && !effect_active(u, EFF_FLYING))
+            return CAST_REJECTED;      /* into the air only on the potion (K5.3) */
         dist = (int16_t)world_range(w, u->x, u->y, x, y);
         if (dist > spell_range(spell, level))
             return CAST_REJECTED;
@@ -354,19 +381,24 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
             ty = (int16_t)(ty + (int16_t)rng_range(rng, over) - (int16_t)(over / 2));
         }
         out->allowed = true;
-        if (!free_field(w, tx, ty) || !world_wrap(w, &tx, &ty))
+        if (!world_wrap(w, &tx, &ty) ||
+            (air ? !free_air(w, tx, ty) : !free_field(w, tx, ty)))
             return CAST_REJECTED;      /* the field is taken or solid: it fails */
         u->x = (uint8_t)tx;
         u->y = (uint8_t)ty;
+        if (air)
+            u->flags |= UF_FLYING;     /* arrives hovering */
+        else
+            u->flags &= (uint8_t)~UF_FLYING;
         u->ap = 0;                     /* exhausted after the jump */
         return CAST_OK;
     }
 
     case SP_CURSE: {                   /* seven wounds (K5.3) */
         uint8_t target;
-        if (!reachable(w, u, spell, level, &x, &y))
+        if (!reachable(w, u, spell, level, &x, &y, air))
             return CAST_REJECTED;
-        target = world_unit_at(w, x, y, UL_GROUND);
+        target = world_unit_at(w, x, y, layer);
         if (target == NO_UNIT)
             return CAST_REJECTED;
         pay_for_spell(w, b, wiz, spell, x, y);
@@ -383,9 +415,9 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
     case SP_SUBVERSION: {              /* creature changes sides (K5.3) */
         uint8_t target, mr;
         Unit *t;
-        if (!reachable(w, u, spell, level, &x, &y))
+        if (!reachable(w, u, spell, level, &x, &y, air))
             return CAST_REJECTED;
-        target = world_unit_at(w, x, y, UL_GROUND);
+        target = world_unit_at(w, x, y, layer);
         if (target == NO_UNIT)
             return CAST_REJECTED;
         t = &w->units[target];
@@ -409,9 +441,9 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
         uint8_t i;
         uint8_t kind, center, caster_kind, caster_owner;
         uint16_t radius = (uint16_t)(2 * level + 1);
-        if (!reachable(w, u, spell, level, &x, &y))
+        if (!reachable(w, u, spell, level, &x, &y, air))
             return CAST_REJECTED;
-        center = world_unit_at(w, x, y, UL_GROUND);
+        center = world_unit_at(w, x, y, layer);   /* picks the kind */
         if (center == NO_UNIT)
             return CAST_REJECTED;
         kind = w->units[center].kind;
@@ -425,7 +457,7 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
                 continue;
             if (resist_roll(rng, level, t->mr, 0)) {
                 out->splash_hits++;
-                combat_damage(w, i, t->con, caster_kind, caster_owner, false, NULL, false);
+                combat_damage(w, i, t->con, caster_kind, caster_owner, false, NULL);
             }
         }
         return CAST_OK;
@@ -433,13 +465,13 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
 
     case SP_ENCHANT: {                 /* weapons on the field become magic, L+3 rounds */
         uint8_t i;
-        if (!reachable(w, u, spell, level, &x, &y))
+        if (!reachable(w, u, spell, level, &x, &y, air))
             return CAST_REJECTED;
         pay_for_spell(w, b, wiz, spell, x, y);
         for (i = 0; i < w->unit_count; i++) {
             Unit *t = &w->units[i];
-            if (t->x != x || t->y != y)
-                continue;
+            if (t->x != x || t->y != y || ((t->flags & UF_FLYING) != 0) != air)
+                continue;              /* only the aimed height */
             effect_grant(t, EFF_MAGIC_WEAPON, level, (uint8_t)(level + 3));
         }
         out->allowed = true;
@@ -453,8 +485,9 @@ CastResult spell_apply(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
         AreaKind kind = spell == SP_MAGIC_FIRE ? AREA_FIRE
                       : spell == SP_GOOEY_BLOB ? AREA_BLOB
                       : spell == SP_TANGLE_VINE ? AREA_VINE : AREA_FLOOD;
-        /* range only, no line of sight needed (K5.3) */
-        if (!world_wrap(w, &x, &y) || !spell_in_range(w, u, spell, level, x, y))
+        /* range only, no line of sight needed (K5.3); terrain: ground only */
+        if (air || !world_wrap(w, &x, &y) ||
+            !spell_in_range(w, u, spell, level, x, y))
             return CAST_REJECTED;
         pay_for_spell(w, b, wiz, spell, x, y);
         out->splash_hits = area_cast(w, rng, kind, level, u->owner, x, y);

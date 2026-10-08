@@ -300,7 +300,7 @@ void fx_glide(uint16_t tile, int16_t vx0, int16_t vy0, int16_t vx1, int16_t vy1)
 /* ---------- damage numbers ---------- */
 
 /* "-12" rising from the field, digits as sprites: nothing to repaint. */
-static void damage_number(int16_t px, int16_t py, uint8_t value, bool crit)
+static void damage_number(int16_t px, int16_t py, uint8_t value)
 {
     uint16_t glyph[5];
     uint8_t n = 0, k, i;
@@ -309,8 +309,6 @@ static void damage_number(int16_t px, int16_t py, uint8_t value, bool crit)
     glyph[n++] = T_ICON_DMG_MINUS;
     for (k = 0; buf[k] && n < 4; k++)
         glyph[n++] = (uint16_t)(T_ICON_DMG_0 + (buf[k] - '0'));
-    if (crit)
-        glyph[n++] = T_ICON_DMG_BANG;
     for (k = 0; k < n; k++)
         spr_set((uint8_t)(SPR_DIGIT + k), &glyph[k], 1);
     px = (int16_t)(px + TILE_PX / 2 - n * 3);     /* centred, 6 px apart */
@@ -328,7 +326,7 @@ static void damage_number(int16_t px, int16_t py, uint8_t value, bool crit)
             vdp_show_sprite();
         }
         vdp_refresh_sprites();
-        wait_cs(crit ? 6 : 4);
+        wait_cs(4);
     }
     spr_hide_all();
 }
@@ -350,7 +348,7 @@ void fx_drain_sounds(void)
         uint8_t snd;
         switch (ev[i].type) {
         case EV_SWING: snd = SND_SWING; break;
-        case EV_HIT: snd = ev[i].b ? SND_CRIT : SND_HIT; break;
+        case EV_HIT: snd = SND_HIT; break;
         case EV_MISS: snd = SND_MISS; break;
         case EV_DEATH: snd = SND_DEATH; break;
         case EV_SPELL: snd = spell_sound(ev[i].kind); break;
@@ -442,12 +440,7 @@ void fx_drain_play(World *w, const Sight *s)
             touch(vx, vy);
             sound_play(SND_HIT);
             draw_overlay(vx, vy, T_FX_HIT);
-            if (e->b) {                      /* critical (D30) */
-                sound_play(SND_CRIT);        /* second voice: hit + clang */
-                draw_overlay(vx, vy, T_FX_SLASH);
-            }
-            damage_number((int16_t)(vx * TILE_PX), (int16_t)(vy * TILE_PX),
-                          e->a, e->b != 0);
+            damage_number((int16_t)(vx * TILE_PX), (int16_t)(vy * TILE_PX), e->a);
             break;
         case EV_MISS:
             touch(vx, vy);

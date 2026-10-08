@@ -203,7 +203,7 @@ static bool try_cast(World *w, Rng *rng, const AiEnv *env, uint8_t id, uint8_t s
     if (s == SP_MAGIC_SHIELD) {
         if (effect_active(u, EFF_SHIELD))
             return false;
-        return spell_apply(w, book, wi, s, u->x, u->y, rng, &shot) == CAST_OK;
+        return spell_apply(w, book, wi, s, u->x, u->y, false, rng, &shot) == CAST_OK;
     }
     if (s == SP_MAGIC_BOLT || s == SP_MAGIC_LIGHTNING) {
         uint8_t attack = spell_attack_value(s, level);
@@ -220,9 +220,13 @@ static bool try_cast(World *w, Rng *rng, const AiEnv *env, uint8_t id, uint8_t s
             if (s == SP_MAGIC_LIGHTNING &&
                 own_creature_near(w, u->owner, u->id, e->x, e->y, 4, false))
                 continue;
-            if (s == SP_MAGIC_LIGHTNING ? spell_lightning(w, book, wi, e->x, e->y, rng, &shot)
-                                        : spell_bolt(w, book, wi, s, e->x, e->y, rng, &shot))
-                return true;
+            {   /* aimed at the enemy's own height (CAST-A/G, F8) */
+                bool air = (e->flags & UF_FLYING) != 0;
+                if (s == SP_MAGIC_LIGHTNING
+                        ? spell_lightning(w, book, wi, e->x, e->y, air, rng, &shot)
+                        : spell_bolt(w, book, wi, s, e->x, e->y, air, rng, &shot))
+                    return true;
+            }
         }
         return false;
     }
@@ -242,7 +246,7 @@ static bool try_cast(World *w, Rng *rng, const AiEnv *env, uint8_t id, uint8_t s
             if ((kind == AREA_VINE || kind == AREA_FLOOD) &&
                 own_creature_near(w, u->owner, u->id, e->x, e->y, (uint16_t)(2 * level + 1), true))
                 continue;
-            if (spell_apply(w, book, wi, s, e->x, e->y, rng, &shot) == CAST_OK)
+            if (spell_apply(w, book, wi, s, e->x, e->y, false, rng, &shot) == CAST_OK)
                 return true;
         }
         return false;

@@ -1039,7 +1039,7 @@ static void test_0d(void)
         world.units[0].ap = 40;
         world.units[0].mana = 80;
         rng_seed(&rng, 300 + k);
-        if (spell_apply(&world, &book, 0, SP_CURSE, 9, 5, &rng, &shot) == CAST_OK &&
+        if (spell_apply(&world, &book, 0, SP_CURSE, 9, 5, false, &rng, &shot) == CAST_OK &&
             world.units[1].wounds == 7)
             ok++;
     }
@@ -1063,7 +1063,7 @@ static void test_0d(void)
         world.units[0].ap = 40;
         world.units[0].mana = 80;
         rng_seed(&rng, 700 + k);
-        if (spell_apply(&world, &book, 0, SP_SUBVERSION, 9, 5, &rng, &shot) == CAST_OK &&
+        if (spell_apply(&world, &book, 0, SP_SUBVERSION, 9, 5, false, &rng, &shot) == CAST_OK &&
             world.units[1].owner == OWN_P1)
             ok++;
     }
@@ -1074,14 +1074,14 @@ static void test_0d(void)
     book.level[SP_SUBVERSION] = 1;
     world.units[0].ap = 40;
     world.units[0].mana = 80;
-    check(spell_apply(&world, &book, 0, SP_SUBVERSION, 9, 5, &rng, &shot) == CAST_REJECTED,
+    check(spell_apply(&world, &book, 0, SP_SUBVERSION, 9, 5, false, &rng, &shot) == CAST_REJECTED,
           "0d: a mount with a wizard on its back cannot be subverted");
     world.units[1].rider_kind = 0xFF;
     world.units[1].flags |= UF_MOUNT;
     world.units[1].mr = 0;
     book.level[SP_SUBVERSION] = 1;
     world.units[0].ap = 40;
-    check(spell_apply(&world, &book, 0, SP_SUBVERSION, 9, 5, &rng, &shot) == CAST_OK &&
+    check(spell_apply(&world, &book, 0, SP_SUBVERSION, 9, 5, false, &rng, &shot) == CAST_OK &&
           world.units[1].owner == OWN_P1,
           "0d: mounts can be subverted now");
 
@@ -1092,7 +1092,7 @@ static void test_0d(void)
     book.level[SP_MAGIC_SHIELD] = 1;
     u->ap = 40;
     u->mana = 80;
-    spell_apply(&world, &book, 0, SP_MAGIC_SHIELD, u->x, u->y, &rng, &shot);
+    spell_apply(&world, &book, 0, SP_MAGIC_SHIELD, u->x, u->y, false, &rng, &shot);
     check(effect_power(u, EFF_SHIELD) == 20 && items_defence(&world, 0) == 12 + 20,
           "0d: shield level 1 adds 20 Defence");
     check(items_magic_res(&world, 0) == u->mr,
@@ -1101,7 +1101,7 @@ static void test_0d(void)
     /* Enchant lasts L+3 rounds */
     book.level[SP_ENCHANT] = 2;
     u->ap = 40;
-    spell_apply(&world, &book, 0, SP_ENCHANT, u->x, u->y, &rng, &shot);
+    spell_apply(&world, &book, 0, SP_ENCHANT, u->x, u->y, false, &rng, &shot);
     check(u->effects[1].kind == EFF_MAGIC_WEAPON && u->effects[1].rounds == 5,
           "0d: enchant at level 2 lasts 5 rounds");
 
@@ -1113,14 +1113,14 @@ static void test_0d(void)
     book.level[SP_TELEPORT] = 5;                       /* exact up to D 9 */
     u->ap = 40;
     u->mana = 80;
-    check(spell_apply(&world, &book, 0, SP_TELEPORT, u->x, (int16_t)(u->y + 2), &rng,
+    check(spell_apply(&world, &book, 0, SP_TELEPORT, u->x, (int16_t)(u->y + 2), false, &rng,
                       &shot) == CAST_OK && u->x == 6 && u->y == 8 && u->ap == 0,
           "0d: a short teleport lands exactly, AP are gone");
     u->ap = 40;
     book.level[SP_TELEPORT] = 5;
     world.feature[10][6] = FE_WALL;
     world_map_changed(&world);
-    check(spell_apply(&world, &book, 0, SP_TELEPORT, 6, 10, &rng, &shot) == CAST_REJECTED &&
+    check(spell_apply(&world, &book, 0, SP_TELEPORT, 6, 10, false, &rng, &shot) == CAST_REJECTED &&
           u->y == 8,
           "0d: teleporting into a wall fails");
     check(book.level[SP_TELEPORT] == 4, "0d: and the cast is spent");
@@ -1235,7 +1235,7 @@ static void test_0g(void)
         memset(&book, 0, sizeof book);
         book.level[SP_MAGIC_SHIELD] = 2;
         m->mana = 80;
-        check(spell_apply(&world, &book, mount, SP_MAGIC_SHIELD, m->x, m->y, &rng,
+        check(spell_apply(&world, &book, mount, SP_MAGIC_SHIELD, m->x, m->y, false, &rng,
                           &shot) == CAST_OK,
               "0g: the rider casts from the saddle");
         check(m->rider_ap == 22 && m->ap == 56,
@@ -1266,6 +1266,41 @@ static void test_0g(void)
     check(ride_dismount(&world, 0) && world.unit_count == 2 &&
           world.units[1].ap == 30 && world.units[1].ap_max == 40,
           "0g: dismounting returns the rider with his own AP");
+
+    /* F3: a wounded rider keeps his wounds through the ride */
+    world.unit_count = 0;
+    wizard = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 6, 7);
+    mount = world_spawn_unit(&world, OWN_P1, CR_UNICORN, 6, 6);
+    world.units[wizard].ap = 40;
+    world_set_wounds(&world.units[wizard], 3);
+    ride_mount(&world, wizard, 6, 6);
+    world.units[0].ap = 40;
+    check(ride_dismount(&world, 0) && world.unit_count == 2 &&
+          world.units[1].wounds == 3 && (world.units[1].flags & UF_WOUNDED),
+          "F3: the rider gets off with his wounds");
+
+    /* F31: the wounds bleed in the saddle (on a flying mount too); bled
+     * out, the rider dies there, his pack falls, the mount stays */
+    world.unit_count = 0;
+    world.object_count = 0;
+    wizard = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 6, 7);
+    mount = world_spawn_unit(&world, OWN_P1, CR_PEGASUS, 6, 6);
+    world.units[wizard].ap = 40;
+    world.units[wizard].con = 10;
+    world.units[wizard].items[0] = OBJ_GOLD;
+    world.units[wizard].item_count = 1;
+    world_set_wounds(&world.units[wizard], 3);
+    ride_mount(&world, wizard, 6, 6);
+    world.units[0].flags |= UF_FLYING;
+    world_new_turn(&world);
+    check(world.unit_count == 1 && (world.units[0].flags & UF_RIDDEN) &&
+          world.units[0].rider_con == 4,
+          "F31: a wounded rider bleeds 2 con per wound in the saddle");
+    world_new_turn(&world);
+    check(world.unit_count == 1 && !(world.units[0].flags & UF_RIDDEN) &&
+          world.units[0].kind == CR_PEGASUS && world.units[0].item_count == 0 &&
+          world.object_count == 1,
+          "F31: bled out, the rider dies in the saddle and drops his pack");
 
     /* pixies are always invisible (K2) */
     world.unit_count = 0;
@@ -2091,12 +2126,12 @@ static void test_combat(void)
         world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
         world.unit_count = 1;
         world.units[0].con = world.units[0].con_max = 40;
-        combat_damage(&world, 0, 10, CR_GOBLIN, OWN_NEUTRAL, true, NULL, false);
+        combat_damage(&world, 0, 10, CR_GOBLIN, OWN_NEUTRAL, true, NULL);
         check(world.units[0].wounds == 0 && world.units[0].con == 30,
               "combat: 10 of 40 is exactly a quarter, no wound");
-        combat_damage(&world, 0, 11, CR_GOBLIN, OWN_NEUTRAL, true, NULL, false);
+        combat_damage(&world, 0, 11, CR_GOBLIN, OWN_NEUTRAL, true, NULL);
         check(world.units[0].wounds == 1, "combat: more than a quarter opens a wound");
-        combat_damage(&world, 0, 5, CR_GOBLIN, OWN_NEUTRAL, true, NULL, false);
+        combat_damage(&world, 0, 5, CR_GOBLIN, OWN_NEUTRAL, true, NULL);
         check(world.units[0].wounds == 1, "combat: a small hit opens no further wound");
     }
 
@@ -2739,16 +2774,10 @@ static void test_bolt(void)
     world.units[1].con = world.units[1].con_max = 32;
     world.unit_count = 2;
 
-    check(!spell_bolt(&world, &book, 0, SP_MAGIC_BOLT, 20, 20, &rng, &shot),
+    check(!spell_bolt(&world, &book, 0, SP_MAGIC_BOLT, 20, 20, false, &rng, &shot),
           "bolt: out of range is rejected");
-    check(!spell_bolt(&world, &book, 0, SP_MAGIC_BOLT, 6, 1, &rng, &shot),
+    check(!spell_bolt(&world, &book, 0, SP_MAGIC_BOLT, 6, 1, false, &rng, &shot),
           "bolt: no line of sight through the wall");
-    {   /* wizard flies: no casting from the air (CAST-G only) */
-        world.units[0].flags |= UF_FLYING;
-        check(!spell_bolt(&world, &book, 0, SP_MAGIC_BOLT, 9, 5, &rng, &shot),
-              "bolt: not from the air");
-        world.units[0].flags &= (uint8_t)~UF_FLYING;
-    }
 
     {   /* seeded volleys at the goblin; failures counted, printed once */
         bool all_cast = true;
@@ -2758,7 +2787,7 @@ static void test_bolt(void)
             world.units[1].con = 32;
             book.level[SP_MAGIC_BOLT] = 8;
             rng_seed(&rng, 7000 + k);
-            if (!spell_bolt(&world, &book, 0, SP_MAGIC_BOLT, 9, 5, &rng, &shot))
+            if (!spell_bolt(&world, &book, 0, SP_MAGIC_BOLT, 9, 5, false, &rng, &shot))
                 all_cast = false;
             if (shot.hit)
                 hits++;
@@ -2777,7 +2806,7 @@ static void test_bolt(void)
         world.units[0].ap = 40;
         world.units[0].mana = 80;
         world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, 9, 5);
-        check(!spell_lightning(&world, &book, 0, 3, 2, &rng, &shot),
+        check(!spell_lightning(&world, &book, 0, 3, 2, false, &rng, &shot),
               "bolt: lightning rejects massive targets");
         {   /* RND(2A) >= toughness: a rock (200) never breaks, a table (60) sometimes */
             uint8_t n;
@@ -2789,7 +2818,7 @@ static void test_bolt(void)
                 world.feature[5][9] = FE_ROCK;
                 world_map_changed(&world);
                 rng_seed(&rng, 77 + n);
-                spell_lightning(&world, &book, 0, 9, 5, &rng, &shot);
+                spell_lightning(&world, &book, 0, 9, 5, false, &rng, &shot);
                 if (world.feature[5][9] == FE_NONE)
                     rock_broke = true;
                 book.level[SP_MAGIC_LIGHTNING] = 8;
@@ -2798,13 +2827,96 @@ static void test_bolt(void)
                 world.feature[5][9] = FE_TABLE;
                 world_map_changed(&world);
                 rng_seed(&rng, 177 + n);
-                spell_lightning(&world, &book, 0, 9, 5, &rng, &shot);
+                spell_lightning(&world, &book, 0, 9, 5, false, &rng, &shot);
                 if (shot.terrain_smashed && world.feature[5][9] == FE_NONE)
                     table_broke = true;
             }
             check(!rock_broke, "bolt: lightning cannot break a rock (toughness 200)");
             check(table_broke, "bolt: lightning smashes a table now and then");
         }
+    }
+
+    {   /* F8: casting from the air, and the target height (CAST-A/G) */
+        uint8_t wz, gob, bat, n;
+        bool bat_hit = false, gob_touched = false;
+        world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+        world.unit_count = 0;
+        wz = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 5, 13);
+        gob = world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, 8, 13);
+        bat = world_spawn_unit(&world, OWN_NEUTRAL, CR_GIANT_BAT, 8, 13);
+        world.units[bat].flags |= UF_FLYING;
+        memset(&book, 0, sizeof book);
+        book.level[SP_GOBLIN] = 1;
+        book.level[SP_TELEPORT] = 5;
+        book.level[SP_CURSE] = 5;
+        book.level[SP_MAGIC_FIRE] = 5;
+        world.units[wz].mana = 250;
+        world.units[wz].ap = 40;
+        world.units[wz].flags |= UF_FLYING;
+
+        check(!spell_can_cast(&world, &book, wz, SP_GOBLIN),
+              "F8: no summoning from the air");
+        world.units[wz].flags &= (uint8_t)~UF_FLYING;
+        check(spell_can_cast(&world, &book, wz, SP_GOBLIN),
+              "F8: summoning on the ground");
+        world.units[wz].flags |= UF_FLYING;
+
+        /* a bolt from the air at the air hits only the bat, never the goblin */
+        for (n = 0; n < 20 && !bat_hit; n++) {
+            book.level[SP_MAGIC_BOLT] = 8;
+            world.units[wz].ap = 40;
+            world.units[wz].mana = 250;
+            world.units[gob].con = world.units[gob].con_max;
+            world.units[bat].con = world.units[bat].con_max;
+            rng_seed(&rng, 300 + n);
+            check(spell_bolt(&world, &book, wz, SP_MAGIC_BOLT, 8, 13, true, &rng, &shot),
+                  "F8: a flying wizard casts a bolt");
+            if (world.unit_count < 3)
+                break;                      /* the bat fell: it was hit */
+            if (shot.hit)
+                bat_hit = true;
+            if (world.units[gob].con != world.units[gob].con_max)
+                gob_touched = true;
+        }
+        check((bat_hit || world.unit_count < 3) && !gob_touched,
+              "F8: CAST-A hits the flyer, not the unit below");
+
+        /* aimed at the ground: the goblin is the target, the bat is spared */
+        world.unit_count = 0;
+        wz = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 5, 13);
+        gob = world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, 8, 13);
+        world.units[wz].mana = 250;
+        world.units[wz].ap = 40;
+        world.units[wz].flags |= UF_FLYING;
+        check(spell_apply(&world, &book, wz, SP_CURSE, 8, 13, true, &rng, &shot)
+                  == CAST_REJECTED,
+              "F8: Curse into the empty air finds no target");
+        check(spell_apply(&world, &book, wz, SP_MAGIC_FIRE, 8, 13, true, &rng, &shot)
+                  == CAST_REJECTED,
+              "F8: area spells take the ground only");
+        world.units[wz].ap = 40;
+        check(spell_apply(&world, &book, wz, SP_CURSE, 8, 13, false, &rng, &shot)
+                  != CAST_REJECTED,
+              "F8: Curse from the air at the ground goes through");
+
+        /* teleport into the air needs the flying potion (K5.3) */
+        world.unit_count = 0;
+        wz = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 5, 13);
+        world.units[wz].mana = 250;
+        world.units[wz].ap = 40;
+        check(spell_apply(&world, &book, wz, SP_TELEPORT, 7, 13, true, &rng, &shot)
+                  == CAST_REJECTED && world.units[wz].x == 5,
+              "F8: no teleport into the air without the flying potion");
+        effect_grant(&world.units[wz], EFF_FLYING, 1, 3);
+        check(spell_apply(&world, &book, wz, SP_TELEPORT, 7, 13, true, &rng, &shot)
+                  == CAST_OK && world.units[wz].x == 7 &&
+              (world.units[wz].flags & UF_FLYING),
+              "F8: on the potion the wizard teleports into the air");
+        world.units[wz].ap = 40;
+        check(spell_apply(&world, &book, wz, SP_TELEPORT, 5, 13, false, &rng, &shot)
+                  == CAST_OK && world.units[wz].x == 5 &&
+              !(world.units[wz].flags & UF_FLYING),
+              "F8: a ground teleport lands him");
     }
 }
 
@@ -3460,7 +3572,7 @@ static void test_m4b(void)
         world.units[0].ap = 40;
         world.units[0].mana = 80;
         rng_seed(&rng, 1);
-        check(spell_apply(&world, &book, 0, SP_MAGIC_SHIELD, u->x, u->y, &rng,
+        check(spell_apply(&world, &book, 0, SP_MAGIC_SHIELD, u->x, u->y, false, &rng,
                           &shot) == CAST_OK &&
               effect_active(u, EFF_SHIELD) && effect_power(u, EFF_SHIELD) == 28 &&
               u->effects[0].rounds == 4,
@@ -3474,7 +3586,7 @@ static void test_m4b(void)
         u->ap = 40;
         u->mana = 80;
         rng_seed(&rng, 7);
-        check(spell_apply(&world, &book, 0, SP_TELEPORT, 12, 6, &rng, &shot) ==
+        check(spell_apply(&world, &book, 0, SP_TELEPORT, 12, 6, false, &rng, &shot) ==
               CAST_OK, "m4b: teleport goes through");
         check(u->ap == 0 && u->x >= 8 && u->x <= 16, "m4b: scattered, 0 AP");
         u->x = 6;
@@ -3495,7 +3607,7 @@ static void test_m4b(void)
                 book.level[SP_CURSE] = 4;
                 world_set_wounds(&world.units[1], 0);
                 rng_seed(&rng, 400 + k);
-                cr = spell_apply(&world, &book, 0, SP_CURSE, 9, 5, &rng, &shot);
+                cr = spell_apply(&world, &book, 0, SP_CURSE, 9, 5, false, &rng, &shot);
                 if (cr == CAST_OK && (world.units[1].flags & UF_WOUNDED))
                     wounded = true;
                 if (cr == CAST_NO_RES)
@@ -3516,7 +3628,7 @@ static void test_m4b(void)
                 book.level[SP_SUBVERSION] = 8;
                 world.units[1].owner = OWN_P2;
                 rng_seed(&rng, 600 + k);
-                cr = spell_apply(&world, &book, 0, SP_SUBVERSION, 9, 5, &rng, &shot);
+                cr = spell_apply(&world, &book, 0, SP_SUBVERSION, 9, 5, false, &rng, &shot);
                 if (cr == CAST_OK && world.units[1].owner == OWN_P1)
                     switched = true;
             }
@@ -3537,7 +3649,7 @@ static void test_m4b(void)
                 world_spawn_unit(&world, OWN_P2, CR_GOBLIN,
                                  9, 5);
             rng_seed(&rng, 700 + k2);
-            if (spell_apply(&world, &book, 0, SP_MAGIC_ATTACK, 9, 5, &rng,
+            if (spell_apply(&world, &book, 0, SP_MAGIC_ATTACK, 9, 5, false, &rng,
                             &shot) == CAST_OK)
                 hits = (uint8_t)(hits + shot.splash_hits);
         }
@@ -3555,7 +3667,7 @@ static void test_m4b(void)
         world.units[0].ap = 40;
         world.units[0].mana = 80;
         rng_seed(&rng, 9);
-        check(spell_apply(&world, &book, 0, SP_ENCHANT, g->x, g->y, &rng, &shot) ==
+        check(spell_apply(&world, &book, 0, SP_ENCHANT, g->x, g->y, false, &rng, &shot) ==
               CAST_OK && (g->flags & UF_MAGIC_WEAPON) != 0,
               "m4b: enchant flags the carried weapons");
         check(effect_active(g, EFF_MAGIC_WEAPON), "m4b: enchant as effect");
@@ -3774,12 +3886,12 @@ static void test_m4_review(void)
         u->ap = 40;
         u->mana = 80;
         check(spell_apply(&world, &book, 0, SP_CURSE, world.units[g].x,
-                          world.units[g].y, &rng, &shot) == CAST_REJECTED &&
+                          world.units[g].y, false, &rng, &shot) == CAST_REJECTED &&
               book.level[SP_CURSE] == 3,
               "m4r: no curse beyond the spell range");
         world.units[g].x = 12;               /* behind the house wall */
         world.units[g].y = 6;
-        check(spell_apply(&world, &book, 0, SP_CURSE, 12, 6, &rng, &shot) ==
+        check(spell_apply(&world, &book, 0, SP_CURSE, 12, 6, false, &rng, &shot) ==
               CAST_REJECTED, "m4r: no curse through walls");
     }
 
@@ -4027,18 +4139,18 @@ static void test_m4d(void)
         memset(&sb, 0, sizeof sb);
         sb.level[SP_MAGIC_FIRE] = 4;
         rng_seed(&rng, 3);
-        check(spell_apply(&world, &sb, g, SP_MAGIC_FIRE, 21, 19, &rng,
+        check(spell_apply(&world, &sb, g, SP_MAGIC_FIRE, 21, 19, false, &rng,
                           &shot) == CAST_OK && shot.hit &&
               area_kind_at(&world, 21, 19) == AREA_FIRE &&
               sb.level[SP_MAGIC_FIRE] == 3 && world.units[g].mana < 100,
               "0e: spell_apply casts fire and pays");
         world.units[g].ap = 40;
-        check(spell_apply(&world, &sb, g, SP_MAGIC_FIRE, 16, 19, &rng,
+        check(spell_apply(&world, &sb, g, SP_MAGIC_FIRE, 16, 19, false, &rng,
                           &shot) == CAST_OK && !shot.hit &&   /* water: fizzles */
               sb.level[SP_MAGIC_FIRE] == 2,
               "0e: fire on water fizzles but costs the cast");
         world.units[g].ap = 40;
-        check(spell_apply(&world, &sb, g, SP_MAGIC_FIRE, 20, 0, &rng,
+        check(spell_apply(&world, &sb, g, SP_MAGIC_FIRE, 20, 0, false, &rng,
                           &shot) == CAST_REJECTED &&   /* out of reach */
               sb.level[SP_MAGIC_FIRE] == 2,
               "0e: out of reach costs nothing");
@@ -4725,7 +4837,7 @@ static void test_m4f(void)
         uint16_t s, sum = 0;
         uint8_t over = 0;
         rng_seed(&rng, 9);
-        wizard_slot_random(2, 2, &rng);
+        wizard_slot_random(2, &rng);
         for (s = 0; s < SPELL_COUNT; s++) {
             sum += wizard_slots[2].book.level[s];
             if (wizard_slots[2].book.level[s] > 2)
@@ -5073,7 +5185,7 @@ static void test_m4i(void)
         memcpy(buf, "XXXX", 4);
         check(!save_deserialize(&sg_b, buf, len), "m4i: wrong magic refused");
         len = save_serialize(&sg_a, buf, sizeof buf);
-        buf[5] = 11;
+        buf[5] = (uint8_t)(buf[5] + 1);   /* any other version */
         check(!save_deserialize(&sg_b, buf, len), "m4i: wrong version refused");
         check(!save_deserialize(&sg_b, buf, (uint16_t)(len - 1)),
               "m4i: wrong length refused");
@@ -5337,7 +5449,7 @@ static void test_m5c_events(void)
         memset(&b, 0, sizeof b);
         b.level[SP_MAGIC_BOLT] = 1;
         rng_seed(&r2, 11);
-        check(spell_bolt(&world, &b, 0, SP_MAGIC_BOLT, 4, 3, &r2, &shot),
+        check(spell_bolt(&world, &b, 0, SP_MAGIC_BOLT, 4, 3, false, &r2, &shot),
               "m5c: bolt cast at the goblin");
         n = events_drain(ev, EVENT_RING);
         check(n >= 1 && ev[0].type == EV_SPELL && ev[0].kind == SP_MAGIC_BOLT,
@@ -5661,7 +5773,6 @@ static void test_m5e_balance(void)
     {   /* D29: bolt scales with the book level - level 1 wounds, level 8
          * usually kills a goblin (con 32) outright */
         uint8_t k, kills1 = 0, kills8 = 0, hits1 = 0, hits8 = 0;
-        uint8_t kills1_without_crit = 0;
         uint32_t dmg1 = 0;
         for (k = 0; k < 100; k++) {
             Spellbook b;
@@ -5673,15 +5784,12 @@ static void test_m5e_balance(void)
             memset(&b, 0, sizeof b);
             b.level[SP_MAGIC_BOLT] = 1;     /* 4d6 */
             rng_seed(&rng, 900 + k);
-            spell_bolt(&world, &b, 0, SP_MAGIC_BOLT, 4, 3, &rng, &shot);
+            spell_bolt(&world, &b, 0, SP_MAGIC_BOLT, 4, 3, false, &rng, &shot);
             if (shot.hit) {
                 hits1++;
                 dmg1 += shot.damage;
-                if (shot.died) {
+                if (shot.died)
                     kills1++;
-                    if (!shot.crit)
-                        kills1_without_crit++;
-                }
             }
             load_house();
             world.units[1].owner = OWN_P2;
@@ -5690,14 +5798,13 @@ static void test_m5e_balance(void)
             memset(&b, 0, sizeof b);
             b.level[SP_MAGIC_BOLT] = 8;     /* 11d6 */
             rng_seed(&rng, 900 + k);
-            spell_bolt(&world, &b, 0, SP_MAGIC_BOLT, 4, 3, &rng, &shot);
+            spell_bolt(&world, &b, 0, SP_MAGIC_BOLT, 4, 3, false, &rng, &shot);
             if (shot.hit) {
                 hits8++;
                 if (shot.died)
                     kills8++;
             }
         }
-        (void)kills1_without_crit;
         check(hits1 >= 70, "m5e: the bolt connects over many seeds");
         check(kills1 < hits1 && kills1 * 10 >= hits1 * 2,
               "m5e: a level-1 bolt (A 29) kills a goblin on some hits, not all");
@@ -5783,7 +5890,7 @@ static void test_m5e_balance(void)
                 memset(&b, 0, sizeof b);
                 b.level[SP_MAGIC_BOLT] = 1;          /* A = 29 */
                 rng_seed(&rng, 4000 + k);
-                spell_bolt(&world, &b, 0, SP_MAGIC_BOLT, 4, 3, &rng, &shot);
+                spell_bolt(&world, &b, 0, SP_MAGIC_BOLT, 4, 3, false, &rng, &shot);
                 if (shot.hit) {
                     if (pass == 0) hits_shield++; else hits_bare++;
                 }

@@ -95,9 +95,12 @@ kaempft man schlechter.
 = Magie
 c oeffnet das Zauberbuch; Buchstabe
 waehlt den Zauber, Pfeile zielen,
-Enter wirkt. Mana reicht fuer wenige
-Zauber pro Runde - es regeneriert
-langsam.
+< zielt in die Luft, > auf den
+Boden, Enter wirkt. Auch im Flug
+zaubern geht, nur Beschwoeren und
+Brauen nicht. Mana reicht fuer
+wenige Zauber pro Runde - es
+regeneriert langsam.
 
 Beschwoerungen rufen Kaempfer ins
 Spiel. Bolt und Blitz schlagen zu

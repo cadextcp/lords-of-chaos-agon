@@ -253,7 +253,7 @@ static void area_hit_units(World *w, Area *a, int16_t x, int16_t y, uint8_t dama
         if (a->kind == AREA_FIRE && (u->flags & UF_FLYING))
             continue;                    /* the flames stay on the ground */
         if (damage > 0 &&
-            combat_damage(w, i, damage, CR_WIZARD, a->owner, false, NULL, false))
+            combat_damage(w, i, damage, CR_WIZARD, a->owner, false, NULL))
             continue;                    /* dead: the slot holds another now */
         (void)rng;
     }
