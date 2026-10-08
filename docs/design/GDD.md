@@ -393,6 +393,32 @@ Ein langsamer Zombie (24 AP) schafft 2 Angriffe; ein Löwe (54 AP) läuft 13 Fel
 
 ---
 
+### 5.4 Bedienung per Gamepad: Mega Drive (D23)
+
+Auf dem Mega Drive gibt es keine Tastatur. Die Grundprinzipien aus §5.1 bleiben: aktive Einheit, Bump, Look statt Inform und ein einheitlicher Zielmodus. Was auf dem Agon ein Buchstabe ist, liegt am Pad im **Kontextmenü**. Das in M4j geplante `Enter`-Menü ist damit am Pad der Hauptweg und muss vollständig sein.
+
+**Pflicht ist das 3-Button-Pad** (A, B, C, Start). Das 6-Button-Pad (X, Y, Z) bekommt nur Abkürzungen; nichts darf allein darauf liegen. `Mode` bleibt ungenutzt, weil die Taste beim Einschalten die Pad-Erkennung steuert.
+
+| Taste | Normal | Zielmodus | Liste bzw. Menü |
+|---|---|---|---|
+| Steuerkreuz | Bewegen in 8 Richtungen (Diagonalen nativ, keine Akkorde), Bump | Zielcursor bewegen | Auswahl ↑↓, Seite ←→ |
+| **A** | Kontextmenü der aktiven Einheit; der Cursor steht auf dem zuletzt genutzten Verb | bestätigen | wählen |
+| **B** | gedrückt halten + Steuerkreuz: Look-Cursor (loslassen beendet) | abbrechen ohne Kosten | zurück |
+| **C** | nächste eigene Einheit mit AP (`Tab`); mit gehaltenem B: vorige | nächstes sichtbares Ziel | – |
+| **Start** | Spielmenü: Zug beenden (mit Bestätigung), Big Map, Log, Hilfe, Optionen, Speichern bzw. Laden | – | schließen |
+| X / Y / Z (6 Buttons) | Zauberliste / Inventar / Einheit fertig | – | – |
+
+**Kontextmenü (A):**
+- Der erste Eintrag ist immer **„Fertig“**: Einheit beenden und weiter, wie `Leertaste`. A, A beendet eine Einheit also mit zwei Drücken.
+- Danach folgen nur die Verben, die die Einheit gerade kann, jeweils mit AP-Kosten. Die Reihenfolge ist fest, damit sich die Hand die Position merkt: Zaubern, Schießen, Werfen, Aufheben, Fallenlassen, Wechseln, Essen, Trinken, Füllen, Lesen, Benutzen, Reiten, Aufsteigen bzw. Landen, Untersuchen.
+- **Benutzen** fragt danach eine Richtung über das Steuerkreuz ab, wie `a` + Richtung.
+
+**Luft- oder Bodenziel:** Statt `<` und `>` fragt der Zielmodus nur nach, wenn auf dem Zielfeld **beide** Ebenen ein Ziel haben. Dann erscheint die Mini-Auswahl „Luft / Boden“.
+
+**Wiederholung:** Ein gehaltenes Steuerkreuz wiederholt mit denselben Zeiten wie auf dem Agon (erste Wiederholung nach 350 ms, danach alle 200 ms, ADR 0007). Die Belegung ist ein **Startwert** und wird im Emulator bzw. im Verein geprüft.
+
+**Hotseat (nach v1.0):** Entweder wird ein Pad weitergereicht, oder jeder Zauberer hat sein eigenes Pad (Port 1 und 2, mit Team Player bzw. EA 4-Way bis 4). Zwischen zwei menschlichen Zügen kommt ein Übergabebild ohne Karte: „Zauberer 2 ist dran – Start drücken“.
+
 ## 6. Kampf [C] `[PM 17–18]`
 
 - **Nahkampf:** Man bewegt sich ins Feld des Gegners. Combat des Angreifers wird gegen Defence des Verteidigers gerechnet, mit Zufallsanteil.
@@ -786,6 +812,29 @@ Wie beim Amiga werden pro Feld **mehrere Ebenen übereinander** gezeichnet (B1.2
   5/9), damit Noten ausklingen dürfen; Zeitplan in Millisekunden aus der
   Zentisekunden-Uhr. Vorhören am PC: `uv run tools/audio_preview.py`.
 
+### 11.7 Präsentation auf dem Mega Drive (D23, ADR 0010)
+
+Dieselbe Optik wie auf dem Agon (§11.1–11.3): 24×24-Kacheln, Kartenfenster 9×9, Panel rechts. Technische Details und offene Messungen stehen in ADR 0010.
+
+- **Auflösung:** H40 mit 320 px Breite.
+  - **PAL (Referenz im Verein):** 320×240 (V30). Das ist **dasselbe Layout wie auf dem Agon**: Karte 216×216, Panel 104 px, 3 Meldungszeilen.
+  - **NTSC:** 320×224. Unter der Karte bleiben 8 px für **eine** Meldungszeile. Die zwei Zusatzzeilen (Tastenhinweise) entfallen oder wandern ins Panel. Das wird per Mockup entschieden.
+- **Ebenen der Hardware:**
+
+| Hardware-Ebene | Inhalt |
+|---|---|
+| Plane B | Terrain-Komposit pro Feld: Boden, Halbböden, Dekor, Feature, Objekt, Flieger-Schatten, Sicht-Raster. Die CPU setzt es zusammen, nur geänderte Felder. |
+| Sprites | Einheiten (24×24 = ein 3×3-Zellen-Sprite), Cursor, später Projektile |
+| Plane A | Overlays über der Karte: Zauberliste, Kontextmenü, Big Map |
+| Window | Panel und Meldungszeilen (fester Bereich, scrollt nie) |
+
+- **Farben:** Bis zu 61 gleichzeitig (4 Paletten à 15 plus Hintergrund), **eine Palette pro 8×8-Zelle**. Die Agon-Farben (RGB 2-2-2) werden auf die nächste Mega-Drive-Farbe (3-3-3) gelegt. Die Pixelart bleibt die Quelle (§11.3a). Ein eigenes Tool prüft die Paletten-Regel und listet Kacheln, die angepasst werden müssen.
+- **Besitzerfarbe:** Wie die Zauberer-Farben zu den Paletten passen, entscheidet die Kachel-Pipeline (ADR 0010, offene Frage 2). Erkennbar bleiben müssen sie in jedem Fall.
+- **Animation:** Kerzen, Wasser und Portal können statt Frame-Animation **Palette-Cycling** nutzen. Auf dem Agon ging das nicht (§11.2), auf dem Mega Drive ist es fast kostenlos.
+- **Cursor:** ein Sprite mit eigener Palettenfarbe. Den Farbcode aus §11.2 (gelb, blau, rot) setzt eine Palettenänderung.
+- **Text:** eigener 8×8-Font **mit Umlauten**. Den kann der Agon in M4j übernehmen.
+- **Sound:** PSG- bzw. FM-Effekte über den SGDK-Treiber, gleiche Ereignisse wie §11.4.
+
 ---
 
 ## 12. Chaos-Erweiterungen [X] (nach v1.0)
@@ -868,6 +917,7 @@ Spalte „WinUAE“: Was sich im Amiga-Original direkt beobachten lässt (●), 
 | D11 | Perspektive | **3/4-Frontansicht wie auf dem Amiga** für Möbel, Wände und Kreaturen; flache Böden; Halb-Böden an Wänden (§11.2). |
 | D12 | Kreaturwerte | **Kreaturtabelle des Originals `[PM 34]` als Startwerte** für alle 25 Kreaturen (`data/creatures.csv`). Balancing später; Abweichungen werden in der CSV kommentiert. |
 | D13 | Kreaturgrafik | **Alle 25 Kreaturen bekommen schon in M2 eigene 24×24-Pixelart** (3/4-Ansicht, Besitzerfarben). |
+| D23 | Zweite Plattform (2026-10-03) | **Sega Mega Drive mit SGDK**, gleicher Core (`src/core`), eigenes Frontend in `md/`. Bedienung per 3-Button-Pad (§5.4), Darstellung §11.7, Technik ADR 0010. **Reihenfolge:** Design und Core-Spike sofort. Das Herauslösen des Spielablaufs aus `src/agon/main.c` in den Core (`play`) kommt vor M4f. Das Frontend folgt nach dem Spike, Hotseat nach v1.0 (D4). **Link-Kabel** zwischen zwei Konsolen (Controller-Port 2, seriell 4800 bps) erst nach dem Hotseat; die `play`-Befehle sind dafür schon die Nachrichten. |
 | D26 | Gebunden: freier Schlag beim Wegziehen (Review-Fix) | **Wegbewegen aus dem Nahkontakt ist erlaubt** (Bewegungskosten wie üblich); der angrenzende Gegner erhält **einen freien Schlag** ohne AP-Kosten (normale Trefferchance/Schaden, Untoten-Regel, Boden-gegen-Flieger). Löst der Ausbruch den Kontakt ganz (diagonal heraus, kein Gegner mehr angrenzend), entfällt der Schlag. Pro Wegziehen ein Schlag. Ersetzt die M3a-Regel „keine Bewegung im Engagement“. **[Ersetzt durch D67 – freier Schlag -> Gebunden zieht nicht (0c)]** |
 | D27 | Freier Rückschlag (Playtest 2026-10-04) | **Der Rückschlag ist eine freie Abwehrreaktion: keine AP, keine Ausdauer, immer.** Vorher kostete er 6 AP + 3 Ausdauer — wer oft angegriffen wurde (KI-Goblin: bis 3 Angriffe pro Zug), musste unfreiwillig zurückschlagen und startete ausgelaugt in den eigenen Zug; AP regenerierten scheinbar nie (Ausdauer-Absturz halbiert die Auffüllung), Aussetzen half nichts. Angriffe kosten weiter 10 AP + 4 Ausdauer (Angreifen bleibt eine Entscheidung). **[Ersetzt durch D67 – freier Rückschlag -> 4 AP + 4 Ausdauer (0c)]** |
 | D28 | Waffen- und Zauberschaden mit Würfeln (Playtest 2026-10-04, D&D-orientiert) | **Schaden = Würfel der Waffe + Kampf/5** (Tabelle §6.1: waffenlos 1w4 … Magie-Slayer 3w8) — vorher rechnete jeder Treffer nur mit Kampf/4, das Schwert brachte keinen spürbaren Schaden. **Zauber würfeln eigene Würfel** (§7.2): Magic Bolt **7w10**, Magic Lightning **10w8 + 3w6 Splash** — ein treffender Bolt tötet einen Goblin meist sofort; Zauber verbrauchen Stufen und müssen sich darin lohnen. **Der Schild nimmt nie die Hand** (`w` überspringt Schilde; getragen verteidigt er immer, D18/D21). Con-Werte der Kreaturen bleiben Anker (D12); die Skalierung steckt in den Würfeln. **[Ersetzt durch D67 – Würfel -> Formel des Originals (0c, 0d)]** |
@@ -900,7 +950,8 @@ Spalte „WinUAE“: Was sich im Amiga-Original direkt beobachten lässt (●), 
 | M2 Core-Skelett | §3 (Karte, Ebenen, Sicht, Hidden Map), §4 (Daten), §5.1 (aktive Einheit, Bewegung, Bump, `Tab`, Look-Modus), Rundenablauf §2.1 |
 | M3 Classic spielbar | §6 Kampf, §7 Beschwörungen und Bolt/Lightning, §8 Basis-Objekte, §9 Portal und VP, §10 einfache KI, eigenes Szenario 1 |
 | M4 Classic komplett (v1.0) | Alle 45 Zauber und Tränke, Flächeneffekte, Wizard Designer, Kampagne, eigene Szenarien 2 und 3, Setup-Panel, Speichern. Aufteilung M4a–M4j und offene Fragen: §16 |
-| nach v1.0 | Hotseat-Multiplayer, Timer, Maus, Expansion-Kit-Inhalte |
+| parallel (D23) | Mega Drive: Core-Spike, dann `play`-Modul (vor M4f), danach Frontend, Kachel-Pipeline und Hardware-Test (§5.4, §11.7, ADR 0010) |
+| nach v1.0 | Hotseat-Multiplayer (Agon und Mega Drive), Link-Kabel (Mega Drive), Timer, Maus, Expansion-Kit-Inhalte |
 | M5+ | §12 Chaos |
 
 ---

@@ -9,7 +9,8 @@ Jeder Milestone endet mit etwas **Spielbarem bzw. Prüfbarem** auf dem Agon. Inh
 | **M2 Core-Skelett** | (a) Testkarte 36×36 mit Wrap-around und neuen Terrains (Wasser, Sumpf, hohes Gras, Wälder, Fels, Geröll); (b) `creatures.csv` (D12) und alle 25 Kreaturen als Pixelart (D13); (c) Rundenablauf mit unabhängigen Kreaturen, `Tab`/`Leertaste`/`Shift+E`; (d) Sichtlinie und Hidden Map; (e) Luft- und Bodenebene, Fliegen `<`/`>`; (f) Bump (Tür, Gegner) und Look-Modus `x` | Ein Zauberer und Kreaturen bewegen sich auf einer Testkarte, auf Agon und Host | `v0.3.0` |
 | **M3 Classic spielbar** | Kampf, Beschwörungen, Bolt/Lightning, Basis-Objekte, Portal und VP, einfache KI, eigenes Szenario 1 | Eine Partie gegen einen KI-Zauberer lässt sich komplett durchspielen | `v0.4.0` |
 | **M4 Classic komplett** | Alle 45 Zauber und Tränke, Flächeneffekte, Wizard Designer, Kampagne, Szenarien 2 und 3, Setup-Panel, Speichern. Aufteilung in M4a–M4j: GDD §16 | Funktionsumfang ≈ Amiga-Version (Einzelspieler) | `v1.0.0` |
-| nach v1.0 | Hotseat, Timer, Maus, Expansion-Kit-Inhalte | – | – |
+| **MD Mega Drive** (parallel, D23) | (1) Core-Spike: Selftest-ROM, RAM und Laufzeiten (ADR 0010); (2) Spielablauf als `src/core/play.[ch]` aus `src/agon/main.c` lösen, **vor M4f**; (3) Kachel-Pipeline mit Paletten-Prüfung; (4) Frontend `md/` mit Pad-Bedienung (GDD §5.4); (5) Test auf echter Hardware (EverDrive) und CI | Szenario 1 ist mit dem Pad auf einem PAL-Mega-Drive spielbar | – |
+| nach v1.0 | Hotseat (Agon und Mega Drive), Link-Kabel (Mega Drive), Timer, Maus, Expansion-Kit-Inhalte | – | – |
 | **M5+ Chaos** | Welt-Tick, Feuer v2, Herden, Licht, Effekte (je ein Milestone) | je Feature | – |
 
 ## Arbeitsweise
