@@ -1,0 +1,214 @@
+# Spell descriptions (M5): exactly one page per spell, in the SPELL
+# enum order of data/spells.csv (tools/gen_help.py enforces the count).
+# The designer's spell shop shows these when a spell is selected.
+
+= Riesenfledermaus
+Beschwört fliegende Fledermaeuse.
+Schwach, aber billig: bindet Gegner.
+
+= Harpyie
+Beschwört fliegende Harpyien mit
+Waffen. Schnell und wendig.
+
+= Riesenspinne
+Beschworet die Spinne: sehr starke
+Kaempferin, wandert ueber Fels.
+
+= Zombie
+Beschwört langsames, zaehes Untoter-
+Fleisch. Nur magisch zu verwunden.
+
+= Geist
+Beschwört einen schwebenden Untoten.
+Nur Magie und Untote treffen ihn.
+
+= Vampir
+Beschwört einen fliegenden Untoten
+mit sauberem Biss. Staerker Kaempfer.
+
+= Gespenst
+Beschwört einen untoten Kaempfer mit
+hoher Verteidigung. Blockiert Pässe.
+
+= Daemon
+Beschwört den Daemon: vernichtende
+Kampfkraft, nur magisch zu verwunden.
+
+= Trank der Stärke
+Braut einen Stärketrank: erhoehen
+die Kampfkraft fuer einige Runden.
+
+= Trank des Schutzes
+Braut einen Schutztrank: haelt
+Treffer ab, solange er wirkt.
+
+= Trank der Unsichtbarkeit
+Braut einen Trank, der die Kreatur
+unsichtbar macht - Feinde sehen
+sie nicht mehr.
+
+= Trank der Schnelligkeit
+Braut einen Trank: verdoppelt AP
+und beschleunigt die Erholung.
+
+= Trank des Fliegens
+Braut einen Trank: die Kreatur
+schwebt einige Runden lang.
+
+= Supertrank
+Braut den Supertrank: Staerke und
+Schutz zugleich, doppelte AP.
+
+= Heiltrank
+Braut einen Heiltrank: stellt
+Konstitution und Ausdauer wieder
+her und heilt Wuenden.
+
+= Magisches Feuer
+Zuendet ein Feuerfeld: breitet sich
+aus und verbrennt, was darauf steht.
+Loescht sich mit der Zeit.
+
+= Gooey Blob
+Erzeugt klebrigen Brei: verlangsamt
+und verwundet Gefangene. Schadet
+auch Untoten.
+
+= Ranken
+Laesst Ranken wuchern: halten
+Beweger fest und verwunden sie.
+
+= Flut
+Laesst Wasser steigen: Loescht
+Feuer, Nicht-Schwimmer ertrinken.
+
+= Enchant
+Verzaubert Waffen: doppelte Werte,
+verwundet Untote. Wirkt einige
+Runden.
+
+= Subversion
+Bringt eine feindliche Kreatur auf
+deine Seite - Zauberer widstehen.
+
+= Curse
+Verursacht eine toedliche Wunde:
+das Opfer blutet, bis es faellt.
+
+= Magic Attack
+Zerstoert alle Kreaturen desselben
+Typs um das Ziel - auch eigene!
+Widerstand ist moeglich.
+
+= Magischer Bolzen
+Direkter Schadenszauber: (3+Stufe)
+Wuerfel. Hohe Buchstufen schlagen
+haerter; umgeht Schilde.
+
+= Magischer Blitz
+Wie Bolzen, staerker: (5+Stufe)
+Wuerfel plus 2-Wuerfel-Splash auf
+alle Nachbarfelder. Zerstoert
+Gelaende.
+
+= Teleport
+Versetzt die Kreatur an eine
+Zielposition - mit Streuung ueber
+die Distanz.
+
+= Magisches Auge
+Oeffnet ein Auge am Zielort: siehst
+von dort eine Runde lang, deckt
+auch Unsichtbare auf.
+
+= Magischer Schild
+Erhoeht die Verteidigung des
+Zauberers einige Runden deutlich.
+
+= Golddrache
+Beschwört den staerksten Drachen:
+gewaltige Kampfkraft, fliegt und
+atmet Feuer. Braucht Drachenkraut.
+
+= Gruener Drache
+Beschwört den Wasser-Drachen:
+Flieger mit Feueratem. Braucht
+Drachenkraut im Kessel.
+
+= Roter Drache
+Beschwört den Fels-Drachen: zaeher
+Flieger mit Feueratem. Braucht
+Drachenkraut im Kessel.
+
+= Pixie
+Beschwört den Pixie: winzig,
+flink und von Natur aus
+unsichtbar. Nutzt Geraete.
+
+= Zwerg
+Beschwört einen Zwerg mit Axt:
+solider Kaempfer, traegt viel,
+kennt sich im Fels aus.
+
+= Goblin
+Beschwört einen Goblin: mutiges
+Fussvolk mit Waffen. Billig und
+in Rudeln gefaehrlich.
+
+= Troll
+Beschwört einen Troll: gross und
+staerker als jeder Anfaenger.
+Regeneriert schnell.
+
+= Riese
+Beschwört einen Riesen: wirbelt
+Gruppen durcheinander, traegt
+schwer und schlaegt hart.
+
+= Zentaur
+Beschwört einen Zentaur: sehr viele
+AP, kaempft mit Waffen und ist ein
+guter Schuetze.
+
+= Einhorn
+Beschwört ein Reittier mit hoher
+Magieresistenz. Sticht im Kampf
+mit dem Horn.
+
+= Pegasus
+Beschwört den gefluegelten Schimmel:
+das schnellste Reittier am Himmel.
+
+= Greif
+Beschwört den Greif: halb Loewe,
+halb Adler - fliegt und kaempft
+gut, traegt einen Reiter.
+
+= Elefant
+Beschwört den Elefanten: langsam,
+aber enorm zaehe und stark. Gut,
+um Schaetze zu tragen.
+
+= Gorilla
+Beschwört einen starken Affen aus
+dem Wald: boxt kraeftig, nutzt
+keine Waffen.
+
+= Loewe
+Beschwört den Koenig der Steppe:
+schnell, wendig und mit gewaltigem
+Biss.
+
+= Baer
+Beschwört einen Baeren: zaehe Beute
+mit gefaehrlichen Tatzen.
+
+= Krokodil
+Beschwört den Lauerer: fast
+unverwundbar im Wasser, langsam
+an Land.
+
+= Bombentrank
+Braut eine Bombenphiole: geworfen
+explodiert sie und verwundet alles
+im Feld.

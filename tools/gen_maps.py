@@ -40,12 +40,16 @@ CORE = ROOT / "src" / "core"
 # Character legends -> C enum names (values come from the headers).
 FLOOR = {"s": "FL_STONE", "w": "FL_WOOD", "g": "FL_GRASS", "p": "FL_PATH",
          '"': "FL_TALL_GRASS", "f": "FL_FOREST", "m": "FL_MAGIC_WOOD",
-         "n": "FL_SHADOW_WOOD", "u": "FL_SWAMP", "~": "FL_WATER", "r": "FL_RUBBLE"}
+         "n": "FL_SHADOW_WOOD", "u": "FL_SWAMP", "~": "FL_WATER", "r": "FL_RUBBLE",
+         "b": "FL_BRIDGE"}
 FEATURE = {".": "FE_NONE", "#": "FE_WALL", "D": "FE_DOOR_CLOSED", "d": "FE_DOOR_OPEN",
            "B": "FE_BED", "S": "FE_BOOKSHELF", "K": "FE_CANDLE", "C": "FE_CAULDRON",
            "T": "FE_TABLE", "h": "FE_CHAIR", "M": "FE_DRAWERS", "X": "FE_CHEST",
-           "t": "FE_TREE", "R": "FE_ROCK"}
-DECOR = {".": "DE_NONE", "r": "DE_RUG", "*": "DE_PENTACLE"}
+           "t": "FE_TREE", "R": "FE_ROCK", "L": "FE_DOOR_LOCKED", "x": "FE_CHEST_FREE",
+           "W": "FE_WINDOW", "F": "FE_FENCE"}
+DECOR = {".": "DE_NONE", "r": "DE_RUG", "*": "DE_PENTACLE", "f": "DE_FLOWERS",
+         "o": "DE_MUSHROOMS"}
+ROOF = {".": "0", "R": "1"}                # R = roof tile (blocks sight+landing)
 OWNERS = {"p1": "OWN_P1", "p2": "OWN_P2", "p3": "OWN_P3", "p4": "OWN_P4",
           "neutral": "OWN_NEUTRAL"}
 
@@ -73,9 +77,10 @@ def c_enums(*headers: Path) -> dict[str, int]:
 
 def parse(path: Path) -> dict:
     """Text map -> dict with char grids (also used by tools/mockup.py)."""
-    m = {"wrap": 0, "units": [], "objects": [], "portal": None}
+    m = {"wrap": 0, "units": [], "objects": [], "portal": None, "roof": None}
     section = None
-    grids: dict[str, list[str]] = {"floor": [], "feature": [], "decor": []}
+    grids: dict[str, list[str]] = {"floor": [], "feature": [], "decor": [],
+                                   "roof": []}
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.rstrip()
         if section not in grids and line.startswith("#"):
@@ -90,9 +95,11 @@ def parse(path: Path) -> dict:
         elif word == "wrap":
             m["wrap"] = int(line.split()[1])
         elif word == "portal":
-            x, y, rmin, rmax = map(int, line.split()[1:5])
-            m["portal"] = (x, y, rmin, rmax)
-        elif word in ("floor", "feature", "decor", "units", "objects") and len(line.split()) == 1:
+            vals = list(map(int, line.split()[1:6]))
+            if len(vals) == 4:
+                vals.append(0)               # span 0: the portal stays open
+            m["portal"] = tuple(vals)
+        elif word in ("floor", "feature", "decor", "roof", "units", "objects") and len(line.split()) == 1:
             section = word
         elif section in grids:
             grids[section].append(line)
@@ -112,12 +119,20 @@ def parse(path: Path) -> dict:
         if bad:
             raise SystemExit(f"{path.name}: {key} has unknown characters {sorted(bad)}")
         m[key] = "".join(rows)
+    rows = grids["roof"]                   # optional v4 layer: '.' = none
+    if rows:
+        if len(rows) != m["h"] or any(len(r) != m["w"] for r in rows):
+            raise SystemExit(f"{path.name}: roof must be {m['w']}x{m['h']}")
+        bad = set("".join(rows)) - set(ROOF)
+        if bad:
+            raise SystemExit(f"{path.name}: roof has unknown characters {sorted(bad)}")
+        m["roof"] = "".join(rows)
     return m
 
 
 def encode(m: dict, enums: dict[str, int]) -> bytes:
-    if not (1 <= m["w"] <= 36 and 1 <= m["h"] <= 36):
-        raise SystemExit("map size must be 1..36")
+    if not (1 <= m["w"] <= 46 and 1 <= m["h"] <= 46):
+        raise SystemExit("map size must be 1..46 (MAP_MAX_W/H, D64)")
     out = bytearray(b"LOCM")
     out += struct.pack("<BHBBB", 2, enums["TILE_COUNT"], m["w"], m["h"], m["wrap"])
     for key, legend in (("floor", FLOOR), ("feature", FEATURE), ("decor", DECOR)):
@@ -132,9 +147,11 @@ def encode(m: dict, enums: dict[str, int]) -> bytes:
         if tile not in enums:
             raise SystemExit(f"unknown object tile {tile}")
         out += bytes((x, y)) + struct.pack("<H", enums[tile])
-    if m["portal"] is not None:          # v3: scenario portal
-        out[4] = 3
-        out += bytes(m["portal"])
+    if m["portal"] is not None or m["roof"] is not None:   # v5
+        out[4] = 5
+        out += bytes(m["portal"]) if m["portal"] is not None             else bytes((0xFF, 0xFF, 0, 0, 0))    # x = 0xFF: no portal
+        if m["roof"] is not None:
+            out += bytes(1 if c == "R" else 0 for c in m["roof"])
     return bytes(out)
 
 

@@ -1,0 +1,17 @@
+# Susceptibility of the ground to the area spells, 0..15 (K5.3, K8.4): the
+# fire/blob columns are the flammability (ignition at the cast and spread),
+# vine/flood the receptiveness of Tangle Vine and Flood. Values follow the
+# original's tile families (grass EF BC, forest A5 6E, wooden floor 94 5C ...).
+floor,fire,blob,vine,flood
+stone,0,3,4,14
+wood,12,5,9,4
+grass,12,11,14,15
+path,2,6,9,10
+tall_grass,11,10,14,12
+forest,14,6,10,5
+magic_wood,13,6,10,5
+shadow_wood,13,6,10,5
+swamp,4,9,12,15
+water,0,0,0,0
+rubble,1,4,3,6
+bridge,12,5,0,0

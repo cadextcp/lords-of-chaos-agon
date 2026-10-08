@@ -34,6 +34,7 @@ jobs:
       - name: Size report
         run: |
           echo "loc.bin: $(stat -c %s bin/loc.bin) bytes" >> "$GITHUB_STEP_SUMMARY"
+          echo "loctest.bin: $(stat -c %s build/loctest/bin/loctest.bin) bytes" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         with:

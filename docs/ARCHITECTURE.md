@@ -6,15 +6,15 @@
             +---------------------------------------------+
             |  src/core  (C99, plattformfrei)             |
             |  Spielzustand, Regeln, RNG, Daten-Tabellen, |
-            |  Render-Beschreibung (screen.h), Selftest   |
+            |  KI, Sicht, Kachel-Beschreibung (view.h)    |
             +----------------------+----------------------+
-                                   |  nur über Cell-Grid + Events
+                                   |  nur über Kachel-IDs + Ereignisse
               +--------------------+--------------------+
               |                                         |
    +----------v-----------+                 +-----------v----------+
    | src/agon (agondev)   |                 | host/ (gcc)          |
    | VDP-Renderer (MODE 8)|                 | Terminal-Dump,       |
-   | Tastatur (kbuf)      |                 | Selftest-Runner      |
+   | Tastatur (kbuf)      |                 | Selftest, duel, arena|
    | MOS-Dateien, Log     |                 |                      |
    | emu_exit (Port 0)    |                 |                      |
    +----------------------+                 +----------------------+
@@ -40,12 +40,27 @@
 
 ## Warum zwei Builds?
 
-Der **Selftest** (`src/core/selftest.c`) wird in beide Builds kompiliert:
+Der **Selftest** (`tests/selftest.c`) wird in beide Test-Builds kompiliert:
 
 - **Host:** schnell, mit gcc-Warnungen als Fehler (`-Werror`).
-- **Agon:** derselbe Test als echter eZ80-Code im Headless-Emulator (`loc --selftest`). Er findet Probleme mit Integer-Breite, Codegen und libc, die der Host nie sehen würde.
+- **Agon:** derselbe Test als echter eZ80-Code im Headless-Emulator, als eigenes Programm `loctest.bin` (nicht im Spiel, QUIRK S6). Er findet Probleme mit Integer-Breite, Codegen und libc, die der Host nie sehen würde.
 
-Beispiel: Der Szenen-Hash (`DEMO_HASH`) muss auf beiden Plattformen bitgleich sein.
+Beispiel: Der Ansicht-Hash des Zauberer-Hauses (`HOUSE_VIEW_HASH`) muss auf beiden Plattformen bitgleich sein.
+
+## Module des Core (Überblick)
+
+| Bereich | Dateien | ADR |
+|---|---|---|
+| Welt, Einheiten, Karte laden | `world.[ch]`, `map_def.h` | 0008, 0014 |
+| Runden und Phasen | `turn.[ch]` | – |
+| Regeln: Kampf, Zauber, Gegenstände, Tränke, Reiten, Flächen, Effekte | `combat`, `spells`, `items`, `brew`, `ride`, `area`, `effect` | GDD D67, D68 |
+| Sicht und verdeckte Karte | `sight.[ch]` | 0009 |
+| Computer-Gegner | `ai.h`, `ai_priv.h`, `ai*.c` | 0015 |
+| Wertung, Portal, Kampagne | `game.[ch]`, `wizard.[ch]` | – |
+| Spielstand, Lexikon | `save.[ch]`, `lexicon.[ch]` | 0014 |
+| Darstellung: Kachel-Komposition, Ereignisse | `view.[ch]`, `events.[ch]` | 0005, 0006 |
+| Zufall | `rng.[ch]` | 0003 |
+
 
 ## Toolchain
 

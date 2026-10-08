@@ -34,6 +34,10 @@ WSL_DISTRO = os.environ.get("LOC_WSL_DISTRO", "Ubuntu")
 # MOS 2.3.3; the GUI defaults to "platform" MOS 3.x unless pinned).
 FIRMWARE = "console8"
 AGON_BIN = ROOT / "bin" / "loc.bin"
+SPIKE_DIR = ROOT / "spikes" / "vdptest"          # VDP feature spike (ADR 0012)
+SPIKE_BIN = SPIKE_DIR / "bin" / "vdptest.bin"
+LOCTEST_DIR = ROOT / "build" / "loctest"              # core self-test program (S6)
+LOCTEST_BIN = LOCTEST_DIR / "bin" / "loctest.bin"
 
 
 def exe(name: str) -> Path:
@@ -72,7 +76,7 @@ def run_linux(cmd: list[str], cwd: Path | None = None, check: bool = True,
 
 
 def stage_game() -> Path:
-    """Copy loc.bin, tiles.bin and maps/*.map to /loc on the staged SD card."""
+    """Copy loc.bin, tiles.bin, maps, scenarios and help to /loc on the SD."""
     if not AGON_BIN.exists():
         raise FileNotFoundError(f"{AGON_BIN} missing - run: uv run tools/build.py")
     if not SDCARD.exists():
@@ -80,6 +84,10 @@ def stage_game() -> Path:
     dest = SDCARD / GAME_DIR
     dest.mkdir(exist_ok=True)
     shutil.copy2(AGON_BIN, dest / AGON_BIN.name)
+    if SPIKE_BIN.exists():
+        shutil.copy2(SPIKE_BIN, dest / SPIKE_BIN.name)
+    if LOCTEST_BIN.exists():
+        shutil.copy2(LOCTEST_BIN, dest / LOCTEST_BIN.name)
     tiles = BUILD / "tiles.bin"
     if tiles.exists():
         shutil.copy2(tiles, dest / tiles.name)
@@ -88,4 +96,31 @@ def stage_game() -> Path:
         (dest / "maps").mkdir(exist_ok=True)
         for m in maps.glob("*.map"):
             shutil.copy2(m, dest / "maps" / m.name)
+    scenarios = BUILD / "scenarios"
+    if scenarios.exists():
+        (dest / "scenarios").mkdir(exist_ok=True)
+        for f in scenarios.glob("*.scn"):
+            shutil.copy2(f, dest / "scenarios" / f.name)
+    helpdir = BUILD / "help"
+    if helpdir.exists():
+        (dest / "help").mkdir(exist_ok=True)
+        for f in helpdir.glob("*.hlp"):
+            shutil.copy2(f, dest / "help" / f.name)
+    fonts = BUILD / "fonts"
+    if fonts.exists():
+        (dest / "fonts").mkdir(exist_ok=True)
+        for f in fonts.glob("*.fnt"):
+            shutil.copy2(f, dest / "fonts" / f.name)
+    sfx = BUILD / "sfx" / "sfx.bin"
+    if sfx.exists():
+        shutil.copy2(sfx, dest / sfx.name)
+    for name in ("title.bin", "win.bin", "lose.bin"):
+        pic = BUILD / name
+        if pic.exists():
+            shutil.copy2(pic, dest / pic.name)
+    music = BUILD / "music"
+    if music.exists():
+        (dest / "music").mkdir(exist_ok=True)
+        for f in music.glob("*.bin"):
+            shutil.copy2(f, dest / "music" / f.name)
     return dest

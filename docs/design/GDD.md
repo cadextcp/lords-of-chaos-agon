@@ -143,7 +143,7 @@ Spielrunde n:
 Möbel haben eine Zähigkeit wie Türen. Sie lassen sich zerschlagen, und Holzmöbel brennen ([X]).
 
 **Umgesetzt in M2a:**
-- Böden: Steinboden, Holzdielen, Gras, Weg, hohes Gras, Wald, Zauberwald (Magic Wood), Schattenwald, Sumpf, Wasser (animiert), Geröll.
+- Böden: Steinboden, Holzdielen, Gras, Weg, hohes Gras, Wald, Zauberwald (Magic Wood), Totenwald (früher Schattenwald), Sumpf, Wasser (animiert), Geröll.
 - Features: Fels, Baum, Wand, Tür und Möbel.
 - Wälder und hohes Gras sind **begehbare Böden**: Sie kosten mehr AP und blockieren die Sicht am Boden (`data/costs.csv`). Fels und Einzelbaum blockieren.
 - Testkarte: `data/maps/testland.txt` (36×36, Wrap-around).
@@ -175,7 +175,7 @@ Möbel haben eine Zähigkeit wie Türen. Sie lassen sich zerschlagen, und Holzm�
 |---|---|
 | Action Points (Ground / Flying) | AP pro Runde am Boden bzw. im Flug. 0 bei Flying heißt: kann nicht fliegen |
 | Stamina | Ausdauer. Bewegung und Kampf verbrauchen sie, Teil-Regeneration pro Runde. Unter einer Schwelle ist die Kreatur **erschöpft** und bekommt nur halbe AP. `[PM 12]` |
-| Constitution | Lebenspunkte. Bei 0 tot; unter 50 % leiden AP, Kampf und Verteidigung. |
+| Constitution | Lebenspunkte. Bei 0 tot; unter 50 % leiden Kampf und Verteidigung (**−2/−2**, Startwert M4a) sowie die AP-Auffüllung (halbe AP, wie Erschöpfung). |
 | Combat / Defence | Angriff und Verteidigung, modifiziert durch Waffen und Tränke |
 | Magic Resistance | Widerstand gegen Subversion, Curse und Magic Attack |
 | Carry Limit | Zusatzgewicht, das getragen werden kann |
@@ -203,7 +203,7 @@ Möbel haben eine Zähigkeit wie Türen. Sie lassen sich zerschlagen, und Holzm�
   - Landen geht nur auf geeignetem, freiem Feld.
 - **Reiten:** Unicorn, Pegasus, Gryphon und Elephant können Zauberer, Pixies, Dwarves, Goblins und Trolls tragen. `[PM 10]`
   - Nach RIDE wird das Reittier zur gewählten Einheit. RIDER wählt den Reiter.
-  - Ein Reiter kann alles außer PICK UP.
+  - Ein Reiter kann alles, auch aufheben, zaubern und Türen öffnen (D60, ersetzt „alles außer PICK UP“).
 - **Untote** können nur durch Untote, magische Waffen und Zauber verletzt werden. `[PM 18]`
 - **Zauberer** sind eine eigene Kreaturklasse mit Hand, Mana und Zauberliste. Die Werte kommen aus dem Wizard Designer.
 
@@ -362,23 +362,25 @@ Die Daten stehen in `data/costs.csv` (Terrain) und `data/actions.csv` (Aktionen)
 
 | Aktion | AP | Stamina |
 |---|---|---|
-| Zauber wirken | 10 | – |
-| Nahkampf (auch Terrain angreifen) | 10 | 4 |
-| Rückschlag (automatisch im Gegnerzug) | 6 | 3 |
-| Fernwaffe bzw. Flammenatem | 12 | 2 |
-| Werfen | 10 | 3 |
-| Aufheben (pro Objekt) | 6 | 1 |
-| Fallen lassen / Wechseln | 2 / 4 | – |
-| Essen / Trinken / Füllen / Lesen | 6 / 4 / 6 / 8 | – |
+| Zauber wirken | 8 | – |
+| Nahkampf (auch Terrain angreifen) | 8 | 4 |
+| Rückschlag (automatisch im Gegnerzug) | 0 | 0 |
+| Fernwaffe bzw. Flammenatem | 8 | 2 |
+| Werfen | 8 | 3 |
+| Aufheben (pro Objekt) | 8 | 1 |
+| Fallen lassen / Wechseln | 0 / 4 | – |
+| Essen / Trinken / Füllen / Lesen | 4 / 4 / 4 / 8 | – |
 | Tür öffnen bzw. schließen / Aufschließen / Truhe öffnen | 6 / 8 / 8 | 1 |
-| Aufsitzen / Absitzen | 6 / 4 | 1 |
-| Aufsteigen / Landen | 4 / 4 | 2 / 1 |
+| Aufsitzen / Absitzen | 10 / 4 | 1 |
+| Aufsteigen / Landen | 6 / 0 | 2 / 1 |
 
-**Was das in einer Runde bedeutet (Zauberer mit Annahme 40 AP):**
-- 4 Zauber, oder
+Die AP-Werte folgen seit D66 dem Spectrum-Original `[ZX K8.1]`; Tür, Truhe, Absitzen und Rückschlag (D27) sind eigene Regeln. Die Ausdauer-Spalte ist Dokumentation: Die Engine zieht für jede Aktion die halben AP, aufgerundet, ab (`world_spend`); Vorschlag R11 in `docs/REGELVERGLEICH-SPECTRUM.md`.
+
+**Was das in einer Runde bedeutet (Zauberer mit Annahme 40 AP; mit den 34 AP des Designers 4 Zauber wie im Original):**
+- 5 Zauber, oder
 - 10 Schritte auf Boden bzw. 13 auf Wegen, oder
 - Tür öffnen plus 8 Schritte, oder
-- 4 Nahkampfangriffe.
+- 5 Nahkampfangriffe.
 
 Ein langsamer Zombie (24 AP) schafft 2 Angriffe; ein Löwe (54 AP) läuft 13 Felder.
 
@@ -420,21 +422,39 @@ Auf dem Mega Drive gibt es keine Tastatur. Die Grundprinzipien aus §5.1 bleiben
 ## 6. Kampf [C] `[PM 17–18]`
 
 - **Nahkampf:** Man bewegt sich ins Feld des Gegners. Combat des Angreifers wird gegen Defence des Verteidigers gerechnet, mit Zufallsanteil.
-- **Gebunden (engaged):** Wer neben einem Gegner steht, kann sich in diesem Zug nicht mehr wegbewegen, außer alle angrenzenden Gegner sind tot. Im nächsten Zug ist Bewegung wieder möglich.
-- **Rückschlag:** Ein angegriffenes Ziel schlägt automatisch zurück, wenn es noch AP **und** Stamina hat.
+- **Gebunden (engaged) und freier Schlag (D26):** Wer neben einem Gegner steht, darf sich wegbewegen — aber der Gegner bekommt einen **freien Schlag** gegen den Flüchtenden. Der freie Schlag kostet den Gegner keine AP (normale Treffer-/Schadensberechnung; Untoten-Immunität und Boden-gegen-Flieger gelten wie im Nahkampf). Pro Wegziehen höchstens ein freier Schlag. **Diagonal-Schlupf:** Löst der Ausbruch den Kontakt ganz (kein Gegner mehr angrenzend), gibt es keinen freien Schlag. Flieger sind nie gebunden. Reiter greifen von befreundetem Feld an (D21).
+  - **Umsetzung (Fix nach Hardware-Test):** Nahkampfkontakt bindet beide Seiten: an einen Gegner heranziehen, angreifen oder angegriffen werden. Die Bindung (`UF_ENGAGED`) endet mit der eigenen Phase des Gebundenen; ein Bodenkämpfer, der nur neben einem Gegner steht, ist nicht gebunden. Wer gebunden ist, bekommt beim Versuch wegzugehen die Meldung „Gebunden: Gegner daneben - nur Angriff.“ Flieger und Reiter sind nie gebunden.
+- **Rückschlag (D27/D29):** Ein angegriffenes Ziel schlägt **sofort** zurück — der Rückschlag ist eine freie Abwehrreaktion, kostet **keine AP und keine Ausdauer**. **Jede Einheit hat eine Reaktion pro Runde** (D&D-Vorbild): Konter und freier Schlag beim Wegziehen (D26) teilen sich dieses eine Budget — wer seine Reaktion verbraucht hat, wird im selben Rundenverlauf unbestraft weiter angegriffen; mit der neuen Runde (Regeneration) ist sie zurück. Wer angreift, riskiert den Gegenschlag; wer attackiert wird, verliert dadurch nichts. (Vor D27 kostete der Rückschlag 6 AP + 3 Ausdauer — das saugte belagerte Einheiten leer: Wer oft angegriffen wurde, konnte selbst nie mehr zuschlagen, und Aussetzen half nicht.)
+- **[Entfallen mit D67, Code entfernt 2026-10-08 (FRAGEN F7)]** **Kritische Treffer (D30):** Ein sehr guter Angriffswurf (unter 5 %) ist ein **kritischer Treffer**: die Schadenswürfel zählen doppelt, der feste Kampf-Bonus nicht (D&D-Vorbild) — Schwert 2w8 → 4w8, Bolt (3+Stufe)w6 → doppelt. Etwa jeder zwanzigste Angriff; gilt für Nahkampf, Rückschlag, Freien Schlag, Wurf, Bogen und Bolt/Blitz (jeder Wurf über die Trefferformel). Flächen, Bomben und Zerschlagen von Möbeln kritisieren nicht. Krits öffnen leichter tödliche Wunden (Schaden über 25 % Con).
 - **Tödliche Wunde:** Ein einzelner Treffer über 25 % der Constitution verursacht sie.
   - Danach verliert die Kreatur jede Runde Constitution, bis sie stirbt oder einen Heiltrank trinkt.
   - Äpfel heilen Constitution, aber keine tödliche Wunde.
 - **Untote:** siehe §4.
 - **Angriff von befreundetem Feld aus** ist verboten („attack not allowed“), außer für Reiter.
 
-### 6.1 Waffen `[PM 35]`
+### 6.1 Waffen `[PM 35]` — Schadenstabelle (D28)
 
-**Werte je Waffe:** Gewicht, Combat, Defence, Thrown Combat, Ranged Combat. Sie werden in M2 nach `data/weapons.csv` übernommen.
+**Werte je Waffe** (`data/weapons.csv`): Gewicht, Combat-/Defence-Bonus (in der Hand bzw. getragen beim Schild), Wurf-/Fernkampf-Flag und **Schadenswürfel**. Der Schaden eines Treffers ist `Würfel der Waffe + Kampf/5` (abgerundet; 0–10 Punkte). **Waffen machen den Unterschied** (D28): Vor D28 rechnete jeder Treffer nur mit dem Kampf-Wert — ein Schwert fühlte sich wie die bloße Faust an.
 
-**Die Waffen:** Sword, Knife, Shield, Bow, Spear, Club, Axe, Ninja Star, Slayer, Magic Slayer.
+| Waffe | Würfel | Kampf+ | Ø mit Kampf 6 | Ø mit Kampf 50 | Bemerkung |
+|---|---|---|---|---|---|
+| Waffenlos / beliebiges Objekt | 1d4 | — | 3,5 | 12,5 | Faustschlag |
+| Messer | 1d6 | +5 | 4,5 | 13,5 | leicht zu werfen |
+| Wurfstern | 1d6 | +4 | 4,5 | 13,5 | Wurfwaffe |
+| Keule | 2d6 | +7 | 8 | 17 | |
+| Speer | 2d6 | +8 | 8 | 17 | |
+| Bogen | 2d6 | — | 8 | 17 | Fernkampf (Reichweite 6), kein Konterrisiko |
+| Schwert | 2d8 | +10 | 10 | 19 | |
+| Axt | 2d10 | +9 | 12 | 21 | |
+| Slayer | 2d10 | +13 | 12 | 21 | verletzt Untote |
+| Magie-Slayer | 3d8 | +16 | 14,5 | 23,5 | verletzt Untote |
+| Schild | 1d4 | **+13 Ver)** | — | — | **wird nie geführt** (D21/D28): +13 Verteidigung getragen (Original-Anker, D31) |
 
-**Magische Waffen** (über Enchant): doppelte Werte; Ausnahme ist der Slayer, der einen eigenen Magic-Slayer-Eintrag hat. Sie verletzen Untote.
+**Treffer bis zum Sieg** (Kampf 6, mittlerer Wurf): Goblin (Con 32) — waffenlos ~9, Schwert ~3, Axt ~3 Treffer; Zwerg (25) — Schwert ~2–3; Troll (47) — Schwert ~5; Gold-Drache (90) — Schwert ~9.
+
+**Magische Waffen** (über Enchant): doppelte Werte; Ausnahme ist der Slayer, der einen eigenen Magic-Slayer-Eintrag hat. Sie verletzen Untote. **Der Schild nimmt nie die Hand** (D28): `w` überspringt Schilde — getragen verteidigt er immer (D21), in der Hand wäre er verschenkt.
+
+**Ausrüstung prägt den Kampf (D31):** Die Boni stehen in **Original-Proportionen** (Anker: der Schild des Originals gibt +13 Verteidigung; D7 hatte sie auf +4/+8 verkleinert, was gegen Kreaturenwerte bis Kampf 50/Verteidigung 42 wirkungslos war — laut Arena-Simulation gewannen Waffenträger praktisch nie). Mit D31 hat eine waffenfähige Kreatur mit sehr guter Waffe und Schild eine reale Chance: in der Mittelfeld-Arena (ohne Drachen, 2000 Läufe) gewinnt der Riese mit Ausrüstung ~11 % der Schlachten, Magie-Slayer-Halter sind die erfolgreichste Waffe, und 11 % aller Sieger tragen ein Schild. Drachen bleiben Apex (~95 %).
 
 ---
 
@@ -452,7 +472,7 @@ Auf dem Mega Drive gibt es keine Tastatur. Die Grundprinzipien aus §5.1 bleiben
 ### 7.2 Die 45 Zauber
 
 **Beschwörungen (25):** eine pro Kreatur aus §4.2. `[PM 19]`
-- **Anzahl** der Kreaturen = Stufe des Zaubers. Sie erscheinen auf freien Nachbarfeldern; ist kein Platz, verfällt das Mana.
+- **Stufe = Stärke der Kreatur (D34):** Ein Wurf beschwört **eine** Kreatur auf einem freien Nachbarfeld; jede Stufe über 1 gibt **+15 % Kampf, Verteidigung und Konstitution** (gedeckelt bei Stufe 8, Stufe 8 ≈ doppelt so stark). Beschwörungen **verbrauchen sich nicht** und kosten immer das **Stufe-1-Mana**; begrenzt sind sie durch Mana und 10 AP pro Wurf. Ist kein Platz, verfällt das Mana. (Andere Zauber: Stufe = Anzahl der Ladungen.)
 - Nur mit **CAST-G**, nicht aus der Luft.
 - **Drachen** brauchen einen Kessel mit **Drachenkraut** unter dem Zauberer. Trank und Drache entstehen gleichzeitig. `[PM 21]`
 
@@ -486,7 +506,10 @@ Auf dem Mega Drive gibt es keine Tastatur. Die Grundprinzipien aus §5.1 bleiben
 
 | Zauber | Kurzregel |
 |---|---|
-| Magic Fire | Ziel muss brennbar sein, keine Sichtlinie nötig. Breitet sich pro Runde aus oder erlischt. Zerstört Objekte. Schadet nur **feindlichen** Einheiten (auch Untoten), unabhängig von deren Defence. Neues Feuer schwächt alle eigenen bestehenden Feuer. |
+| Magic Fire | Ziel muss brennbar sein, keine Sichtlinie nötig. Breitet sich pro Runde aus oder erlischt. Zerstört Objekte. Schadet nur **feindlichen** Einheiten (auch Untoten), unabhängig von deren Defence. Neues Feuer schwächt alle eigenen bestehenden Feuer. **Startwerte M4d:** 6 Schaden pro Runde; brennt auf Gras, hohem Gras, Holz, Wäldern und Bäumen. |
+| Gooey Blob | Wie Feuer, aber anderes Terrain. Weniger zerstörerisch, zäher. Schadet Untoten. **Startwerte:** 3 Schaden pro Runde; haftet auf allem Begehbaren außer Wasser; blockiert Bewegung ab Stärke 2. |
+| Tangle Vine | Fläche je nach Stufe, nur auf anfälligem Terrain. Gefangene müssen sich freikämpfen oder werden verwundet. **Startwerte:** 2 Schaden pro Runde; nur auf Gras, hohem Gras und Wald; blockiert Bewegung ab Stärke 2 (Freikämpfen folgt). |
+| Flood | Fläche, anderes Terrain. Löscht Feuer. Wer ins Wasser geht, kann ertrinken, außer Water Type. **Startwerte:** kein Schaden; überall Begehbares außer Wasser; Nicht-Wasserwesen ertrinkt mit 50 % Chance pro Runde (Flieger nicht); löscht Feuer auf dem Feld (Überschreiben). |
 | Gooey Blob | Wie Feuer, aber anderes Terrain. Weniger zerstörerisch, zäher. Schadet Untoten. |
 | Tangle Vine | Fläche je nach Stufe, nur auf anfälligem Terrain. Gefangene müssen sich freikämpfen oder werden verwundet. |
 | Flood | Fläche, anderes Terrain. Löscht Feuer. Wer ins Wasser geht, kann ertrinken, außer Water Type. |
@@ -494,8 +517,8 @@ Auf dem Mega Drive gibt es keine Tastatur. Die Grundprinzipien aus §5.1 bleiben
 | Subversion | Feindliche Kreatur wechselt die Seite. Chance hängt von Stufe und Magic Resistance ab. Reiter und Reittier nur gemeinsam. Nicht auf Zauberer oder Reittiere mit Zauberer. |
 | Curse | Verursacht tödliche Wunden. Bessere Chance als Subversion oder Magic Attack. |
 | Magic Attack | Kann mehrere Kreaturen desselben Typs im Umkreis vernichten, **auch eigene**. |
-| Magic Bolt | Physischer Schaden; Defence zählt. |
-| Magic Lightning | Wie Bolt, zusätzlich auf die 8 Nachbarfelder. Zerstört Terrain am Boden. Zielfeld darf nicht massiv sein. |
+| Magic Bolt | Physischer Schaden; Defence zählt — **aber ohne Schildbonus (D32: Magie umgeht Rüstung)**. **(3 + Stufe)w6** (Krit: doppelt, D30) (Stufe 1: 4w6, Ø 14; Stufe 5: 8w6, Ø 28; Stufe 8: 11w6, Ø 38,5) — D&D-Upcasting (D29): volle Bücher schlagen härter, die Ladungen werden schwächer. Stufe 1 verwundet einen Goblin (Con 32) stark, tötet ihn aber nicht. |
+| Magic Lightning | Wie Bolt (ebenfalls schildfrei, D32) mit **(5 + Stufe)w6** plus **2w6 Splash** auf die 8 Nachbarfelder. Zerstört Terrain am Boden. Zielfeld darf nicht massiv sein. |
 | Teleport | Ungenau auf große Distanz. Danach 0 AP. Scheitert, wenn das Ziel massiv ist. |
 | Magic Eye | Sicht von einem Zielpunkt aus (Luft oder Boden). Deckt Unsichtbare für eine Runde auf. |
 | Magic Shield | Defence des Zauberers steigt, Höhe und Dauer nach Stufe. |
@@ -503,10 +526,11 @@ Auf dem Mega Drive gibt es keine Tastatur. Die Grundprinzipien aus §5.1 bleiben
 ### 7.3 Wizard Designer `[PM 24–28, AMI 2]`
 
 - **Name** (Buchstaben und Leerzeichen).
-- **Charakter:** Attribute mit XP erhöhen.
+- **Charakter:** Ein frischer Zauberer startet auf der **Mindestverteilung** — Kampf 5, Abwehr 5, Magiewiderstand 70, Konstitution 34, Ausdauer 34, Mana 80, AP 34 (Spectrum-Werte, D66) — und verteilt **600 XP** auf Attribute, Mana, AP und Zauber (Original-Anker 2026-10-04). **Punktekosten:** Kampf 2, Abwehr 2, Magiewiderstand 4, Konstitution 2, Ausdauer 4, **Mana 9**, **AP 8** pro Punkt; Pfeile links/rechts senken/erhöhen (volle Rückzahlung).
+- **Zauber kaufen (F6-Anker):** Beschwörungen sind im Designer kaufbar (`z` schaltet um) — Stufe 1 kostet den Grundpreis, jede weitere +50 % davon, Maximum Stufe 8: Zwerg/Fledermaus 4, Kobold(Goblin)/Pixie 8, Einhorn/Löwe/Gorilla/Krokodil 10, Harpyie/Pegasus/Bär/Zentaur 12, Zombie/Troll 14, Riese/Elefant 20, Greif/Geist 22, Riesenspinne 28, Vampir 50*, Rotdrache 38, Gründrache 50, Golddrache 62, Gespenst 44, Dämon 58 (*Vampir/Pixie fehlen im Anker, interpoliert). Nicht-Beschwörungen sind nicht kaufbar — sie kommen über das Startbuch; künftig auch über Schriftrollen-Funde (Rarität nach XP-Preis, D33).
   - Jedes Attribut hat Kosten pro Punkt und eine Obergrenze.
   - Unter den Startwert kann man nicht senken.
-- **Zauber:** Stufen mit XP erhöhen, bis maximal 8.
+- **Zauber:** Stufen mit XP erhöhen, bis maximal 10 (Anker: Das Original-Startbuch trägt Stufen bis 10, Nutzerablesung 2026-10-04).
 - **Zufalls-Zauberer:** erhalten zufällige Zauber. Ihre Stärke hängt von der Setup-Einstellung „Zufalls-Zauberer-Stufe“ ab.
 - **Werte:** Startwerte, Kosten und Obergrenzen der Zauberer-Attribute stehen nicht im Manual → §13.
 
@@ -685,12 +709,110 @@ Wie beim Amiga werden pro Feld **mehrere Ebenen übereinander** gezeichnet (B1.2
 - **Mockups:** `tools/mockup.py` rendert aus Kacheln und einer Szenen-Beschreibung ein 320×240-Bild des Spielbildschirms nach `docs/design/mockups/`. So lässt sich die Optik beurteilen, bevor der Agon-Renderer existiert.
 - Alle Grafiken sind eigene Arbeit (D10) und dürfen ins öffentliche Repo.
 
-### 11.4 Sound [C]
+### 11.4 Sound [C] (Polish-Runde: Samples)
 
-- Einfache Effekte über den Agon-Soundkanal: Schritt, Treffer, Zauber, Portal.
-- Musik ist optional [X].
+- **Samples statt Piepser (ADR 0012):** `tools/gen_sfx.py` synthetisiert eigene
+  8-Bit-Samples (16 kHz, nichts aufgenommen oder kopiert): Schritt, Wisch,
+  Klirren, dumpfer Treffer, Stöhnen, Donner, Zisch, Knarren, Truhendeckel,
+  Funkeln, Beschwörung, Blip, Blubbern, Krachen, dazu die Instrumente Zupfsaite
+  und Trommel. Datei `/loc/sfx.bin` (~110 KB), beim Start in VDP-Buffer geladen.
+  WAV-Vorschauen: `build/sfx/preview/`.
+- **Effekte** (`src/agon/sound.c`) sind kurze Schrittlisten (Sample oder
+  Wellenform-Ton) mit Priorität auf zwei Kanälen (0, 4); `sound_poll()` spielt
+  Schritt für Schritt, weil der VDP Noten auf belegten Kanälen verwirft
+  (QUIRK A1). Fehlt `sfx.bin`, klingen die Wellenform-Ersatztöne.
+- **Zuordnung:** Schwung/Wurf/Bogen = Wisch, Treffer = dumpfer Schlag, Krit =
+  zusätzlich Metallklirren (D30), Tod = Stöhnen, Bolt = Zisch, Blitz = Donner,
+  Beschwörung, Teleport, Fluch/Subversion, Tränke/Brauen = Blubbern, sonstige
+  Zauber = Funkeln; Tür, Truhe, Aufheben, Essen, Trinken, Fliegen/Reiten,
+  Portal, Rundenwechsel; Menü bewegen/bestätigen/zurück; rote Meldungen
+  (verweigerte Aktion) = kurzer tiefer Ton.
+- **Setup:** Musik (M) und Toneffekte (T) einzeln abschaltbar, gespeichert in
+  `/loc/settings.dat`.
 
-### 11.5 Präsentation auf dem Mega Drive (D23, ADR 0010)
+#### 11.4.1 Ereignisse und Kampfanimation [C] (M5c)
+
+- Der Core meldet Darstellungsereignisse in einen kleinen Ring
+  (`src/core/events.[ch]`): `EV_SWING, EV_HIT, EV_WOUND, EV_MISS, EV_DEATH,
+  EV_SPELL, EV_SMASH` mit Position und Beteiligten. Beobachtung ohne
+  Nebenwirkungen — RNG, Weltzustand und Savegames bleiben unangetastet.
+- Emit-Punkte: Nahkampf/Freier Schlag (Schwung, Treffer, Verfehlt, Rückschlag),
+  `combat_damage` (jede Schadensquelle: Bolt, Blitz, Wurf, Bogen, Flächen,
+  Bombe), `world_kill_unit` und Blutungstod (Tod), `pay_for_spell`
+  (Zauberwirkung), Terrain-Angriff und Blitz (Zerschmettern).
+- Das Frontend (`src/agon/fx.c`) spielt den Ring ab: Overlay-Kacheln
+  (fx_slash, fx_hit, fx_miss, fx_death_0–3) über dem Kartenfenster,
+  Schadenszahl in Rot, passender Sound; kurze getimete Frames, Tasten
+  während der Show werden verworfen (keine Geister-Eingaben, K5). Nach der
+  Show werden die Felder über `view_mark_dirty` neu gezeichnet.
+- Die KI wird sichtbar: nach jeder KI-Phase (und den unabhängigen Kreaturen)
+  leert ein Callback in `turn_end_phase` den Ring und spielt ihn ab.
+- **Sprite-Effekte (Polish-Runde, ADR 0012):** Neues Ereignis `EV_PROJECTILE`
+  (Start, Zielversatz, Art) von Bolt, Blitz, Bogen, Wurf und Bombenphiole.
+  Das Frontend lässt Projektile als VDP-Sprites pixelgenau fliegen (Bolt-Kugel,
+  Blitz mit Funkenschweif, Pfeil in 8 Richtungen, rotierende Wurfwaffe);
+  Zauber spielen am Ziel ihre eigene Sprite-Folge (Beschwörungswirbel,
+  Teleport-Funken, Schildkuppel, Fluchschädel, Trankblasen, Funkeln);
+  Schadenszahlen steigen als Ziffern-Sprites auf (Krit mit „!“). Sprites
+  liegen über der Karte – nichts muss neu gezeichnet werden, nichts bleibt
+  stehen. Eigene Schritte gleiten in 80 ms von Feld zu Feld (Setup: G).
+
+### 11.5 Hilfe, Tutorial und Lexikon [C] (M5)
+
+- **Hilfeseiten** (F1, Hauptmenü): seitenweise Texte (Steuerung, Aktionen,
+  Spielziel, Runden/AP, Kampf, Magie, Objekte), ←/→ blättert. Die Texte liegen
+  als `.hlp`-Dateien auf der SD-Karte (`/loc/help`, ADR 0011), nicht im
+  Programm — Umlaute über die umdefinierten Font-Glyphen (M4j). Die erste
+  Seite ist die Tastenliste (früher die statische F1-Überlagerung).
+- **Geführtes Tutorial** (Hauptmenü): kleine Karte (16×12) mit Zauberer,
+  Zwerg, Schluessel, Truhe, Goblin und Portal (oeffnet Runde 2). Eine
+  Schritt-Engine im Core (`tutorial.c`) prüft Weltzustand plus zwei
+  Meldungen (Tab gedrückt, Zauber gewirkt): Bewegen → Einheit wechseln →
+  Schluessel aufheben → Truhe oeffnen → Goblin besiegen → Zaubern → Portal.
+  Die Hinweiszeile steht in Meldungszeile 3; Texte aus `help/tutorial.hlp`.
+  Die Runde-1-Bewegungssperre [PM 7] ist im Tutorial aufgehoben.
+- **Lexikon** (Taste `i`, Hauptmenü): was der Spieler je gesehen hat —
+  Kreaturen (26) und Objekte (40) als Bitmasken, persistent in
+  `/loc/lexicon.dat`. Liste zeigt nur Entdecktes mit Namen, Rest „???“;
+  Enter öffnet die Detailseite mit Porträt, Werten aus den Tabellen und
+  Kurztext aus `help/lexicon.hlp`. Markiert wird beim Sehen (Sichtregel)
+  und Aufheben.
+
+### 11.6 Titelbild und Titelmusik [C] (M5d)
+
+- **Titelbild** 320×240 (Polish-Runde): ein Schlachtgetümmel auf Schwarz im
+  Geist der 8-Bit-Ladebilder, eigene Komposition (D7): großer Zauberer wirkt
+  einen Blitz auf einen Dämon, davor Troll, Zentaur, Zombie und Zwerg, oben ein
+  Drache und eine Fledermaus vor einem Magiewirbel, Schriftzug „LORDS OF
+  CHAOS" in abgeschrägten Goldbuchstaben. Die Figuren sind die eigenen
+  24×24-Kreaturen, mit Scale2x/Scale3x vergrößert (glatte Kanten, Palette
+  bleibt). Quelle `assets/title/title.png`, Generator `tools/art/make_title.py`.
+- **Hauptmenü:** Das Titelbild bleibt als Hintergrund; oben sichtbar (Logo,
+  Drache, Wirbel), darunter die Einträge in einem gerahmten Kasten.
+- **Endbildschirm:** 96×96-Bild neben den Werten – Sieg: Zauberer vor dem
+  leuchtenden Portal mit Gold und Edelsteinen; Niederlage: Grab bei Nacht,
+  Hut auf dem Stein, zerbrochener Stab (`tools/art/make_endpics.py`,
+  `win.bin`/`lose.bin` auf der SD).
+- **Überschriften-Schrift:** eigene 8×16-Zierschrift (`tools/build_font.py`,
+  `/loc/fonts/head.fnt`), am Grafikcursor mit Schatten gezeichnet – Menü,
+  Designer, Setup, Hilfe, Lexikon, Endbildschirm, Overlays. Fehlt die Datei,
+  gilt die Systemschrift.
+- **Streaming-Loader:** `show_picture()` (render.c) lädt Titel und Endbilder
+  häppchenweise über den 576-Byte-Staging-Puffer in eigene VDP-Puffer
+  (0x4000–0x4002) und fügt die Blöcke zusammen (QUIRKS S1). Fehlt eine
+  Datei, bleibt es bei Text.
+- **Musik (Polish-Runde):** eigenes Stück in a-Moll, 16 Takte in zwei
+  Hälften (A: Am F C G | Am F E E, B: Dm Am F E | Dm Am E Am), vier Stimmen:
+  Zupfsaite (Sample) als Melodie, Dreieck-Bass, leise Sinus-Begleitung mit
+  Pausen, Trommel (Sample). Läuft in Schleife unter Titel und Menü weiter und
+  endet erst beim Spielstart. Sieg- und Niederlage-Jingles auf dem
+  Endbildschirm (`data/music/win.txt`, `lose.txt`). Format LOCM v2
+  (`tools/gen_music.py`): Instrument, Ersatz-Wellenform, Lautstärke, ADSR,
+  Schleife. Jede Stimme wechselt zwischen zwei VDP-Kanälen (1/6, 2/7, 3/8,
+  5/9), damit Noten ausklingen dürfen; Zeitplan in Millisekunden aus der
+  Zentisekunden-Uhr. Vorhören am PC: `uv run tools/audio_preview.py`.
+
+### 11.7 Präsentation auf dem Mega Drive (D23, ADR 0010)
 
 Dieselbe Optik wie auf dem Agon (§11.1–11.3): 24×24-Kacheln, Kartenfenster 9×9, Panel rechts. Technische Details und offene Messungen stehen in ADR 0010.
 
@@ -795,16 +917,23 @@ Spalte „WinUAE“: Was sich im Amiga-Original direkt beobachten lässt (●), 
 | D11 | Perspektive | **3/4-Frontansicht wie auf dem Amiga** für Möbel, Wände und Kreaturen; flache Böden; Halb-Böden an Wänden (§11.2). |
 | D12 | Kreaturwerte | **Kreaturtabelle des Originals `[PM 34]` als Startwerte** für alle 25 Kreaturen (`data/creatures.csv`). Balancing später; Abweichungen werden in der CSV kommentiert. |
 | D13 | Kreaturgrafik | **Alle 25 Kreaturen bekommen schon in M2 eigene 24×24-Pixelart** (3/4-Ansicht, Besitzerfarben). |
-| D23 | Zweite Plattform (2026-10-03) | **Sega Mega Drive mit SGDK**, gleicher Core (`src/core`), eigenes Frontend in `md/`. Bedienung per 3-Button-Pad (§5.4), Darstellung §11.5, Technik ADR 0010. **Reihenfolge:** Design und Core-Spike sofort. Das Herauslösen des Spielablaufs aus `src/agon/main.c` in den Core (`play`) kommt vor M4f. Das Frontend folgt nach dem Spike, Hotseat nach v1.0 (D4). **Link-Kabel** zwischen zwei Konsolen (Controller-Port 2, seriell 4800 bps) erst nach dem Hotseat; die `play`-Befehle sind dafür schon die Nachrichten. |
+| D23 | Zweite Plattform (2026-10-03) | **Sega Mega Drive mit SGDK**, gleicher Core (`src/core`), eigenes Frontend in `md/`. Bedienung per 3-Button-Pad (§5.4), Darstellung §11.7, Technik ADR 0010. **Reihenfolge:** Design und Core-Spike sofort. Das Herauslösen des Spielablaufs aus `src/agon/main.c` in den Core (`play`) kommt vor M4f. Das Frontend folgt nach dem Spike, Hotseat nach v1.0 (D4). **Link-Kabel** zwischen zwei Konsolen (Controller-Port 2, seriell 4800 bps) erst nach dem Hotseat; die `play`-Befehle sind dafür schon die Nachrichten. |
+| D26 | Gebunden: freier Schlag beim Wegziehen (Review-Fix) | **Wegbewegen aus dem Nahkontakt ist erlaubt** (Bewegungskosten wie üblich); der angrenzende Gegner erhält **einen freien Schlag** ohne AP-Kosten (normale Trefferchance/Schaden, Untoten-Regel, Boden-gegen-Flieger). Löst der Ausbruch den Kontakt ganz (diagonal heraus, kein Gegner mehr angrenzend), entfällt der Schlag. Pro Wegziehen ein Schlag. Ersetzt die M3a-Regel „keine Bewegung im Engagement“. **[Ersetzt durch D67 – freier Schlag -> Gebunden zieht nicht (0c)]** |
+| D27 | Freier Rückschlag (Playtest 2026-10-04) | **Der Rückschlag ist eine freie Abwehrreaktion: keine AP, keine Ausdauer, immer.** Vorher kostete er 6 AP + 3 Ausdauer — wer oft angegriffen wurde (KI-Goblin: bis 3 Angriffe pro Zug), musste unfreiwillig zurückschlagen und startete ausgelaugt in den eigenen Zug; AP regenerierten scheinbar nie (Ausdauer-Absturz halbiert die Auffüllung), Aussetzen half nichts. Angriffe kosten weiter 10 AP + 4 Ausdauer (Angreifen bleibt eine Entscheidung). **[Ersetzt durch D67 – freier Rückschlag -> 4 AP + 4 Ausdauer (0c)]** |
+| D28 | Waffen- und Zauberschaden mit Würfeln (Playtest 2026-10-04, D&D-orientiert) | **Schaden = Würfel der Waffe + Kampf/5** (Tabelle §6.1: waffenlos 1w4 … Magie-Slayer 3w8) — vorher rechnete jeder Treffer nur mit Kampf/4, das Schwert brachte keinen spürbaren Schaden. **Zauber würfeln eigene Würfel** (§7.2): Magic Bolt **7w10**, Magic Lightning **10w8 + 3w6 Splash** — ein treffender Bolt tötet einen Goblin meist sofort; Zauber verbrauchen Stufen und müssen sich darin lohnen. **Der Schild nimmt nie die Hand** (`w` überspringt Schilde; getragen verteidigt er immer, D18/D21). Con-Werte der Kreaturen bleiben Anker (D12); die Skalierung steckt in den Würfeln. **[Ersetzt durch D67 – Würfel -> Formel des Originals (0c, 0d)]** |
+| D32 | Zauber ignorieren Schilde (Zauberer-Duell-Befund 2026-10-04) | **Bolt und Blitz rechnen gegen die Verteidigung ohne getragenen Schild** (`items_defence_noshield`): Magie umgeht Rüstung (D&D: Angriff gegen RK vs. Rettungswurf). Nahkampf, Bogen und Wurf treffen weiterhin auf die volle Verteidigung; Zauberschild/Protection-Trank zählen auch gegen Magie (sie sind selbst magisch). Grund: Im Arena-Duell wurden geschildete Zauberer für Bolts praktisch unhittbar (10-%-Boden), Blaster/Evoker 6-7 % vs. Nekromant 34 %. **[Ersetzt durch D67 – Schilde zählen auch gegen Zauber (0d)]** |
+| D31 | Waffenbonis in Original-Proportionen (Arena-Befund 2026-10-04) | **Combat-Bonis deutlich erhöht** (Schwert +4→+10, Axt +3→+9, Slayer +6→+13, Magie-Slayer +8→+16, Messer +5, Speer +8, Keule +7, Wurfstern +4) und **Schild +4→+13 Verteidigung** (Anker: Original-Wert; bewusst übernommen statt D7-Verkleinerung). Grund: Die Arena-Simulation zeigte, dass Ausrüstung die Kämpfe nicht prägte — waffenführende Kreaturen hatten ~0 % Siege. Mit D31 gilt: sehr gute Waffe + Schild = reale Siegchance im Mittelfeld; Drachen bleiben dominant. Validiert über `host/arena.c` (2000 Läufe, Vorher/Nachher). |
+| D30 | Kritische Treffer (Wunsch 2026-10-04, D&D-orientiert) | **Angriffswurf < 5 % = kritisch: Schadenswürfel doppelt, Boni einfach** — Schwert 2w8 → 4w8, Stufe-1-Bolt 4w6 → 8w6. Etwa jeder zwanzigste Angriff; Nahkampf, Rückschlag, Freier Schlag, Wurf, Bogen, Bolt/Blitz; Flächen/Bomben/Möbel nicht. Meldung „KRIT! …“, rotes Overlay mit Crash-Sound. **[Ersetzt durch D67 – Kritische Treffer entfallen (0c)]** |
+| D29 | Eine Reaktion pro Runde; Zauber skalieren nach Stufe (Playtest 2026-10-04) | **Jede Einheit hat eine defensive Reaktion pro Runde** (D&D-5e-Vorbild): der freie Rückschlag (D27) und der freie Schlag beim Wegziehen (D26) teilen sich dieses Budget (`UF_REACTED`, geräumt mit der Regeneration). Mehrere Angriffe im selben Rundenverlauf laufen danach unbestraft ins Ziel. **Magic Bolt auf (3+Stufe)w6 und Lightning auf (5+Stufe)w6 + 2w6 Splash reduziert** (7w10 war zu stark): D&D-Upcasting — die Buchstufe beim Wirken bestimmt die Würfel, volle Bücher schlagen am härtesten, entladene am schwächsten. Stufe 1 = 4w6 (Ø 14): clearly über einem Schwertstreich, aber kein Sofort-Kill. **[Ersetzt durch D67 – eine Reaktion -> jeder Schlag wird beantwortet (0c)]** |
 | D22 | M4-Aufteilung (Review 3) | **Zehn Teile M4a–M4j** in der Reihenfolge von §16: erst Systeme, dann Kampagne, Szenarien, KI, Speichern, Politur. **Kampagne ohne Gegenstände** (F5), **Dächer sichtbar** und innen ausgeblendet (F7). Die Formeln F1–F4 und die Vorschläge F6, F8, F9 gelten als Startwerte. |
 | D21 | Regeln aus dem M3-Review | **Rückschlag gegen Flieger:** Greift ein Flieger selbst am Boden an, schlägt der Verteidiger zurück; von unten angreifen geht weiter nicht. **Blitz ohne Freund-Feind-Erkennung:** Der Splash trifft alle 8 Nachbarfelder, auch eigene Einheiten und den Zaubernden (Gollop-Tradition); eigene Opfer bringen keine VP. **Eine Trefferformel für alle Angriffe:** Werfen, Bogen und Bolt nutzen D16 (10–90 %, Defence inklusive Schild). **Schilde stapeln nicht:** Ein getragener Schild zählt immer (D18), weitere nicht. **Beute fällt:** Wer stirbt (Kampf, Zauber, Verbluten), lässt alles Getragene auf sein Feld fallen, Flieger auf den Boden darunter; wer durchs Portal entkommt, nimmt es mit. |
 | D20 | Einfache KI (M3f) | **Jäger für Unabhängige** (nächstes Ziel per Sichtstrahl, Angriff wenn angrenzend, sonst Umherstreifen); **Zauberer-KI**: Kreaturen jagen zuerst, dann Nahkampf/Beschwörung (günstigster Zauber, bis 3 Begleiter)/Weg zum Portal und Eintritt. Kein Schummeln: Ziele nur in eigener Sichtlinie. |
 | D19 | Portal und VP (M3e) | **Erscheinungsrunde** deterministisch aus der Szenario-Spanne (RNG mit Partie-Saat); **Entkommen +10 VP** plus getragene Schätze (objektbezogen aus objects.csv); Kills nach Kreaturtabelle, Zauberer im Nahkampf doppelt (AMI 4), Fernkampf einfach; Spielende ohne Zauberer. |
 | D18 | Objekte und Waffen (M3d) | **Startwerte aus dem Manual als Basis** (objects/weapons.csv, D7): Waffenboni nur für das Objekt in Benutzung, **Schild zählt immer beim Tragen**; Werfen fliegt bis 6 Felder und landet vor dem Hindernis; Bogen 12 AP, Reichweite 6, trifft auch Flieger; Trage-Limit aus der Kreaturtabelle; Aufheben nimmt das oberste Objekt (Liste folgt). |
 | D17 | Zauber-Reichweite und Zielmodus (M3c) | **Eigene Reichweite 6 Felder** (Chebyshev) für Bolt/Lightning bis WinUAE-Messung mehr sagt (§13); Sichtlinie nötig. Bolt trifft nach dem Kampf-Modell (D16), Lightning zusätzlich auf die 8 Nachbarfelder und zerschlägt zerstörbares Terrain am Ziel; massive Zielfelder (Wände) werden abgelehnt. Ziel-Cursor: gelb Boden, blau Luft, rot außer Reichweite/Sicht; Enter/Leertaste wirkt, Esc bricht ohne Kosten ab, Zielen auf den eigenen Zauberer bricht ab. |
-| D16 | Kampfformel (M3a) | **Eigenes Design:** Trefferchance `50 + 5 × (Combat − Defence)`, begrenzt auf 10–90 %. Schaden `(Combat + Zufall(0..Combat)) / 4`, mindestens 1. Rückschlag automatisch bei AP+Stamina (`return_attack`, actions.csv). Tödliche Wunde bei Einzeltreffer > 25 % Con, −1 Con pro Runde. Gebundene Bodeneinheiten können sich nicht fortbewegen. Terrain-Angriff: Feature fällt bei `Schaden + Zufall(0..3) > Zähigkeit` (features.csv); Wände unzerstörbar. Balancing später über die CSV-Werte. |
-| D15 | Fliegen (M2e) | **Ein AP-Budget pro Einheit, ebenenabhängig aufgefüllt** (Rundenende: `ap_max` am Boden, `ap_fly` in der Luft). Aufsteigen (`<`) und Landen (`>`) zahlen die Aktionskosten aus `actions.csv`; Luftbewegung konstant 4/6 und ignoriert Terrain und Boden-Einheiten; Landen nicht auf Ertrinkungs-Terrain. Flieger werden 3 px höher mit Bodenschatten über der Boden-Einheit gezeichnet; Dächer folgen mit dem späteren Dach-Datenfeld. |
-| D14 | Sichtalgorithmus | **Bresenham-Strahlen pro Zielfeld** (M2d): Chebyshev-Distanz (9 Boden / 11 Luft), blockierendes Gelände nur **zwischen** den Endpunkten, Diagonalen permissiv (keine Ecken-Regel). Sicht wird als Bitfeld pro Spieler cached und nur nach eigenen Schritten bzw. am Rundenende neu berechnet. Messwerte und Optimierungen: ADR 0009. |
+| D16 | Kampfformel (M3a) | **Eigenes Design:** Trefferchance `50 + 5 × (Combat − Defence)`, begrenzt auf 10–90 %. Schaden `(Combat + Zufall(0..Combat)) / 4`, mindestens 1. Rückschlag automatisch bei AP+Stamina (`return_attack`, actions.csv). Tödliche Wunde bei Einzeltreffer > 25 % Con, −1 Con pro Runde. Gebundene Bodeneinheiten können sich nicht fortbewegen. Terrain-Angriff: Feature fällt bei `Schaden + Zufall(0..3) > Zähigkeit` (features.csv); Wände unzerstörbar. Balancing später über die CSV-Werte. **[Ersetzt durch D67 – Trefferchance -> `RND(2(C+1)) - Def` (0c)]** |
+| D15 | Fliegen (M2e) | **Ein AP-Budget pro Einheit, ebenenabhängig aufgefüllt** (Rundenende: `ap_max` am Boden, `ap_fly` in der Luft). Aufsteigen (`<`) und Landen (`>`) zahlen die Aktionskosten aus `actions.csv`; Luftbewegung konstant 4/6 und ignoriert Terrain und Boden-Einheiten; Landen nicht auf Ertrinkungs-Terrain. Flieger werden 3 px höher mit Bodenschatten über der Boden-Einheit gezeichnet; Dächer folgen mit dem späteren Dach-Datenfeld. **[Ersetzt durch D67 – Budget je Ebene -> anteilige AP-Umrechnung (0b)]** |
+| D14 | Sichtalgorithmus | **Bresenham-Strahlen pro Zielfeld** (M2d): Chebyshev-Distanz (9 Boden / 11 Luft), blockierendes Gelände nur **zwischen** den Endpunkten, Diagonalen permissiv (keine Ecken-Regel). Sicht wird als Bitfeld pro Spieler cached und nur nach eigenen Schritten bzw. am Rundenende neu berechnet. Messwerte und Optimierungen: ADR 0009. **Abgelöst durch D39** (Shadowcasting) — Reichweite, Chebyshev-Distanz und die Endpunkt-Regel bleiben, nur der Algorithmus wechselt. |
 
 **Noch offen:**
 - Endgültige Tastenbelegung (Prüfung im M2-Prototyp).
@@ -821,7 +950,7 @@ Spalte „WinUAE“: Was sich im Amiga-Original direkt beobachten lässt (●), 
 | M2 Core-Skelett | §3 (Karte, Ebenen, Sicht, Hidden Map), §4 (Daten), §5.1 (aktive Einheit, Bewegung, Bump, `Tab`, Look-Modus), Rundenablauf §2.1 |
 | M3 Classic spielbar | §6 Kampf, §7 Beschwörungen und Bolt/Lightning, §8 Basis-Objekte, §9 Portal und VP, §10 einfache KI, eigenes Szenario 1 |
 | M4 Classic komplett (v1.0) | Alle 45 Zauber und Tränke, Flächeneffekte, Wizard Designer, Kampagne, eigene Szenarien 2 und 3, Setup-Panel, Speichern. Aufteilung M4a–M4j und offene Fragen: §16 |
-| parallel (D23) | Mega Drive: Core-Spike, dann `play`-Modul (vor M4f), danach Frontend, Kachel-Pipeline und Hardware-Test (§5.4, §11.5, ADR 0010) |
+| parallel (D23) | Mega Drive: Core-Spike, dann `play`-Modul (vor M4f), danach Frontend, Kachel-Pipeline und Hardware-Test (§5.4, §11.7, ADR 0010) |
 | nach v1.0 | Hotseat-Multiplayer (Agon und Mega Drive), Link-Kabel (Mega Drive), Timer, Maus, Expansion-Kit-Inhalte |
 | M5+ | §12 Chaos |
 
@@ -857,12 +986,55 @@ Die Vorschläge sind als **Startwerte** übernommen (D22). Jede Frage wird vor i
 
 | # | Frage | Teil | Entscheidung bzw. Startwert |
 |---|---|---|---|
-| F1 | Wirkdauer von Tränken und Zaubern | b, c | Trank: `Runden = 8 × Trankstufe / Potion Consumption`, mindestens 1 (Zauberer mit 3 → Stufe 3 hält 8 Runden, Drache mit 10 → 2). Zauber wie Magic Shield: `2 × Stufe` Runden. Eigenes Design (D7). |
+| F1 | Wirkdauer von Tränken und Zaubern | b, c | Trank: `Runden = 8 × Trankstufe / Potion Consumption`, mindestens 1 (Zauberer mit 3 → Stufe 3 hält 8 Runden, Drache mit 10 → 2). Zauber wie Magic Shield: `2 × Stufe` Runden. Eigenes Design (D7). Der Kessel merkt sich die gebraute Stufe; Phiolen wirken vorerst mit Stufe 2, bis Objekte Zusatzdaten tragen. |
 | F2 | Chancen für Subversion, Curse, Magic Attack | b | Wie D16: `50 + 5 × (4 × Stufe − Magic Resistance / 4)`, begrenzt auf 10–90 %. Curse +20 Punkte (GDD: bessere Chance), Magic Attack −10. |
 | F3 | Teleport-Ungenauigkeit | b | Abweichung bis `Distanz / 4` Felder (zufällig, auf freies Feld); massives Ziel lässt den Zauber scheitern; danach 0 AP. |
 | F4 | Ausbreitung der Flächen | d | Stärke = Zauberstufe. Am Rundenende versucht jedes Feld einmal, ein passendes Nachbarfeld zu belegen (Chance `Stärke × 10 %`); neue Felder erhalten `Stärke − 1`, alte verlieren 1. Höchstens 48 Felder je Fläche (Leistung). |
 | F5 | Was überträgt die Kampagne? | f | **Entschieden:** Attribute, Zauberstufen (voll aufgefüllt) und XP. Schätze werden beim Durchschreiten des Portals zu VP und danach zu XP. Waffen, Schilde, Tränke und Schlüssel bleiben im Szenario; der Zauberer startet unbewaffnet. |
-| F6 | Startwerte, Kosten und Obergrenzen im Wizard Designer | f | Einmal im Amiga-Designer (WinUAE) ablesen und als Anker nehmen (§13 ●), dann eigene Werte. |
+| F6 | Startwerte, Kosten und Obergrenzen im Wizard Designer | f | **Anker 2026-10-04 (Nutzer):** Startbuch Stufen 4–10 (Buchdeckel 10); **Mindestverteilung** Kampf 5 / Abwehr 5 / Magiewiderstand 70 / Konstitution 34 / Ausdauer 34 / Mana 80 / AP 34 und **600 XP zum Verteilen**; **Kosten** Kampf 2 / Abwehr 2 / Magiewiderstand 4 / Konstitution 3 / Ausdauer 4 / Mana 8 / AP 8 pro Punkt (**D66, Nutzer 2026-10-06: Constitution 34 und Mana 80 statt 25 und 90, die Kosten folgen als Startwert ÷ Divisor des Originals**); **Beschwörungs-Grundpreise** (Drache rot 38, grün 50, gold 62; Zwerg/Fledermaus 4; Kobold 8; Einhorn/Löwe/Gorilla/Krokodil 10; Harpyie/Pegasus/Bär/Zentaur 12; Zombie/Troll 14; Elefant 20; Greif/Geist 22; Spinne 28; Gespenst 44; Dämon 58), **jede weitere Stufe +50 % des Grundpreises, Maximum 8**. Diese Kosten sind **Erfahrung, kein Mana** (F6-Klarstellung des Nutzers). Offen: Obergrenzen der Attribute (eigene Werte bleiben). |
+| D33 | Schriftrollen lehren Zauber (Nutzerregel 2026-10-04) | Schriftrollen-Funde bringen Zauberstufen ins Buch — die Rarität einer Schriftrolle richtet sich nach dem XP-Preis des Zaubers (teuer = selten). Umsetzung folgt (items_read); die Kostenbasis steht bereits über F6. |
+| D34 | Beschwörungs-Stufe = Kreaturstärke (Nutzerregel 2026-10-04) | **Zaubersprüche haben eine Anzahl, Kreaturen ein Level.** Eine Beschwörung erzeugt pro Wurf genau eine Kreatur; ihre Stufe aus dem Zauberbuch gibt +15 % Kampf/Verteidigung/Konstitution je Stufe über 1 (Deckel 8). Beschwörungen sind unbegrenzt wirkbar, kosten festes Mana (Stufe-1-Preis) und 10 AP. Im Designer kostet jede weitere Stufe +50 % des Grundpreises (F6). Ersetzt die Original-Regel „Anzahl = Stufe“ `[PM 19]`. Anzeige: Spalte „Stf“ statt „Anz“. **[Ersetzt durch D67 – Stufe = Kreaturstärke -> `L` Kreaturen je Wurf (0f)]** |
+| D35 | Zufällige Welt, Wildtiere, Herden (Nutzerregel 2026-10-04) | **Jede Partie ist anders:** Zufallsstartwert aus der Uhr (Tests/Dump: 42). **Die Gegner starten allein:** In den Kampagnen-Karten stehen nur noch die Zauberer; der KI-Zauberer beschwört seine Kreaturen selbst. **Wildtiere** (5–8, Abstand ≥ 8 zu Zauberern, nicht in Häusern/Wasser): *friedlich* (Gorilla, Fledermaus) streifen umher und wehren sich nur gegen den, der sie angegriffen hat; *territorial* (Löwe, Bär, Krokodil, Spinne, Greif) greifen jeden an, der ihrem Heimfeld auf 3 Felder nahekommt; *Herdentiere* (Elefant, Einhorn, Pegasus) sind friedlich. **Herden:** ab Runde 4 mit 15 % je Runde (höchstens eine gleichzeitig) betreten 3–4 Herdentiere an einem Kartenrand die Karte, ziehen geradeaus hinüber (Hindernissen weichen sie seitlich aus) und verlassen sie wieder. **Beute:** 5–7 Truhen an Zufallsorten (Schätze, Waffen, Tränke, selten der Slayer), 2 Truhenschlüssel und 6–9 lose Fundstücke passend zum Boden (Wald: Pilze/Misteln/Feenflügel, Sumpf: Schwefel/Salpeter, Wiese: Äpfel/Klee/Kristall). Fest bleibt nur die Hausausstattung. Modul `populate.c`. |
+| D36 | Zauber durch hohes Gras; Aufheben vom Nachbarfeld (Nutzerwunsch 2026-10-04) | Hohes Gras blockiert die Sicht, aber **nicht die Zauberlinie** (`sight_has_spell_los`); Bäume, Wände, Dächer schon. **Aufheben** erreicht das eigene Feld und die 8 Nachbarfelder (gleiche AP); bei mehreren Gegenständen fragt ein Auswahlmenü (einzeln oder alle). |
+| D37 | Aufgescheuchte Tiere, Leittier, Trampeln (Nutzerregel 2026-10-04) | Jede **aggressive Aktion** (Nahkampfschlag, Treffer, Zauber) merkt sich Ort und Verursacher. Zu Beginn der Neutralen-Phase reagieren **friedliche und Herdentiere im Umkreis von 4 Feldern**: pro Gruppe wird **einmal** gewürfelt – die Herde folgt ihrem **Leittier** (erstes Tier der Herde) –, **20 % Angriff** auf die nächste Einheit des Verursachers, sonst **Flucht** (3 Felder je Runde, geradeaus weg). Der Zustand hält 3 Runden. Wer selbst angegriffen wurde, greift ohne Wurf an. **Nur Elefanten trampeln:** In Panik laufen sie durch kleinere Einheiten hindurch (2w6 Schaden, bei Tod geht es weiter) und walzen hohes Gras zu Gras. Territoriale Tiere behalten ihr Revierverhalten. |
+| D38 | Drei Phasen pro Runde, die anderen ungesehen (Original, Nutzerwunsch 2026-10-04) · **eingeschränkt durch D45** | Spieler → KI-Zauberer → Unabhängige. Während der KI- und der Neutralen-Phase ersetzt ein **Phasenbildschirm** (Rankenrahmen, „Am Zug“, Runde, Siegpunkte aller Zauberer) die Karte; man **hört nur**: Schritte der bewegten Einheiten, Kampf- und Zauberklänge. Danach zeigt die Karte das Ergebnis. Automatisch, ohne Tastendruck. |
+| D39 | Sicht per Shadowcasting (Plattform-Audit 2026-10-05) | **Der Sichtalgorithmus wechselt von einem Bresenham-Strahl je Zielfeld (D14) auf rekursives Shadowcasting über acht Oktanten.** Grund ist die Messung auf echter Hardware: 298 ms je Neuberechnung für nur zwei Einheiten, spürbar bei jedem eigenen Schritt. Shadowcasting besucht jedes Feld einmal statt es anzustrahlen (O(r²) statt O(r³)). **Unverändert bleiben:** Reichweite 9 am Boden / 11 in der Luft, Chebyshev-Distanz, blockierendes Gelände nur zwischen den Endpunkten (eine Wand ist sichtbar, das Feld dahinter nicht), Flieger sehen über alles hinweg, permissive Diagonalen ohne Ecken-Regel. **Was sich ändert:** In verwinkeltem Gelände deckt Shadowcasting einzelne Felder anders auf als die Strahlen — zusammenhängender und ohne die Zacken, die einzelne Strahlen hinterlassen. Die Sicht bleibt symmetrisch um die Quelle; die acht Oktanten überlappen auf Achsen und Diagonalen, was ein Feld nur aufdecken, nie verbergen kann. Umsetzung und Zusicherungen: ADR 0009. |
+| D40 | Magie ignoriert Rüstung und Verteidigung (Playtest 2026-10-05) | **Für Schadenszauber zählt allein die Magieresistenz des Ziels.** Trefferchance `100 − Magieresistenz`, begrenzt auf 5–95 %: gegen den zähesten Widerstand bleibt ein Treffer möglich, gegen den schwächsten ein kritischer Fehlschlag. Weder die Verteidigung noch der Nahkampfwert des Zauberers gehen ein. **Anlass:** Im Playtest traf kein einziger Bolt eine Riesenspinne — nach der alten Formel stand Zauberer-Nahkampf 10 gegen Spinnen-Verteidigung 24, also der 10-%-Boden, bei jedem Wurf. Jetzt sind es 45 %. Schutz**zauber** (Schild, Schutz) zählen weiter und erhöhen die Resistenz; ein getragener Schild zählte nie (D32). Ersetzt den Trefferteil von D16 für Zauber. **Offen:** `resist_roll` für Wunde und Unterwerfung rechnet weiter mit `mr/4` plus Zauberstufe — zwei Maßstäbe für dieselbe Größe. **[Ersetzt durch D67 – Magie gegen Defence statt MR (0d)]** |
+| D41 | Dächer heben nur für die aktive Figur (Playtest 2026-10-05) | **Ein überdachtes Feld wird frei, wenn die aktuell aktive Figur Sichtlinie darauf hat** (und es in Sichtweite liegt). Steht sie im Raum, sieht man den Raum; steht sie draußen vor einer offenen Tür, sieht man so weit hinein, wie die Sichtlinie reicht; bei geschlossener Tür bleibt alles zu. **Ersetzt F7 (M4e)**, wo eine Flutfüllung das ganze zusammenhängende Dach öffnete, sobald *irgendeine* eigene Einheit darunter stand — eine zweite Figur draußen schaute dann mit ins Haus. Spart nebenbei 3,9 KB eZ80-RAM (die Flutfüllung und ihre Warteschlange entfallen). |
+| D42 | Waffen wirken auf Schaden, nicht auf Treffer (Playtest 2026-10-05) | **Der Waffenbonus fällt aus der Trefferchance heraus.** Vorher war man ohne Waffe fast wirkungslos, weil der Bonus in den Kampfwert und damit in die Trefferchance ging (D31): die Axt schob den Zauberer gegen einen Goblin von 55 % auf den 90-%-Deckel. Jetzt entscheidet allein der Kampfwert der Figur über den Treffer, die Waffe über die Schadenswürfel. **Stärke** zählt weiter beim Treffer — das ist der Arm, nicht die Klinge. Die **Zauberwaffe** verdoppelte bisher den Waffenbonus im Kampfwert; sie verdoppelt jetzt die Schadenswürfel, sonst wäre das Flag wirkungslos. Ersetzt den Waffenteil von D31. **[Ersetzt durch D67 – Waffen in Combat und Defence (0c)]** |
+| D43 | Geist und Gespenst gehen durch Wände (Playtest 2026-10-05) | Neues Kreatur-Flag `CF_PHASE` (Spalte `phase` in `creatures.csv`), gesetzt für Geist und Gespenst. Sie ziehen durch Wände, Möbel und sonstiges blockierendes Gelände. **Einheiten halten sie weiterhin auf** — ein Körper ist ein Körper —, und die Bodenkosten gelten normal. |
+| D44 | Dächer blockieren die Sicht (Playtest 2026-10-05, Weg 2 der Vorlage) · **ersetzt durch D56** | **Ein überdachtes Feld ist von außen nicht einsehbar.** Wer selbst unter einem Dach steht, bekommt die dachfreie Blockierkarte, blendet sich also nicht selbst; durch eine offene Tür reicht die Sichtlinie wie bei jedem anderen Gelände hinein. **Das war schon einmal so gemeint:** `world_blocks_sight()` zählte das Dach seit M2d mit, die Bitmap aus `world_sight_byte()`, über die `sight.c` tatsächlich läuft, nicht — die Absicht ging beim Bitmap-Umbau (ADR 0009, Stufe 3) verloren. **Dazu die Ebenenreihenfolge:** Das Dach wird jetzt **zuletzt** gelegt statt mit den statischen Ebenen. Vorher lag es unter den Einheiten, und da der Renderer von unten nach oben zeichnet, stand eine Figur unter geschlossenem Dach optisch darauf. **Vereinfachung:** Von unter einem Dach sieht man auch in ein anderes Gebäude; Wände regeln das fast immer, und die Alternative bräuchte die Dach-Zusammenhangsrechnung, die D41 bewusst abgeschafft hat. |
+| D45 | Phasenbildschirm nur für Unsichtbares (Playtest C8, 2026-10-05) | **Steht beim Beginn einer fremden Phase irgendeine Einheit dieser Seite in deiner Sicht, bleibt die Karte stehen** und der Zug wird offen gespielt; nur eine Zeile sagt, wer dran ist. Ist nichts zu sehen, kommt wie bisher der Phasenbildschirm mit Klang. **Ändert D38**, hebt es aber nicht auf: der Sinn war, Unsichtbares nicht zu zeigen — sichtbare Kreaturen hinter einem Vorhang zu bewegen war der Fehler. |
+| D46 | Dach-Anzeige: nie im Haus, Mauer zugedeckt, normale Textur (Nutzermeldung 2026-10-05) | Drei Korrekturen an der Dach-Ebene zu D41/D44. **1. Im Haus nie Dach:** Steht die aktive Figur selbst unter einem Dach, wird gar kein Dach gezeichnet — auch nicht über Räumen ohne Sichtlinie und nicht über anderen Gebäuden. Bisher hob D41 das Dach nur je Feld entlang der Bresenham-Sichtlinie; Shadowcasting (Sicht) und Strahl (Hebung) fallen an Wandkanten auseinander, und genau dort poppten beim Laufen im Haus Dachflächen auf. **2. Das Dach liegt auch auf der Außenmauer** (und der Tür): die Roof-Bitmap markiert nur die Innenfelder, ohne Mauer-Dach endete das Dach sichtbar vor der Außenwand. Eine Mauer oder Tür mit überdachtem Nachbarn trägt das Dach; auf Mauern greift die per-Feld-Hebung nie — das Mauer-Dach verschwindet nur nach Regel 1. **3. Dach immer in normaler Textur:** Über Dachfeldern bleibt das Raster-Overlay (erforscht, aber nicht sichtbar) weg; das opake Dach verdeckt ohnehin alles darunter, und von außen las die Dither-Fläche das Dach wie „verdeckt" aus. |
+| D47 | Türen schließen und abschließen, Truhen mit und ohne Schloss (Playtest C1/C2, 2026-10-05) | **Türen:** `a` + Richtung schließt eine offene Tür (6 AP, nicht mit jemandem im Durchgang), schließt eine geschlossene mit einem getragenen Schlüssel ab (8 AP, der Schlüssel bleibt) und schließt eine abgeschlossene damit auf. Eine abgeschlossene Tür (`FE_DOOR_LOCKED`, Kartenzeichen `L`) sperrt Weg und Sicht, ein Anrempeln öffnet sie nicht: mit Schlüssel schließt es auf, ohne greift man sie an (Zähigkeit 8, geschlossene Tür 4). **Gegner ohne Schlüssel müssen sie zerstören** (`ai_clear_feature` schlägt zu, bis sie bricht). **Truhen:** `FE_CHEST_FREE` (Kartenzeichen `x`) öffnet sich ohne Schlüssel für die Grundkosten (8 AP); `FE_CHEST` bleibt die verschlossene Truhe (Schlüssel 8 AP und weg, sonst aufbrechen für das Dreifache). Zufällig verteilte Truhen sind je zur Hälfte frei oder verschlossen; Kartentruhen `X` bleiben verschlossen. |
+| D48 | Ertrinken (Playtest C5, 2026-10-05) | Wer eine Runde in tiefem Wasser beendet (Boden mit `drown`, nicht wassergeboren, nicht fliegend), verliert die halbe Maximal-Ausdauer — netto 25 % pro Runde nach der Erholung. **Ist die Ausdauer dabei auf 0, verliert die Figur ein Fünftel ihrer Maximal-Con pro Runde** (mindestens 1) und ertrinkt bei 0 wie ein Verblutender. Gilt für alle Seiten; Flieger und Wasserwesen sind ausgenommen. Die Flut-Fläche ertränkt weiter zusätzlich per Würfel. |
+| D49 | Waten: Figuren im tiefen Wasser nur bis zur Hüfte (Playtest C4, 2026-10-05) | Eine Bodeneinheit auf Wasser wird 8 Pixel tiefer gezeichnet; der Rest ragt in das Feld darunter, das darüber neu gemalt wird (Felder werden von oben nach unten gezeichnet) — sichtbar bleibt der Oberkörper. Reiter und die unterste Kartenzeile bleiben ohne Versatz. Flieger sind ausgenommen. Reine Darstellung (`FieldLayers.wade`, kein Einfluss auf Regeln oder View-Hash). |
+| D50 | Eigene Figuren überlagern sich (Playtest C3, 2026-10-05) | **Einheiten desselben Zauberers dürfen auf einem Feld stehen**, getrennt für Boden- und Luftebene (`world_blocking_unit_at`). Fremde Einheiten und wilde Tiere blockieren weiter wie bisher; wilde Tiere stapeln sich nicht untereinander. Niemand außer dem Besitzer kann auf so ein Feld treten. Gezeichnet wird auf einem geteilten Feld **die aktive Einheit** (`view_set_active_unit`), sonst die erste in der Liste. Zielwahl (Nahkampf, Zauber, Wurf) trifft die erste Einheit der Ebene; Beschwören, Landen, Absteigen und Aufsitzen brauchen weiter ein leeres Feld. Das neue Spielgefühl: Figuren decken einander, ein Feind kann einen Stapel nicht umgehen, aber auch nicht betreten. |
+| D51 | Gelände-Politur: Variation und fließendes Wasser (2026-10-06) | **Wiesen, Wege, Hochgras und Sumpf haben Kachel-Varianten** (Hash der Weltposition in `compose_static`, die Hälfte der Felder behält die Basiskachel; Blümchen, Halme, Steinchen). **Wasser fließt in 4 Frames** (Wellenzeilen mit unterschiedlicher Geschwindigkeit, seitlich nahtlos, alle Felder teilen eine Phase) und hat zwei Muster-Varianten. **Seerosen** (`decor_lily`, 2 Frames) auf Wasserfeldern mit Wasser beidseits einer Achse, etwa jedes 8. Die Animationsphase hat 2 Bit (`ANIM_F[Gruppe][4]`, Zwei-Frame-Gruppen wiederholen A,B,A,B). Quelle der Kacheln: `tools/art/make_terrain.py`. Folgt: Geländeübergänge (D52), Kreaturen-Idle (D53). |
+| D52 | Geländeübergänge (2026-10-06) | **Felder, die einem Nachbargelände weichen, bekommen ein transparentes Kanten-Overlay** (Ebene direkt über dem Boden, statisch und gecacht): **Ufer** (Sandlippe + Schaum) auf Wasserfeldern zu jedem anderen Boden, **Grasbüschel** auf Wegfeldern zu Gras/Hochgras/Sumpf/Wald, **Halmfransen** auf Wiesen zu Hochgras. Auswahl per 4-Bit-Nachbarmaske (N=1 O=2 S=4 W=8, `edge_<familie>_m01..m15`) plus Eckstücke für einen einzelnen diagonalen Nachbarn (`_c0..c3`, nur wenn keine der beiden anliegenden Kanten gesetzt ist). Das Tiefenprofil ist entlang jeder Seite periodisch und in allen Kacheln gleich, gerade Ufer setzen sich also über Feldgrenzen fort. An Wandlinien und am Rand kleiner Karten gibt es keine Übergänge; Seerosen nur auf Feldern ohne Übergang. Der statische Cache speichert nur noch die statischen Ebenen (`StaticField`, höchstens 8): −18 KB RAM. |
+| D53 | Kreaturen-Idle (2026-10-06) | **Kreaturen spielen hin und wieder ein 4-Schritt-Idle** (`slot = (Tick + Einheit-id*3) & 15`, nur bei `slot < 4`, also etwa ein Viertel der Zeit, gegeneinander versetzt; Tick = Animationszähler, 0,4 s je Schritt). **Gezeichnete Frames** (`<name>_f1/_f2`, Besitzerfarben wie die Basis, `CREATURE_FRAME`) für 10 Kreaturen: Fledermaus, Harpyie, Pixie, Greif, Pegasus, 3 Drachen (Flügelschlag, Reihenfolge Basis, f1, Basis, f2), Geist und Spectre (Wiegen). **Alle anderen** heben sich 1–2 Pixel (`view_bob`, außerhalb von `FieldLayers`; der Renderer zeichnet die Ebene höher, das Feld darüber wird neu gemalt wie bei Fliegern). Kein Idle bei Reittieren mit Reiter (Versatz hängt an der Basiskachel), nicht beim Waten, nicht unter einem Dach. Im Core standardmäßig aus (`view_set_idle`), das Spiel schaltet es ein; Tests sehen die Basiskacheln. Quelle der Frames: `tools/art/creature_frames.py` (Bildtransformation der Basis-PNGs). Kosten: 100 Kacheln (~57 KB VDP-RAM). |
+| D54 | Level 1: Nachtkarte mit Fenstern, Brücken, Zaun und Tor (Nutzer 2026-10-06) | **Kartengröße bleibt 36×36** (RAM ≈ 24 B je Feld, Reserve ~30 KB, QUIRK S6; 40×40 wäre die Reserve). **Alle Szenarien spielen nachts:** `build_tiles.py` bildet jede Kachelfarbe auf eine abgedunkelte, blauverschobene Farbe der 64er-Palette ab (MODE 8 hat 4 Stufen je Kanal, kein Palettentrick, S4), Lichtquellen (Kerzen, Fenster, Pilze, Portal, Zauber-FX) sind ausgenommen und bleiben hell; vorher Tag/Nacht-Mockup. **Neue Elemente:** `FE_WINDOW` (blockiert Bewegung, nicht die Sicht; Mauer-Auto-Tile mit Fensterkachel, waagerecht/senkrecht, nachts beleuchtet), `FL_BRIDGE` (begehbar, kein Ertrinken, Sicht frei, 2 Kacheln), Zaun (`FE_FENCE`, 16er-Auto-Tile) und Tor (`FE_GATE`, wie Tür, auch abschließbar, 4 Kacheln), Blumenbeet-Dekor (3–4), Pilz-Dekor, blubbernder Sumpf (`fx_bubble`). **Fenster-Sicht:** echte Sichtlinie durch das Fenster (D56; die erste Fassung mit einem Dachloch hinter dem Fenster wurde ersetzt). **Karte:** unregelmäßige Biome mit natürlichen Grenzen (Sumpf am Fluss, Wald, Wiese), verschlungene Wege durch Wald, Brücken über den Fluss, Haus mit mehreren Zimmern, Blumengarten mit Zaun und Tor vor dem Haus. **MD-Fassung später:** Licht per Palette, Parallax, größere Karten. |
+| D55 | Biom-Habitate und erkennbare Wälder (Nutzer 2026-10-06) | **Wildtiere starten nach dem Boden:** `populate.c` würfelt ein freies Feld und wählt dann das Tier nach Gewichten aus `data/habitats.csv` (0 = nie dort, Spalte `shore` zusätzlich neben Wasser): Krokodil im Sumpf und am Ufer, Bär im Wald, Gorilla im Wald/Zauberwald, Löwe auf Gras und Hochgras, Einhorn im Zauberwald, Spinne und Riesenfledermaus im Totenwald, Greif im Geröll, Elefant und Pegasus auf Wiesen. Passt kein Tier zum Feld, wird ein anderes gewürfelt. **Funde nach Wald:** Wald = Pilz, Mistel, Apfel, Drachenkraut; Zauberwald = Feenflügel, Zauberpilz/-apfel, Mistel; Totenwald = Schwefel, Nitro, Runenstein; Geröll = Kristall, Nitro. **Zwei Wälder neu gezeichnet** (Boden `FL_SHADOW_WOOD` = **Totenwald** mit kahlen Baumleichen, Stümpfen, Knochen; `FL_MAGIC_WOOD` = **Zauberwald** mit verdrehten violetten Stämmen, leuchtend türkiser Krone, Glühpilzen), je 3 Varianten per Positions-Hash (`tools/art/make_night_set.py`). Der Weg im Südwesten führt jetzt durch den Wald. Kosten: 9 Kacheln (~5 KB VDP-RAM). |
+| D56 | Dächer sind nur Anzeige, Sicht durch Fenster und offene Türen (Nutzer 2026-10-06) | **Ersetzt D44.** Ein Dach blockiert die Sicht nicht mehr; allein Wände, Türen, Möbel und Gelände entscheiden, was man sieht. **Das Dach öffnet sich auf jedem Feld, das die aktive Figur sieht** (`sight_look`: derselbe Schattenwurf wie die Sichtregel, für diese eine Figur, je Position und Kartenstand gecacht; ersetzt die Strahlprüfung je Feld aus D41, die an Wandecken vom Schattenwurf abwich). Durch ein Fenster oder eine offene Tür blickt man als Keil in den Raum, soweit die Wände es zulassen; was die Figur nicht sieht, ist wieder überdacht (das Innere nur noch als Erinnerung, Variante 1 der Rückfrage). Unter einem Dach wird kein Dach gezeichnet (D46 bleibt), Wände behalten ihr Dach, **Fenster sind vom Dach ausgenommen**. **Folgen:** KI, Zauber und Fernwaffen zielen durch Fenster und offene Türen entlang der echten Linie; ein Feind, der aus dem Fenster sieht, bekommt den freien Schlag. Von unter einem Dach sieht man weiter in andere Gebäude (Vereinfachung aus D44). RAM: eine Blockier-Bitmap statt zwei (−360 B), dafür 180 B Cache der Figur-Sicht. Karten brauchen keine Dachlöcher. |
+| D57 | Kartenvarianten von Level 1 (Nutzer 2026-10-06, Stufe 1 der Zufallskarte) | **Level 1 hat 16 Gelände-Varianten** (`build/maps/mcl_v00..15.map` auf der SD), die `tools/gen_variants.py` beim Bauen erzeugt; jedes neue Spiel wählt zufällig eine, nie zweimal dieselbe hintereinander (`scenario1_map` in `main.c`, Uhr als Quelle). Fehlen die Dateien (alte SD), gilt die handgemachte Karte. **Fest in jeder Variante:** beide Häuser mit Garten, Zauberer, Objekte und Portal — sie werden aus `data/maps/many_coloured_land.txt` kopiert, die damit die einzige Quelle der Häuser bleibt. **Gewürfelt:** Flusslauf und Breite, die drei Brückenreihen, die Biome (verzerrte Voronoi-Zellen auf dem Torus; Zauberwald und Totenwald tauschen zufällig die Seiten), verschlungene Wege durch die Wälder und über die Brücken, Bäume, Felsen, Pilze. **Prüfung je Variante** (sonst neu gewürfelt, bis 300 Versuche): Wege zusammenhängend und ohne Sackgassen (außer am Portal), beide Zauberer und das Portal erreichbar, jedes Biom mit Mindestfläche, Fluss weit genug von den Häusern. Der Speicherstand merkt sich die Variante über den Kartennamen. Die handgemachte Karte bleibt für Selftests und Host (Koordinaten unverändert). Kosten: ~84 KB auf der SD, kein RAM und kein Code auf dem eZ80 außer der Wahl des Dateinamens. **Nächste Stufe (offen):** Generierung im Spiel (Festkomma-Portierung, Prüfung über viele Seeds). |
+| D58 | Menüoption „Zufällige Karte" (Nutzer 2026-10-06) | **Neuer Hauptmenü-Eintrag `Zufaellige Karte`** direkt unter den drei Szenarien: startet sofort eine der 16 generierten Level-1-Varianten (D57) mit dem Bücher-Set von Szenario 1 — derselbe Pfad wie ein Szenariostart, nur mit garantiert zufälliger Variante (`scenario1_map`, Fallback auf die handgemachte Karte ohne Varianten-Dateien). Speichern/Laden, Szenarien-Nummer (1) und Endscreen verhalten sich wie in Szenario 1. Die anderen Menüpunkte rücken um eine Position nach unten. |
+| D59 | Friedliche Tiere lassen passieren, Eigene fangen Geworfenes (Playtest 2026-10-06) | **Freier Schlag (D26) nur von Feinden:** Kreaturen eines Zauberers und neutrale Monster schlagen wie bisher zu. Ein **Wildtier** (D35) schlägt nur, wenn es einen Groll gegen den Besitzer hegt (angegriffen), gerade auf ihn losstürmt (D37) oder – revierhaltend – die Figur in seinem Revier steht (`TERRITORY` = 3 um das Heimatfeld; `combat_hostile_to`). Vorher schlug jedes grasende Tier zu, an dem man angrenzend vorbeiging. **Werfen auf Eigene:** Trifft ein Wurf (Gegenstand oder Phiole, auch die Bombe) eine eigene Figur, fängt sie ihn und hat ihn im Gepäck – kein Schaden. Ist kein Platz frei (6 Plätze, Traglast; beim Reittier zählt der Reiter), fällt er ihr vor die Füße, ebenfalls ohne Schaden. |
+| D60 | Handeln vom Reittier aus (Playtest 2026-10-06) | **Der Reiter handelt aus dem Sattel:** Zaubern (nur der Zauberer, nicht im Flug wie bisher), Türen und Truhen öffnen, schließen, aufheben und das Portal richten sich nach der Art des **Reiters** (`ride_actor_kind`), nicht des Reittiers; die Traglast ist die des Reiters. AP und Ausdauer bleiben die des Reittiers, Kampf und Treffer ebenfalls. **Nichts geht verloren:** Leben, Ausdauer, Kampf, Verteidigung und Magieresistenz des Reiters warten im Reittier, sein Mana steht in dessen Mana-Feld (Balken und Regeneration laufen weiter), sein ganzes Gepäck reist mit. Vorher verlor der Reiter beim Aufsitzen sein Mana, kam beim Absteigen voll geheilt und nur mit dem ersten Gegenstand zurück. **Stirbt das Reittier, wird der Reiter abgeworfen** (auf dem Feld oder daneben) und behält sein Gepäck; nur ohne Landeplatz geht er mit unter. Ersetzt „Ein Reiter kann alles außer PICK UP“ (§4.2). Spielstand v6. |
+| D61 | Offene Türen: das Blatt ragt ins Nachbarfeld (Playtest 2026-10-06) | **Eine offene Tür schwenkt ihr Blatt auf das Feld neben dem Durchgang** und blockiert es (`FE_LEAF_N/E/S/W`, benannt nach der Feldkante, an der das Blatt steht; blockiert Bewegung, nicht die Sicht, nicht zerschlagbar). **Richtung:** in den Raum – die überdachte Seite; sind beide oder keine Seite überdacht, vom Öffnenden weg. Zuerst Nord/West vom Durchgang, dann Süd/Ost; ist innen beidseits kein Platz (Möbel, Figur, Wasser), schwenkt es nach außen; ist nirgends Platz, **klemmt** die Tür („Die Tuer klemmt: kein Platz.“). Schließen klappt das Blatt zurück. Türen, die auf der Karte schon offen sind, bekommen ihr Blatt beim Laden. **Tore im Zaun** klappen weiter flach (kein Blatt). **Optik:** Der offene Rahmen ist innen dunkel (vorher schienen die Dielen durch und es sah aus wie eine geschlossene Tür), das Blatt in der Wand von oben schräg gesehen (`door_leaf_e/w`), in der senkrechten Wand von vorn, an der Mauerseite angeschlagen (`door_leaf_{n,s}{w,e}`); Quelle `tools/art/make_door_leaf.py`. **Karte Level 1:** Kerze, Regal und zwei Kommoden gerückt, damit keine Tür von vornherein klemmt (Check `d61` über alle Karten). In den engen Häusern teilen sich Nachbartüren Blattplätze; dann klemmt die zweite, bis die erste zu ist – größere Häuser lösen das. |
+| D62 | KI-Zauberer: defensiv, plündert zuerst sein Haus (Playtest 2026-10-06) | **Er bleibt im Haus** (überdachte Felder bis 6 vom Startfeld), **plündert es zuerst** (Truhen öffnen; Schätze, Schriftrollen, Schlüssel, Phiolen nimmt er selbst – Waffen und Schilde bleiben für seine Kreaturen; im eigenen Haus kennt er alles ohne Sicht) und **beschwört zuerst**: bis 5 Kreaturen, jeweils die teuerste, die ein Viertel seines Manas als Reserve lässt. **Raus geht er erst**, wenn das Haus geplündert ist **und** höchstens eine Kreatur lebt oder ihn ein **Wutanfall** packt (jede Runde 1 zu 12, dauert 3 Runden). Draußen holt er Schätze in Sicht, sonst zieht er zum Haus des Rivalen. **Zum offenen Portal geht er immer**; vorher läuft er nicht mehr zum Portal-Standort (das hatte ihn gleich zu Beginn aus dem Haus gelockt). **Seine Kreaturen:** Was sie sehen, greifen sie an (Wächter nur bis 5 Felder). Kreaturen mit Waffenhand rüsten sich mit Waffen oder Schilden aus dem Haus oder aus Sicht (8 Felder) aus. Die zwei ältesten **bewachen das Haus**, die übrigen **ziehen zum Haus des Rivalen** und sammeln Schätze in Sicht ein; dort angekommen jagen sie. Die Häuser kennt die KI vom ersten Blick auf die Startaufstellung (`Game.home_x/y`). **Wege:** Breitensuche im 21×21-Fenster zum erreichbaren Feld, das dem Ziel am nächsten liegt; Türen und Truhen auf dem Weg werden geöffnet (Puffer auf dem Stack). **Karte Level 1:** Das Gegnerhaus bekommt dieselbe Grundausstattung wie das eigene (Schwert, Schild, Schriftrolle). Spielstand v7. Offen: Schriftrollen lehren noch keine Zauber (D33) – die KI sammelt sie, liest sie aber erst, wenn D33 steht. |
+| D63 | Panel: Zwei-Buchstaben-Labels und Tastenzeile (Playtest 2026-10-06) | **Die Balken-Labels stehen in einer Zeile** (`AP AU LE KA VE MA`, je zwei Buchstaben unter dem Balken in dessen Farbe) statt dreizeilig senkrecht (B6); die Balken werden dafür 8 px länger. **Darunter stehen die Tasten, die für die aktive Figur gerade wirken**, hintereinander (`g d w e t q v r f c b < >`, mit Leerzeichen solange höchstens 7 passen). Immer mögliche Tasten (Leertaste, `x`, `E`) fehlen. Die Prüfung ist dieselbe wie im Kontextmenü (`action_possible`, Probe an einer Weltkopie) und läuft nur neu, wenn sich Figur, AP, Gepäck, Feld, Karte oder Runde ändern. Im Look-Modus bleibt die Zeile leer. |
+| D64 | Level 1 auf 46×46, geräumigere Häuser (Nutzer 2026-10-06) | **Ersetzt die Größengrenze aus D54.** Level 1 und seine Varianten werden 46×46 (`MAP_MAX_W/H` = 46; die anderen Szenarien behalten ihre Größe). Möglich durch den ausgelagerten Selftest (Reserve 129 KB); Kosten ~32 KB RAM, vor allem der statische Sicht-Cache. **Häuser:** vier große Räume (innen mindestens 5×4), jede Tür mit eigenem Blattplatz (D61), beide Häuser gleich ausgestattet. **Wildtiere wie bisher** (`MAX_UNITS` 32), Truhen und Funde mit der Fläche. Die Gesamtkarte zeichnet 4 px je Feld. Plan: `docs/PLAN-KARTE-46.md`. |
+| D65 | Türblatt sitzt am Rahmen (Nutzer 2026-10-06) | **Das Blatt einer offenen Tür in einer waagerechten Wand wird im Rahmen gezeichnet,** am Pfosten angeschlagen (Eisenbänder, helle Kante), und nicht mehr als loses Brett auf dem Nachbarfeld, wo es wie ein Schrank aussah. Die Regel aus D61 bleibt: Das Nachbarfeld behält das Blatt (`FE_LEAF_E/W`), blockiert und klemmt wie bisher, wird aber nicht mehr gezeichnet. Vier Rahmenkacheln `door_h_open_e/_w` (Blatt zum Betrachter, Raum südlich) und `door_h_far_e/_w` (Blatt weggeschwenkt, Raum nördlich, kleiner und höher); die Scharnierseite folgt dem Blattfeld (`door_h_open_tile` in `view.c`), ohne Blattfeld bleibt der leere Rahmen. Türen in **senkrechten** Wänden behalten ihr Blatt auf dem Nachbarfeld (es liegt schon an der Wand; es passt nicht in den schmalen Rahmen). Ein Blatt, das über die Ecke zum Nachbarfeld läuft, ginge nicht: Es müsste in die Wandkachel daneben ragen. Bild: `docs/design/mockups/door-leaf-d65.png`. |
+| D66 | Abgleich mit dem Spectrum-Original (Nutzer 2026-10-06) | **Der Nutzer hat die Regelwerte des Spectrum-Originals aus dem Z80-Code gelesen** (`docs/REGELN-ORIGINAL-SPECTRUM.md` (Kopie aus `lords-of-chaos-zx-agon`), im Folgenden `ZX K<Kapitel>`). **Ersetzt D7 für die Werte, die in `docs/REGELVERGLEICH-SPECTRUM.md` §2 stehen:** kleine Abweichungen werden direkt angeglichen, große stehen dort als Vorschlagsliste (R1–R39, auch die KI, K10) mit Einordnung, ob sie vom Spectrum erzwungen sind (nein) oder von unseren Entscheidungen stammen (ja). **Angeglichen:** Wood-Typ für Dwarf/Goblin/Troll, Trank-Verbrauch der Giant Bat (2), Use für Ghost, Tragkraft des Zauberers 36; **Designer-Start Constitution 34, Mana 80 (Nutzer: Spectrum), Punktpreise 3 und 8**; AP von Zaubern/Nahkampf/Fernwaffe/Werfen (8), Aufheben (8), Fallen lassen (0), Essen/Füllen (4), Aufsitzen (10), Abfliegen (6), Landen (0); Waffen-, Kessel-, Phiolen- und Krautgewichte; Apfel +10 Con; Essen gibt 4 × Con als Ausdauer; Fliegen per Trank gibt 2 × Boden-AP. **Wichtigster Befund:** `mana_base`/`mana_step` in `spells.csv` sind die XP-Preise des Designers, nicht die Mana-Kosten (45/45 Zeilen), das Original rechnet `Basis × (L+1)` mit kleinen Basiswerten (R1, vorher O4 in WinUAE). Die Kampf-, Zauber- und Schildwerte des Originals hängen an seinem Schadensmodell und werden nur zusammen übernommen (R5). |
+| D67 | Kampfmodell und Mana wie im Original (Nutzer 2026-10-06) | **Entschieden: Weg B des Regelberichts** (`docs/REGELVERGLEICH-SPECTRUM.md` §6.3): Nahkampf `RND(min(255, 2·(C_eff+1))) − Def_eff`, Waffen in Combat und Defence, Bolt/Blitz gegen Defence, feste Trank-Boni, Magic Shield, Flächenschaden und Ausbreitung nach dem Spectrum. **Mana-Kosten `Basis × (L+1)`** (R1; im Z80-Quellcode bestätigt: Giant Bat Stufe 1 = 4, die bisherigen `mana_base`/`mana_step` sind die Designer-XP-Preise). Ersetzt nach Umsetzung D16, D27–D30, D32, D40 und D42; bis dahin gelten sie weiter. **Am 2026-10-07 erweitert: „Alles wie im Original“:** alle Vorschläge R1–R39 des Regelberichts, auch Rückschlag 4 AP + 4 Ausdauer und Gebunden ohne freien Schlag (R7, R8, ersetzt D26, D27, D29), Beschwören mit `L` Kreaturen (R14, ersetzt D34), Designer-Preise des Originals (R2, R3), ein **Gegner-Zauberer, der Routen läuft** (ersetzt D62), Leibwache und Portal-Sammeln der KI, keine Schwierigkeitsstufen. Zusätze ohne Gegenstück im Original bleiben (D35–D37, D54–D58, D61, D64, D65). Plan, Reihenfolge und Phasen: `docs/PLAN-KI.md`. **Phase 0 umgesetzt (2026-10-07, PRs 0a–0h):** Mana K5.2; Wunden-Zähler, Con-Faktor, Ausdauer, Schweben, Abheben/Landen; Nahkampf K6.2, Waffen K7, Rückschlag, Gebunden K11.7; Zauber K5.3, Tränke K8.2, Reichweiten K1; Flächen, Wurf, Bogen, Drachenfeuer; Beschwören mit `L` Kreaturen und Designer-Preise K3.3; Siegpunkte K6.5, Portal schließt, Pixie, Reiter mit eigenen AP; Sicht K11. Offene Annahmen: `docs/FRAGEN.md`. |
+| D68 | Zaubern aus der Luft, Zielhöhe CAST-A/G (Nutzer 2026-10-08, F8) | **Wie im Original (Handbuch, `REGELN-ORIGINAL-SPECTRUM.md` K5.3/K6.6):** Ein fliegender Zauberer darf zaubern, außer **Beschwörungen und Tränken** (nur CAST-G, nicht aus der Luft). Jeder gezielte Zauber wird **auf eine Höhe** gewirkt: im Zielmodus `<` = Luft (CAST-A, blauer Cursor), `>` = Boden (CAST-G, gelb); voreingestellt ist die eigene Höhe des Zauberers. Bolt, Blitz (je Feld), Fluch, Unterwerfung und das Zentrum von Magic Attack treffen nur die Einheit auf dieser Höhe; Enchant nur die Einheiten dort; der Blitz zerschlägt Gelände nur am Boden; Flächenzauber gehen nur auf den Boden; Schild und Auge sind höhenunabhängig. **Teleport in die Luft** nur unter einem Flying-Trank (landet schwebend, Feld ohne Dach und ohne Flieger), Teleport auf den Boden landet den Zauberer. Die Schusslinie folgt K11.6 (`sight_shot_clear`), Boden zu Boden wie bisher `sight_has_spell_los`. Die KI zielt auf die Höhe ihres Ziels. Ersetzt die Sperre „kein Zaubern im Flug“. Code: `spell_line_clear`, `spell_needs_ground`, Parameter `air` in `spell_bolt`/`spell_lightning`/`spell_apply`. |
+| D69 | Geräusche mit Richtung (Playtest 2026-10-08) | **Kampf, Zauber und Tod** werden als Geräusch an ihrem Ort vermerkt (`world_noise`, Ring von 16). Zu Beginn der eigenen Runde zählt, was eine eigene Figur in **16 Feldern** gehört, aber nicht gesehen hat. Das lauteste (Tod vor Kampf vor Zauber), nächste kommt als Warnzeile unten, z. B. „Kampflaerm im Nordosten, 12 Felder +2“, mit Richtung vom eigenen Zauberer aus. Die Gesamtkarte markiert bis zu vier Herkunftsorte als gelbe 3×3-Rahmen (grob, nicht das genaue Feld). Schritte zählen nicht (zu viel Rauschen durch Wildtiere). |
+| D70 | Überreste (Playtest 2026-10-08) | **Wo eine Kreatur stirbt, bleibt ein Skelett** (Kachel `remains`, Ring von 16 je Karte, das älteste verschwindet). Beim Tod blendet das Skelett nach der Todesanimation kurz ein. Untersuchen (`x`) nennt, was es war („Skelett: Goblin“). Gegenstände liegen darüber. Spielstand v12. |
+| D71 | AP-Faktor je Szenario (Playtest 2026-10-08) | **Szenario-Schlüssel `ap_scale` (Prozent, Format v3):** Alle AP-Budgets (Boden, Luft, Reiter, Spieler- und KI-Zauberer, später Beschworene) werden damit multipliziert. Level 1 hat **128** (46/36, weil die Karte mit D64 von 36 auf 46 Felder wuchs). Die Tabellenwerte bleiben die des Originals; andere Karten bleiben bei 100. |
+| D72 | Rundenwechsel automatisch und schneller (Playtest 2026-10-08) | **Beim ersten Rundenwechsel fragt das Spiel einmal:** „Automatischer Rundenwechsel? (J/N)“ (gespeichert in `settings.dat`). Mit `<auto>` endet die Runde, sobald keine eigene Einheit mehr handeln kann. Das Kennzeichen `<auto>`/`<man>` steht oben rechts im Panel, **Shift+A** schaltet um. Die Phasenbildschirme sind kürzer (0,35 s statt 0,7 s, Schritte 0,08 s statt 0,14 s). **Nach einem sichtbaren Kampf** des Gegners bleibt die Karte 1,2 s stehen, bevor der Phasenbildschirm sie verdeckt. |
+| D73 | Sichtwarnung (Playtest 2026-10-08) | **Kommt eine fremde Kreatur ins Blickfeld**, erscheint unten „Goblin im Osten!“ (bei mehreren „(+n)“). Die Zeile bleibt, bis der Spieler eine Aktion macht; Umsehen, Tab, Karte, Nachrichten und Hilfe zählen nicht als Aktion. |
+| D74 | Nachrichten neben der Gesamtkarte (Playtest 2026-10-08) | **Die Gesamtkarte (`m`) zeigt rechts im Panel die neuesten Nachrichten** (neueste oben weiß, ältere grau, in Zeilen zu 13 Zeichen). Das Nachrichtenfenster `l` bleibt. |
+| D75 | Fokus auf Welt 1 (Nutzer 2026-10-08) | **Slayer's Dungeon und Ragaril's Domain sind im Menü ausgegraut** und nicht wählbar, bis sie spielbar sind. Die Zufallskarte (Varianten von Level 1) bleibt. |
 | F7 | Dächer: nur Regel oder auch sichtbar? | e | **Entschieden:** sichtbar. Von außen sieht man das Dach; steht eine eigene Einheit im Gebäude, wird das Dach über dem Gebäude ausgeblendet. |
 | F8 | 5-Ladungen-Grenze beibehalten? | i | Ja, aber im Setup abschaltbar. |
-| F9 | Setup-Panel und Timer in v1.0? | i | Nur die Zufalls-Zauberer-Stufe; Spiellänge folgt aus dem Szenario, Timer nach v1.0. |
+| F9 | Setup-Panel und Timer in v1.0? | i | Nur die Zufalls-Zauberer-Stufe; Spiellänge folgt aus dem Szenario, Timer nach v1.0. **[2026-10-08: Stufe entfällt, das Original kennt nur einen Zufallszauberer (K3.2); das Setup würfelt ihn mit `Z` neu (FRAGEN F15)]** |

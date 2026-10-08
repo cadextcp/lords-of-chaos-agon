@@ -1,0 +1,18 @@
+# Victory jingle (end screen) - own composition, plays once.
+tempo 132
+
+channel pluck 110
+fallback square
+c5:1 e5:1 g5:1 c6:3 g5:1 c6:5
+
+channel triangle 80
+env 8 80 200 120
+c3:3 g2:3 c3:6
+
+channel sine 45
+env 20 80 180 200
+e4:3 d4:3 e4:6
+
+channel drum 70
+fallback noise
+c2:1 c2:1 c2:1 g3:3 c2:6

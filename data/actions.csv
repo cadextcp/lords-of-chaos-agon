@@ -1,24 +1,25 @@
-# AP / stamina cost per action (own design, starting values for balancing).
-# Anchors: wizard ~40 AP and "about 4 spells per turn" (PM 7) -> cast = 10 AP.
-#          creature AP range 24..62 (PM 34): a slow creature (24 AP) still gets 2 attacks.
-# Melee/return attacks additionally require stamina > 0 (PM 18).
+# AP / stamina cost per action, from the original (K8.1) where it has one.
+# Movement is not listed here: terrain cost, half of it in stamina (world_spend).
+# Door, chest and key costs are our own (the original has only "Use" at 4 AP).
+# Return blow (K6.2): costs the defender 4 AP + 4 stamina every time.
 action,ap,stamina,notes
-cast,10,0,any spell; cancelled targeting costs nothing
-melee,10,4,move into enemy; also attacking terrain
-return_attack,6,3,automatic in enemy turn if AP and stamina left
-fire,12,2,bow / flame breath
-throw,10,3,object in use
-pick_up,6,1,per object
-drop,2,0,object in use
+cast,8,0,any spell; cancelled targeting costs nothing
+melee,8,8,move into enemy; also attacking terrain
+return_attack,4,4,counter blow of the defender (needs both)
+fire,8,0,bow / flame breath
+throw,8,0,object in use
+pick_up,8,0,per object
+drop,0,0,object in use
 change,4,0,switch object in use
-eat,6,0,
+eat,4,0,
 drink,4,0,from vial or cauldron
-fill,6,0,vial at cauldron
+fill,4,0,vial at cauldron
 read,8,0,scroll
-open_door,6,1,also close
-unlock,8,1,door or chest with key in use
-open_chest,8,1,
-ride,6,1,mount; dismount = 4
-dismount,4,1,
-take_off,4,2,start flying
-land,4,1,
+open_door,6,0,also close
+unlock,8,0,door or chest with key in use
+open_chest,8,0,
+ride,10,0,mount; dismount = 4
+dismount,4,0,
+take_off,6,0,start flying
+land,0,0,
+attack_terrain,6,6,smash an obstacle (K6.4)

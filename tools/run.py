@@ -36,8 +36,8 @@ def log(msg: str) -> None:
     print(f"[run] {msg}", flush=True)
 
 
-def write_autoexec(args: list[str], keyboard: int) -> None:
-    cmd = " ".join(["loc", *args])
+def write_autoexec(args: list[str], keyboard: int, program: str = "loc") -> None:
+    cmd = " ".join([program, *args])
     # MOS wants LF line endings in autoexec.txt
     text = f"SET KEYBOARD {keyboard}\ncd /{env.GAME_DIR}\n{cmd}\n"
     (env.SDCARD / "autoexec.txt").write_bytes(text.encode())
@@ -54,6 +54,19 @@ def main() -> int:
     ap.add_argument("--dump", action="store_true", help="game writes loc.log screen dumps")
     ap.add_argument("--bench", action="store_true", help="game measures redraw times -> loc.log")
     ap.add_argument("--keytest", action="store_true", help="keyboard spike: log every key event")
+    ap.add_argument("--vdptest", nargs="?", const="0", default=None,
+                    help="VDP feature spike, optional test number 1-5 (ADR 0012)")
+    ap.add_argument("--endscreen", action="store_true", help="show the end screen (dev)")
+    ap.add_argument("--endscreen-lose", action="store_true", help="show the game over screen (dev)")
+    ap.add_argument("--helppage", action="store_true", help="show the help viewer (dev, M5)")
+    ap.add_argument("--lexicon", action="store_true", help="show the lexicon, all seen (dev, M5)")
+    ap.add_argument("--fxdemo", action="store_true", help="play every fx once (dev, M5c)")
+    ap.add_argument("--tutorial", action="store_true",
+                    help="start the guided tutorial map (M5)")
+    ap.add_argument("--house", action="store_true", help="wizard house map (dev)")
+    ap.add_argument("--testland", action="store_true", help="testland map (dev)")
+    ap.add_argument("--no-menu", action="store_true",
+                    help="skip the main menu (scripted runs)")
     ap.add_argument("--free-round1", action="store_true",
                     help="lift the round 1 movement lock (PM 7) for scripted runs")
     ap.add_argument("--fly", action="store_true",
@@ -76,11 +89,37 @@ def main() -> int:
     logfile.unlink(missing_ok=True)
     mode = (["--dump"] if args.dump else ["--bench"] if args.bench
             else ["--keytest"] if args.keytest else [])
+    if args.house:
+        mode.append("--house")
+    if args.testland:
+        mode.append("--testland")
+    if args.no_menu:
+        # the game skips its menu in dump/bench mode anyway; for a plain
+        # scripted run pass a marker the game accepts everywhere
+        if not mode:
+            mode.append("--dump")
     if args.free_round1:
         mode.append("--free-round1")
     if args.fly:
         mode.append("--fly")
-    write_autoexec(mode, args.keyboard)
+    if args.tutorial:
+        mode.append("--tutorial")
+    if args.endscreen:
+        mode = ["--endscreen"]
+    elif args.endscreen_lose:
+        mode = ["--endscreen-lose"]
+    elif args.helppage:
+        mode = ["--helppage"]
+    elif args.lexicon:
+        mode = ["--lexicon"]
+    elif args.fxdemo:
+        mode = ["--fxdemo"]
+    if args.vdptest is not None:             # separate spike program (ADR 0012)
+        write_autoexec([args.vdptest], args.keyboard, program="vdptest")
+        logfile = env.SDCARD / env.GAME_DIR / "vdptest.log"
+        logfile.unlink(missing_ok=True)
+    else:
+        write_autoexec(mode, args.keyboard)
 
     cmd = [str(env.GUI_EMULATOR), "--sdcard", str(env.SDCARD.resolve()),
            "--firmware", env.FIRMWARE]

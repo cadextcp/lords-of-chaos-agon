@@ -1,0 +1,18 @@
+# Scenario 2: Slayer's Dungeon (GDD 9.1, D22).
+# Undead guards; the player wizard should carry level 2 (GDD 9).
+
+map slayers_dungeon
+
+book p1 giant_bat 3, magic_bolt 2, dwarf 2, magic_shield 2, healing_potion 2
+wizard p2 ELBO_SMOGG mana 140 ap 34 sta 68 con 63 com 9 def 10 mr 90 carry 48 vp 24
+book p2 pixie 2 80, dwarf 2 160, goblin 1 90, troll 1 100, giant 2 130, centaur 2 100, gorilla 1 30, crocodile 2 80, giant_bat 1 50, giant_spider 1 0, zombie 0 130, ghost 0 150, spectre 1 190, demon 1 200, strength_potion 2 160, protection_potion 3 140, invisibility_potion 2 180, speed_potion 1 100, super_potion 3 200, healing_potion 4 0, gooey_blob 6 160, tangle_vine 5 170, magic_bolt 4 180, magic_lightning 3 190, magic_shield 5 200
+
+route 0 flags 0x42 : 9,9 26,8 26,26 9,26
+route 1 flags 0x42 : 6,5 28,28 6,28 28,6
+route 2 flags 0x40 : 5,6 17,17 29,22 17,17
+route 3 flags 0x40 : 7,4 28,4 28,10 7,10
+route 4 flags 0x00 : 7,25 28,25 28,30 7,30
+route 5 flags 0x01 : 2,1 31,31 2,31 31,1
+route 6 flags 0x00 : 4,9 4,26 12,26 12,9
+route 7 flags 0x00 : 30,9 30,26 22,26 22,9
+summon_routes 8

@@ -2,13 +2,25 @@
 
 #include "../core/chord.h"
 
+bool input_poll(struct keyboard_event_t *e)
+{
+    if (!kbuf_poll_event(e))
+        return false;
+    if (e->vkey == 0 && e->ascii == 27)
+        e->vkey = VK_ESC;
+    return true;
+}
+
+/* Movement by arrow keys only (GDD 5.2): WASD is NOT mapped - w, a, s
+ * and d are action keys there (wield, plus d = drop; a/s unused), and
+ * the arrow branch of the event loop would shadow them. */
 uint8_t input_arrow(uint8_t vkey)
 {
     switch (vkey) {
-    case VK_UP: case VK_LOWER('w'): return ARROW_UP;
-    case VK_DOWN: case VK_LOWER('s'): return ARROW_DOWN;
-    case VK_LEFT: case VK_LOWER('a'): return ARROW_LEFT;
-    case VK_RIGHT: case VK_LOWER('d'): return ARROW_RIGHT;
+    case VK_UP: return ARROW_UP;
+    case VK_DOWN: return ARROW_DOWN;
+    case VK_LEFT: return ARROW_LEFT;
+    case VK_RIGHT: return ARROW_RIGHT;
     default: return 0;
     }
 }

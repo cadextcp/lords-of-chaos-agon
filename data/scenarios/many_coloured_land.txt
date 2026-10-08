@@ -1,0 +1,22 @@
+# Scenario 1: The Many Coloured Land (GDD 9.1, D22).
+# The map carries terrain, units, treasures and the portal.
+
+map many_coloured_land
+
+book p1 giant_bat 2, magic_bolt 1, dwarf 1, magic_shield 2, magic_eye 1, teleport 1, curse 1, healing_potion 2, strength_potion 1, magic_fire 2
+wizard p2 TORQUEMADA mana 120 ap 34 sta 68 con 63 com 9 def 10 mr 90 carry 48 vp 24
+book p2 goblin 2 100, troll 1 95, centaur 2 90, elephant 1 85, bear 1 80, crocodile 1 75, giant_bat 1 70, harpy 2 65, vampire 2 110, spectre 1 60, strength_potion 2 180, protection_potion 2 170, invisibility_potion 2 160, speed_potion 2 150, flying_potion 2 140, super_potion 2 190, healing_potion 2 160, magic_fire 5 120, gooey_blob 3 60, tangle_vine 5 100, flood 3 30, magic_bolt 3 200, magic_lightning 2 220, magic_shield 3 60
+
+route 0 flags 0x42 : 12,13 31,11 33,33 12,33
+route 1 flags 0x42 : 8,9 36,37 8,36 36,7
+route 2 flags 0x40 : 6,7 21,21 38,29 21,21
+route 3 flags 0x40 : 9,5 36,5 36,16 9,13
+route 4 flags 0x00 : 9,32 35,31 36,39 8,39
+route 5 flags 0x01 : 2,3 40,40 3,40 41,1
+route 6 flags 0x00 : 5,11 5,33 15,33 15,11
+route 7 flags 0x00 : 39,16 39,33 30,33 29,12
+summon_routes 8
+
+# D71: the 46x46 map (D64) is 28 % wider than the original 36x36 -
+# every AP budget grows with it (46/36 = 1.28).
+ap_scale 128

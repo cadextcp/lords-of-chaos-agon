@@ -1,0 +1,5 @@
+# Guided tutorial (M5): two simple spells for the wizard, no AI book.
+
+map tutorial
+
+book p1 magic_bolt 1, dwarf 1

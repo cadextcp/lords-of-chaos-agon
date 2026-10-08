@@ -14,6 +14,7 @@ forest,8,12,4,6,yes,wood,,yes
 magic_wood,10,15,5,8,yes,wood,,yes
 shadow_wood,10,15,5,8,yes,wood,,yes
 rubble,8,12,4,6,yes,rock,,no
+bridge,4,6,2,3,yes,,,no
 swamp,10,15,5,8,yes,water,,no
 water,12,18,6,9,yes,water,drown,no
 door_closed,,,,,no,,,yes

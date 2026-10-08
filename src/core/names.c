@@ -7,8 +7,8 @@
 static const char *const FLOOR_NAMES[FL_COUNT] = {
     [FL_STONE] = "Steinboden", [FL_WOOD] = "Holzdielen",
     [FL_GRASS] = "Gras", [FL_PATH] = "Weg", [FL_TALL_GRASS] = "Hohes Gras",
-    [FL_FOREST] = "Wald", [FL_MAGIC_WOOD] = "Zauberwald", [FL_SHADOW_WOOD] = "Schattenwald",
-    [FL_SWAMP] = "Sumpf", [FL_WATER] = "Wasser", [FL_RUBBLE] = "Geroell",
+    [FL_FOREST] = "Wald", [FL_MAGIC_WOOD] = "Zauberwald", [FL_SHADOW_WOOD] = "Totenwald",
+    [FL_SWAMP] = "Sumpf", [FL_WATER] = "Wasser", [FL_RUBBLE] = "Geroell", [FL_BRIDGE] = "Bruecke",
 };
 
 static const char *const FEATURE_NAMES[FE_COUNT] = {
@@ -16,7 +16,11 @@ static const char *const FEATURE_NAMES[FE_COUNT] = {
     [FE_DOOR_OPEN] = "Tuer (offen)", [FE_BED] = "Bett", [FE_BOOKSHELF] = "Regal",
     [FE_CANDLE] = "Kerzenstaender", [FE_CAULDRON] = "Kessel", [FE_TABLE] = "Tisch",
     [FE_CHAIR] = "Stuhl", [FE_DRAWERS] = "Kommode", [FE_CHEST] = "Truhe",
-    [FE_TREE] = "Baum", [FE_ROCK] = "Fels",
+    [FE_TREE] = "Baum", [FE_ROCK] = "Fels", [FE_DOOR_LOCKED] = "Tuer (abgeschl.)", [FE_WINDOW] = "Fenster",
+    [FE_FENCE] = "Zaun",
+    [FE_LEAF_N] = "Tuerblatt", [FE_LEAF_E] = "Tuerblatt",
+    [FE_LEAF_S] = "Tuerblatt", [FE_LEAF_W] = "Tuerblatt",
+    [FE_CHEST_FREE] = "Truhe (offen)",
 };
 
 const char *name_unit(const Unit *u)
@@ -60,16 +64,19 @@ const char *name_decor(uint8_t decor)
     switch (decor) {
     case DE_RUG: return "Teppich";
     case DE_PENTACLE: return "Pentakel";
+    case DE_FLOWERS: return "Blumen";
+    case DE_MUSHROOMS: return "Pilze";
     default: return "";
     }
 }
 
 const char *name_object(uint16_t tile)
 {
-    switch (tile) {
-    case T_OBJ_SCROLL: return "Schriftrolle";
-    default: return "Gegenstand";
-    }
+    uint8_t k;
+    for (k = 0; k < OBJ_COUNT; k++)
+        if (OBJECTS[k].tile == tile)
+            return OBJECTS[k].name;      /* German name from objects.csv */
+    return "Gegenstand";
 }
 
 const char *describe_field(const World *w, const Sight *s, int16_t x, int16_t y,
@@ -92,11 +99,22 @@ const char *describe_field(const World *w, const Sight *s, int16_t x, int16_t y,
     if (u != NO_UNIT) {
         const Unit *un = &w->units[u];
         bool own = !s || un->owner == s->owner;
-        if (own || !s || (sight_visible(s, w, wx, wy) && !(un->flags & UF_INVISIBLE))) {
+        if (own || !s || (sight_unit_visible(s, w, un) && !(un->flags & UF_INVISIBLE))) {
             if (un->flags & UF_FLYING)
                 snprintf(buf, len, "%s (Luft)", name_unit(un));
             else
                 snprintf(buf, len, "%s", name_unit(un));
+            return buf;
+        }
+    }
+    {   /* a skeleton under no object: what it once was (D70) */
+        const Remains *r = world_remains_at(w, wx, wy);
+        uint8_t i;
+        for (i = 0; i < w->object_count; i++)
+            if (w->objects[i].x == wx && w->objects[i].y == wy)
+                break;
+        if (r && i == w->object_count) {
+            snprintf(buf, len, "Skelett: %s", CREATURES[r->kind].name);
             return buf;
         }
     }

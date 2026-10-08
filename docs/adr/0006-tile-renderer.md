@@ -55,6 +55,6 @@
 
 - Ein Voll-Redraw ist nur beim Scrollen nötig (Kamera mit 2 Feldern Rand) und liegt im Ziel. Normale Züge zeichnen 2–4 Felder.
 - Wenn nötig, gibt es weitere Hebel:
-  1. VDU-Bytes eines Frames in **einen** Puffer sammeln und mit `mos_puts` senden; das spart CPU-Overhead der `vdp_*`-Einzelaufrufe.
-  2. Pro Feld eine Zeichenfolge als **Buffered Command** auf dem VDP ablegen (Issue #2).
-  3. Unveränderte Untergrund-Ebenen beim Scrollen per VDP-Blit verschieben.
+  1. ~~VDU-Bytes eines Frames in **einen** Puffer sammeln und mit `mos_puts` senden~~ — **umgesetzt 2026-10-05** (Plattform-Audit B4/B5). `render_fields()` öffnet einen Stapel, `draw_tile()` schreibt `VDU 23,27,&20,id;` und `VDU 23,27,3,x;y;` in einen 512-Byte-Puffer, `mos_puts` schickt ihn mit Länge (RST 18h, Delimiter gilt nur bei Länge 0). Wiederholte Kacheln sparen ihr `select_bitmap`. Nur der Kachelpfad puffert, und nur innerhalb eines Stapels — so kann nichts hinter einem halbvollen Puffer umsortiert werden.
+  2. ~~Pro Feld eine Zeichenfolge als **Buffered Command** auf dem VDP ablegen (Issue #2)~~ — **verworfen.** Für wechselnde Koordinaten muss man vor jedem Aufruf Bytes im Puffer patchen (Befehl 5), was etwa so viele Bytes kostet wie das Zeichenkommando selbst. Lohnt nur für Folgen, die unverändert wiederholt werden.
+  3. Unveränderte Untergrund-Ebenen beim Scrollen verschieben. **Achtung:** `VDU 23,27,3` gehorcht laut VDP-Doku *weder* dem Grafik-Viewport *noch* dem Koordinatensystem — ein Viewport-Scroll (`VDU 23,7,2,…`) müsste also mit von Hand geclippten Kachelkoordinaten kombiniert werden. Vorher in `spikes/vdptest/` messen, ob das in MODE 8 überhaupt trägt.

@@ -683,6 +683,272 @@ def diamond():
     return outline(im)
 
 
+def apple(magic):
+    im = new()
+    if magic:
+        ellipse(im, (7, 9, 16, 20), fill=C["violet"], outline=C["purple"])
+    else:
+        ellipse(im, (7, 9, 16, 20), fill=C["red"], outline=C["dred"])
+    px(im, 11, 8, C["dbrown"])
+    px(im, 12, 7, C["dbrown"])
+    px(im, 13, 8, C["dgreen"])
+    px(im, 14, 8, C["lgreen"])
+    if magic:
+        px(im, 9, 12, C["white"])
+        px(im, 13, 16, C["white"])
+        px(im, 15, 11, C["white"])
+    return outline(im)
+
+
+def mushroom(magic):
+    im = new()
+    if magic:
+        ellipse(im, (6, 8, 17, 14), fill=C["magenta"], outline=C["purple"])
+    else:
+        ellipse(im, (6, 8, 17, 14), fill=C["red"], outline=C["dred"])
+    rect(im, 9, 14, 14, 20, C["cream"])
+    px(im, 9, 10, C["white"])
+    px(im, 13, 12, C["white"])
+    px(im, 12, 9, C["white"])
+    if magic:
+        px(im, 7, 13, C["cyan"])
+        px(im, 15, 10, C["cyan"])
+        px(im, 11, 7, C["cyan"])
+    return outline(im)
+
+
+def key_(col):
+    im = new()
+    rect(im, 8, 14, 9, 21, col)
+    px(im, 7, 15, col)
+    px(im, 10, 15, col)
+    px(im, 7, 14, col)
+    px(im, 10, 14, col)
+    rect(im, 10, 16, 14, 17, col)
+    px(im, 14, 18, col)
+    px(im, 14, 20, col)
+    return im
+
+
+def roof():
+    """Visible roof (F7, M4e): red shingles with a ridge, drawn over a
+    building when no own unit stands inside."""
+    im = new()
+    rect(im, 0, 4, 23, 20, C["red"])
+    for y in range(5, 20, 4):
+        line(im, [(0, y), (23, y)], C["dred"])
+    line(im, [(0, 4), (12, 0), (23, 4)], C["dred"])
+    line(im, [(0, 5), (12, 1), (23, 5)], C["bred"])
+    return im
+
+
+def weapon_art(kind):
+    """The seven remaining weapons (M4e), all bottom-centre."""
+    im = new()
+    if kind == "knife":
+        for i in range(6):
+            px(im, 10 + i, 18 - i, C["white"])
+            px(im, 11 + i, 18 - i, C["grey"])
+        px(im, 9, 19, C["tan"])
+        px(im, 8, 20, C["tan"])
+    elif kind == "spear":
+        for i in range(12):
+            px(im, 6 + i, 20 - i, C["lwood"])
+        line(im, [(16, 7), (18, 5)], C["white"])
+        line(im, [(17, 8), (18, 6)], C["grey"])
+    elif kind == "club":
+        for i in range(9):
+            px(im, 7 + i, 20 - i, C["wood"])
+        ellipse(im, (12, 5, 19, 12), fill=C["dbrown"], outline=C["black"])
+    elif kind == "axe":
+        for i in range(10):
+            px(im, 6 + i, 21 - i, C["lwood"])
+        rect(im, 13, 5, 18, 10, C["grey"])
+        rect(im, 14, 6, 17, 9, C["white"])
+    elif kind == "ninja_star":
+        for (dx, dy) in ((0, -4), (0, 4), (-4, 0), (4, 0)):
+            rect(im, 12 + dx - 1, 14 + dy - 1, 12 + dx + 1, 14 + dy + 1,
+                 C["white"])
+        px(im, 12, 14, C["dgrey"])
+    elif kind == "slayer":
+        for i in range(9):
+            px(im, 8 + i, 19 - i, C["lviolet"])
+            px(im, 9 + i, 19 - i, C["violet"])
+        line(im, [(6, 18), (8, 20)], C["tan"])
+    else:  # magic slayer
+        for i in range(9):
+            px(im, 8 + i, 19 - i, C["lblue"])
+            px(im, 9 + i, 19 - i, C["blue"])
+        px(im, 16, 9, C["white"])
+        line(im, [(6, 18), (8, 20)], C["tan"])
+    return im
+
+
+def cauldron_obj(full):
+    im = new()
+    ellipse(im, (5, 10, 18, 21), fill=C["dgrey"], outline=C["black"])
+    ellipse(im, (7, 12, 16, 15), fill=C["lgreen"] if full else C["dgrey"])
+    px(im, 4, 11, C["dbrown"])
+    px(im, 19, 11, C["dbrown"])
+    if full:
+        for x in range(8, 16, 2):
+            px(im, x, 9, C["lgreen"])
+            px(im, x + 1, 8, C["green"])
+    return im
+
+
+def vial(filled):
+    """filled: 0 empty (grey), 1 potion (cyan), 2 bomb (red)."""
+    im = new()
+    rect(im, 10, 7, 13, 9, C["dgrey"])
+    fill = C["dgrey"] if filled == 0 else C["bred"] if filled == 2 else C["cyan"]
+    ellipse(im, (8, 10, 15, 20), fill=fill, outline=C["grey"])
+    px(im, 10, 12, C["white"])
+    px(im, 9, 13, C["white"])
+    return im
+
+
+# Filled vials (polish round): one flask shape, the liquid colour and a
+# small mark tell the potions apart - they used to share obj_vial_full.
+POTIONS = {
+    "strength": ("bred", "red", "sword"),
+    "protection": ("lblue", "blue", "shield"),
+    "invisibility": ("sky", "lblue", "dots"),
+    "speed": ("yellow", "orange", "bolt"),
+    "flying": ("white", "grey", "wing"),
+    "healing": ("lgreen", "green", "cross"),
+}
+
+
+def potion(kind):
+    light, dark, mark = POTIONS[kind]
+    im = new()
+    rect(im, 10, 4, 13, 6, C["wood"])          # cork
+    rect(im, 10, 7, 13, 9, C["grey"])          # neck
+    px(im, 10, 7, C["white"])
+    ellipse(im, (6, 9, 17, 21), fill=C[dark], outline=C["grey"])
+    ellipse(im, (7, 12, 16, 20), fill=C[light])
+    rect(im, 7, 11, 16, 11, C[dark])           # liquid surface
+    px(im, 8, 13, C["white"])                  # glint
+    px(im, 8, 14, C["white"])
+    px(im, 9, 12, C["white"])
+    col = C["black"] if light in ("yellow", "white", "sky", "lgreen") else C["white"]
+    if mark == "sword":                         # diagonal blade, hilt
+        line(im, [(10, 18), (14, 13)], col)
+        line(im, [(10, 15), (12, 17)], col)
+        px(im, 9, 19, C["cream"])
+    elif mark == "shield":
+        rect(im, 10, 14, 14, 16, col)
+        line(im, [(11, 17), (13, 17)], col)
+        px(im, 12, 18, col)
+    elif mark == "dots":
+        for (x, y) in [(10, 14), (13, 15), (11, 17), (14, 18), (12, 13)]:
+            px(im, x, y, C["white"])
+    elif mark == "bolt":
+        line(im, [(13, 13), (11, 16), (13, 16), (11, 19)], col)
+    elif mark == "wing":
+        line(im, [(10, 17), (12, 14), (14, 14)], col)
+        line(im, [(11, 17), (13, 15), (15, 15)], col)
+    elif mark == "cross":
+        line(im, [(12, 13), (12, 18)], C["white"])
+        line(im, [(10, 15), (14, 15)], C["white"])
+    return im
+
+
+def mistletoe():
+    im = new()
+    for i in range(8):
+        ellipse(im, (5 + i, 10 + (i % 3), 9 + i, 14 + (i % 3)),
+                fill=C["dgreen"] if i % 2 else C["green"])
+    px(im, 13, 9, C["cream"])
+    px(im, 15, 12, C["cream"])
+    return im
+
+
+def clover():
+    im = new()
+    ellipse(im, (6, 8, 12, 14), fill=C["green"])
+    ellipse(im, (11, 8, 17, 14), fill=C["green"])
+    ellipse(im, (8, 13, 14, 19), fill=C["green"])
+    line(im, [(12, 18), (12, 22)], C["lgreen"])
+    return im
+
+
+def crystal():
+    im = new()
+    poly(im, [(12, 6), (17, 12), (12, 21), (7, 12)], C["lblue"])
+    poly(im, [(12, 8), (15, 12), (12, 19), (9, 12)], C["white"])
+    return outline(im)
+
+
+def sulph():
+    im = new()
+    ellipse(im, (6, 10, 17, 20), fill=C["yellow"], outline=C["gold"])
+    px(im, 9, 13, C["orange"])
+    px(im, 13, 16, C["orange"])
+    px(im, 12, 12, C["cream"])
+    return outline(im)
+
+
+def fairywing():
+    im = new()
+    ellipse(im, (5, 8, 12, 15), fill=C["lviolet"], outline=C["violet"])
+    ellipse(im, (11, 8, 18, 15), fill=C["lblue"], outline=C["blue"])
+    line(im, [(11, 15), (11, 21)], C["skin"])
+    return im
+
+
+def nitro():
+    im = new()
+    rect(im, 8, 9, 15, 20, C["red"])
+    rect(im, 9, 6, 14, 9, C["dgrey"])
+    px(im, 10, 12, C["yellow"])
+    px(im, 12, 15, C["yellow"])
+    px(im, 13, 12, C["yellow"])
+    return outline(im)
+
+
+def dragon_herb():
+    im = new()
+    for i in range(6):
+        px(im, 7 + i * 2, 20 - i, C["dgreen"])
+        px(im, 7 + i * 2, 19 - i, C["green"])
+    ellipse(im, (13, 6, 18, 11), fill=C["red"], outline=C["dred"])
+    px(im, 15, 8, C["orange"])
+    return im
+
+
+def area_tile(kind, phase):
+    """Quarter overlay for area effects (GDD 11.3, layer 7): dithered."""
+    im = new()
+    if kind == "fire":
+        cols = [(255, 170, 0), (255, 85, 0)] if phase == 0 else [(255, 85, 0), (255, 0, 0)]
+        for y in range(N):
+            for x in range(N):
+                if (x + y) % 3 != 0:
+                    im.putpixel((x, y), cols[(x + y + phase) % 2])
+    elif kind == "blob":
+        col = C["lviolet"] if phase == 0 else C["purple"]
+        for y in range(N):
+            for x in range(N):
+                if (x // 2 + y) % 2 == 0:
+                    im.putpixel((x, y), col)
+    elif kind == "vine":
+        base = C["green"] if phase == 0 else C["dgreen"]
+        for i in range(0, N, 4):
+            for y in range(N):
+                if (i + y) % 6 < 3:
+                    im.putpixel((i + (y % 4), y), base)
+                    im.putpixel((min(i + 1, N - 1) + (y % 2), y), C["dgreen"])
+    else:  # flood
+        col = C["blue"] if phase == 0 else C["lblue"]
+        for y in range(N):
+            for x in range(N):
+                if (x + 2 * y) % 4 != 0:
+                    im.putpixel((x, y), col if (x + y + phase) % 5 else C["lblue"])
+    return im
+
+
 def portal(phase):
     """Swirling portal: an arch of stones around a pulsing centre."""
     im = new()
@@ -744,6 +1010,258 @@ def cursor(col):
     return im
 
 
+# ---------------------------------------------------------------- combat fx (M5c)
+# Translucent-looking overlays: dithered so the field below stays visible
+# (the renderer draws them as plain tiles over the map).
+def fx_slash():
+    """Diagonal white/yellow streaks - a swung blade over the target."""
+    im = new()
+    for i in range(24):
+        for (dx, dy) in ((0, 0), (1, 1)):
+            x, y = i + dx, 23 - i + dy
+            if 0 <= x < N and 0 <= y < N:
+                px(im, x, y, C["white"])
+        if i % 3 == 0:
+            x, y = i + 2, 23 - i + 2
+            if 0 <= x < N and 0 <= y < N:
+                px(im, x, y, C["yellow"])
+        if i % 4 == 2:
+            x, y = i - 1, 23 - i - 1
+            if 0 <= x < N and 0 <= y < N:
+                px(im, x, y, C["grey"])
+    return im
+
+
+def fx_hit():
+    """Red starburst dither - damage lands here."""
+    im = new()
+    for y in range(N):
+        for x in range(N):
+            dx, dy = x - 11, y - 11
+            d2 = dx * dx + dy * dy
+            if d2 <= 81 and (x + y) % 2 == 0:
+                px(im, x, y, C["bred"] if d2 <= 25 else C["red"])
+            elif 81 < d2 <= 121 and (x + y) % 3 == 0:
+                px(im, x, y, C["orange"])
+    return im
+
+
+def fx_miss():
+    """Grey streaks passing by - the attack found nothing."""
+    im = new()
+    for y in range(2, N):
+        for x in range(N):
+            if (x + 2 * y) % 5 == 0:
+                px(im, x, y, C["grey"])
+            elif (x + 2 * y) % 7 == 3:
+                px(im, x, y, C["dgrey"])
+    return im
+
+
+def fx_death(phase):
+    """0 white flash, 1-2 fading ghost, 3 dust puff with a small cross."""
+    im = new()
+    if phase == 0:
+        for y in range(N):
+            for x in range(N):
+                if (x + y) % 2 == 0:
+                    px(im, x, y, C["white"])
+    elif phase in (1, 2):
+        step = 2 if phase == 1 else 4
+        for y in range(4, 21):
+            for x in range(6, 18):
+                if (x + y) % step == 0:
+                    px(im, x, y, C["grey"] if phase == 1 else C["dgrey"])
+    else:
+        for y in range(14, 22):
+            for x in range(4, 20):
+                if (x + y) % 3 == 0:
+                    px(im, x, y, C["dgrey"])
+        line(im, [(11, 6), (11, 10)], C["grey"])
+        line(im, [(9, 8), (13, 8)], C["grey"])
+    return im
+
+
+
+# ---------- sprite effects (polish round: VDP sprites over the map) ----------
+
+def _disc(im, cx, cy, r, col, dither=False):
+    for y in range(N):
+        for x in range(N):
+            if (x - cx) ** 2 + (y - cy) ** 2 <= r * r and (not dither or (x + y) % 2 == 0):
+                px(im, x, y, col)
+
+
+def fx_bolt(phase):
+    """Magic bolt: a white-hot orb in a blue halo, sparks turning."""
+    im = new()
+    _disc(im, 11, 11, 7, C["blue"], dither=True)
+    _disc(im, 11, 11, 5, C["lblue"])
+    _disc(im, 11, 11, 3, C["sky"])
+    _disc(im, 11, 11, 1, C["white"])
+    import math
+    for k in range(4):
+        a = phase * 0.8 + k * math.pi / 2
+        px(im, round(11 + 9 * math.cos(a)), round(11 + 9 * math.sin(a)), C["white"])
+    return im
+
+
+def fx_lightning(phase):
+    """Crackling lightning node: white core, yellow forks."""
+    import random
+    rng = random.Random(40 + phase)
+    im = new()
+    for _ in range(5):
+        x, y = 11, 11
+        for _ in range(7):
+            x = max(0, min(N - 1, x + rng.choice((-2, -1, 1, 2))))
+            y = max(0, min(N - 1, y + rng.choice((-2, -1, 1, 2))))
+            px(im, x, y, C["yellow"])
+            if 0 < x < N - 1:
+                px(im, x + 1, y, C["cream"])
+    _disc(im, 11, 11, 3, C["white"])
+    return im
+
+
+ARROW_DIRS = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)]
+
+
+def fx_arrow(d):
+    """Arrow in one of 8 directions (0 = north, clockwise)."""
+    dx, dy = ARROW_DIRS[d]
+    im = new()
+    for i in range(-7, 8):
+        px(im, 11 + dx * i, 11 + dy * i, C["wood"])
+    hx, hy = 11 + dx * 8, 11 + dy * 8                     # head
+    px(im, hx, hy, C["white"])
+    for (ox, oy) in ((-dy - dx, dx - dy), (dy - dx, -dx - dy)):
+        px(im, hx + (ox if abs(ox) < 2 else ox // 2), hy + (oy if abs(oy) < 2 else oy // 2), C["grey"])
+    tx, ty = 11 - dx * 7, 11 - dy * 7                     # fletching
+    for (ox, oy) in ((-dy, dx), (dy, -dx)):
+        px(im, tx + ox, ty + oy, C["white"])
+        px(im, tx + ox - dx, ty + oy - dy, C["white"])
+    return im
+
+
+def fx_spin(phase):
+    """A thrown object tumbling: a blade, turned 45 degrees per frame."""
+    im = new()
+    dirs = [(1, 0), (0, 1)] if phase == 0 else [(1, 1), (-1, 1)]
+    for (dx, dy) in dirs:
+        for i in range(-6, 7):
+            px(im, 11 + dx * i, 11 + dy * i, C["grey"] if abs(i) > 2 else C["white"])
+    px(im, 11, 11, C["wood"])
+    return im
+
+
+def fx_summon(phase):
+    """Summoning swirl, growing over three frames."""
+    import math
+    im = new()
+    r = (4, 8, 11)[phase]
+    for t in range(0, 360, 6):
+        a = math.radians(t + phase * 40)
+        rr = r * (0.55 + 0.45 * (t % 120) / 120)
+        x, y = round(11 + rr * math.cos(a)), round(11 + rr * math.sin(a))
+        if 0 <= x < N and 0 <= y < N:
+            px(im, x, y, (C["magenta"], C["pink"], C["lviolet"])[(t // 60) % 3])
+    _disc(im, 11, 11, max(1, 3 - phase), C["white"])
+    return im
+
+
+def fx_tele(phase):
+    """Teleport: a column of cyan sparks."""
+    import random
+    rng = random.Random(70 + phase)
+    im = new()
+    for _ in range(26):
+        x = 11 + round(rng.gauss(0, 3))
+        y = rng.randrange(N)
+        if 0 <= x < N:
+            px(im, x, y, rng.choice((C["cyan"], C["sky"], C["white"])))
+    return im
+
+
+def fx_shield():
+    """Protective dome over the unit."""
+    im = new()
+    for y in range(N):
+        for x in range(N):
+            d2 = (x - 11) ** 2 + (y - 14) ** 2
+            if 90 <= d2 <= 130 and y <= 16:
+                px(im, x, y, C["lblue"] if (x + y) % 2 else C["sky"])
+    for x in (6, 16):
+        px(im, x, 7, C["white"])
+    return im
+
+
+def fx_curse():
+    """A purple skull rising - curse, subversion."""
+    im = new()
+    _disc(im, 11, 10, 6, C["violet"])
+    _disc(im, 11, 10, 5, C["lviolet"])
+    for (x, y) in ((9, 9), (13, 9)):
+        _disc(im, x, y, 1, C["purple"])
+    rect(im, 9, 15, 13, 17, C["lviolet"])
+    for x in (9, 11, 13):
+        px(im, x, 17, C["purple"])
+    return im
+
+
+def fx_bubble(phase):
+    """Potion bubbles."""
+    im = new()
+    spots = [(8, 18, 2), (14, 14, 3), (10, 9, 2), (16, 6, 1)] if phase == 0 else \
+            [(9, 15, 3), (15, 10, 2), (11, 5, 2), (6, 11, 1)]
+    for (x, y, r) in spots:
+        for yy in range(N):
+            for xx in range(N):
+                d2 = (xx - x) ** 2 + (yy - y) ** 2
+                if r * r - r <= d2 <= r * r + r:
+                    px(im, xx, yy, C["lgreen"])
+        px(im, x - 1, y - 1, C["white"])
+    return im
+
+
+def fx_spark(phase):
+    """Generic magic: four-pointed sparkles."""
+    im = new()
+    stars = [(6, 6, 3), (16, 9, 4), (9, 16, 2)] if phase == 0 else [(15, 5, 2), (7, 12, 4), (16, 17, 3)]
+    for (x, y, r) in stars:
+        for i in range(-r, r + 1):
+            px(im, x + i, y, C["yellow"] if abs(i) < r else C["orange"])
+            px(im, x, y + i, C["yellow"] if abs(i) < r else C["orange"])
+        px(im, x, y, C["white"])
+    return im
+
+
+# Damage digits for the rising numbers (8x8 icons, red with an outline).
+_DIGITS = {
+    "0": ["xxx", "x.x", "x.x", "x.x", "xxx"], "1": [".x.", "xx.", ".x.", ".x.", "xxx"],
+    "2": ["xxx", "..x", "xxx", "x..", "xxx"], "3": ["xxx", "..x", ".xx", "..x", "xxx"],
+    "4": ["x.x", "x.x", "xxx", "..x", "..x"], "5": ["xxx", "x..", "xxx", "..x", "xxx"],
+    "6": ["xxx", "x..", "xxx", "x.x", "xxx"], "7": ["xxx", "..x", ".x.", ".x.", ".x."],
+    "8": ["xxx", "x.x", "xxx", "x.x", "xxx"], "9": ["xxx", "x.x", "xxx", "..x", "xxx"],
+    "minus": ["...", "...", "xxx", "...", "..."], "bang": [".x.", ".x.", ".x.", "...", ".x."],
+}
+
+
+def _digit_map(rows, fill):
+    grid = [["."] * 8 for _ in range(8)]
+    for y, row in enumerate(rows):
+        for x, c in enumerate(row):
+            if c == "x":
+                for oy in (-1, 0, 1):
+                    for ox in (-1, 0, 1):
+                        gx, gy = x + 2 + ox, y + 1 + oy
+                        if grid[gy][gx] == ".":
+                            grid[gy][gx] = "k"
+    for y, row in enumerate(rows):
+        for x, c in enumerate(row):
+            if c == "x":
+                grid[y + 1][x + 2] = fill
+    return ["".join(r) for r in grid]
+
 ICON_MAPS = {
     "boot":   ["..kkk...", "..kgk...", "..kgk...", "..kgk...", ".kggkkk.", ".kggggk.", ".kkkkkk.", "........"],
     "bolt":   ["....kyk.", "...kyk..", "..kyyyk.", ".kyyyk..", "...kyk..", "..kyk...", "..kk....", "........"],
@@ -758,6 +1276,9 @@ ICON_MAPS = {
     "st_wound":     ["...k....", "..krk...", "..krk...", ".krrrk..", "krrrrrk.", ".krrrk..", "..kkk...", "........"],
     "st_invisible": ["........", ".kkkkk..", "kgwwwgk.", "kwgkgwk.", "kgwwwgk.", ".kkkkk..", "k.....k.", "........"],
 }
+for _name, _rows in _DIGITS.items():
+    ICON_MAPS[f"dmg_{_name}"] = _digit_map(_rows, "y" if _name == "bang" else "r")
+
 ICON_LEGEND = {"k": C["black"], "g": C["green"], "y": C["yellow"], "r": C["bred"],
                "w": C["white"], "b": C["blue"], "p": C["pink"], "c": C["lblue"]}
 
@@ -785,6 +1306,30 @@ def owner_variant(im, owner):
 
 
 # ---------------------------------------------------------------- main
+# Tiles redesigned in the v2 art pass (design-tool export): the PNGs in
+# assets/tiles are the source now - this generator no longer owns them,
+# a full run skips them instead of overwriting the v2 art.
+V2_TILES = frozenset("""
+    area_blob_0 area_blob_1 area_fire_0 area_fire_1 area_flood_0 area_flood_1
+    area_vine_0 area_vine_1 bear centaur crocodile cursor_blue cursor_green
+    cursor_red cursor_white cursor_yellow demon door_h_closed door_h_open
+    door_v_closed door_v_open dwarf elephant floor_forest floor_grass
+    floor_magicwood floor_path floor_rubble floor_shadowwood floor_stone
+    floor_swamp floor_tallgrass floor_water_0 floor_water_1 floor_wood ghost
+    giant giant_bat giant_spider goblin gold_dragon gorilla green_dragon
+    gryphon harpy lion obj_apple obj_axe obj_bow obj_cauldron_empty
+    obj_cauldron_full obj_chest_key obj_clover obj_club obj_crystal
+    obj_diamond obj_door_key obj_dragon_herb obj_emerald obj_fairywing
+    obj_gold obj_knife obj_magic_apple obj_magic_mushroom obj_magic_slayer
+    obj_mistletoe obj_mushroom obj_ninja_star obj_nitro obj_ruby
+    obj_rune_stone obj_scroll obj_shield obj_slayer obj_spear obj_sulph
+    obj_sword obj_vial_bomb obj_vial_empty obj_wand pegasus
+    pixie portal_0 portal_1 red_dragon rock roof spectre troll unicorn
+    vampire wall_00 wall_01 wall_02 wall_03 wall_04 wall_05 wall_06 wall_07
+    wall_08 wall_09 wall_10 wall_11 wall_12 wall_13 wall_14 wall_15 wizard
+    zombie
+""".split())
+
 def all_tiles() -> dict[str, Image.Image]:
     t = {
         "floor_stone": floor_stone(), "floor_wood": floor_wood(),
@@ -804,17 +1349,57 @@ def all_tiles() -> dict[str, Image.Image]:
         "obj_gold": gold(), "obj_emerald": emerald(),
         "obj_rune_stone": rune_stone(), "obj_wand": wand(),
         "obj_ruby": ruby(), "obj_diamond": diamond(),
+        "obj_apple": apple(False), "obj_mushroom": mushroom(False),
+        "obj_magic_apple": apple(True), "obj_magic_mushroom": mushroom(True),
+        "obj_door_key": key_(C["yellow"]), "obj_chest_key": key_(C["cyan"]),
+        "obj_cauldron_empty": cauldron_obj(False),
+        "obj_cauldron_full": cauldron_obj(True),
+        "obj_vial_empty": vial(0),
+        "obj_vial_strength": potion("strength"),
+        "obj_vial_protection": potion("protection"),
+        "obj_vial_invisibility": potion("invisibility"),
+        "obj_vial_speed": potion("speed"),
+        "obj_vial_flying": potion("flying"),
+        "obj_vial_healing": potion("healing"),
+        "obj_vial_bomb": vial(2),
+        "obj_mistletoe": mistletoe(), "obj_clover": clover(),
+        "obj_crystal": crystal(), "obj_sulph": sulph(),
+        "obj_fairywing": fairywing(), "obj_nitro": nitro(),
+        "obj_dragon_herb": dragon_herb(),
+        "obj_knife": weapon_art("knife"), "obj_spear": weapon_art("spear"),
+        "obj_club": weapon_art("club"), "obj_axe": weapon_art("axe"),
+        "obj_ninja_star": weapon_art("ninja_star"),
+        "obj_slayer": weapon_art("slayer"),
+        "obj_magic_slayer": weapon_art("magic slayer"),
+        "roof": roof(),
+        "area_fire_0": area_tile("fire", 0), "area_fire_1": area_tile("fire", 1),
+        "area_blob_0": area_tile("blob", 0), "area_blob_1": area_tile("blob", 1),
+        "area_vine_0": area_tile("vine", 0), "area_vine_1": area_tile("vine", 1),
+        "area_flood_0": area_tile("flood", 0), "area_flood_1": area_tile("flood", 1),
         "portal_0": portal(0), "portal_1": portal(1),
         "overlay_remembered": remembered(), "unexplored": unexplored(),
         "air_shadow": air_shadow(),
         "cursor_white": cursor(C["white"]), "cursor_green": cursor(C["lgreen"]),
         "cursor_yellow": cursor(C["yellow"]), "cursor_red": cursor(C["bred"]),
         "cursor_blue": cursor(C["blue"]),
+        "fx_slash": fx_slash(), "fx_hit": fx_hit(), "fx_miss": fx_miss(),
+        "fx_death_0": fx_death(0), "fx_death_1": fx_death(1),
+        "fx_death_2": fx_death(2), "fx_death_3": fx_death(3),
+        "fx_bolt_0": fx_bolt(0), "fx_bolt_1": fx_bolt(1),
+        "fx_lightning_0": fx_lightning(0), "fx_lightning_1": fx_lightning(1),
+        "fx_spin_0": fx_spin(0), "fx_spin_1": fx_spin(1),
+        "fx_summon_0": fx_summon(0), "fx_summon_1": fx_summon(1),
+        "fx_summon_2": fx_summon(2),
+        "fx_tele_0": fx_tele(0), "fx_tele_1": fx_tele(1),
+        "fx_shield": fx_shield(), "fx_curse": fx_curse(),
+        "fx_bubble_0": fx_bubble(0), "fx_bubble_1": fx_bubble(1),
+        "fx_spark_0": fx_spark(0), "fx_spark_1": fx_spark(1),
+        **{f"fx_arrow_{d}": fx_arrow(d) for d in range(8)},
     }
     for m in range(16):
         t[f"wall_{m:02d}"] = wall(m)
-    from creatures import all_creatures   # 25 creatures (D13), separate module
-    t.update(all_creatures())
+    for n in V2_TILES:                    # v2 art: the PNGs are the source
+        t.pop(n, None)
     return t
 
 

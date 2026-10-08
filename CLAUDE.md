@@ -16,16 +16,17 @@ uv run tools/run.py --dump --time 8 --free-round1 --keys "dd" --screenshot   # G
 ## Grafik- und Karten-Pipeline
 
 - **Kacheln** sind `assets/tiles/*.png` (24×24, nur Farben aus `assets/palette/agon64.gpl`). `tools/build_tiles.py` erzeugt `build/tiles.bin` und `src/core/gen/tiles.h`.
-- **Karten** sind `data/maps/*.txt`. `tools/gen_maps.py` erzeugt `build/maps/*.map` (Binärformat, Laden von SD) und `src/core/gen/maps.c` (dieselben Bytes für Tests). `tools/mockup.py` liest dieselben Textdateien (ADR 0008).
+- **Karten** sind `data/maps/*.txt`. `tools/gen_maps.py` erzeugt `build/maps/*.map` (Binärformat, Laden von SD) und `src/core/gen/maps.c` (dieselben Bytes für Tests). `tools/mockup.py` liest dieselben Textdateien (ADR 0008). `tools/gen_variants.py` erzeugt daraus 16 Gelände-Varianten von Level 1 (`build/maps/mcl_vNN.map`, D57; die Häuser kommen aus der Basiskarte).
 - **Regeltabellen** sind `data/*.csv`. `tools/gen_data.py` erzeugt `src/core/gen/data.[ch]`: Zauber, Bodenkosten, Aktionen.
 - `src/core/gen/` ist generiert und gitignored. `tools/build.py` und `tools/test.py` erzeugen es automatisch.
+- **Aseprite (ADR 0013):** Je Familie eine `assets/aseprite/*.aseprite` (Kachel = Slice). Bearbeiten in Aseprite oder über das MCP `aseprite` (`.mcp.json`, eingerichtet von `tools/setup.py`), dann `uv run tools/art/aseprite.py export`; vor Grafik-Commits `… check`. Die PNGs bleiben eingecheckt, Build und CI brauchen kein Aseprite.
 - `tools/art/make_tiles.py` hat die ersten Kacheln erzeugt. Die PNGs sind jetzt die Quelle; das Skript nur mit `--only NAME` neu laufen lassen.
 
 ## Regeln
 
 - **`src/core` ist plattformfrei.** Keine `agon/`-, MOS- oder VDP-Header, nur `stdint`-Typen (`int` ist auf dem eZ80 24 Bit), Zufall nur über `rng.h`, keine Gleitkommazahlen in Regeln (ADR 0003).
 - **Alles unter `src/` wird von agondev kompiliert.** Host-Code gehört nach `host/`.
-- **Neue Core-Logik bekommt Checks in `src/core/selftest.c`.** Sie laufen auf Host **und** eZ80.
+- **Neue Core-Logik bekommt Checks in `tests/selftest.c`.** Sie laufen auf Host **und** eZ80 (eigenes Programm `loctest.bin`, nicht im Spiel; QUIRK S6). `build.py` bricht ab, wenn die RAM-Reserve des Spiels unter 16 KB fällt.
 - **View-Hash (`HOUSE_VIEW_HASH`)** ändert sich, wenn Karte, Kacheln oder Kompositionsregeln sich ändern. Den neuen Wert aus der Testausgabe übernehmen, aber nur bewusst.
 - **Spieldesign:** `docs/design/GDD.md` ist die Quelle der Wahrheit. Entscheidungen D1–D13 stehen in §14. Keine Originalwerte kopieren (D7), außer sie sind dort ausdrücklich übernommen.
 - **Niemals committen:**

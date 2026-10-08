@@ -24,6 +24,7 @@ Derived tiles generated here (GDD 11.2/11.3):
 
 from __future__ import annotations
 
+import re
 import struct
 import sys
 from pathlib import Path
@@ -32,6 +33,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools" / "art"))
+from night import nightify  # noqa: E402
 from palette import KEY_DARK, KEY_LIGHT, OWNERS, PALETTE  # noqa: E402
 
 TILES = ROOT / "assets" / "tiles"
@@ -89,9 +91,11 @@ def collect() -> list[tuple[str, Image.Image]]:
     for p in sorted(TILES.glob("*.png")):
         im = Image.open(p).convert("RGBA")
         check(p.name, im)
+        im = nightify(p.stem, im)          # D54: the game plays at night
         if im.size != (24, 24):
             raise SystemExit(f"{p.name}: expected 24x24, got {im.size}")
-        if p.stem in OWNED:
+        frame = re.fullmatch(r"(.+)_f[12]", p.stem)     # idle frames of a creature
+        if p.stem in OWNED or (frame and frame.group(1) in OWNED):
             for owner in OWNERS:
                 entries.append((f"{p.stem}_{owner}", owner_variant(im, owner)))
         else:

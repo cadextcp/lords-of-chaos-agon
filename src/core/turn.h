@@ -30,11 +30,21 @@ struct Turns {
     uint8_t active_id;   /* its Unit.id: survives reordering removals */
     uint8_t humans;      /* owner bitmask of human players */
     bool round1_lock;    /* no movement in round 1, casting only (PM 7) */
+    bool wildlife;       /* herds cross the map (D35; campaign scenarios) */
     Rng rng;             /* independent creatures; seeded, so runs replay */
     TurnAiFn ai;         /* NULL: AI phases pass (tests) */
     void *ai_ctx;
     TurnAiFn on_round;   /* called after each round change (portal etc.) */
     void *round_ctx;
+    /* Called after an AI phase (and the independents' steps) so the
+     * frontend can drain the event ring and animate (M5c). NULL: off. */
+    TurnAiFn on_ai;
+    void *on_ai_ctx;
+    /* Before every AI wizard phase and the independents' phase (owner =
+     * OWN_NEUTRAL): the frontend shows its phase screen (original: you
+     * only hear the others). NULL = nothing. */
+    void (*on_phase)(struct Turns *t, World *w, uint8_t owner, void *ctx);
+    void *on_phase_ctx;
 };
 
 /* Start round 1: run the independents, then the first owner's phase. */

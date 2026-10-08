@@ -23,12 +23,16 @@ void view_set_portal(int16_t x, int16_t y);
 
 #define VIEW_W 9
 #define VIEW_H 9
-#define VIEW_MAX_LAYERS 11   /* floor, 4 half floors, decor, feature, object, unit, sight overlay, cursor */
+#define VIEW_MAX_LAYERS 12   /* floor, 4 half floors, decor, feature, object, unit (+ rider), sight overlay, cursor */
 #define NO_CURSOR 0xFF
 
 typedef struct {
     uint8_t n;
     uint16_t air;                   /* bit i: layer i is an airborne unit */
+    uint16_t ride;                  /* bit i: layer i is a rider behind its mount (drawn higher) */
+    uint16_t foe;                   /* bit i: layer i belongs to an enemy wizard (B4) */
+    uint8_t wade;                   /* layer index + 1 of a unit in deep water, drawn lower (C4); 0 = none.
+                                       A byte, not a mask: scache holds one FieldLayers per map field. */
     uint16_t id[VIEW_MAX_LAYERS];   /* TileId, bottom to top */
 } FieldLayers;
 
@@ -42,7 +46,7 @@ int16_t view_origin_y(void);
 void view_follow(const World *w, int16_t x, int16_t y);
 /* Cursor frame at a world position (tile e.g. T_CURSOR_GREEN), or none. */
 void view_set_cursor(int16_t x, int16_t y, uint16_t tile);
-/* Animation phase (e.g. candle flicker), 0 or 1. */
+/* Animation phase (candle flicker, flowing water), 0..3; two-frame tiles use bit 0. */
 void view_set_phase(uint8_t phase);
 
 /* Recompute the cached static layers (floor, walls, decor, furniture).
@@ -58,6 +62,18 @@ uint8_t view_update(const World *w);
  * view_update() when nothing else changed. */
 uint8_t view_animate(uint8_t phase);
 bool view_dirty(uint8_t vx, uint8_t vy);
+/* Idle lift of a creature in a field (D53): high nibble = pixels to draw it
+ * higher, low nibble = its layer index + 1; 0 = none. Presentation only,
+ * not part of the layers. */
+uint8_t view_bob(uint8_t vx, uint8_t vy);
+/* Creature idle animation (D53) on or off; off by default so tests and
+ * tools compose the plain base tiles. The game switches it on. */
+void view_set_idle(bool on);
+/* Force one view field to repaint (fx overlays, M5c). */
+void view_mark_dirty(uint8_t vx, uint8_t vy);
+/* Leave the unit with this stable id out of the composition while the
+ * frontend animates it (NO_UNIT = none). Presentation only. */
+void view_hide_unit(uint8_t id);
 const FieldLayers *view_field(uint8_t vx, uint8_t vy);
 void view_clean(void);
 
@@ -66,5 +82,16 @@ void view_compose(const World *w, int16_t x, int16_t y, FieldLayers *out);
 
 /* FNV-1a over all fields of the current frame (cross-platform test). */
 uint32_t view_hash(void);
+
+/* The animation partner table (anim_pair) is maintained by hand next to
+ * the ANIM_A/ANIM_B lists. True when the two agree for every tile id.
+ * For the selftest - drift would silently freeze an animation. */
+/* The figure whose line of sight lifts roofs (D41). Only the active
+ * figure sees under a roof; a negative x lifts none. */
+void view_set_roof_viewer(int16_t x, int16_t y);
+/* The active unit (C3): where own units share a field, it is the one drawn. */
+void view_set_active_unit(uint8_t id);
+
+bool view_anim_table_ok(void);
 
 #endif

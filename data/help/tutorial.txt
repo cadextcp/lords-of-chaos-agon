@@ -1,0 +1,47 @@
+# Guided tutorial (compiled into build/help/tutorial.hlp).
+# Page 0 is the intro; pages 1..7 belong to the steps of the tutorial
+# engine (src/core/tutorial.c, same order as TutorialStep). The FIRST
+# body line of a step page is shown as the in-game hint line.
+
+= Tutorial
+Willkommen beim Tutorial!
+Die Zeile unten zeigt jeweils den
+naechsten Schritt. Folge den
+Hinweisen bis zum Portal.
+F1 zeigt jederzeit die Steuerung.
+
+= 1/7 Bewegen
+Pfeiltasten: Zauberer bewegen.
+Bewege den Zauberer ein Feld weit
+ueber die Wiese.
+
+= 2/7 Einheit wechseln
+Tab: zum Zwerg wechseln.
+Tab waehlt die naechste eigene
+Einheit, Leertaste macht sie fertig.
+
+= 3/7 Schluessel nehmen
+Auf den Schluessel stellen, g.
+Stelle dich auf den Schluessel und
+druecke g, um ihn aufzuheben.
+
+= 4/7 Truhe oeffnen
+Truhe anrempeln oeffnet sie.
+Rempel die Truhe an - der Schluessel
+in der Hand spart AP.
+
+= 5/7 Kampf
+Goblin anrempeln und besiegen.
+Heranbewegen und anrempeln. Der
+Zwerg mit der Axt schlaegt gut zu.
+
+= 6/7 Zaubern
+c: Zauber waehlen und wirken.
+Druecke c, waehle mit einem
+Buchstaben, ziele mit den Pfeilen
+und wirke mit Enter.
+
+= 7/7 Portal
+Zum Portal im Osten und hinein.
+Fuehre den Zauberer zum Portal im
+Osten und tritt hinein - fertig!

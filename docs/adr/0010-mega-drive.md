@@ -40,7 +40,7 @@ Verworfen bzw. zurückgestellt:
    - Die Logik wird umgezogen, nicht neu geschrieben. Das Agon-Frontend übersetzt danach nur noch Tasten. Selftests spielen Befehlsfolgen ab.
    - Dieselben Befehle sind später die Nachrichten für Hotseat-Übergabe, Link-Kabel und Online.
 3. **Daten im ROM statt auf SD.** Karten kommen aus dem schon generierten `src/core/gen/maps.c` (dieselben Bytes wie die `.map`-Dateien, ADR 0008). Kacheln liefert ein generiertes C-Array von `tools/build_tiles_md.py`. Speichern (M4i) geht später ins Batterie-SRAM.
-4. **Darstellung** (GDD §11.5):
+4. **Darstellung** (GDD §11.7):
    - **Plane B:** Terrain-Komposit, von der CPU pro Dirty-Feld in 9 VRAM-Zellen gesetzt und per DMA übertragen. Das Fenster belegt 81 × 9 × 32 Byte ≈ 23 KB VRAM.
    - **Sprites:** Einheiten und Cursor.
    - **Plane A:** Overlays.
