@@ -50,7 +50,7 @@ typedef struct {
     uint8_t prio[SPELL_COUNT];
 } AiProfile;
 
-/* Load the AI part of a compiled scenario (.scn v2): profiles, routes, plans of
+/* Load the AI part of a compiled scenario (.scn v2/v3, ADR 0014): profiles, routes, plans of
  * map units, triggers. Routes, plans and triggers go into the world (load the
  * map first). */
 bool ai_scenario_load(World *w, AiProfile *profiles, const uint8_t *data, uint16_t len);

@@ -17,7 +17,7 @@ Ebenen 1 und 2 laufen in CI bei jedem Push und PR.
 - **Exit-Code:**
   - Host: Anzahl der Fehler (begrenzt auf 1).
   - Agon: `emu_exit()` schreibt den Exit-Code auf I/O-Port 0. Der Emulator beendet sich damit. Vorher wartet `emu_exit()` darauf, dass der UART alles gesendet hat; sonst gingen die letzten Zeilen verloren.
-- **Referenz-Hashes** wie `DEMO_HASH` werden bewusst angepasst, wenn sich Inhalte ändern. Sie müssen auf Host **und** Agon gleich sein.
+- **Referenz-Hashes** wie `HOUSE_VIEW_HASH` (Kachelansicht des Zauberer-Hauses) werden bewusst angepasst, wenn sich Inhalte ändern. Sie müssen auf Host **und** Agon gleich sein.
 
 ## Screenshot-freies Debuggen in der GUI
 
