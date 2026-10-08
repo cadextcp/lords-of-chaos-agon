@@ -10,6 +10,8 @@ One-time setup: download pinned toolchain + emulator, stage the SD card.
   * agondev toolchain  -> toolchain/agondev/    (Linux binaries; on Windows
                                                  they run inside WSL)
   * SD card template   -> sdcard/staged/        (copied from the emulator bundle)
+  * aseprite-mcp       -> toolchain/aseprite-mcp/ (pinned git commit, ADR 0013;
+                                                 only when Aseprite is installed)
 
 Every download is verified against a pinned SHA-256.
 
@@ -25,6 +27,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import shutil
+import subprocess
 import sys
 import tarfile
 import urllib.request
@@ -141,6 +144,39 @@ def setup_agondev(force: bool) -> None:
     log(f"agondev -> {env.AGONDEV_DIR}")
 
 
+# The MCP server that lets Claude Code drive Aseprite (ADR 0013). A git
+# commit is the pin; the server reads ASEPRITE_PATH from its own .env.
+ASEPRITE_MCP_URL = "https://github.com/diivi/aseprite-mcp"
+ASEPRITE_MCP_COMMIT = "90d1696a7e41edff89bbd0823ae6a5f86c114bcc"
+ASEPRITE_MCP_DIR = env.ROOT / "toolchain" / "aseprite-mcp"
+
+
+def setup_aseprite_mcp(force: bool) -> None:
+    sys.path.insert(0, str(env.ROOT / "tools" / "art"))
+    import aseprite as ase  # noqa: E402  (finds the Aseprite executable)
+    try:
+        exe = ase.aseprite_exe()
+    except SystemExit:
+        log("aseprite-mcp: Aseprite not found (ASEPRITE_PATH) - skipped")
+        return
+    if force and ASEPRITE_MCP_DIR.exists():
+        shutil.rmtree(ASEPRITE_MCP_DIR)
+    if not (ASEPRITE_MCP_DIR / ".git").exists():
+        subprocess.run(["git", "clone", "-q", ASEPRITE_MCP_URL, str(ASEPRITE_MCP_DIR)],
+                       check=True)
+    head = subprocess.run(["git", "-C", str(ASEPRITE_MCP_DIR), "rev-parse", "HEAD"],
+                          check=True, capture_output=True, text=True).stdout.strip()
+    if head != ASEPRITE_MCP_COMMIT:
+        subprocess.run(["git", "-C", str(ASEPRITE_MCP_DIR), "fetch", "-q", "origin"],
+                       check=True)
+        subprocess.run(["git", "-C", str(ASEPRITE_MCP_DIR), "checkout", "-q",
+                        ASEPRITE_MCP_COMMIT], check=True)
+    subprocess.run(["uv", "sync", "-q"], cwd=ASEPRITE_MCP_DIR, check=True)
+    (ASEPRITE_MCP_DIR / ".env").write_text(f"ASEPRITE_PATH={Path(exe).as_posix()}\n",
+                                           encoding="utf-8")
+    log(f"aseprite-mcp {ASEPRITE_MCP_COMMIT[:8]} -> {ASEPRITE_MCP_DIR} (Aseprite: {exe})")
+
+
 def stage_sdcard(force: bool) -> None:
     src = env.EMU_DIR / "sdcard"
     if not src.exists():
@@ -157,6 +193,7 @@ def main() -> int:
     ap.add_argument("--force", action="store_true", help="re-extract everything")
     ap.add_argument("--no-emulator", action="store_true", help="toolchain only")
     ap.add_argument("--no-toolchain", action="store_true", help="emulator only")
+    ap.add_argument("--no-aseprite", action="store_true", help="skip the aseprite MCP server")
     args = ap.parse_args()
 
     if not (env.IS_WINDOWS or env.IS_LINUX):
@@ -168,7 +205,9 @@ def main() -> int:
             stage_sdcard(args.force)
         if not args.no_toolchain:
             setup_agondev(args.force)
-    except (OSError, RuntimeError) as e:
+        if not args.no_aseprite:
+            setup_aseprite_mcp(args.force)
+    except (OSError, RuntimeError, subprocess.CalledProcessError) as e:
         log(f"failed: {e}")
         return 1
     log("done. next: uv run tools/build.py && uv run tools/test.py")

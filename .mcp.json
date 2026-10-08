@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "aseprite": {
+      "command": "uv",
+      "args": ["--directory", "toolchain/aseprite-mcp", "run", "-m", "aseprite_mcp"]
+    }
+  }
+}

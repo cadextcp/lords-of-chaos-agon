@@ -2,6 +2,12 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Aseprite als Grafikquelle (ADR 0013, 2026-10-08)
+
+### Hinzugefügt
+- **Aseprite-Quellen:** Alle 321 Bilder (Kacheln und Icons) liegen als 16 Familien in `assets/aseprite/*.aseprite`, jede Kachel als Slice. `tools/art/aseprite.py import|export|check|list` wandelt hin und zurück; `check` vergleicht pixelgenau, `export` schreibt nur geänderte PNGs.
+- **MCP-Server `aseprite`** ([diivi/aseprite-mcp](https://github.com/diivi/aseprite-mcp), gepinnt): `tools/setup.py` richtet ihn in `toolchain/aseprite-mcp/` ein (`--no-aseprite` überspringt), `.mcp.json` meldet ihn für Claude Code an.
+
 ## [Unreleased] – Tempo und Überblick in Welt 1 (Playtest 2026-10-08)
 
 ### Hinzugefügt
