@@ -2,6 +2,24 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Tempo und Überblick in Welt 1 (Playtest 2026-10-08)
+
+### Hinzugefügt
+- **Geräusche mit Richtung (D69):** Kampf, Zauber und Tod, die eigene Figuren in 16 Feldern hören, aber nicht sehen, erscheinen zu Beginn der eigenen Runde als Warnzeile („Kampflaerm im Nordosten, 12 Felder“). Die Gesamtkarte markiert die groben Herkunftsorte gelb.
+- **Überreste (D70):** Wo eine Kreatur stirbt, bleibt ein Skelett; `x` zeigt, was es war. Neue Kachel `remains`.
+- **Sichtwarnung (D73):** Kommt eine fremde Kreatur ins Blickfeld, steht unten „Goblin im Osten!“, bis man handelt.
+- **Automatischer Rundenwechsel (D72):** Beim ersten Rundenwechsel fragt das Spiel; `<auto>`/`<man>` oben rechts, Shift+A schaltet um.
+- **Nachrichten neben der Gesamtkarte (D74).**
+
+### Geändert
+- **AP-Faktor je Szenario (D71):** Level 1 gibt allen Einheiten ×1,28 AP (Zauberer 51 statt 40), passend zur 46×46-Karte. Szenariodatei **v3** (`ap_scale`).
+- **Schnellere Phasenbildschirme (D72)**, dafür bleibt die Karte nach einem sichtbaren Gegnerangriff 1,2 s stehen.
+- **Welt 2 und 3 ausgegraut (D75).**
+- **Spielstand v12.**
+
+### Intern
+- `world_noise`/`world_noise_clear`, `world_add_remains`/`world_remains_at`, `world_scale_ap`/`world_set_ap_scale`; `fx_drain_play` meldet gezeigte Kämpfe; `render_side_clear`, `render_status_tag`. Selftest `test_d69_d71`; View-Hash wegen der neuen Kachel neu.
+
 ## [Unreleased] – Offene Fragen F3, F7, F8, F15, F31 (2026-10-08)
 
 ### Hinzugefügt

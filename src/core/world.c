@@ -487,6 +487,81 @@ uint8_t world_find_unit(const World *w, uint8_t id)
 
 /* Add a freshly initialised unit (summons); returns its index. The id
  * counter wraps after 255 spawns, so ids still in use are skipped. */
+uint8_t world_scale_ap(const World *w, uint8_t ap)
+{
+    uint16_t v;
+    if (w->ap_scale == 0 || w->ap_scale == 100)
+        return ap;
+    v = (uint16_t)((uint16_t)ap * w->ap_scale / 100u);
+    return v > 255 ? 255 : (uint8_t)v;
+}
+
+void world_set_ap_scale(World *w, uint8_t pct)
+{
+    uint8_t old = w->ap_scale ? w->ap_scale : 100, i;
+    if (pct == 0)
+        pct = 100;
+    w->ap_scale = pct;
+    for (i = 0; i < w->unit_count; i++) {   /* back to the base, then scaled */
+        Unit *u = &w->units[i];
+        u->ap_max = world_scale_ap(w, (uint8_t)((uint16_t)u->ap_max * 100u / old));
+        u->ap_fly = world_scale_ap(w, (uint8_t)((uint16_t)u->ap_fly * 100u / old));
+        u->ap = u->ap_max;
+        if (u->rider_ap_max) {
+            u->rider_ap_max = world_scale_ap(w, (uint8_t)((uint16_t)u->rider_ap_max * 100u / old));
+            u->rider_ap = u->rider_ap_max;
+        }
+    }
+}
+
+void world_add_remains(World *w, int16_t x, int16_t y, uint8_t kind, uint8_t owner)
+{
+    Remains *r;
+    if (!world_wrap(w, &x, &y))
+        return;
+    r = &w->remains[w->remains_next];
+    w->remains_next = (uint8_t)((w->remains_next + 1) % REMAINS_MAX);
+    if (w->remains_n < REMAINS_MAX)
+        w->remains_n++;
+    r->x = (uint8_t)x;
+    r->y = (uint8_t)y;
+    r->kind = kind;
+    r->owner = owner;
+}
+
+const Remains *world_remains_at(const World *w, int16_t x, int16_t y)
+{
+    uint8_t k;
+    if (!world_wrap(w, &x, &y))
+        return NULL;
+    for (k = 1; k <= w->remains_n; k++) {   /* newest first */
+        const Remains *r = &w->remains[(w->remains_next + REMAINS_MAX - k) % REMAINS_MAX];
+        if (r->x == x && r->y == y)
+            return r;
+    }
+    return NULL;
+}
+
+void world_noise(World *w, int16_t x, int16_t y, uint8_t kind, uint8_t owner)
+{
+    Noise *n;
+    if (!world_wrap(w, &x, &y))
+        return;
+    n = &w->noises[w->noise_next];
+    w->noise_next = (uint8_t)((w->noise_next + 1) % NOISE_MAX);
+    if (w->noise_n < NOISE_MAX)
+        w->noise_n++;
+    n->x = (uint8_t)x;
+    n->y = (uint8_t)y;
+    n->kind = kind;
+    n->owner = owner;
+}
+
+void world_noise_clear(World *w)
+{
+    w->noise_n = w->noise_next = 0;
+}
+
 uint8_t world_spawn_unit(World *w, uint8_t owner, uint8_t kind, uint8_t x, uint8_t y)
 {
     Unit *u;
@@ -496,6 +571,8 @@ uint8_t world_spawn_unit(World *w, uint8_t owner, uint8_t kind, uint8_t x, uint8
         w->next_id++;
     u = &w->units[w->unit_count];
     init_unit(u, x, y, kind, owner);
+    u->ap = u->ap_max = world_scale_ap(w, u->ap_max);   /* D71 */
+    u->ap_fly = world_scale_ap(w, u->ap_fly);
     u->id = w->next_id++;
     u->done = false;
     return w->unit_count++;
@@ -553,6 +630,10 @@ void world_kill_unit(World *w, uint8_t victim, uint8_t killer_kind,
     Unit mount;
     events_push(EV_DEATH, w->units[victim].x, w->units[victim].y,
                 w->units[victim].kind, w->units[victim].owner, 0, 0);
+    world_add_remains(w, w->units[victim].x, w->units[victim].y,
+                      w->units[victim].kind, w->units[victim].owner);   /* D70 */
+    world_noise(w, w->units[victim].x, w->units[victim].y, NOISE_DEATH,
+                w->units[victim].owner);                           /* D69 */
     mount = w->units[victim];
     if (!(mount.flags & UF_RIDDEN))
         world_drop_carried(w, &w->units[victim]);   /* a rider keeps his pack */
@@ -756,6 +837,8 @@ void world_new_turn(World *w)
         if (!(u->flags & UF_RIDDEN) || u->rider_con != 0)
             continue;
         events_push(EV_DEATH, u->x, u->y, u->rider_kind, u->owner, 1, 0);
+        world_add_remains(w, u->x, u->y, u->rider_kind, u->owner);
+        world_noise(w, u->x, u->y, NOISE_DEATH, u->owner);
         world_drop_carried(w, u);          /* the pack in the mount is his */
         u->item_count = 0;
         u->in_use = NO_ITEM;
@@ -769,6 +852,10 @@ void world_new_turn(World *w)
             Unit mount = w->units[i];
             events_push(EV_DEATH, w->units[i].x, w->units[i].y,
                         w->units[i].kind, w->units[i].owner, 1, 0);
+            world_add_remains(w, w->units[i].x, w->units[i].y,
+                              w->units[i].kind, w->units[i].owner);
+            world_noise(w, w->units[i].x, w->units[i].y, NOISE_DEATH,
+                        w->units[i].owner);
             if (mount.flags & UF_RIDDEN) {
                 world_remove_unit(w, i);
                 ride_throw_off(w, &mount);   /* D60 */

@@ -5,6 +5,10 @@
 
 ---
 
+## 0. Stand 2026-10-08: Tempo und Überblick in Welt 1 (D69–D75)
+
+Playtest des Nutzers: Das Spiel ist zu langsam, man findet den Gegner kaum, Angriffe und Tode gehen unter. Umgesetzt auf `feat/welt1-tempo` (über `feat/fragen-2026-10-08`, PR #163): Geräusche mit Richtung (D69), Skelette (D70), AP-Faktor 1,28 auf Level 1 (D71, Szenario v3), automatischer Rundenwechsel und kürzere Phasenbildschirme (D72), Sichtwarnung (D73), Nachrichten neben der Gesamtkarte (D74), Welt 2/3 ausgegraut (D75). Spielstand v12. **Nur die Anzeige ist im Emulator geprüft** (AP 51, `<man>`, Gesamtkarte, Menü); Warnzeilen, Geräusche und Auto-Rundenwechsel sind ungespielt. Auf der Hardware messen: Dauer eines Rundenwechsels.
+
 ## 0. Stand 2026-10-07: Regeln und KI wie im Original (D67)
 
 Nutzerauftrag: „alles wie im Original“, autonom abarbeiten, Fragen notieren statt abbrechen. **Stand 2026-10-08: Die PRs #153–#162 sind am 2026-10-07 gemergt; der Nutzer hat angespielt (technisch ohne Befund, Game-Design-Fehler folgen als Liste), die KI-Laufzeit auf der Hardware ist in Ordnung. Die Fragen F1–F30 sind beantwortet (`docs/FRAGEN.md`); F3, F7, F8 (D68) und F15 liegen auf `feat/fragen-2026-10-08`.** Die PRs sind gestapelt (jeder hat den vorigen als Basis): #153 (0a Mana) → #154 (0b Zustände) → #155 (0c Nahkampf) → #156 (0d Zauber) → #157 (0e Flächen/Fernwaffen) → #158 (0f Beschwören/Designer) → #159 (0g Wertung, Kartenformat v5) → #160 (0h Sicht) → #161 (KI 1 Kreaturen) → #162 (KI 2 Zauberer, Szenario v2, dazu das Duell-Programm `host/duel.c`). **Mergen nur der Reihe nach mit Merge-Commits** (Fallstrick 21), Basis-Branches erst am Ende löschen.

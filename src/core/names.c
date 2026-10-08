@@ -107,6 +107,17 @@ const char *describe_field(const World *w, const Sight *s, int16_t x, int16_t y,
             return buf;
         }
     }
+    {   /* a skeleton under no object: what it once was (D70) */
+        const Remains *r = world_remains_at(w, wx, wy);
+        uint8_t i;
+        for (i = 0; i < w->object_count; i++)
+            if (w->objects[i].x == wx && w->objects[i].y == wy)
+                break;
+        if (r && i == w->object_count) {
+            snprintf(buf, len, "Skelett: %s", CREATURES[r->kind].name);
+            return buf;
+        }
+    }
     ground_names(w, wx, wy, ground);
     snprintf(buf, len, "%s", ground[0]);
     return buf;

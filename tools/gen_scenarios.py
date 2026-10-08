@@ -12,14 +12,15 @@ Outputs (generated, not committed):
   build/scenarios/<name>.scn    loaded by the game from /loc/scenarios
   src/core/gen/scenarios.c      the same bytes as C arrays (selftest, host)
 
-.scn format v2:
-  "LOCS" | 2 | book_count
+.scn format v3:
+  "LOCS" | 3 | book_count
   | per book: owner u8 | entry_count u8 | entries: spell u8, level u8
   | profile_count | per profile: owner u8, name 10 bytes, mana, ap, sta, con,
     com, def, mr, carry, vp (u8 each), prio_count u8, (spell u8, priority u8)*
   | route_count u8, summon_routes u8 | per route: flags u8, n u8, (x, y)*
   | plan_count u8 | per plan: unit u8, route u8, step u8, flags u8
   | trigger_count u8 | per trigger: x u8, y u8, id u8
+  | ap_scale u8 (percent on every AP budget, D71; `ap_scale 128`, default 100)
 
 The map itself is referenced by name only; the caller loads
 maps/<map>.map. Spell ids come from the generated gen/data.h enum.
@@ -64,7 +65,7 @@ def spell_ids() -> dict[str, int]:
 
 def parse(path: Path) -> dict:
     m: dict = {"map": None, "books": [], "profiles": [], "routes": {}, "summon_routes": 0,
-               "plans": [], "triggers": []}
+               "plans": [], "triggers": [], "ap_scale": 100}
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
@@ -97,6 +98,10 @@ def parse(path: Path) -> dict:
             m["plans"].append((int(f[0]), int(f[2]), int(f[4]), int(f[6], 0)))
         elif word == "trigger":
             m["triggers"].append(tuple(int(v) for v in rest.split()))
+        elif word == "ap_scale":
+            m["ap_scale"] = int(rest)
+            if not 50 <= m["ap_scale"] <= 250:
+                raise SystemExit(f"{path.name}: ap_scale must be 50..250")
         else:
             raise SystemExit(f"{path.name}: unexpected line: {raw!r}")
     if not m["map"]:
@@ -106,7 +111,7 @@ def parse(path: Path) -> dict:
 
 def encode(m: dict, ids: dict[str, int]) -> bytes:
     out = bytearray(b"LOCS")
-    out.append(2)
+    out.append(3)
     out.append(len(m["books"]))
     prios: dict[str, list] = {}
     for owner, book in m["books"]:
@@ -151,6 +156,7 @@ def encode(m: dict, ids: dict[str, int]) -> bytes:
     out.append(len(m["triggers"]))
     for tr in m["triggers"]:
         out += bytes(tr)
+    out.append(m["ap_scale"])
     return bytes(out)
 
 

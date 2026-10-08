@@ -246,6 +246,8 @@ void sound_poll(void)
 
 /* ---------- settings ---------- */
 
+uint8_t auto_end_mode = AUTO_UNASKED;
+
 void sound_settings_load(void)
 {
     uint8_t fh, b[6];
@@ -256,6 +258,8 @@ void sound_settings_load(void)
         music_on = (b[4] & 1) != 0;
         sound_on = (b[4] & 2) != 0;
         fx_glide_on = (b[4] & 4) == 0;   /* bit set = gliding off */
+        auto_end_mode = !(b[4] & 8) ? AUTO_UNASKED       /* D72 */
+                      : (b[4] & 16) ? AUTO_ON : AUTO_OFF;
     }
     mos_fclose(fh);
 }
@@ -264,7 +268,9 @@ void sound_settings_save(void)
 {
     uint8_t fh, b[6] = {'L', 'O', 'C', 'P', 0, 1};
     b[4] = (uint8_t)((music_on ? 1 : 0) | (sound_on ? 2 : 0) |
-                     (fx_glide_on ? 0 : 4));
+                     (fx_glide_on ? 0 : 4) |
+                     (auto_end_mode != AUTO_UNASKED ? 8 : 0) |
+                     (auto_end_mode == AUTO_ON ? 16 : 0));
     fh = mos_fopen("settings.dat", FA_WRITE | FA_CREATE_ALWAYS);
     if (!fh)
         return;

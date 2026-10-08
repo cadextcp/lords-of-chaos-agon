@@ -34,8 +34,9 @@
  * tiles or composition rules change. Changed for M2d: the new unexplored
  * tile shifted every tile ID after "tree"; M2e added air_shadow and
  * cursor_blue, M3d/M3e object and portal tiles, M3g four treasures;
- * M5c added the seven fx tiles after "floor_*" (IDs shifted again). */
-#define HOUSE_VIEW_HASH 0x7CC28CF5UL
+ * M5c added the seven fx tiles after "floor_*" (IDs shifted again);
+ * D70 added "remains" (IDs after it shift). */
+#define HOUSE_VIEW_HASH 0x9CFED84CUL
 
 static selftest_log_fn out;
 static uint16_t fails;
@@ -5623,6 +5624,67 @@ static uint8_t idle_tick(uint8_t id, uint8_t slot, uint8_t other_id)
 
 /* D53: creature idle animation - drawn frames, the lift of the others, and
  * the staggered schedule. */
+/* D69-D71 (2026-10-08): noises, remains, the AP factor of a scenario. */
+static void test_d69_d71(void)
+{
+    static AiProfile prof[OWN_NEUTRAL];
+    CombatResult r;
+    Rng rng;
+    uint8_t wz, gob, k;
+    bool fought = false;
+
+    /* D71: the scenario's AP factor scales placed and later units */
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 0;
+    wz = world_spawn_unit(&world, OWN_P1, CR_WIZARD, 5, 13);
+    check(world.units[wz].ap_max == 40, "d71: no factor, the table's AP");
+    world_set_ap_scale(&world, 128);
+    gob = world_spawn_unit(&world, OWN_P2, CR_GIANT_BAT, 6, 13);
+    check(world.units[wz].ap_max == 51 && world.units[gob].ap_max == 30 &&
+          world.units[gob].ap_fly == 79,
+          "d71: x1.28 for the wizard there and the bat spawned after");
+    world_load_bin(&world, MAPBIN_MANY_COLOURED_LAND, MAPBIN_MANY_COLOURED_LAND_LEN);
+    area_reset();
+    check(ai_scenario_load(&world, prof, SCN_MANY_COLOURED_LAND,
+                           SCN_MANY_COLOURED_LAND_LEN) && world.ap_scale == 128,
+          "d71: level 1 carries the factor 128 (46/36)");
+
+    /* D69: a fight is heard; clearing starts the next listening period */
+    world_load_bin(&world, MAPBIN_TESTLAND, MAPBIN_TESTLAND_LEN);
+    world.unit_count = 0;
+    wz = world_spawn_unit(&world, OWN_P2, CR_TROLL, 5, 13);
+    gob = world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, 6, 13);
+    check(world.noise_n == 0, "d69: a fresh map is quiet");
+    rng_seed(&rng, 5);
+    world.units[wz].ap = 40;
+    world.units[wz].sta = 40;
+    if (combat_melee(&world, &rng, wz, gob, &r))
+        fought = true;
+    check(fought && world.noise_n >= 1 && world.noises[0].kind == NOISE_FIGHT &&
+          world.noises[0].x == 6 && world.noises[0].owner == OWN_P2,
+          "d69: melee leaves a fight noise where it happened");
+    world_noise_clear(&world);
+    check(world.noise_n == 0, "d69: cleared for the next period");
+
+    /* D70: a death leaves remains that name the creature, and a noise */
+    world.unit_count = 0;
+    gob = world_spawn_unit(&world, OWN_NEUTRAL, CR_GOBLIN, 9, 14);
+    combat_damage(&world, gob, 255, CR_TROLL, OWN_P2, true, NULL);
+    {
+        const Remains *rm = world_remains_at(&world, 9, 14);
+        check(world.unit_count == 0 && rm && rm->kind == CR_GOBLIN &&
+              rm->owner == OWN_NEUTRAL && !world_remains_at(&world, 9, 15),
+              "d70: the dead goblin leaves a skeleton on its field");
+    }
+    check(world.noise_n == 1 && world.noises[0].kind == NOISE_DEATH,
+          "d69: a death is heard too");
+    for (k = 0; k < REMAINS_MAX + 2; k++)
+        world_add_remains(&world, k, 0, CR_ZOMBIE, OWN_NEUTRAL);
+    check(world.remains_n == REMAINS_MAX && !world_remains_at(&world, 9, 14) &&
+          world_remains_at(&world, REMAINS_MAX + 1, 0),
+          "d70: a ring - the oldest skeletons go first");
+}
+
 static void test_idle(void)
 {
     FieldLayers f;
@@ -5987,6 +6049,7 @@ uint16_t core_selftest(selftest_log_fn log)
     test_c5_drowning();
     test_c3_overlap();
     test_idle();
+    test_d69_d71();
     load_house();   /* leave a clean state */
     return fails;
 }

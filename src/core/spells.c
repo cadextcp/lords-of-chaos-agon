@@ -27,7 +27,7 @@ bool spellbook_load(Spellbook *books, const uint8_t *data, uint16_t len)
 {
     uint8_t books_n, i, pos;
     memset(books, 0, sizeof(Spellbook) * OWN_NEUTRAL);
-    if (len < 6 || memcmp(data, "LOCS", 4) != 0 || (data[4] != 1 && data[4] != 2))
+    if (len < 6 || memcmp(data, "LOCS", 4) != 0 || (data[4] < 1 || data[4] > 3))
         return false;
     books_n = data[5];
     pos = 6;
@@ -115,6 +115,7 @@ uint8_t spell_summon(World *w, Spellbook *b, uint8_t wiz, uint8_t spell, Rng *rn
     w->units[wiz].mana = (uint8_t)(u->mana - mana);
     b->level[spell] = (uint8_t)(level - 1);   /* the level is used up (K5.1) */
     events_push(EV_SPELL, u->x, u->y, spell, u->owner, 0, 0);
+    world_noise(w, u->x, u->y, NOISE_SPELL, u->owner);   /* D69 */
     /* L creatures, each on a random free neighbour: up to 40 tries (K5.3) */
     for (n = 0; n < level && any_free; n++) {
         uint8_t tries;
@@ -200,6 +201,8 @@ static bool pay_for_spell(World *w, Spellbook *b, uint8_t wiz, uint8_t spell,
     w->units[wiz].mana = (uint8_t)(w->units[wiz].mana - mana);
     b->level[spell] = (uint8_t)(level - 1);
     events_push(EV_SPELL, x, y, spell, w->units[wiz].owner, 0, 0);
+    world_noise(w, w->units[wiz].x, w->units[wiz].y, NOISE_SPELL,
+                w->units[wiz].owner);              /* the caster is heard (D69) */
     world_disturb(w, x, y, w->units[wiz].owner);   /* magic scares (D37) */
     return true;
 }

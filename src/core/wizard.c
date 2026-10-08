@@ -284,7 +284,7 @@ void wizard_apply_to_world(const Wizard *w, World *world, uint8_t unit)
     u->con = u->con_max = w->con;
     u->sta = u->sta_max = w->sta;
     u->mana = u->mana_max = w->mana_max;  /* raised with XP (F6) */
-    u->ap = u->ap_max = w->ap;            /* designer AP, min 34 (F6) */
+    u->ap = u->ap_max = world_scale_ap(world, w->ap);   /* designer AP, min 34 (F6), D71 */
     u->item_count = 0;                   /* F5: the wizard arrives unarmed */
     u->in_use = NO_ITEM;
 }
