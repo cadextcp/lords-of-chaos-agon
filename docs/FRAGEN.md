@@ -7,6 +7,18 @@
 - `MAX_UNITS` bleibt 32.
 - Level 1 behaelt die zwei festen Startplaetze (kein Umbau auf vier Haeuser).
 
+## Entschieden (2026-10-08, Nutzer)
+
+- **Bestätigt wie angenommen:** F1, F2, F4, F5, F9–F14, F16, F17 (unsere Schatzwerte bleiben), F18 (keine Reiter-AP-Zeile), F20–F27, F28 (keine Wächter vorerst), F29, F30 (carry bleibt wirkungslos).
+- **F6** ist mit F23 erledigt: Flieger landen und kämpfen am Boden.
+- **Umgesetzt (Branch `feat/fragen-2026-10-08`):**
+  - **F3:** Der Reiter behält seine Wunden (`rider_wounds`, Spielstand v11). Sie bluten auch im Sattel weiter (F31).
+  - **F7:** `crit`/`return_crit` und der Krit-Parameter von `combat_damage` sind entfernt, ebenso der Krit-Klang `SND_CRIT` und die Arena-Spalte. Die Kachel `T_ICON_DMG_BANG` und das Sample `SFX_CLANG` bleiben als Assets ungenutzt liegen.
+  - **F8:** Zaubern aus der Luft und Zielhöhe CAST-A/G, siehe GDD D68.
+  - **F15:** Die Zufallsstärke ist weg. Im Setup würfelt `Z` den Zufallszauberer neu (vorher war das nur über die Stärke möglich).
+  - **F31 (Nutzer 2026-10-08):** Reiterwunden bluten auch im Sattel, auch auf einem fliegenden Reittier, 2 Con je Wunde und Runde. Verblutet der Reiter, stirbt er im Sattel: sein Gepäck fällt aufs Feld, das Reittier bleibt. Wie jeder Verblutungstod zählt das für niemanden als Abschuss. Ein verbluteter Zauberer ist tot (Spielende wie gewohnt).
+  - **F19:** War schon erledigt: Die Szenariodatei v2 setzt `vp` je Zauberer (`ai_profile_apply`).
+
 ## Offen
 
 | Nr | Phase | Frage | Getroffene Annahme |

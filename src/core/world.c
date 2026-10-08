@@ -58,6 +58,7 @@ static void init_unit(Unit *u, uint8_t x, uint8_t y, uint8_t kind, uint8_t owner
     u->rider_kind = 0xFF;
     u->rider_con = u->rider_con_max = u->rider_sta = u->rider_sta_max = 0;
     u->rider_com = u->rider_def = u->rider_mr = 0;
+    u->rider_wounds = 0;
     u->rider_ap = u->rider_ap_max = 0;
     u->post_x = u->post_y = 0xFF;
     u->grudge = 0;
@@ -724,6 +725,8 @@ void world_new_turn(World *w)
         }
         if (u->flags & UF_RIDDEN) {         /* the rider's own refill (K6.6) */
             uint16_t ra = u->rider_ap_max;
+            uint8_t rbleed = (uint8_t)(2 * u->rider_wounds);   /* in the saddle too (F31) */
+            u->rider_con = u->rider_con > rbleed ? (uint8_t)(u->rider_con - rbleed) : 0;
             uint8_t f = (u->rider_con && u->rider_con < u->rider_con_max)
                             ? (uint8_t)(u->rider_con_max / u->rider_con) : 1;
             if (u->rider_sta < u->rider_sta_max / 6)
@@ -747,6 +750,19 @@ void world_new_turn(World *w)
             uint8_t mana = (uint8_t)(u->mana + u->mana_max / 25);
             u->mana = mana > u->mana_max || mana < u->mana ? u->mana_max : mana;
         }
+    }
+    for (i = 0; i < w->unit_count; i++) {  /* riders bled out in the saddle (F31) */
+        Unit *u = &w->units[i];
+        if (!(u->flags & UF_RIDDEN) || u->rider_con != 0)
+            continue;
+        events_push(EV_DEATH, u->x, u->y, u->rider_kind, u->owner, 1, 0);
+        world_drop_carried(w, u);          /* the pack in the mount is his */
+        u->item_count = 0;
+        u->in_use = NO_ITEM;
+        u->mana = u->mana_max = 0;
+        u->rider_kind = 0xFF;
+        u->rider_wounds = 0;
+        u->flags &= (uint8_t)~UF_RIDDEN;
     }
     for (i = w->unit_count; i-- > 0;)      /* bleeders that died */
         if (w->units[i].con == 0) {

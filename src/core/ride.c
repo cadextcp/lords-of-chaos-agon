@@ -51,6 +51,7 @@ bool ride_mount(World *w, uint8_t rider, int16_t x, int16_t y)
     m->rider_com = r->com;
     m->rider_def = r->def;
     m->rider_mr = r->mr;
+    m->rider_wounds = r->wounds;
     m->mana = r->mana;
     m->mana_max = r->mana_max;
     m->item_count = r->item_count;
@@ -92,6 +93,7 @@ static uint8_t put_rider(World *w, const Unit *m, int16_t x, int16_t y)
     r->com = m->rider_com;
     r->def = m->rider_def;
     r->mr = m->rider_mr;
+    world_set_wounds(r, m->rider_wounds);
     r->mana = m->mana;
     r->mana_max = m->mana_max;
     for (i = 0; i < UNIT_ITEMS; i++)    /* the whole pack goes with him */

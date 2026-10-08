@@ -285,7 +285,7 @@ static uint8_t rush_step(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
             return NO_UNIT;
         combat_damage(w, victim,
                       (uint8_t)(2 + rng_range(rng, 6) + rng_range(rng, 6)),
-                      CR_ELEPHANT, OWN_NEUTRAL, false, NULL, false);
+                      CR_ELEPHANT, OWN_NEUTRAL, false, NULL);
         unit = world_find_unit(w, id);
         if (unit == NO_UNIT || !world_move_unit(w, unit, dx, dy))
             return NO_UNIT;

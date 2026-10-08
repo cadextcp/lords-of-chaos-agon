@@ -80,8 +80,8 @@ bool wizard_valid(const Wizard *w);
 extern Wizard wizard_slots[WIZARD_SLOTS];
 /* Erase a slot to the stock designer wizard. */
 void wizard_slot_reset(uint8_t slot);
-/* Random wizard for the "random strength" setup (own roll order). */
-void wizard_slot_random(uint8_t slot, uint8_t strength, Rng *rng);
+/* The original random wizard (K3.2) into `slot` (own roll order). */
+void wizard_slot_random(uint8_t slot, Rng *rng);
 
 /* Load a wizard into the world as the player's unit: kind, values and
  * book come from the designer data (F5: no items). */

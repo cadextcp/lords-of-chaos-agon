@@ -2,6 +2,22 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – Offene Fragen F3, F7, F8, F15, F31 (2026-10-08)
+
+### Hinzugefügt
+- **Zaubern aus der Luft, Zielhöhe CAST-A/G (D68, F8):** Ein fliegender Zauberer zaubert jetzt, nur Beschwörungen und Tränke gehen weiter allein vom Boden. Im Zielmodus wählt `<` die Luft (blauer Cursor) und `>` den Boden (gelb); voreingestellt ist die eigene Höhe. Bolt, Blitz, Fluch, Unterwerfung, Magic Attack und Enchant treffen nur, was auf dieser Höhe steht. Der Blitz zerschlägt Gelände nur am Boden, Flächenzauber gehen nur auf den Boden. Teleport in die Luft braucht einen Flying-Trank. Die KI zielt auf die Höhe ihres Ziels.
+- **Setup:** `Z` würfelt den Zufallszauberer neu.
+
+### Geändert
+- **Reiterwunden bleiben (F3) und bluten im Sattel (F31):** Wer verwundet aufsitzt, verliert auch im Sattel (auch im Flug) 2 Con je Wunde und Runde und steigt mit denselben Wunden wieder ab. Verblutet er, stirbt er im Sattel; sein Gepäck fällt aufs Feld, das Reittier bleibt. **Spielstand v11** (alte Stände werden abgelehnt).
+
+### Entfernt
+- **Zufalls-Zauberer-Stärke im Setup (F15):** Sie wirkte seit D67 nicht mehr.
+- **Reste der kritischen Treffer (F7):** Felder `crit`/`return_crit`, „KRIT!“-Meldungen, Krit-Klang und Ausrufezeichen an der Schadenszahl, Spalte „crits“ der Arena.
+
+### Intern
+- `spell_line_clear`, `spell_needs_ground`; neuer Parameter `air` in `spell_bolt`, `spell_lightning` und `spell_apply`; `combat_damage` ohne Krit-Parameter; `wizard_slot_random` ohne Stärke. Neue Selftests für F3, F8 und F31; der Versionstest des Spielstands hängt nicht mehr an der Nummer.
+
 ## [Unreleased] – Regeln wie im Original, Schritt 0b: Zustände (D67) (2026-10-07)
 
 ### Geändert

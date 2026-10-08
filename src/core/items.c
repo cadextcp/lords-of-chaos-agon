@@ -238,7 +238,7 @@ bool items_throw(World *w, Rng *rng, uint8_t unit, int8_t dx, int8_t dy)
                 dmg = combat_roll(rng, throw_value(u, weapon),
                                   items_defence(w, target));
             if (dmg)
-                combat_damage(w, target, dmg, ride_actor_kind(u), u->owner, false, NULL, false);
+                combat_damage(w, target, dmg, ride_actor_kind(u), u->owner, false, NULL);
             else
                 events_push(EV_MISS, u->x, u->y, u->kind, u->owner, 0, 0);
             /* it lands in front of the target: x/y stopped there */
@@ -327,7 +327,7 @@ bool items_fire(World *w, Rng *rng, uint8_t unit, int16_t tx, int16_t ty,
         if (dmg) {
             if (damage)
                 *damage = dmg;
-            combat_damage(w, target, dmg, ride_actor_kind(u), u->owner, false, NULL, false);
+            combat_damage(w, target, dmg, ride_actor_kind(u), u->owner, false, NULL);
         } else
             events_push(EV_MISS, tx, ty, u->kind, u->owner, 0, 0);
     }

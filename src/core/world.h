@@ -96,6 +96,7 @@ typedef struct {
      * mana/mana_max, his items in items[] */
     uint8_t rider_con, rider_con_max, rider_sta, rider_sta_max;
     uint8_t rider_com, rider_def, rider_mr;
+    uint8_t rider_wounds;     /* kept through the ride and bleeding in the saddle (F3, F31) */
     uint8_t rider_ap, rider_ap_max;   /* the rider acts with his own AP (K6.6) */
     uint8_t post_x, post_y;   /* guard post (M4h) / territory, 0xFF = none */
     uint8_t grudge;           /* wild animals (D35): owners that attacked it */

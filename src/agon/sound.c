@@ -9,7 +9,7 @@
 extern bool fx_glide_on;                 /* fx.c (fx.h pulls in the core's
                                             Effect type, which clashes) */
 
-/* Two effect channels so that e.g. a hit and a crit clang overlap;
+/* Two effect channels so that e.g. a hit and a spell sound overlap;
  * music takes 1-3 and 5 (music.c). */
 #define FX_VOICES 2
 static const uint8_t FX_CH[FX_VOICES] = {0, 4};
@@ -67,7 +67,6 @@ static const Effect EFFECTS[SND_COUNT] = {
     [SND_LOSE]      = {5, {{NO_SAMPLE, SAW, 65, 300, 160},
                            {NO_SAMPLE, SAW, 65, 250, 160},
                            {NO_SAMPLE, SAW, 65, 200, 300}}},
-    [SND_CRIT]      = {4, {{SFX_CLANG, SQ, 110, 1200, 150}}},
     [SND_BOLT]      = {3, {{SFX_ZAP, SQ, 85, 900, 150}}},
     [SND_LIGHTNING] = {4, {{SFX_THUNDER, NOI, 115, 200, 400}}},
     [SND_SUMMON]    = {3, {{SFX_SUMMON, SIN, 90, 440, 300}}},

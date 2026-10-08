@@ -91,6 +91,7 @@ typedef enum { TA_SPELL, TA_THROW, TA_FIRE } TargetKind;
 static TargetKind target_kind;
 static uint8_t target_spell;
 static int16_t target_x, target_y;
+static bool target_air;               /* spells: CAST-A (true) or CAST-G (F8) */
 static Spellbook books[OWN_NEUTRAL];   /* starting books until M3g */
 static AiProfile ai_profiles[OWN_NEUTRAL];   /* the AI wizard of the scenario (K10.2) */
 static Lexicon lex;                    /* discoveries, kept in lexicon.dat */
@@ -108,7 +109,8 @@ static uint8_t active(void)
 }
 
 /* Targeting cursor colour (GDD 5.1): yellow ground, blue air, red when
-   out of range or without a line of sight. */
+   out of range or without a line of sight. A spell shows the aimed
+   height (CAST-G/A, F8), a shot or throw the unit standing there. */
 static uint8_t target_cursor_colour(void)
 {
     const Unit *u = &world.units[active()];
@@ -135,6 +137,11 @@ static uint8_t target_cursor_colour(void)
             return CURSOR_RED;
     }
     (void)dx; (void)dy;
+    if (target_kind == TA_SPELL) {
+        if (!spell_line_clear(&world, u, target_x, target_y, target_air))
+            return CURSOR_RED;
+        return target_air ? CURSOR_BLUE : CURSOR_YELLOW;
+    }
     if (!sight_has_spell_los(&world, u->x, u->y, target_x, target_y))
         return CURSOR_RED;
     if (world_unit_at(&world, target_x, target_y, UL_AIR) != NO_UNIT)
@@ -357,7 +364,10 @@ static void frame(bool dump)
         describe_field(&world, &p1_sight, cx, cy, buf, sizeof buf);
         render_message(1, C_BRIGHT_CYAN, buf);
         if (targeting)
-            render_message(2, C_GREY, "Enter wirkt, Esc bricht ab.");
+            render_message(2, C_GREY, target_kind == TA_SPELL
+                               ? (target_air ? "Ziel LUFT  < Luft > Boden  Enter, Esc"
+                                             : "Ziel BODEN  < Luft > Boden  Enter, Esc")
+                               : "Enter wirkt, Esc bricht ab.");
         if (tutorial_on)
             render_message(2, C_BRIGHT_CYAN, tutorial_hint_line(tut.step));
         if (dump)
@@ -582,11 +592,11 @@ static void cast_targeted(bool dump)
 
     if (target_spell == SP_MAGIC_BOLT || target_spell == SP_MAGIC_LIGHTNING) {
         if (target_spell == SP_MAGIC_LIGHTNING)
-            ok = spell_lightning(&world, &books[OWN_P1], wiz, target_x, target_y,
+            ok = spell_lightning(&world, &books[OWN_P1], wiz, target_x, target_y, target_air,
                                  &turns.rng, &shot);
         else
             ok = spell_bolt(&world, &books[OWN_P1], wiz, target_spell, target_x,
-                            target_y, &turns.rng, &shot);
+                            target_y, target_air, &turns.rng, &shot);
         if (!ok) {
             render_message(1, C_BRIGHT_RED, "Ausser Reichweite oder Sicht.");
             return;
@@ -595,7 +605,7 @@ static void cast_targeted(bool dump)
             tutorial_notify(&tut, TUT_SPELL);   /* bolt / lightning cast */
     } else {
         CastResult cr = spell_apply(&world, &books[OWN_P1], wiz, target_spell,
-                                    target_x, target_y, &turns.rng, &shot);
+                                    target_x, target_y, target_air, &turns.rng, &shot);
         if (cr == CAST_REJECTED) {
             render_message(1, C_BRIGHT_RED, "Ausser Reichweite oder Sicht.");
             return;
@@ -686,8 +696,7 @@ static void cast_targeted(bool dump)
         return;
     }
     if (shot.hit) {
-        snprintf(msg, sizeof msg, "%s: %u Schaden.",
-                 shot.crit ? "Kritischer Zauber" : "Zauber trifft", shot.damage);
+        snprintf(msg, sizeof msg, "Zauber trifft: %u Schaden.", shot.damage);
         log_push(msg);
     } else
         snprintf(msg, sizeof msg, "Zauber verpufft.");
@@ -882,30 +891,26 @@ bump:
                 return;
             }
             if (r.died)
-                snprintf(msg, sizeof msg, "%s%s stirbt!",
-                         r.crit ? "KRIT! " : "", name);
+                snprintf(msg, sizeof msg, "%s stirbt!", name);
             else if (r.wound)
-                snprintf(msg, sizeof msg, "%sTreffer: %u. Toedliche Wunde!",
-                         r.crit ? "KRIT! " : "", r.damage);
+                snprintf(msg, sizeof msg, "Treffer: %u. Toedliche Wunde!",
+                         r.damage);
             else if (r.hit)
-                snprintf(msg, sizeof msg, "%sTreffer: %u Schaden.",
-                         r.crit ? "KRIT! " : "", r.damage);
+                snprintf(msg, sizeof msg, "Treffer: %u Schaden.", r.damage);
             else
                 snprintf(msg, sizeof msg, "Verfehlt.");
-            render_message(1, r.crit ? C_BRIGHT_RED :
-                           (r.hit || r.died ? C_BRIGHT_YELLOW : C_GREY), msg);
+            render_message(1, r.hit || r.died ? C_BRIGHT_YELLOW : C_GREY, msg);
             if (r.returned) {
                 if (r.attacker_died) {
                     snprintf(msg, sizeof msg, "Rueckschlag toetet %s!", aname);
                 } else if (r.return_hit) {
-                    snprintf(msg, sizeof msg, "%sRueckschlag: %u Schaden.",
-                             r.return_crit ? "KRIT! " : "", r.return_damage);
+                    snprintf(msg, sizeof msg, "Rueckschlag: %u Schaden.",
+                             r.return_damage);
                 } else {
                     snprintf(msg, sizeof msg, "Rueckschlag: daneben.");
                 }
-                render_message(2, r.return_crit ? C_BRIGHT_RED :
-                               (r.attacker_died || r.return_hit ? C_BRIGHT_RED
-                                : C_GREY), msg);
+                render_message(2, r.attacker_died || r.return_hit ? C_BRIGHT_RED
+                               : C_GREY, msg);
             }
             settle();
             update_sight();
@@ -1090,7 +1095,6 @@ static void bench(void)
 #define LOADS_LIMIT 5   /* GDD 2.3; F8 lets the setup switch it off */
 static uint8_t loads_left = LOADS_LIMIT;
 static bool loads_unlimited = false;   /* F8: setup toggle */
-static uint8_t random_strength = 2;    /* F9 setup value */
 static char saved_map[32];             /* map of the stored savegame */
 static bool save_loaded;              /* the menu restored the savegame */
 
@@ -1168,7 +1172,7 @@ static const char *const MENU_ITEMS[] = {
     "Spielstand laden",
     "Zauberer entwerfen",
     "Zauberer zuruecksetzen",
-    "Setup (Ton, Musik, Staerke)",
+    "Setup (Ton, Musik, Zufall)",
     "Hilfe",
     "Lexikon",
     "Tutorial",
@@ -1241,8 +1245,8 @@ static bool action_possible(char key)
     case 'x':
     case 'E':
         return true;
-    case 'c':
-        return ride_actor_kind(u) == CR_WIZARD && !(u->flags & UF_FLYING) &&
+    case 'c':                          /* from the air too (F8) */
+        return ride_actor_kind(u) == CR_WIZARD &&
                world_can_pay(&world, a, ACT_CAST);
     case 'f':
         return items_can_fire(&world, a) && world_can_pay(&world, a, ACT_FIRE);
@@ -1706,8 +1710,9 @@ static void designer_loop(uint8_t slot)
 
 /* The menu: returns the chosen map path or NULL to quit. Slot 0 is the
  * player wizard (loaded from SD, else stock). */
-/* Setup panel (GDD 2.2, F8/F9): random wizard strength and the load
- * limit toggle. */
+/* Setup panel (GDD 2.2, F8/F9): roll the random wizard and the load
+ * limit toggle. The original has a single random wizard (K3.2), so there
+ * is no strength to choose (F15). */
 static void designer_setup_loop(void)
 {
     struct keyboard_event_t e;
@@ -1716,9 +1721,7 @@ static void designer_setup_loop(void)
     render_screen_clear();               /* lines overwrite in place */
     while (running) {
         render_heading(16, 8, C_BRIGHT_YELLOW, "Setup");
-        snprintf(buf, sizeof buf, "Zufalls-Zauberer-Staerke: %u (Li/Re)",
-                 random_strength);
-        render_menu_line(2, 6, C_BRIGHT_WHITE, buf);
+        render_menu_line(2, 6, C_BRIGHT_WHITE, "Zufalls-Zauberer neu wuerfeln (Z)");
         snprintf(buf, sizeof buf, "5-Ladungen-Regel: %s  (L)",
                  loads_unlimited ? "aus" : "an");
         render_menu_line(2, 8, C_BRIGHT_WHITE, buf);
@@ -1736,16 +1739,11 @@ static void designer_setup_loop(void)
             continue;
         if (e.vkey == VK_ESC) {
             running = false;
-        } else if (e.vkey == VK_RIGHT || e.vkey == VK_LEFT ||
-                   e.ascii == '+' || e.ascii == '-') {
-            int8_t d = (e.vkey == VK_RIGHT || e.ascii == '+') ? 1 : -1;
-            int16_t v = (int16_t)random_strength + d;
-            if (v >= 1 && v <= 8 && v != random_strength) {
-                Rng setup_rng;           /* not the game RNG (F9) */
-                random_strength = (uint8_t)v;
-                rng_seed(&setup_rng, getsysvar_time());
-                wizard_slot_random(3, random_strength, &setup_rng);
-            }
+        } else if (e.ascii == 'z' || e.ascii == 'Z') {
+            Rng setup_rng;               /* not the game RNG (F9) */
+            rng_seed(&setup_rng, getsysvar_time());
+            wizard_slot_random(3, &setup_rng);
+            sound_play(SND_CONFIRM);
         } else if (e.ascii == 'l' || e.ascii == 'L') {
             loads_unlimited = !loads_unlimited;
         } else if (e.ascii == 'm' || e.ascii == 'M') {
@@ -1849,7 +1847,7 @@ static const char *menu_loop(bool *free_round1)
                 wizards_save();
                 full = true;
                 break;
-            case 7:                       /* Setup: F9 strength, F8 loads */
+            case 7:                       /* Setup: random wizard, F8 loads */
                 designer_setup_loop();
                 full = true;
                 break;
@@ -2452,6 +2450,8 @@ dispatch:
                             target_spell = (uint8_t)i;
                             target_x = world.units[wiz].x;
                             target_y = world.units[wiz].y;
+                            /* aim at the caster's own height first */
+                            target_air = (world.units[wiz].flags & UF_FLYING) != 0;
                         }
                     }
                     frame(dump);
@@ -2464,6 +2464,10 @@ dispatch:
                     targeting = false;
                     render_message(1, C_GREY, "");
                     render_message(2, C_GREY, "");
+                    frame(dump);
+                } else if (target_kind == TA_SPELL &&
+                           (e.ascii == '<' || e.ascii == '>')) {
+                    target_air = e.ascii == '<';   /* CAST-A / CAST-G (F8) */
                     frame(dump);
                 } else if (e.ascii == 13 || e.vkey == VK_SPACE) {
                     /* aiming at the caster cancels without cost (GDD 7.1)

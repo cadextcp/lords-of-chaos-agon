@@ -32,7 +32,6 @@ typedef enum {
     SND_ROUND,       /* new round chime */
     SND_WIN,         /* end screen: victory (fallback; the jingle is music) */
     SND_LOSE,        /* end screen: defeat */
-    SND_CRIT,        /* critical hit: metal clang */
     SND_BOLT,        /* magic bolt */
     SND_LIGHTNING,   /* magic lightning */
     SND_SUMMON,      /* a creature appears */
