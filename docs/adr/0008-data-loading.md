@@ -30,6 +30,20 @@
 
   Insgesamt sind das etwa 63 KB von 448 KB Programm-RAM.
 
+## Nachtrag 2026-10-08: heutige Zahlen
+
+Die Entscheidung gilt weiter; die Zahlen oben sind von M1. Stand nach D64–D71:
+
+| Was | damals | heute |
+|---|---|---|
+| Kartenformat | `.map` v1, bis 36×36, 4,2 KB | v5, bis 46×46 (D64), Level 1: 8,5 KB |
+| Regeltabellen | < 2 KB | Zauber, Kosten, Aktionen, Kreaturen, Waffen, Objekte, Gelände, KI-Gegenstände (`gen/data.c`), weiter einkompiliert |
+| Szenarien | Teil der Karte | eigene Datei `.scn` v3 (ADR 0014) |
+| Kacheln | 37 KB | `tiles.bin` 298 KB |
+| `loc.bin` | 63 KB RAM belegt | 277 KB Binary; RAM-Reserve für Heap und Stack 62 KB (`build.py` bricht unter 16 KB ab) |
+
+Hilfe, Musik, Samples und Titelbild sind nach ADR 0011 ebenfalls auf die SD gewandert. Alle Formate und ihre Versionsregeln stehen in ADR 0014.
+
 ## Folgen
 
 - Neue Szenarien entstehen als Text in `data/maps/` und werden beim Build kompiliert.

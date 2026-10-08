@@ -23,7 +23,7 @@ typedef struct {
 } Spellbook;
 
 /* Fill the books of all wizards from a compiled scenario file (.scn,
- * M4a): "LOCS" v1, see tools/gen_scenarios.py. False on malformed data. */
+ * M4a): "LOCS" v1 to v3, see tools/gen_scenarios.py and ADR 0014. False on malformed data. */
 bool spellbook_load(Spellbook *books, const uint8_t *data, uint16_t len);
 
 /* Mana of a cast at book level L (K5.2): the same for every spell. */

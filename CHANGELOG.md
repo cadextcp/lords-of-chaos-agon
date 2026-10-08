@@ -2,6 +2,13 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – ADRs zu Dateiformaten und KI, Aufräumen (2026-10-08)
+
+### Dokumentation
+- **ADR 0014 Dateiformate und Versionierung:** alle zwölf eigenen Dateien mit Magic, Version, Erzeuger, Lader und Verhalten bei Fehlern; Regel für Versionswechsel (Spielstand: jede Strukturänderung erhöht `SAVE_VERSION`, alte Stände werden abgelehnt); Szenario-Format v3; Spielstand-Reserve (11,5 von 12 KB).
+- **ADR 0015 Aufbau der Computer-Gegner:** Module, Phasenablauf, Entscheidungsschleife K10.3, Wissen nur aus eigener Sicht, Wege, Pläne und Profile, Laufzeit.
+- **Aufgeräumt:** ADR 0003 (Kachel-IDs statt `screen.h`, Testpfad), ADR 0008 (Nachtrag mit heutigen Zahlen), `ARCHITECTURE.md` (Modulübersicht, `HOUSE_VIEW_HASH`), `TESTING.md`. Folge des Architektur-Reviews 2026-10-08.
+
 ## [Unreleased] – ADR 0009 überarbeitet (2026-10-08)
 
 ### Dokumentation
