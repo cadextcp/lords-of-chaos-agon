@@ -394,16 +394,17 @@ static void touch(int16_t vx, int16_t vy)
     }
 }
 
-void fx_drain_play(World *w, const Sight *s)
+bool fx_drain_play(World *w, const Sight *s)
 {
     static GameEvent ev[EVENT_RING];
     uint8_t n, i;
+    bool fight = false;
 
     n = events_drain(ev, EVENT_RING);
     if (!n)
-        return;
+        return false;
     if (!fx_enabled)
-        return;                          /* scripted run: drop the show */
+        return false;                    /* scripted run: drop the show */
     touched_n = 0;
     for (i = 0; i < n; i++) {
         const GameEvent *e = &ev[i];
@@ -429,6 +430,9 @@ void fx_drain_play(World *w, const Sight *s)
             continue;                      /* outside the 9x9 window */
         if (s && !sight_visible(s, w, e->x, e->y))
             continue;                      /* happens in the fog of war */
+        if (e->type == EV_SWING || e->type == EV_HIT || e->type == EV_MISS ||
+            e->type == EV_DEATH)
+            fight = true;
         switch (e->type) {
         case EV_SWING:
             touch(vx, vy);
@@ -459,6 +463,8 @@ void fx_drain_play(World *w, const Sight *s)
             wait_frames(2);
             draw_overlay(vx, vy, T_FX_DEATH_3);   /* dust and a cross */
             wait_frames(2);
+            draw_overlay(vx, vy, T_REMAINS);      /* what stays (D70) */
+            wait_frames(6);
             break;
         case EV_SPELL:
             sound_play(spell_sound(e->kind));
@@ -480,4 +486,5 @@ void fx_drain_play(World *w, const Sight *s)
         view_mark_dirty((uint8_t)touched[i][0], (uint8_t)touched[i][1]);
     if (touched_n)
         render_fields();
+    return fight;
 }

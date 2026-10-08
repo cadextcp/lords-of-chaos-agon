@@ -86,6 +86,7 @@ bool combat_melee(World *w, Rng *rng, uint8_t att, uint8_t def, CombatResult *ou
     world_disturb(w, d->x, d->y, a->owner);
     world_engage(w, att);                  /* an attack binds the attacker (K11.7) */
     events_push(EV_SWING, d->x, d->y, a->kind, a->owner, 0, 0);
+    world_noise(w, d->x, d->y, NOISE_FIGHT, a->owner);   /* D69 */
     /* normal weapons clank off the undead; damage = RND(2 (C+1)) - Def (K6.2) */
     if (items_can_harm_undead(w, att, def))
         dmg = combat_roll(rng, items_combat(w, att), items_defence(w, def));

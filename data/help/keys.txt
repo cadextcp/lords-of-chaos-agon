@@ -15,9 +15,12 @@ Tab          naechste Einheit
 Shift+Tab    vorige Einheit
 Leertaste    Einheit fertig / Zugende
 Shift+E      Zug sofort beenden
+Shift+A      Rundenwechsel auto/Hand
 Enter        Aktionsmenue
-x            Feld untersuchen (Look)
-m            Gesamtkarte
+x            Feld untersuchen (Look),
+             auch Skelette
+m            Gesamtkarte, Nachrichten
+             und gehoertem Laerm
 l            Nachrichten
 i            Lexikon
 F1           diese Hilfe

@@ -108,6 +108,65 @@ static uint8_t active(void)
     return 0;
 }
 
+/* ---------- warnings that wait for the next action (D69, D73) ---------- */
+
+static char alert_text[40];            /* bottom line until the player acts */
+static uint8_t alert_colour;
+static bool alert_on;
+static uint8_t seen_ids[32];           /* foreign units in view, bit per id */
+#define HEARD_MAX 4
+static uint8_t heard_n;                /* where the last noises came from (D69) */
+static int16_t heard_x[HEARD_MAX], heard_y[HEARD_MAX];
+#define HEAR_FIELDS 16                 /* how far an own figure hears (D69) */
+
+static void alert_set(uint8_t colour, const char *text)
+{
+    snprintf(alert_text, sizeof alert_text, "%s", text);
+    alert_colour = colour;
+    alert_on = true;
+}
+
+/* A new game: nothing seen or heard yet. */
+static void alerts_reset(void)
+{
+    alert_on = false;
+    heard_n = 0;
+    memset(seen_ids, 0, sizeof seen_ids);
+}
+
+/* "im Nordosten" for a step (dx, dy) on the map (y grows to the south). */
+static const char *compass(int16_t dx, int16_t dy)
+{
+    static const char *const DIR[8] = {
+        "im Norden", "im Nordosten", "im Osten", "im Suedosten",
+        "im Sueden", "im Suedwesten", "im Westen", "im Nordwesten"};
+    int16_t ax = dx < 0 ? (int16_t)-dx : dx, ay = dy < 0 ? (int16_t)-dy : dy;
+    if (ax == 0 && ay == 0)
+        return "ganz nah";
+    if (ax > 2 * ay)
+        return DIR[dx > 0 ? 2 : 6];
+    if (ay > 2 * ax)
+        return DIR[dy > 0 ? 4 : 0];
+    if (dx > 0)
+        return DIR[dy > 0 ? 3 : 1];
+    return DIR[dy > 0 ? 5 : 7];
+}
+
+/* Directions are told from the player's wizard (else the active unit). */
+static void p1_anchor(int16_t *x, int16_t *y)
+{
+    uint8_t i;
+    for (i = 0; i < world.unit_count; i++)
+        if (world.units[i].owner == OWN_P1 &&
+            ride_actor_kind(&world.units[i]) == CR_WIZARD) {
+            *x = world.units[i].x;
+            *y = world.units[i].y;
+            return;
+        }
+    *x = world.units[active()].x;
+    *y = world.units[active()].y;
+}
+
 /* Targeting cursor colour (GDD 5.1): yellow ground, blue air, red when
    out of range or without a line of sight. A spell shows the aimed
    height (CAST-G/A, F8), a shot or throw the unit standing there. */
@@ -384,8 +443,11 @@ static void frame(bool dump)
         cursor_on = true;
         place_cursor();
         render_panel(&world, active());
+        render_status_tag(auto_end_mode == AUTO_ON ? "<auto>" : "<man>");
         panel_keys();
         show_status();
+        if (alert_on)                      /* D69/D73: stays until an action */
+            render_message(tutorial_on ? 1 : 2, alert_colour, alert_text);
         if (tutorial_on)
             render_message(2, C_BRIGHT_CYAN, tutorial_hint_line(tut.step));
         if (dump)
@@ -434,6 +496,88 @@ static void update_sight(void)
             }
         }
     }
+    {   /* D73: a foreign creature comes into view - warn until the next action */
+        uint8_t now_ids[32], i, newcomer = NO_UNIT, extra = 0;
+        memset(now_ids, 0, sizeof now_ids);
+        for (i = 0; i < world.unit_count; i++) {
+            const Unit *u = &world.units[i];
+            if (u->owner == OWN_P1 || (u->flags & UF_INVISIBLE) ||
+                !sight_unit_visible(&p1_sight, &world, u))
+                continue;
+            now_ids[u->id >> 3] |= (uint8_t)(1u << (u->id & 7));
+            if (seen_ids[u->id >> 3] & (1u << (u->id & 7)))
+                continue;                  /* in view already */
+            if (newcomer == NO_UNIT)
+                newcomer = i;
+            else
+                extra++;
+        }
+        memcpy(seen_ids, now_ids, sizeof seen_ids);
+        if (newcomer != NO_UNIT) {
+            char line[40];
+            int16_t ax, ay, dx, dy;
+            p1_anchor(&ax, &ay);
+            world_delta(&world, ax, ay, world.units[newcomer].x,
+                        world.units[newcomer].y, &dx, &dy);
+            if (extra)
+                snprintf(line, sizeof line, "%s %s! (+%u)",
+                         name_unit(&world.units[newcomer]), compass(dx, dy), extra);
+            else
+                snprintf(line, sizeof line, "%s %s!",
+                         name_unit(&world.units[newcomer]), compass(dx, dy));
+            alert_set(C_BRIGHT_RED, line);
+        }
+    }
+}
+
+/* D69: what the player's figures heard since his last phase - fights,
+ * spells, deaths within HEAR_FIELDS that none of them saw. The loudest
+ * (death, then fight, then spell), nearest one becomes the bottom line
+ * unless a sighting already took it; up to HEARD_MAX go on the big map. */
+static void report_noises(void)
+{
+    static const char *const WHAT[3] = {"Kampflaerm", "Magie knistert", "Todesschrei"};
+    static const uint8_t LOUD[3] = {1, 0, 2};   /* NOISE_FIGHT, _SPELL, _DEATH */
+    uint8_t k, best = 0xFF, best_d = 0xFF, heard = 0;
+    int16_t ax, ay;
+    p1_anchor(&ax, &ay);
+    heard_n = 0;
+    for (k = 0; k < world.noise_n; k++) {
+        const Noise *n = &world.noises[k];
+        uint8_t i, d;
+        bool near = false;
+        if (sight_visible(&p1_sight, &world, n->x, n->y))
+            continue;                      /* seen, not just heard */
+        for (i = 0; i < world.unit_count && !near; i++)
+            near = world.units[i].owner == OWN_P1 &&
+                   world_distance(&world, world.units[i].x, world.units[i].y,
+                                  n->x, n->y) <= HEAR_FIELDS;
+        if (!near)
+            continue;
+        heard++;
+        if (heard_n < HEARD_MAX) {         /* roughly: a 3x3 block on the map */
+            heard_x[heard_n] = (int16_t)(n->x - n->x % 3);
+            heard_y[heard_n] = (int16_t)(n->y - n->y % 3);
+            heard_n++;
+        }
+        d = (uint8_t)world_distance(&world, ax, ay, n->x, n->y);
+        if (best == 0xFF || LOUD[n->kind] > LOUD[world.noises[best].kind] ||
+            (LOUD[n->kind] == LOUD[world.noises[best].kind] && d < best_d)) {
+            best = k;
+            best_d = d;
+        }
+    }
+    if (best != 0xFF && !alert_on) {
+        char line[40];
+        int16_t dx, dy;
+        const Noise *n = &world.noises[best];
+        world_delta(&world, ax, ay, n->x, n->y, &dx, &dy);
+        snprintf(line, sizeof line, heard > 1 ? "%s %s, %u Felder +%u"
+                                              : "%s %s, %u Felder",
+                 WHAT[n->kind], compass(dx, dy), best_d, (unsigned)(heard - 1));
+        alert_set(C_BRIGHT_YELLOW, line);
+    }
+    world_noise_clear(&world);             /* the next listening period */
 }
 
 /* After any action that may kill: credit the logged kills (M3e) and
@@ -460,6 +604,7 @@ static void on_round(Turns *t, World *w, void *ctx)
 /* ---------- the others' phases: phase screen and sounds ---------- */
 
 static bool phase_screen_on;           /* the map is hidden right now */
+static bool fight_shown;               /* a visible fight wants a moment (D72) */
 static uint8_t snap_owner;
 static uint8_t snap_n, snap_id[MAX_UNITS], snap_x[MAX_UNITS], snap_y[MAX_UNITS];
 
@@ -516,10 +661,14 @@ static void on_phase(Turns *t, World *w, uint8_t owner, void *ctx)
             snap_y[snap_n] = w->units[i].y;
             snap_n++;
         }
+    if (fight_shown) {                    /* let the player see the attack */
+        fight_shown = false;
+        fx_pause(120);
+    }
     phase_screen_on = true;
     screen_phase(owner == OWN_NEUTRAL ? "Unabhaengige" : name_owner(owner),
                  t->round, n, names, vp);
-    fx_pause(turn_humans_present(t, w) ? 70 : 10);
+    fx_pause(turn_humans_present(t, w) ? 35 : 5);   /* shorter (D72) */
 }
 
 static void on_ai_events(Turns *t, World *w, void *ctx)
@@ -537,16 +686,17 @@ static void on_ai_events(Turns *t, World *w, void *ctx)
             moved = 4;
         for (i = 0; i < moved; i++) {     /* footsteps of whoever walked */
             sound_play(SND_STEP);
-            fx_pause(14);
+            fx_pause(8);
         }
         fx_drain_sounds();
         if (turn_humans_present(t, w))
-            fx_pause(30);
+            fx_pause(12);
         return;
     }
     view_update(w);                      /* their moves, before the show */
     render_fields();
-    fx_drain_play(w, &p1_sight);
+    if (fx_drain_play(w, &p1_sight))
+        fight_shown = true;
 }
 
 /* Throw or fire at the aimed field (direction = first step towards it). */
@@ -1367,6 +1517,8 @@ static void draw_context_menu(void)
     render_menu_text(2, 24, C_GREY, "Taste wirkt, Esc zu.");
 }
 
+static void draw_log_side(void);
+
 static void draw_big_map(void)
 {
     char head[40];
@@ -1404,6 +1556,15 @@ static void draw_big_map(void)
             vdp_gcol(0, colour);
             vdp_filled_rectangle(px, py, (int)(px + cell - 2), (int)(py + cell - 2));
         }
+    {   /* D69: where the last noises came from, roughly */
+        uint8_t k;
+        vdp_gcol(0, C_YELLOW);
+        for (k = 0; k < heard_n; k++) {
+            int px = 2 + heard_x[k] * cell, py = 16 + heard_y[k] * cell;
+            vdp_rectangle(px, py, px + 3 * cell - 1, py + 3 * cell - 1);
+        }
+    }
+    draw_log_side();                     /* D74: what happened, beside it */
     if (foe_wiz_x >= 0) {                /* C9: where he was last seen */
         int px = 2 + foe_wiz_x * cell, py = 16 + foe_wiz_y * cell;
         vdp_gcol(0, C_BRIGHT_YELLOW);
@@ -1430,6 +1591,32 @@ static void draw_log(void)
     render_menu_text(2, 24, C_GREY, "Esc zurueck.");
 }
 
+/* D74: the log in the side panel while the big map is open - the
+ * newest entries, each cut into lines of 13 columns. */
+static void draw_log_side(void)
+{
+    uint8_t row = 26, k;
+    render_side_clear();
+    render_menu_text(27, 0, C_BRIGHT_YELLOW, "Nachrichten");
+    for (k = 0; k < LOG_RING && row > 1; k++) {
+        const char *line = log_ring[(log_head + LOG_RING - 1 - k) % LOG_RING];
+        uint8_t len = (uint8_t)strlen(line), parts, p;
+        if (!len)
+            continue;
+        parts = (uint8_t)((len + 12) / 13);
+        if (parts > 3)
+            parts = 3;
+        if (row < parts + 1)
+            break;
+        row = (uint8_t)(row - parts);
+        for (p = 0; p < parts; p++) {
+            char buf[14];
+            snprintf(buf, sizeof buf, "%-13.13s", line + p * 13);
+            render_menu_text(27, (uint8_t)(row + p), k == 0 ? C_BRIGHT_WHITE : C_GREY, buf);
+        }
+    }
+}
+
 static void draw_help(void)
 {
     static const char *const LINES[] = {
@@ -1438,6 +1625,7 @@ static void draw_help(void)
         "Tab  naechste Einheit",
         "Leertaste  Einheit fertig",
         "Shift+E  Zug beenden",
+        "Shift+A  Rundenwechsel auto",
         "Enter  Aktionsmenue",
         "c Zauber  f Bogen",
         "t Werfen  g Aufheben",
@@ -1465,6 +1653,13 @@ static uint8_t menu_top = 5, menu_msg = 20;
 
 /* Cursor mark of one item; moving the cursor repaints two cells instead of
  * the whole screen (a full clear + redraw flickered on the real Agon). */
+/* D75: only world 1 is playable for now; worlds 2 and 3 are shown grey
+ * and the cursor skips them. */
+static bool menu_disabled(uint8_t item)
+{
+    return item == 1 || item == 2;
+}
+
 static void draw_menu_mark(uint8_t item, bool on)
 {
     render_menu_text(4, (uint8_t)(menu_top + item), C_BRIGHT_WHITE, on ? ">" : " ");
@@ -1490,7 +1685,8 @@ static void draw_menu(uint8_t cursor)
     }
     for (i = 0; i < MENU_COUNT; i++) {
         draw_menu_mark(i, i == cursor);
-        render_menu_text(6, (uint8_t)(menu_top + i), C_BRIGHT_WHITE, MENU_ITEMS[i]);
+        render_menu_text(6, (uint8_t)(menu_top + i),
+                         menu_disabled(i) ? C_GREY : C_BRIGHT_WHITE, MENU_ITEMS[i]);
     }
     render_menu_text(2, (uint8_t)(menu_msg + 1), C_GREY, "Pfeile + Enter");
 }
@@ -1801,10 +1997,14 @@ static const char *menu_loop(bool *free_round1)
             confirm_reset = false;       /* any other key cancels the ask */
         if (e.vkey == VK_UP) {
             sound_play(SND_MENU);
-            cursor = cursor ? (uint8_t)(cursor - 1) : MENU_COUNT - 1;
+            do
+                cursor = cursor ? (uint8_t)(cursor - 1) : MENU_COUNT - 1;
+            while (menu_disabled(cursor));
         } else if (e.vkey == VK_DOWN) {
             sound_play(SND_MENU);
-            cursor = (uint8_t)((cursor + 1) % MENU_COUNT);
+            do
+                cursor = (uint8_t)((cursor + 1) % MENU_COUNT);
+            while (menu_disabled(cursor));
         } else if (e.ascii == 13 || e.vkey == VK_SPACE) {
             sound_play(SND_CONFIRM);
             if (cursor <= MENU_RANDOM) {   /* 0-2 scenarios, 3 random map */
@@ -1971,9 +2171,39 @@ static void start_tutorial(void)
 
 /* Shift+E, or Space once every unit is done: the AI plays, the round
  * hook runs (portal), the outcome is checked and the game autosaved. */
+/* D72: on the first round change, ask whether rounds should end on their
+ * own once every unit is done. Asked once, kept in settings.dat; A
+ * switches later. Never in scripted runs (they feed keys). */
+static void ask_auto_end(bool dump)
+{
+    struct keyboard_event_t e;
+    if (dump || auto_end_mode != AUTO_UNASKED)
+        return;
+    render_message(1, C_BRIGHT_YELLOW, "Automatischer Rundenwechsel? (J/N)");
+    render_message(2, C_GREY, "Dann endet die Runde, wenn alle fertig.");
+    for (;;) {
+        while (!input_poll(&e))
+            audio_poll();
+        if (!e.isdown)
+            continue;
+        if (e.ascii == 'j' || e.ascii == 'J' || e.ascii == 13) {
+            auto_end_mode = AUTO_ON;
+            break;
+        }
+        if (e.ascii == 'n' || e.ascii == 'N' || e.vkey == VK_ESC) {
+            auto_end_mode = AUTO_OFF;
+            break;
+        }
+    }
+    sound_settings_save();
+    render_message(2, C_GREY, "A schaltet um: <auto> / <man>.");
+}
+
 static void end_turn(bool dump, const char *map_path)
 {
     confirm_end = false;
+    alert_on = false;                    /* ending the turn is an action */
+    ask_auto_end(dump);
     if (!turn_humans_present(&turns, &world))
         render_message(1, C_BRIGHT_YELLOW, "Die KI spielt zu Ende ...");
     turn_end_phase(&turns, &world);    /* round hook: portal */
@@ -1995,6 +2225,8 @@ static void end_turn(bool dump, const char *map_path)
             render_message(2, C_GREY, "Gespeichert.");
     }
     update_sight();
+    report_noises();                     /* D69: what was heard meanwhile */
+    fight_shown = false;
     if (phase_screen_on) {               /* back from the unseen phases */
         phase_screen_on = false;
         game_redraw(dump);
@@ -2248,6 +2480,7 @@ menu_start:
                 turns.round_ctx = &game;
             }
             sight_init(&p1_sight, OWN_P1);
+            alerts_reset();
             update_sight();
             view_set_sight(&p1_sight);
         }
@@ -2269,6 +2502,7 @@ menu_start:
             turns.on_ai_ctx = 0;
             turns.on_phase = dump ? NULL : on_phase;
             turns.round_ctx = &game;
+            alerts_reset();
             update_sight();
             view_set_sight(&p1_sight);
         }
@@ -2339,11 +2573,28 @@ menu_start:
         /* Drain every queued key event first: drawing a step can take longer
          * than the repeat delay, and a stale "held" state would otherwise
          * repeat keys that were already released (ADR 0007). */
+        /* D72: every unit done - the round ends by itself (not in scripts) */
+        if (auto_end_mode == AUTO_ON && !dump && !game_ended && !end_pending &&
+            !overlay_open && !spell_list && !cast_menu && !targeting &&
+            !look_mode && !pickup_menu && !quit_ask && turns.phase == OWN_P1 &&
+            world.unit_count && !turn_units_left(&turns, &world)) {
+            render_message(1, C_BRIGHT_GREEN, "Alle fertig - die Runde endet.");
+            end_turn(dump, map_path);
+        }
         while (running && input_poll(&e)) {
             now = (uint16_t)getsysvar_time();
             if (game_ended && !(e.isdown && e.vkey == VK_ESC))
                 continue;                        /* game over: Esc only */
 dispatch:
+            /* D73: the warning line stays until the player acts; looking,
+             * Tab, the map, the log and help are not actions */
+            if (alert_on && e.isdown && !look_mode && !targeting && !overlay_open &&
+                e.vkey != VK_TAB && e.vkey != VK_ESC && e.vkey != VK_F1 &&
+                e.ascii != 'x' && e.ascii != 'm' && e.ascii != 'l' &&
+                e.ascii != 'i' && e.ascii != 'A' && e.ascii != 13) {
+                alert_on = false;
+                render_message(2, C_GREY, "");
+            }
             if (quit_ask && e.isdown) {          /* Esc asked, now the answer */
                 if (e.ascii == 'j' || e.ascii == 'J') {
                     quit_ask = false;
@@ -2745,6 +2996,13 @@ dispatch:
                 frame(dump);
             } else if (e.ascii == 'E') {         /* Shift+E: turn end at once */
                 end_turn(dump, map_path);
+            } else if (e.ascii == 'A') {         /* Shift+A: round change mode (D72) */
+                auto_end_mode = auto_end_mode == AUTO_ON ? AUTO_OFF : AUTO_ON;
+                sound_settings_save();
+                render_message(1, C_BRIGHT_GREEN, auto_end_mode == AUTO_ON
+                               ? "Rundenwechsel automatisch."
+                               : "Rundenwechsel von Hand.");
+                frame(dump);
             } else if (e.ascii == '<') {              /* take off */
                 confirm_end = false;
                 if (world_take_off(&world, active())) {

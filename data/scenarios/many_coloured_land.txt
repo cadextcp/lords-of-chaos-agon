@@ -16,3 +16,7 @@ route 5 flags 0x01 : 2,3 40,40 3,40 41,1
 route 6 flags 0x00 : 5,11 5,33 15,33 15,11
 route 7 flags 0x00 : 39,16 39,33 30,33 29,12
 summon_routes 8
+
+# D71: the 46x46 map (D64) is 28 % wider than the original 36x36 -
+# every AP budget grows with it (46/36 = 1.28).
+ap_scale 128

@@ -19,7 +19,7 @@ bool ai_scenario_load(World *w, AiProfile *profiles, const uint8_t *d, uint16_t 
     uint16_t pos = 6;
     uint8_t n, i, k;
     memset(profiles, 0, sizeof(AiProfile) * OWN_NEUTRAL);
-    if (len < 6 || memcmp(d, "LOCS", 4) != 0 || d[4] != 2)
+    if (len < 6 || memcmp(d, "LOCS", 4) != 0 || (d[4] != 2 && d[4] != 3))
         return false;
     n = d[5];
     for (i = 0; i < n; i++) {            /* books: spellbook_load reads them */
@@ -103,6 +103,11 @@ bool ai_scenario_load(World *w, AiProfile *profiles, const uint8_t *d, uint16_t 
         pos += 3;
     }
     memset(w->trig_fired, 0, sizeof w->trig_fired);
+    if (d[4] >= 3) {                     /* v3: the AP factor (D71) */
+        if (pos >= len)
+            return false;
+        world_set_ap_scale(w, d[pos]);
+    }
     return true;
 }
 
@@ -118,7 +123,7 @@ void ai_profile_apply(const AiProfile *p, World *w, Game *g, uint8_t owner)
     u->mr = p[owner].mr;
     u->con = u->con_max = p[owner].con;
     u->sta = u->sta_max = p[owner].sta;
-    u->ap = u->ap_max = p[owner].ap;
+    u->ap = u->ap_max = world_scale_ap(w, p[owner].ap);   /* D71 */
     u->mana = u->mana_max = p[owner].mana;
     if (g)
         g->wizard_vp[owner] = p[owner].vp;

@@ -63,6 +63,25 @@ typedef struct {
     uint8_t rounds;
 } Effect;
 
+/* Remains of the dead (D70): a skeleton on the field where a creature
+ * died; the look mode names what it was. A ring, the oldest goes first. */
+#define REMAINS_MAX 16
+typedef struct {
+    uint8_t x, y;
+    uint8_t kind;   /* CreatureKind of the dead */
+    uint8_t owner;
+} Remains;
+
+/* Noises the player may hear (D69): fights, spells and deaths since the
+ * player's own phase began. A ring, the oldest goes first. */
+typedef enum { NOISE_FIGHT, NOISE_SPELL, NOISE_DEATH } NoiseKind;
+#define NOISE_MAX 16
+typedef struct {
+    uint8_t x, y;
+    uint8_t kind;   /* NoiseKind */
+    uint8_t owner;  /* who made it (the victim for a death) */
+} Noise;
+
 /* A patrol route of the AI (K10.7, K10.8): waypoints and capability flags
  * (bit 0 flier, 1 use, 2 carry, 3 wood, 4 water, 5 rock, 6 wizards may use). */
 #define ROUTES_MAX 12
@@ -162,7 +181,27 @@ typedef struct {
     uint8_t trig_n;
     uint8_t trig_x[TRIGGERS_MAX], trig_y[TRIGGERS_MAX], trig_id[TRIGGERS_MAX];
     uint8_t trig_fired[8];        /* bit per trigger id 0..63, set when terrain changed there */
+    Remains remains[REMAINS_MAX]; /* D70 */
+    uint8_t remains_n, remains_next;
+    Noise noises[NOISE_MAX];      /* D69 */
+    uint8_t noise_n, noise_next;
+    uint8_t ap_scale;             /* D71: percent on every AP budget, 0 = 100 */
 } World;
+
+/* Leave a skeleton on (x, y) (D70). */
+void world_add_remains(World *w, int16_t x, int16_t y, uint8_t kind, uint8_t owner);
+/* The newest remains on (x, y), NULL when there are none. */
+const Remains *world_remains_at(const World *w, int16_t x, int16_t y);
+/* Record a noise at (x, y) (D69); world_noise_clear starts a new listening
+ * period (the player's phase). */
+void world_noise(World *w, int16_t x, int16_t y, uint8_t kind, uint8_t owner);
+void world_noise_clear(World *w);
+/* AP of a budget under the scenario's AP factor (D71): ap * scale / 100,
+ * at most 255. */
+uint8_t world_scale_ap(const World *w, uint8_t ap);
+/* Set the AP factor in percent and rescale every unit already placed
+ * (the map's units come before the scenario). */
+void world_set_ap_scale(World *w, uint8_t pct);
 
 /* Load a binary map (.map, ADR 0008). Validates everything first; on
  * false the world is left unchanged. */

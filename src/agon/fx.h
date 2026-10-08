@@ -30,6 +30,7 @@ void fx_drain_sounds(void);
 void fx_pause(uint8_t cs);
 /* Drain the core event ring and play every event as a tile overlay plus
  * a sound. */
-void fx_drain_play(World *w, const Sight *s);
+/* Returns true when a fight (swing, hit, miss or death) was shown. */
+bool fx_drain_play(World *w, const Sight *s);
 
 #endif

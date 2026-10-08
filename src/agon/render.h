@@ -62,6 +62,11 @@ void render_menu_line(uint8_t col, uint8_t row, uint8_t colour,
                       const char *text);
 /* Black out whole text rows row0..row1 (all 40 columns). */
 void render_clear_rows(uint8_t row0, uint8_t row1);
+/* Black out the side panel (columns 27..39, rows 0..26) for a text page
+ * beside an overlay, e.g. the log beside the big map (D74). */
+void render_side_clear(void);
+/* Small tag in the panel's top right corner, e.g. "<auto>" (D72). */
+void render_status_tag(const char *tag);
 void render_menu_text(uint8_t col, uint8_t row, uint8_t colour,
                       const char *text);
 /* Full-screen helpers for the title/end/help screens (M5a): the whole

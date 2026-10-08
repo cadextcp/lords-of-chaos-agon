@@ -64,6 +64,10 @@ uint16_t sound_sample_ms(uint8_t sfx, uint16_t hz);
 extern bool sound_on;
 extern bool music_on;
 extern bool sound_channels;           /* sound_init has enabled 3-9 */
+/* Round change (D72): not asked yet, automatic after the last unit, or
+ * by hand. Stored with the sound settings. */
+enum { AUTO_UNASKED, AUTO_ON, AUTO_OFF };
+extern uint8_t auto_end_mode;
 void sound_settings_load(void);
 void sound_settings_save(void);
 

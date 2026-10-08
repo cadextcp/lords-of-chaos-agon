@@ -768,6 +768,18 @@ void render_clear_rows(uint8_t row0, uint8_t row1)
     black(0, row0 * 8, 319, row1 * 8 + 7);
 }
 
+void render_side_clear(void)
+{
+    black(PANEL_X, 0, 319, TEXT_ROW_MSG * 8 - 1);
+}
+
+void render_status_tag(const char *tag)
+{
+    char buf[8];
+    snprintf(buf, sizeof buf, "%-6.6s", tag);
+    text_at(33, 0, C_GREY, buf);
+}
+
 void render_menu_text(uint8_t col, uint8_t row, uint8_t colour,
                       const char *text)
 {

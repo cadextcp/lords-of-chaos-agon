@@ -653,6 +653,8 @@ static void compose_dynamic(const World *w, int16_t wx, int16_t wy, FieldLayers 
             break;
         }
     }
+    if (i == w->object_count && world_remains_at(w, wx, wy))
+        push(out, T_REMAINS);         /* a skeleton under no object (D70) */
 
     if (portal_x == wx && portal_y == wy)
         push(out, (phase & 1) ? T_PORTAL_1 : T_PORTAL_0);
@@ -762,6 +764,9 @@ static void build_overlay(const World *w)
     memset(over_obj, 0xFF, sizeof over_obj);     /* NO_TILE */
     memset(over_unit, 0, sizeof over_unit);
     memset(over_air, 0, sizeof over_air);
+    for (i = 0; i < w->remains_n; i++)    /* skeletons, objects lie on top (D70) */
+        if (to_view(w, w->remains[i].x, w->remains[i].y, &vx, &vy))
+            over_obj[vy][vx] = T_REMAINS;
     for (i = w->object_count; i-- > 0;)   /* first object in the list wins */
         if (to_view(w, w->objects[i].x, w->objects[i].y, &vx, &vy))
             over_obj[vy][vx] = w->objects[i].tile;
