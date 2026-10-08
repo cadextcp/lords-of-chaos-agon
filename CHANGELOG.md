@@ -2,6 +2,11 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach Milestones (siehe `docs/ROADMAP.md`).
 
+## [Unreleased] – ADR 0009 überarbeitet (2026-10-08)
+
+### Dokumentation
+- **ADR 0009 (Sicht)** beschreibt jetzt den gebauten Stand: Achteck-Reichweite und Höhenpaare nach K11 (D67), Shadowcasting (D39), Deckung, Feuerwand, Schuss- und Zauberlinien (D68), fünf Bitfelder bis 46×46, Zwischenspeicher an `World.generation`. Messreihe ergänzt (Emulator 22 ms auf Level 1); die Hardware-Messung nach K11 steht aus. Anlass: Architektur-Review 2026-10-08 (Konflikt K1).
+
 ## [Unreleased] – Aseprite als Grafikquelle (ADR 0013, 2026-10-08)
 
 ### Hinzugefügt
