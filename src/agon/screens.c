@@ -10,6 +10,7 @@
 #include "../core/items.h"
 #include "../core/ride.h"
 #include "../core/tutorial.h"
+#include "../core/version.h"
 #include "input.h"
 #include "music.h"
 #include "render.h"
@@ -315,6 +316,7 @@ bool screen_title(void)
         centred(6, C_BRIGHT_CYAN, "Ein Remake f\201r den Agon Light");
     }
     centred(28, C_GREY, "- Taste dr\201cken -");
+    render_menu_text((uint8_t)(40 - strlen(LOC_VERSION)), 29, C_GREY, LOC_VERSION);
     for (;;) {
         audio_poll();
         while (kbuf_poll_event(&e)) {
