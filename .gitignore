@@ -29,3 +29,10 @@ Thumbs.db
 /src/core/gen/
 /spikes/*/bin/
 /spikes/*/obj/
+
+# Claude Code Game Studios framework: local and per-session state
+project.local.yaml
+CLAUDE.local.md
+production/session-logs/
+production/session-state/
+.claude/agent-memory/
